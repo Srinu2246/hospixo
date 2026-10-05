@@ -1,0 +1,93 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.submitError {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--destructive) 8%, transparent);
+  color: var(--destructive);
+  font-size: 0.875rem;
+}
+
+.draftMessage {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--success);
+}
+
+.draftMessageError {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--destructive);
+}
+
+.block {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+
+.blockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.blockTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.editLink {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--auth-accent);
+  text-decoration: none;
+}
+
+.editLink:hover {
+  text-decoration: underline;
+}
+
+.rows {
+  display: grid;
+  gap: 1rem 2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.row dt {
+  font-size: 0.75rem;
+  color: var(--secondary-foreground);
+}
+
+.row dd {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,62 @@
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+}
+
+.backButton {
+  min-width: 6rem;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-left: auto;
+}
+
+.cancelButton {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--muted-foreground) !important;
+}
+
+.primary {
+  min-width: 10rem;
+}
+
+.draftButton {
+  min-width: 8rem;
+}
+
+.disabledAction:disabled,
+.disabledAction:global(.disabled) {
+  background: var(--muted) !important;
+  color: var(--muted-foreground) !important;
+  border-color: var(--border) !important;
+  cursor: not-allowed;
+  opacity: 1;
+  filter: none;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .right {
+    margin-left: 0;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .primary,
+  .cancelButton,
+  .backButton {
+    width: 100%;
+  }
+}

@@ -2,28 +2,41 @@
 
 import type { ReactNode } from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import { QueryProvider } from './QueryProvider';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
+
+import AdminChromeCssVars from '@/components/theme/AdminChromeCssVars';
 import { theme } from '@/lib/theme/mui/theme';
+import { AppStoreProvider } from '@/stores/provider';
+
+import { QueryProvider } from './QueryProvider';
 
 type AppProviderProps = {
   children: ReactNode;
 };
 
-// Filter LocatorJS extension console.error in dev to prevent Next.js error overlay from popping up
+function stringifyConsoleArg(arg: unknown): string {
+  if (typeof arg === 'string') return arg;
+  if (arg instanceof Error) return arg.message;
+  try {
+    return JSON.stringify(arg);
+  } catch {
+    return '';
+  }
+}
+
+function isLocatorOrHydrationNoise(args: unknown[]): boolean {
+  const text = args.map(stringifyConsoleArg).join(' ');
+  if (text.includes('[LocatorJS]') || text.includes('data-locatorjs-id')) return true;
+  if (text.includes('hydrated') && text.includes("didn't match")) return true;
+  if (text.includes('server rendered HTML') && text.includes("didn't match")) return true;
+  return false;
+}
+
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const originalConsoleError = console.error;
   console.error = (...args: unknown[]) => {
-    const first = args[0];
-    if (typeof first === 'string') {
-      if (first.includes('[LocatorJS]')) {
-        console.warn(...args);
-        return;
-      }
-      // LocatorJS path attributes can differ between SSR and client under React Compiler.
-      if (first.includes('hydration') && first.includes('data-locatorjs')) {
-        console.warn(...args);
-        return;
-      }
+    if (isLocatorOrHydrationNoise(args)) {
+      return;
     }
     originalConsoleError(...args);
   };
@@ -31,9 +44,16 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 
 export function AppProvider({ children }: AppProviderProps) {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <QueryProvider>{children}</QueryProvider>
-    </ThemeProvider>
+    <AppStoreProvider>
+      <QueryProvider>
+        <AppRouterCacheProvider>
+          <ThemeProvider theme={theme}>
+            <AdminChromeCssVars />
+            <CssBaseline />
+            {children}
+          </ThemeProvider>
+        </AppRouterCacheProvider>
+      </QueryProvider>
+    </AppStoreProvider>
   );
 }

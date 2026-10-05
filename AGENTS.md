@@ -71,10 +71,14 @@ All application source code resides under `src/`. Follow this clear separation o
 ```text
 src/
 ├── app/                  # Next.js App Router (layout.tsx, page.tsx, globals.css)
+├── config/               # Routes + shell copy (mirrors apps/platform/src/config)
+│   └── shell/            # access-navigation, header-chrome, flow-paths, under-construction
 ├── components/           # Reusable generic UI components
 │   ├── common/           # Domain-agnostic shared elements
-│   ├── layout/           # Shared layout components (headers, footers, containers)
+│   ├── shell/            # Workspace chrome (access-sidebar, dashboard-topbar, workspace-shell)
+│   ├── layout/           # Legacy re-exports; prefer components/shell
 │   └── ui/               # Core atomic primitives
+├── server/               # Node-only helpers (auth BFF), mirrors apps/platform/src/server
 ├── features/             # Business modules sliced by domain
 │   └── <feature-name>/   # Self-contained feature
 │       ├── components/   # Feature-specific UI

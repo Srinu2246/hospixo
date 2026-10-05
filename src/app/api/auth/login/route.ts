@@ -1,15 +1,27 @@
 import { NextResponse } from 'next/server';
 
-import { parseAuthJsonBody } from '@/features/auth/server/parseAuthJsonBody';
-import { proxyAuthPost } from '@/features/auth/server/proxyAuthPost';
-import { loginSchema } from '@/features/auth/schemas/loginSchema';
-import { UPSTREAM_AUTH_PATHS } from '@/lib/constants/authApiPaths';
+import { ADMIN_ROUTES } from '@/constants/routes';
+import { ADMIN_SESSION_COOKIE_NAME } from '@/constants/auth/session';
+import { performAdminLogin } from '@/services/auth.server';
 
 export async function POST(request: Request) {
-  const parsed = await parseAuthJsonBody(request, loginSchema);
-  if (parsed instanceof NextResponse) {
-    return parsed;
+  const formData = await request.formData();
+  const email = String(formData.get('email') ?? '');
+  const password = String(formData.get('password') ?? '');
+
+  const result = performAdminLogin(email, password);
+
+  if (!result.ok) {
+    return NextResponse.json(result.state, { status: 422 });
   }
 
-  return proxyAuthPost(parsed.data, UPSTREAM_AUTH_PATHS.login);
+  const response = NextResponse.json({ redirectTo: ADMIN_ROUTES.dashboard });
+  response.cookies.set(ADMIN_SESSION_COOKIE_NAME, result.email, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    secure: process.env.NODE_ENV === 'production',
+  });
+
+  return response;
 }

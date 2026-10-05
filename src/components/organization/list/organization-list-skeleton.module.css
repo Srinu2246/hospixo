@@ -1,0 +1,57 @@
+.breadcrumb {
+  width: 8rem;
+  height: 0.875rem;
+}
+
+.title {
+  width: 14rem;
+  height: 1.75rem;
+}
+
+.button {
+  width: 11rem;
+  height: 2.35rem;
+  border-radius: 0.5rem;
+}
+
+.filter {
+  width: 7.5rem;
+  height: 2.35rem;
+  border-radius: 0.5rem;
+}
+
+.search {
+  width: min(100%, 16rem);
+  height: 2.35rem;
+  border-radius: 0.5rem;
+}
+
+.tableSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.5rem 0;
+}
+
+.tableRow {
+  height: 3rem;
+  border-radius: 0.5rem;
+}
+
+.paginationText {
+  width: 10rem;
+  height: 0.875rem;
+}
+
+.pageButton {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.4rem;
+}
+
+.loadingLabel {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  margin-bottom: 0.25rem;
+}

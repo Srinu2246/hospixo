@@ -1,0 +1,29 @@
+@keyframes skeletonPulse {
+  0% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.55;
+  }
+}
+
+.skeleton {
+  display: inline-block;
+  border-radius: 0.375rem;
+  background: linear-gradient(
+    90deg,
+    var(--border) 0%,
+    color-mix(in srgb, var(--muted) 72%, var(--border)) 50%,
+    var(--border) 100%
+  );
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+
+.block {
+  display: block;
+}

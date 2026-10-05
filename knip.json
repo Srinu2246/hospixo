@@ -1,0 +1,49 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "ignoreFiles": [
+    "src/components/data/StatusChip.tsx",
+    "src/components/feedback/EmptyState.tsx",
+    "src/components/feedback/ErrorState.tsx",
+    "src/components/feedback/LoadingState.tsx",
+    "src/components/navigation/AdminBreadcrumbs.tsx",
+    "src/components/organization/create/api/load-organization-draft.ts",
+    "src/components/organization/create/api/save-organization-draft.ts",
+    "src/stores/index.ts",
+    "src/services/api/api.ts",
+    "src/services/api/http.ts",
+    "src/services/api/types.ts",
+    "src/lib/theme/mui/breakpoints.ts",
+    "src/lib/theme/mui/colors.ts",
+    "src/lib/theme/mui/shape.ts",
+    "src/lib/theme/mui/spacing.ts",
+    "src/lib/theme/mui/typography.ts"
+  ],
+  "entry": ["src/app/**/*.{ts,tsx}"],
+  "project": ["src/**/*.{ts,tsx}"],
+  "paths": {
+    "@/*": ["./src/*"],
+    "@/api/*": ["./src/services/api/*"],
+    "@/store/*": ["./src/stores/*"],
+    "@/helpers/*": ["./src/utils/*"],
+    "@api/*": ["./src/services/api/*"],
+    "@theme/*": ["./src/lib/theme/mui/*"],
+    "@shared/*": ["./src/components/*", "./src/utils/*"],
+    "@shared/components/*": [
+      "./src/components/*",
+      "./src/components/common/*",
+      "./src/components/ui/*"
+    ],
+    "@shared/helpers/*": ["./src/utils/*"]
+  },
+  "ignoreIssues": {
+    "src/components/**": ["exports"],
+    "src/constants/**": ["exports"],
+    "src/hooks/**": ["exports"],
+    "src/lib/**": ["exports"],
+    "src/stores/**": ["exports"],
+    "src/services/**": ["exports"],
+    "src/utils/**": ["exports"],
+    "src/providers/**": ["exports"]
+  }
+}
