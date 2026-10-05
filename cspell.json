@@ -1,0 +1,31 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "files": ["**/*.{ts,tsx,js,jsx,json,md}"],
+  "ignorePaths": [
+    "node_modules/**",
+    ".next/**",
+    "out/**",
+    "dist/**",
+    "build/**",
+    "coverage/**",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "tsconfig.tsbuildinfo",
+    "public/**"
+  ],
+  "words": [
+    "Nextjs",
+    "TanStack",
+    "Zustand",
+    "Zod",
+    "Prettier",
+    "Knip",
+    "CSpell",
+    "MUI",
+    "logomark",
+    "codequality",
+    "treelocator",
+    "locatorjs"
+  ]
+}

@@ -1,0 +1,31 @@
+export const AUTH_ROUTES = {
+  login: '/login',
+  otpLogin: '/otp-login',
+  pinLogin: '/pin-login',
+  forgotPassword: '/forgot-password',
+  forgotPasswordSent: '/forgot-password/sent',
+} as const;
+
+export const APP_ROUTES = {
+  dashboard: '/dashboard',
+  dashboardTeam: '/dashboard/team',
+  dashboardSettings: '/dashboard/settings',
+  companies: '/dashboard/companies',
+  companiesNew: '/dashboard/companies/new',
+  companiesAnalytics: '/dashboard/companies/analytics',
+  branches: '/dashboard/branches',
+  branchesNew: '/dashboard/branches/new',
+  branchesPerformance: '/dashboard/branches/performance',
+  attendance: '/dashboard/attendance',
+  menuCreation: '/dashboard/menu/creation',
+  menus: '/dashboard/menu/menus',
+  menuBuilder: '/dashboard/menu/builder',
+  reportsSales: '/dashboard/reports/sales',
+  reportsRevenue: '/dashboard/reports/revenue',
+  reportsExpenses: '/dashboard/reports/expenses',
+  reportsTaxes: '/dashboard/reports/taxes',
+  analytics: '/dashboard/analytics',
+  settingsOrganisation: '/dashboard/settings/organisation',
+  settingsBilling: '/dashboard/settings/billing',
+  settingsIntegrations: '/dashboard/settings/integrations',
+} as const;
