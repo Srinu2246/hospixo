@@ -1,0 +1,29 @@
+.wrap {
+  pointer-events: none;
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 40;
+}
+
+.bar {
+  height: 0.1875rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--info) 12%, transparent);
+}
+
+.barFill {
+  height: 100%;
+  width: 35%;
+  background: var(--info);
+  animation: navigation-progress 1.1s ease-in-out infinite;
+}
+
+@keyframes navigation-progress {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(320%);
+  }
+}

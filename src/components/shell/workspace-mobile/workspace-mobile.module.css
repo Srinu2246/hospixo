@@ -1,0 +1,260 @@
+/* Shared workspace mobile chrome — Users & Roles and related flows. */
+
+.mobileOnly {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .mobileOnly {
+    display: block;
+  }
+
+  .desktopOnly {
+    display: none;
+  }
+}
+
+/* ── Topbar ── */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: none;
+  height: 3.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  padding: 0 1rem;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    display: flex;
+  }
+}
+
+.brandLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.brandMark {
+  display: inline-flex;
+  height: 2.5rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.context {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+}
+
+.eyebrow {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  line-height: 1.1;
+}
+
+.titleRow {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.titleChevron {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.iconButton:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.iconButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.themeToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted-foreground);
+}
+
+.themeToggle:hover {
+  color: var(--foreground);
+}
+
+.icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.primaryIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--auth-accent);
+  color: var(--auth-accent-foreground);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.primaryIconButton:hover {
+  background: color-mix(in oklab, var(--auth-accent) 88%, var(--foreground));
+  color: var(--auth-accent-foreground);
+}
+
+.menuButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.menuButton:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+/* ── Bottom navigation ── */
+
+.bottomNav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  display: none;
+  align-items: stretch;
+  justify-content: space-around;
+  min-height: var(--workspace-mobile-bottom-nav-height, 4rem);
+  padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+
+@media (max-width: 900px) {
+  .bottomNav {
+    display: flex;
+  }
+}
+
+.bottomLink {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.bottomLinkActive {
+  color: var(--auth-accent);
+}
+
+.bottomIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.bottomAvatar {
+  display: inline-flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--foreground);
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--card);
+}
+
+.bottomLabel {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -20,3 +20,16 @@ export async function postAdminLogoutRequest(): Promise<Response> {
     credentials: 'same-origin',
   });
 }
+
+export async function postPlatformLoginRequest(formData: FormData): Promise<{
+  ok: boolean;
+  payload: unknown;
+}> {
+  const response = await fetch('/api/auth/platform-login', {
+    method: 'POST',
+    body: formData,
+    credentials: 'same-origin',
+  });
+  const payload = await response.json().catch(() => null);
+  return { ok: response.ok, payload };
+}

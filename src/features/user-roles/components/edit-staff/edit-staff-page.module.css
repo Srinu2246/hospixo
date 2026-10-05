@@ -1,0 +1,371 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--workspace-canvas);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.pageSubtitle {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.back:hover {
+  background: var(--muted);
+  color: var(--auth-accent);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent);
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sectionLast {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.readonlyValue {
+  margin: 0;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.withIcon {
+  gap: 8px;
+}
+
+.inlineIcon {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.input,
+.select,
+.inputIcon,
+.inputIconRight {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 14px;
+  outline: none;
+}
+
+.input,
+.select {
+  padding: 0 12px;
+}
+
+.inputWithIcon,
+.selectWrap {
+  position: relative;
+  display: block;
+}
+
+.fieldIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.fieldIconRight,
+.selectIcon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.inputIcon {
+  padding: 0 12px 0 38px;
+}
+
+.inputIconRight {
+  padding: 0 38px 0 12px;
+}
+
+.select {
+  appearance: none;
+  padding-right: 36px;
+}
+
+.input:focus,
+.select:focus,
+.inputIcon:focus,
+.inputIconRight:focus {
+  border-color: var(--auth-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--auth-accent) 18%, transparent);
+}
+
+.danger {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.dangerTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--destructive);
+}
+
+.dangerText {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.dangerBtn {
+  margin-top: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--destructive);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--destructive);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dangerBtn:hover {
+  background: color-mix(in srgb, var(--destructive) 8%, var(--card));
+}
+
+.activateBtn {
+  margin-top: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid #10b981;
+  border-radius: 8px;
+  background: var(--card);
+  color: #059669;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.activateBtn:hover {
+  background: color-mix(in srgb, #10b981 8%, var(--card));
+}
+
+.titleWithBadge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.statusBadgeActive {
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #059669;
+  border: 1px solid color-mix(in srgb, #10b981 30%, transparent);
+}
+
+.statusBadgeDisabled {
+  background: color-mix(in srgb, var(--destructive) 10%, transparent);
+  color: var(--destructive);
+  border: 1px solid color-mix(in srgb, var(--destructive) 25%, transparent);
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusDotActive {
+  background: #10b981;
+}
+
+.statusDotDisabled {
+  background: var(--destructive);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-direction: row;
+}
+
+.secondaryBtn,
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.secondaryBtn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.primaryBtn {
+  border: none;
+  background: var(--auth-accent);
+  color: var(--auth-accent-foreground);
+}
+
+.primaryBtn:hover {
+  filter: brightness(0.95);
+}
+
+
+@media (max-width: 630px) {
+  .body {
+    padding: 16px;
+  }
+
+  .card {
+    padding: 20px 16px;
+  }
+
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+
+  .back {
+    font-size: 18px;
+  }
+
+  .actions {
+    flex-direction: row;
+  }
+
+  .secondaryBtn,
+  .primaryBtn,
+  .dangerBtn {
+    width: 100%;
+  }
+  .topBar {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 12px;
+  }
+}

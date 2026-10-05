@@ -1,5 +1,8 @@
 export const AUTH_ROUTES = {
   login: '/login',
+  adminLogin: '/admin/login',
+  otpLogin: '/otp-login',
+  forgotPassword: '/forgot-password',
   sso: '/sso',
   mfa: '/mfa',
 } as const;

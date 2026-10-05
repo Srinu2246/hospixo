@@ -1,0 +1,91 @@
+.card {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+.title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.donutWrap {
+  position: relative;
+  width: 8.5rem;
+  height: 8.5rem;
+  flex-shrink: 0;
+}
+
+.donut {
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+}
+
+.donutCenter {
+  position: absolute;
+  inset: 22%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--card);
+}
+
+.total {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.legend {
+  display: grid;
+  flex: 1;
+  gap: 0.625rem;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.legendLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legendSwatch {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.legendText {
+  color: var(--foreground);
+}
+
+.legendShare {
+  color: var(--muted-foreground);
+}
+
+.legendValue {
+  font-weight: 600;
+  color: var(--foreground);
+}

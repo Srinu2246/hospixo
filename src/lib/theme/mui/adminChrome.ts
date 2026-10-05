@@ -1,9 +1,8 @@
 /**
- * Admin control-plane design tokens (auth split layout + sidebar shell).
- * Single source of truth — exposed as CSS variables via AdminChromeCssVars and MUI theme palette.
+ * Admin control-plane tokens for MUI layouts (admin login split).
+ * CSS variables for admin sidebar / auth live in `styles/theme-tokens.css`.
  */
 export const adminChrome = {
-  /** Hex/rgb only — MUI palette and CssBaseline do not support oklch(). */
   surface: {
     background: '#ffffff',
     foreground: '#252525',
@@ -44,48 +43,4 @@ export const adminChrome = {
     divider: 'rgb(255 255 255 / 0.08)',
     width: '15.5rem',
   },
-  shellBackground: '#f8fafc',
 } as const;
-
-/** CSS custom property names consumed by admin CSS modules. */
-export function adminChromeCssVariableMap(): Record<string, string> {
-  const { surface, auth, sidebar } = adminChrome;
-
-  return {
-    '--background': surface.background,
-    '--foreground': surface.foreground,
-    '--card': surface.card,
-    '--card-foreground': surface.cardForeground,
-    '--muted': surface.muted,
-    '--muted-foreground': surface.mutedForeground,
-    '--destructive': surface.destructive,
-    '--success': surface.success,
-    '--success-foreground': surface.successForeground,
-    '--info': surface.info,
-    '--border': surface.border,
-    '--primary-foreground': surface.primaryForeground,
-    '--auth-accent': auth.accent,
-    '--auth-accent-foreground': auth.accentForeground,
-    '--auth-info-foreground': auth.infoForeground,
-    '--auth-hero-gradient-1': auth.heroGradient1,
-    '--auth-hero-gradient-2': auth.heroGradient2,
-    '--auth-hero-gradient-3': auth.heroGradient3,
-    '--auth-hero-glow-1': auth.heroGlow1,
-    '--auth-hero-glow-2': auth.heroGlow2,
-    '--auth-hero-foreground': auth.heroForeground,
-    '--auth-hero-foreground-muted': auth.heroForegroundMuted,
-    '--auth-hero-foreground-faint': auth.heroForegroundFaint,
-    '--admin-sidebar-bg': sidebar.background,
-    '--admin-sidebar-border': sidebar.border,
-    '--admin-sidebar-fg': sidebar.foreground,
-    '--admin-sidebar-fg-muted': sidebar.foregroundMuted,
-    '--admin-sidebar-fg-strong': sidebar.foregroundStrong,
-    '--admin-sidebar-fg-brand': sidebar.foregroundBrand,
-    '--admin-sidebar-hover-bg': sidebar.hoverBackground,
-    '--admin-sidebar-active-bg': sidebar.activeBackground,
-    '--admin-sidebar-brand-start': sidebar.brandStart,
-    '--admin-sidebar-divider': sidebar.divider,
-    '--admin-sidebar-width': sidebar.width,
-    '--shell-background-color': adminChrome.shellBackground,
-  };
-}

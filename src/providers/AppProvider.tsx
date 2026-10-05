@@ -3,16 +3,37 @@
 import type { ReactNode } from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
+import { useTheme as useNextTheme } from 'next-themes';
+import { useMemo } from 'react';
 
-import AdminChromeCssVars from '@/components/theme/AdminChromeCssVars';
-import { theme } from '@/lib/theme/mui/theme';
+import { useClientMounted } from '@/hooks/use-client-mounted';
+
+import { AuthProvider } from '@/context/auth';
+import { createAppTheme, type AppColorScheme } from '@/lib/theme/mui/theme';
 import { AppStoreProvider } from '@/stores/provider';
+import { AuthThemeProvider } from '@/providers/AuthThemeProvider';
 
 import { QueryProvider } from './QueryProvider';
 
 type AppProviderProps = {
   children: ReactNode;
 };
+
+function MuiThemeBridge({ children }: Readonly<{ children: ReactNode }>) {
+  const { resolvedTheme } = useNextTheme();
+  const mounted = useClientMounted();
+
+  const mode: AppColorScheme = mounted && resolvedTheme === 'dark' ? 'dark' : 'light';
+
+  const muiTheme = useMemo(() => createAppTheme(mode), [mode]);
+
+  return (
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline enableColorScheme />
+      {children}
+    </ThemeProvider>
+  );
+}
 
 function stringifyConsoleArg(arg: unknown): string {
   if (typeof arg === 'string') return arg;
@@ -47,11 +68,11 @@ export function AppProvider({ children }: AppProviderProps) {
     <AppStoreProvider>
       <QueryProvider>
         <AppRouterCacheProvider>
-          <ThemeProvider theme={theme}>
-            <AdminChromeCssVars />
-            <CssBaseline />
-            {children}
-          </ThemeProvider>
+          <AuthThemeProvider>
+            <MuiThemeBridge>
+              <AuthProvider>{children}</AuthProvider>
+            </MuiThemeBridge>
+          </AuthThemeProvider>
         </AppRouterCacheProvider>
       </QueryProvider>
     </AppStoreProvider>

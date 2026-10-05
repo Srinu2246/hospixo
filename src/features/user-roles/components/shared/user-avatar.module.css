@@ -1,0 +1,52 @@
+.avatarWrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.hiddenImage {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  object-fit: cover;
+}
+
+.image {
+  background: var(--muted);
+}
+
+.initials {
+  color: var(--auth-accent-foreground);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.sm {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+
+.md {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.lg {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+}

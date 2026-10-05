@@ -41,6 +41,8 @@ export const optionalInternationalPhoneField = z
   .trim()
   .refine((value) => !value || /^\+[1-9]\d{7,14}$/.test(value), phoneFieldErrorMessage);
 
+export const optionalPhoneField = optionalInternationalPhoneField;
+
 export const addressField = requiredText('Address')
   .min(5, 'Address must be at least 5 characters.')
   .max(240, 'Address must be 240 characters or fewer.')

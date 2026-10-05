@@ -1,0 +1,102 @@
+/**
+ * Single source for semantic CSS variables (platform workspace, auth, admin shell, charts).
+ * Light defaults on :root; dark overrides on .dark (next-themes class on html).
+ */
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --border: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --success: oklch(0.6 0.15 150);
+  --info: oklch(0.6 0.15 250);
+  --destructive: oklch(0.577 0.245 27.325);
+
+  --shell-background-color: #f8fafc;
+  --workspace-canvas: #f8fafc;
+  --workspace-header: oklch(1 0 0);
+  --workspace-surface-subtle: oklch(0.968 0.007 247.896);
+  --workspace-mobile-bottom-nav-height: 4rem;
+
+  --dashboard-surface: #ffffff;
+  --dashboard-surface-muted: #f1f5f9;
+  --dashboard-kpi-selected: #2563eb;
+  --dashboard-chart-blue: #3b82f6;
+  --dashboard-chart-green: #10b981;
+  --dashboard-chart-purple: #8b5cf6;
+  --dashboard-chart-amber: #f59e0b;
+  --dashboard-chart-pink: #ec4899;
+  --dashboard-chart-bar-active: #2563eb;
+
+  --auth-accent: #2563eb;
+  --auth-accent-foreground: #ffffff;
+  --auth-warning-bg: #fffbeb;
+  --auth-warning-border: #fde68a;
+  --auth-warning-foreground: #92400e;
+  --auth-info-bg: #eff6ff;
+  --auth-info-border: #bfdbfe;
+  --auth-info-foreground: #1d4ed8;
+  --auth-hero-gradient-1: #081326;
+  --auth-hero-gradient-2: #0f172a;
+  --auth-hero-gradient-3: #111827;
+  --auth-hero-glow-1: rgb(37 99 235 / 0.22);
+  --auth-hero-glow-2: rgb(59 130 246 / 0.12);
+  --auth-hero-foreground: #ffffff;
+  --auth-hero-foreground-muted: rgb(255 255 255 / 0.78);
+  --auth-hero-foreground-subtle: rgb(255 255 255 / 0.68);
+  --auth-hero-foreground-faint: rgb(255 255 255 / 0.55);
+
+  --admin-sidebar-bg: #0b1220;
+  --admin-sidebar-border: #111827;
+  --admin-sidebar-fg: #e2e8f0;
+  --admin-sidebar-fg-muted: #94a3b8;
+  --admin-sidebar-fg-strong: #f8fafc;
+  --admin-sidebar-fg-brand: #ffffff;
+  --admin-sidebar-hover-bg: #1e293b;
+  --admin-sidebar-active-bg: #2563eb;
+  --admin-sidebar-brand-start: #1d4ed8;
+  --admin-sidebar-divider: rgb(255 255 255 / 0.08);
+  --admin-sidebar-width: 15.5rem;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.205 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --ring: oklch(0.556 0 0);
+  --success: oklch(0.7 0.15 150);
+  --info: oklch(0.7 0.15 250);
+  --destructive: oklch(0.704 0.191 22.216);
+
+  --shell-background-color: #0a0a0a;
+  --workspace-canvas: oklch(0.145 0 0);
+  --workspace-header: oklch(0.145 0 0);
+  --workspace-surface-subtle: oklch(0.205 0 0);
+
+  --dashboard-surface: oklch(0.205 0 0);
+  --dashboard-surface-muted: oklch(0.269 0 0);
+  --dashboard-kpi-selected: #3b82f6;
+
+  --auth-accent: #3b82f6;
+  --auth-accent-foreground: #ffffff;
+  --auth-warning-bg: #451a03;
+  --auth-warning-border: #92400e;
+  --auth-warning-foreground: #fcd34d;
+  --auth-info-bg: #1e3a8a;
+  --auth-info-border: #1d4ed8;
+  --auth-info-foreground: #93c5fd;
+
+  --auth-hero-gradient-1: #081326;
+  --auth-hero-gradient-2: #0f172a;
+  --auth-hero-gradient-3: #111827;
+}

@@ -1,0 +1,56 @@
+.contentOnly {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--workspace-canvas);
+}
+
+
+
+.pageHeader {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 0.25rem;
+
+}
+
+
+
+.pageTitle {
+
+  font-size: 1.35rem;
+
+  font-weight: 600;
+
+  letter-spacing: -0.02em;
+
+  color: var(--foreground);
+
+}
+
+
+
+.pageSubtitle {
+
+  font-size: 0.9rem;
+
+  color: var(--muted-foreground);
+
+}
+
+
+
+.content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+

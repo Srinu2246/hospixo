@@ -1,0 +1,50 @@
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  border: 1px solid color-mix(in oklch, var(--destructive) 35%, var(--border));
+  border-radius: 0.625rem;
+  background: color-mix(in oklch, var(--destructive) 8%, var(--card));
+  padding: 0.875rem 1rem;
+}
+
+.alertIcon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+  color: var(--destructive);
+}
+
+.alertText {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: color-mix(in oklch, var(--destructive) 75%, var(--foreground));
+}
+
+.cancelButton,
+.confirmButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  height: 2.375rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancelButton {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.confirmButton {
+  border: 1px solid var(--destructive);
+  background: var(--destructive);
+  color: var(--primary-foreground);
+}

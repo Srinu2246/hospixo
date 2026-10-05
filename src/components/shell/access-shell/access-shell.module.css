@@ -1,0 +1,63 @@
+.root {
+  display: flex;
+  height: 100svh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--workspace-canvas);
+}
+
+.contentColumnInner {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.mainArea {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+  background: var(--workspace-canvas);
+}
+
+.mainPadding {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .mainPadding {
+    padding: 1.5rem;
+  }
+}
+
+.mainInner {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.main {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.main::-webkit-scrollbar {
+  display: none;
+}
+
+.contentColumn {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 900px) {
+  .main {
+    overflow-x: clip;
+  }
+}

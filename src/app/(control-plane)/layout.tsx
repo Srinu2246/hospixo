@@ -12,7 +12,7 @@ export default async function ControlPlaneLayout({
 }>) {
   const session = await getAdminSession();
   if (!session) {
-    redirect(AUTH_ROUTES.login);
+    redirect(AUTH_ROUTES.adminLogin);
   }
 
   return <ControlPlaneShell userEmail={session.email}>{children}</ControlPlaneShell>;

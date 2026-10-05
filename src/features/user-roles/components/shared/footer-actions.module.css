@@ -1,0 +1,32 @@
+.footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 72px;
+  padding: 16px 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .inner {
+    min-height: 64px;
+    padding: 12px 16px;
+  }
+}
