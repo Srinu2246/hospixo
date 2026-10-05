@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Bell, Bot, ChevronDown, LayoutGrid, MapPin, Settings } from 'lucide-react';
 
 import { headerChrome, showsWorkspaceHeaderActions } from '@/config/shell/header-chrome';
@@ -13,7 +13,6 @@ import { useDashboardFilter } from '@/context/dashboard-filter';
 import type { DashboardOutlet } from '@/features/dashboard/types';
 import { ProfileMenu } from '@/features/profile';
 import { MobileNavToggle } from '@/components/shell/mobile-nav';
-import { getCachedBranches } from '@/lib/branches-cache';
 import { cn } from '@/lib/utils';
 import { WorkspaceThemeToggle } from '@/components/shell/workspace-theme-toggle';
 
@@ -27,6 +26,7 @@ import {
   resolveCurrentBranchName,
   resolveWorkspaceSettingsHref,
 } from './dashboard-topbar-scope';
+import { useTopbarCompanyBranches } from './use-topbar-company-branches';
 import styles from './dashboard-topbar.module.css';
 
 type DashboardTopbarProps = Readonly<{
@@ -48,7 +48,7 @@ export function DashboardTopbar({
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { outletId, setOutletId } = useDashboardFilter();
-  const { data, companies = [], hydrateOutlets } = useDashboardData();
+  const { data, companies = [] } = useDashboardData();
   const branchScope = isBranchScopePath(pathname);
   const branchPicker = isBranchPickerPath(pathname);
   const organisationDashboard = isOrganisationPath(pathname);
@@ -56,11 +56,9 @@ export function DashboardTopbar({
   const companyId = searchParams?.get('company_id') ?? '';
   const companyDashboardHome = isCompanyDashboardHome(pathname);
   const outletFromUrl = searchParams?.get('outlet');
-  const effectiveOutletId = companyDashboardHome && !outletFromUrl ? 'all' : outletId;
+  const effectiveOutletId = outletFromUrl ?? (companyDashboardHome ? 'all' : outletId);
   const selectedCompany = companies.find((company) => company.id === companyId);
-  const [companyBranches, setCompanyBranches] = useState<DashboardOutlet[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const notificationsRef = useRef<HTMLDivElement>(null);
 
   const allBranchesOption = useMemo(
     (): DashboardOutlet => ({
@@ -71,14 +69,25 @@ export function DashboardTopbar({
   );
   const hasBootstrapOutlets = (data?.outlets?.length ?? 0) > 1;
   const shouldFetchCompanyBranches = Boolean(companyId && branchPicker && !hasBootstrapOutlets);
-  const activeCompanyBranches = shouldFetchCompanyBranches ? companyBranches : [];
+  const branchScopeKey = useMemo(
+    () => ({
+      orgId: user?.org_id && user.org_id > 0 ? String(user.org_id) : undefined,
+      companyId: companyId || undefined,
+    }),
+    [user?.org_id, companyId],
+  );
+  const fetchedCompanyOutlets = useTopbarCompanyBranches(
+    branchScopeKey,
+    shouldFetchCompanyBranches,
+    allBranchesOption,
+  );
   const serverOutlets = hasBootstrapOutlets ? data!.outlets! : null;
   const defaultOutlets = data?.outlets?.length ? data.outlets : [allBranchesOption];
   const outlets =
     serverOutlets ??
     (companyId
-      ? activeCompanyBranches.length > 0
-        ? activeCompanyBranches
+      ? fetchedCompanyOutlets?.length
+        ? fetchedCompanyOutlets
         : [allBranchesOption]
       : defaultOutlets);
   const selected = outlets.find((outlet) => outlet.id === effectiveOutletId) ?? outlets[0];
@@ -95,59 +104,6 @@ export function DashboardTopbar({
 
   const initials =
     [user?.first_name?.[0], user?.last_name?.[0]].filter(Boolean).join('').toUpperCase() || 'AK';
-
-  useEffect(() => {
-    if (!showWorkspaceActions || !headerChrome.showNotifications) return;
-
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
-        setNotificationsOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showWorkspaceActions]);
-
-  useEffect(() => {
-    if (outletFromUrl && outletFromUrl !== outletId) {
-      setOutletId(outletFromUrl);
-      return;
-    }
-
-    if (companyDashboardHome && !outletFromUrl && outletId !== 'all') {
-      setOutletId('all');
-    }
-  }, [companyDashboardHome, outletFromUrl, outletId, setOutletId]);
-
-  useEffect(() => {
-    if (!shouldFetchCompanyBranches) {
-      return;
-    }
-
-    let active = true;
-    const orgId = user?.org_id && user.org_id > 0 ? String(user.org_id) : undefined;
-
-    void getCachedBranches({
-      scope: { orgId, companyId },
-    }).then((items) => {
-      if (!active) return;
-      const nextOutlets: DashboardOutlet[] = [
-        allBranchesOption,
-        ...items.map((item) => ({
-          id: String(item.id),
-          name: String(item.name ?? 'Branch'),
-        })),
-      ];
-      setCompanyBranches(nextOutlets);
-      hydrateOutlets(nextOutlets);
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [allBranchesOption, shouldFetchCompanyBranches, companyId, hydrateOutlets, user?.org_id]);
 
   function handleOutletChange(nextOutletId: string) {
     setOutletId(nextOutletId);
@@ -250,7 +206,15 @@ export function DashboardTopbar({
           </Link>
         ) : null}
         {showWorkspaceActions && headerChrome.showNotifications ? (
-          <div className={styles.notificationWrap} ref={notificationsRef}>
+          <div className={styles.notificationWrap}>
+            {notificationsOpen ? (
+              <button
+                type="button"
+                className={styles.notificationBackdrop}
+                aria-label="Close notifications"
+                onClick={() => setNotificationsOpen(false)}
+              />
+            ) : null}
             <button
               type="button"
               className={styles.iconButton}

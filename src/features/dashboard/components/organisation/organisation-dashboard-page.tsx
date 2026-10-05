@@ -4,15 +4,29 @@ import '@/features/dashboard/styles/organisation-dashboard.css';
 
 import { Alert } from '@mui/material';
 
-import { useOrganisationDashboardQuery } from '@/features/dashboard/hooks/organisation-dashboard';
+import {
+  type OrganisationDashboardQueryResult,
+  useOrganisationDashboardQuery,
+} from '@/features/dashboard/hooks/organisation-dashboard';
 
 import { OrganisationDashboardSkeleton } from './organisation-dashboard-skeleton';
 import { OrganisationDashboardView } from './organisation-dashboard-view';
 
-export function OrganisationDashboardPage() {
-  const { data, isLoading, isError, error } = useOrganisationDashboardQuery();
+type OrganisationDashboardPageProps = Readonly<{
+  initialQueryString: string;
+  initialPayload: OrganisationDashboardQueryResult;
+}>;
 
-  if (isLoading) {
+export function OrganisationDashboardPage({
+  initialQueryString,
+  initialPayload,
+}: OrganisationDashboardPageProps) {
+  const { data, isLoading, isError, error } = useOrganisationDashboardQuery({
+    initialQueryString,
+    initialPayload,
+  });
+
+  if (isLoading && !data) {
     return <OrganisationDashboardSkeleton />;
   }
 

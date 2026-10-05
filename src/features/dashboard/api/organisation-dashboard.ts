@@ -21,6 +21,33 @@ export const organisationDashboardQuerySchema = z.object({
 
 export type OrganisationDashboardQueryInput = z.infer<typeof organisationDashboardQuerySchema>;
 
+const ORGANISATION_DASHBOARD_QUERY_KEYS = [
+  'metric',
+  'view',
+  'range',
+  'from',
+  'to',
+  'page',
+  'pageSize',
+  'company_id',
+  'org_id',
+  'organization_id',
+] as const;
+
+/** Stable query string for SSR + client React Query (same keys as the BFF GET handler). */
+export function buildOrganisationDashboardQueryString(
+  searchParams: Record<string, string | string[] | undefined>,
+): string {
+  const params = new URLSearchParams();
+  for (const key of ORGANISATION_DASHBOARD_QUERY_KEYS) {
+    const value = searchParams[key];
+    if (typeof value === 'string' && value.trim()) {
+      params.set(key, value);
+    }
+  }
+  return params.toString();
+}
+
 export function parseOrganisationDashboardQuery(
   searchParams: Record<string, string | string[] | undefined>,
 ): OrganisationDashboardQueryInput {

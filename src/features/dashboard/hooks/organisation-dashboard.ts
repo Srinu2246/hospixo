@@ -4,7 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { fetchOrganisationDashboard } from '@/features/dashboard/api/organisation-dashboard';
+import {
+  buildOrganisationDashboardQueryString,
+  fetchOrganisationDashboard,
+} from '@/features/dashboard/api/organisation-dashboard';
 import { buildOrganisationDashboardData } from '@/features/dashboard/lib/build-organisation-dashboard-data';
 import { getDefaultOrganisationCustomRange } from '@/features/dashboard/lib/organisation-dashboard-format';
 import type {
@@ -17,13 +20,29 @@ import type {
 export const organisationDashboardQueryKey = (queryString: string) =>
   ['dashboard', 'organisation', queryString] as const;
 
-export function useOrganisationDashboardQuery() {
+export type OrganisationDashboardQueryResult = Readonly<{
+  data: OrganisationDashboardOverview;
+  source: 'backend' | 'fallback';
+  loadError: string | null;
+}>;
+
+type UseOrganisationDashboardQueryOptions = Readonly<{
+  /** Query string from the server render — must match client `searchParams` for hydration. */
+  initialQueryString?: string;
+  initialPayload?: OrganisationDashboardQueryResult;
+}>;
+
+export function useOrganisationDashboardQuery(options?: UseOrganisationDashboardQueryOptions) {
   const searchParams = useSearchParams();
-  const queryString = searchParams.toString();
+  const queryString = buildOrganisationDashboardQueryString(
+    Object.fromEntries(searchParams.entries()),
+  );
+  const serverQueryString = options?.initialQueryString ?? '';
+  const useServerPayload = Boolean(options?.initialPayload) && serverQueryString === queryString;
 
   return useQuery({
     queryKey: organisationDashboardQueryKey(queryString),
-    queryFn: async () => {
+    queryFn: async (): Promise<OrganisationDashboardQueryResult> => {
       const response = await fetchOrganisationDashboard(queryString);
       if (!response.success || !response.data) {
         throw new Error(response.message ?? 'Unable to load organisation dashboard.');
@@ -34,6 +53,8 @@ export function useOrganisationDashboardQuery() {
         loadError: response.loadError ?? null,
       };
     },
+    initialData: useServerPayload ? options?.initialPayload : undefined,
+    staleTime: 30_000,
   });
 }
 
