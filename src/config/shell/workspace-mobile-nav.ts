@@ -61,7 +61,7 @@ export function getWorkspaceMobileNav(level: AccessLevel): readonly WorkspaceMob
     {
       id: 'profile',
       label: 'Profile',
-      href: routes.dashboard.settings,
+      href: routes.dashboard.profile,
       icon: UserRound,
     },
   ] as const;

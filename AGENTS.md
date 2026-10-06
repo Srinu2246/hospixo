@@ -295,6 +295,8 @@ All styling tokens must be imported from `src/lib/theme/mui/`:
 
 # 15. Color Structure
 
+In **components**, prefer MUI `theme.palette` and `color="text.*"` (see §41.5) so light/dark follow `AppProvider`. Use `src/lib/theme/mui/colors.ts` when **building the theme** or for static design tokens — not as hard-coded text/background colors in feature screens.
+
 Use semantic color keys defined in `src/lib/theme/mui/colors.ts`:
 
 ```ts
@@ -573,7 +575,176 @@ When developing with AI assistance:
 
 ---
 
-# 41. Final Rule
+# 41. Workspace Feature Module + API Recipe (Reference)
+
+Use this when **adding or migrating any workspace feature** (profile, dashboard, users & roles, etc.) from `hospixo-frontend/apps/platform`. The same layers apply whether the screen uses session-only data or full CRUD against the backend.
+
+## 41.1 End-to-end architecture (never skip layers)
+
+```text
+Browser UI (screen)
+  → feature hook (useQuery / useMutation / local UI state)
+    → client API module (fetch same-origin /api/... only)
+      → Next.js BFF route (app/api/.../route.ts)
+        → server API helper (lib/api/*.ts) + session token
+          → BACKEND (NEXT_PUBLIC_API_BASE_URL / api/v1/...)
+```
+
+**Hard rules**
+
+- UI components and screens **must not** call `BACKEND_API_URL`, `api/v1`, or raw backend hosts.
+- UI **must not** embed `fetch('/api/...')` inline — use a feature `api/` module or shared `lib/*` BFF client (see §41.4).
+- BFF routes **must** read the httpOnly session (`requireAccessToken`, `getServerToken`, `getServerAuthSession`) and forward `Authorization: Bearer` to `lib/api/*`.
+- Secrets stay on the server; browser sees only `{ success, data, message }` JSON from `/api/*`.
+- **Exception:** cookie session auth helpers in `src/lib/auth.ts` (`login`, `logout`, `fetchCurrentUser` → `/api/auth/*`) — same-origin BFF, not `services/api/api.ts`.
+- **`services/api/api.ts`:** use for token-in-localStorage flows when applicable; workspace BFF + cookie session is the primary pattern for tenant app features today.
+
+## 41.2 Feature folder layout (all API-backed features)
+
+```text
+src/features/<feature-name>/
+├── index.ts                    # Public exports only (screens/widgets shell needs)
+├── config/                     # Copy, labels, static UI defaults
+├── types/                      # View models + DTO types (types only)
+├── schemas/                    # Zod (optional; query/body validation)
+├── api/                        # Client: fetch /api/... + parse response (see dashboard)
+│   ├── <resource>.ts           # Browser-safe fetchers + Zod/envelope parse
+│   └── <resource>.server.ts    # Node-only: called from app/api routes (optional)
+├── lib/                        # Pure mappers, formatters, build-* (no fetch)
+├── hooks/                      # useQuery, useMutation, UI orchestration ('use client')
+└── components/
+    └── <feature>-screen.tsx    # Main screen (+ private sections in same file when small)
+
+src/app/(workspace)/<route>/page.tsx     # metadata + compose screen (+ SSR load if needed)
+src/app/api/<resource>/route.ts          # BFF: GET/POST/PUT/PATCH/DELETE
+src/lib/api/<resource>.ts                # Backend HTTP (server-only)
+src/lib/<feature>-api-route.ts           # Shared BFF helpers (auth, scope, jsonOk) — when reused
+```
+
+| Layer                 | Responsibility                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `page.tsx`            | Metadata, route params, optional `await load*()` for SSR seed — **no** JSX business logic |
+| `*-screen.tsx`        | MUI markup, loading/error/empty; calls hooks only                                         |
+| `hooks/`              | React Query keys, `queryFn`/`mutationFn`, dialog state, form drafts                       |
+| `api/*.ts` (client)   | `fetch('/api/...', { credentials: 'same-origin' })`, envelope parse, Zod                  |
+| `api/*.server.ts`     | Heavy server aggregation for BFF (dashboard pattern)                                      |
+| `lib/build-*.ts`      | Map `AuthUser` or API DTO → UI model (pure functions)                                     |
+| `app/api/**/route.ts` | Thin: auth gate → call `lib/api` → `jsonOk` / error mapper                                |
+| `types/`              | TypeScript models — **no** runtime logic (validators live in `schemas/` or `api/`)        |
+
+Prefer **fewer files** (one `*-screen.tsx`, one `hooks/use-<feature>.ts`) until reuse forces a split.
+
+## 41.3 Three data patterns (pick one per screen)
+
+### A — Session identity only (no feature BFF yet)
+
+**Example:** `features/profile` (My Profile).
+
+- Read `useAuth().user` (session + `GET /api/auth/me`).
+- Map with `lib/build-*.ts`.
+- Mutations must still go through BFF when wired — local `useState` alone is not production persistence.
+
+### B — Client fetch + BFF + optional SSR seed (users & roles)
+
+**Examples:** users list, edit staff, invitations.
+
+- **Client:** `src/lib/users.ts`, `src/lib/roles.ts` — typed helpers calling `/api/users`, `/api/roles`, …
+- **BFF:** `src/app/api/users/route.ts`, `src/app/api/users/[userId]/route.ts`, …
+- **Backend:** `src/lib/api/users.ts`
+- **BFF shared:** `src/lib/users-api-route.ts` (`requireAccessToken`, `jsonOk`, scope helpers)
+- **Page:** server `load*PageData()` in `lib/*-server.ts`, pass `initialData` to screen; client refetches via `lib/users` when needed.
+- **UI loading:** in-screen `UsersListPageSkeleton` or equivalent — avoid new skeleton files per feature.
+
+### C — React Query + feature `api/` + BFF (dashboard)
+
+**Example:** `features/dashboard`.
+
+- **Client module:** `features/dashboard/api/organisation-dashboard.ts` — `fetchOrganisationDashboard()`, Zod on response, stable query string builder.
+- **Server module:** `features/dashboard/api/organisation-dashboard.server.ts` — used by BFF route only.
+- **BFF:** `app/api/dashboard/organisation/route.ts` → calls `.server.ts`.
+- **Hook:** `features/dashboard/hooks/organisation-dashboard.ts` — `useQuery`, exported `queryKey` factory, optional SSR `initialData` hydration.
+
+For **new** features with ongoing refetch/mutations, **prefer pattern C** unless the codebase already uses a `lib/<resource>.ts` client (pattern B) for that domain.
+
+## 41.4 Adding a new API surface (checklist)
+
+1. **Types** — `src/types/<domain>.ts` or `features/<feature>/types/` for request/response shapes.
+2. **Backend client (server only)** — `src/lib/api/<resource>.ts` using existing `apiFetch` / paths in `src/lib/api/paths.ts`.
+3. **BFF route** — `src/app/api/<resource>/route.ts` (and dynamic segments as needed):
+   - Auth: `requireAccessToken()` or session helper from existing `*-api-route.ts`.
+   - Call `lib/api/*`; return `jsonOk(data)` / mapped errors (`usersApiError`, `ApiRequestError`).
+   - Document mapping in a file header comment (see `app/api/users/[userId]/route.ts`).
+4. **Client API module** — either:
+   - `features/<feature>/api/<resource>.ts` (preferred for new work), or
+   - extend `src/lib/<resource>.ts` if the domain already uses pattern B.
+5. **Hook** — `useQuery` / `useMutation` in `features/<feature>/hooks/`; export stable `queryKey` arrays.
+6. **Screen** — consume hook; show loading via **existing** skeleton; errors via MUI `Alert`.
+7. **Mutations** — invalidate/refetch query keys on success; never leave success UI-only without API call when backend exists.
+
+```ts
+// features/<feature>/api/example.ts (client)
+export async function fetchExample(id: string): Promise<ExampleDto> {
+  const res = await fetch(`/api/example/${encodeURIComponent(id)}`, {
+    credentials: 'same-origin',
+  });
+  // parse { success, data, message } envelope — same as lib/users.ts
+}
+
+// features/<feature>/hooks/use-example.ts
+export const exampleQueryKey = (id: string) => ['example', id] as const;
+
+export function useExample(id: string) {
+  return useQuery({
+    queryKey: exampleQueryKey(id),
+    queryFn: () => fetchExample(id),
+  });
+}
+```
+
+## 41.5 Workspace route registration
+
+1. Add path in `src/config/routes.ts`.
+2. Add to `workspaceDedicatedPaths` in `src/config/shell/workspace-nav-pages.ts` (avoid catch-all “under construction”).
+3. Update shell/mobile nav hrefs when the feature has a nav entry.
+
+## 41.6 Loading, errors, and skeletons
+
+- Reuse **`UsersListPageSkeleton`** (or an existing feature skeleton) inside the screen.
+- Do **not** add feature-specific shimmer components or extra `loading.tsx` unless a route already standardizes on one (e.g. staff list `loading.tsx` wrapping the shared skeleton).
+- Handle `isPending` / `isError` / empty data on the screen (§35).
+
+## 41.7 MUI styling and light/dark theme
+
+- New workspace screens: **MUI v9** + `sx` (§13–16).
+- Use `theme.palette` and `color="text.*"` — not fixed light-only hex from `colors.ts` in components (§15).
+- Muted surfaces: CSS vars from `src/styles/theme-tokens.css` (`var(--muted)`, `var(--border)`, …) for `.dark` compatibility.
+
+## 41.8 Scope and exports
+
+- One feature per change — no drive-by edits in other features.
+- `features/<name>/index.ts` — export only shell-facing entry points.
+
+## 41.9 Pre-merge checklist
+
+- [ ] Thin `page.tsx`; logic in feature hook + `api/` + BFF
+- [ ] No direct backend URL from browser
+- [ ] BFF authenticated; errors mapped to user-safe messages
+- [ ] React Query (or documented SSR+client pattern) for server state
+- [ ] Loading / error / empty on screen; dark theme checked
+- [ ] `pnpm typecheck` and `pnpm lint`
+
+## 41.10 Reference implementations
+
+| Pattern                   | Where to look                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Session + mapper UI       | `features/profile`, `lib/build-user-profile.ts`, `app/(workspace)/profile/page.tsx`                     |
+| BFF + `lib/*` client      | `lib/users.ts`, `app/api/users/route.ts`, `lib/api/users.ts`, `lib/users-api-route.ts`                  |
+| Feature `api/` + RQ + BFF | `features/dashboard/api/`, `hooks/organisation-dashboard.ts`, `app/api/dashboard/organisation/route.ts` |
+| SSR seed + client refresh | `lib/users-server.ts`, `users-list-page.tsx`                                                            |
+
+---
+
+# 42. Final Rule
 
 Prefer:
 

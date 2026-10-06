@@ -13,6 +13,7 @@ export type WorkspaceNavPageDef = Readonly<{
 /** Paths that have their own `page.tsx` (not handled by the catch-all). */
 export const workspaceDedicatedPaths = new Set<string>([
   routes.dashboard.organisation,
+  routes.dashboard.profile,
   routes.platform.employees.organisation,
   routes.platform.employees.company,
   routes.platform.employees.branch,
