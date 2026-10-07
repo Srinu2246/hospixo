@@ -29,13 +29,14 @@ export type AuthSession = Readonly<{
 }>;
 
 export type LoginInput = Readonly<{
-  email: string;
+  identifier: string;
   password: string;
-  domain: string;
+  email?: string;
+  domain?: string;
 }>;
 
 export type PlatformLoginInput = Readonly<{
-  email: string;
+  identifier: string;
   password: string;
 }>;
 

@@ -1,10 +1,21 @@
-/** Admin auth BFF — raw HTTP only (AGENTS §6). */
+export async function postLoginRequest(formData: FormData): Promise<{
+  ok: boolean;
+  payload: unknown;
+}> {
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    body: formData,
+    credentials: 'same-origin',
+  });
+  const payload = await response.json().catch(() => null);
+  return { ok: response.ok, payload };
+}
 
 export async function postAdminLoginRequest(formData: FormData): Promise<{
   ok: boolean;
   payload: unknown;
 }> {
-  const response = await fetch('/api/auth/login', {
+  const response = await fetch('/api/auth/admin-login', {
     method: 'POST',
     body: formData,
     credentials: 'same-origin',
@@ -21,15 +32,5 @@ export async function postAdminLogoutRequest(): Promise<Response> {
   });
 }
 
-export async function postPlatformLoginRequest(formData: FormData): Promise<{
-  ok: boolean;
-  payload: unknown;
-}> {
-  const response = await fetch('/api/auth/platform-login', {
-    method: 'POST',
-    body: formData,
-    credentials: 'same-origin',
-  });
-  const payload = await response.json().catch(() => null);
-  return { ok: response.ok, payload };
-}
+export const postPlatformLoginRequest = postLoginRequest;
+export const postClientLoginRequest = postLoginRequest;

@@ -9,18 +9,19 @@ import { AuthFormError } from '@/features/auth/components/forms/shared/auth-form
 import { PlatformPasswordInput } from '@/features/auth/components/forms/shared/platform-password-input';
 import sharedStyles from '@/features/auth/components/forms/shared/auth-form-shared.module.css';
 import { loginPageContent } from '@/features/auth/config/login';
-import { usePlatformLoginMutation } from '@/hooks/auth/useAuthMutations';
-import { isPlatformLoginSuccess } from '@/services/platform-auth';
+import { useLoginMutation } from '@/hooks/auth/useAuthMutations';
+import { isLoginSuccess } from '@/services/auth';
 import { cn } from '@/utils/cn';
-import type { PlatformLoginState } from '@/types/platform-login';
+import type { LoginState } from '@/types/auth';
 
 import styles from './login-form.module.css';
 
-export function PlatformLoginForm() {
-  const [state, setState] = useState<PlatformLoginState>({});
-  const loginMutation = usePlatformLoginMutation();
+export function LoginForm() {
+  const [state, setState] = useState<LoginState>({});
+  const loginMutation = useLoginMutation();
   const copy = loginPageContent.form;
   const hasAuthError = Boolean(state.error);
+  const identifierError = state.fieldErrors?.identifier ?? state.fieldErrors?.email;
   const pending = loginMutation.isPending;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -29,12 +30,12 @@ export function PlatformLoginForm() {
 
     loginMutation.mutate(new FormData(event.currentTarget), {
       onSuccess: ({ ok, payload }) => {
-        if (ok && payload && isPlatformLoginSuccess(payload)) {
+        if (ok && payload && isLoginSuccess(payload)) {
           window.location.assign(payload.redirectTo);
           return;
         }
-        if (payload && !isPlatformLoginSuccess(payload)) {
-          setState(payload as PlatformLoginState);
+        if (payload && !isLoginSuccess(payload)) {
+          setState(payload as LoginState);
           return;
         }
         setState({ error: 'Unable to sign in. Please try again.' });
@@ -57,35 +58,23 @@ export function PlatformLoginForm() {
     >
       <form className={sharedStyles.form} onSubmit={handleSubmit} noValidate>
         <div className={sharedStyles.field}>
-          <label className={sharedStyles.label} htmlFor="domain">
-            {copy.domainLabel}
+          <label className={sharedStyles.label} htmlFor="identifier">
+            {copy.identifierLabel}
           </label>
           <input
-            id="domain"
-            name="domain"
+            id="identifier"
+            name="identifier"
             type="text"
-            defaultValue={state.values?.domain ?? ''}
-            className={cn(sharedStyles.input, hasAuthError && sharedStyles.invalid)}
-            placeholder={copy.domainPlaceholder}
-            autoComplete="organization"
-            required
-          />
-          {state.fieldErrors?.domain ? <AuthFormError message={state.fieldErrors.domain} /> : null}
-
-          <label className={sharedStyles.label} htmlFor="email">
-            {copy.emailLabel}
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            defaultValue={state.values?.email ?? ''}
-            className={cn(sharedStyles.input, hasAuthError && sharedStyles.invalid)}
-            placeholder={copy.emailPlaceholder}
+            defaultValue={state.values?.identifier ?? state.values?.email ?? ''}
+            className={cn(
+              sharedStyles.input,
+              (hasAuthError || Boolean(identifierError)) && sharedStyles.invalid,
+            )}
+            placeholder={copy.identifierPlaceholder}
             autoComplete="username"
             required
           />
-          {state.fieldErrors?.email ? <AuthFormError message={state.fieldErrors.email} /> : null}
+          {identifierError ? <AuthFormError message={identifierError} /> : null}
         </div>
 
         <div className={sharedStyles.field}>
@@ -129,3 +118,5 @@ export function PlatformLoginForm() {
     </AuthSplitLayout>
   );
 }
+
+export const PlatformLoginForm = LoginForm;
