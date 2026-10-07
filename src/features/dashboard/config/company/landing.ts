@@ -1,7 +1,11 @@
 import type { ElementType } from 'react';
 
 import { companySidebar } from '@/config/shell/access-navigation';
-import { COMMON_DATE_RANGE_OPTIONS } from '../scopes';
+import {
+  COMMON_DATE_RANGE_OPTIONS,
+  COMMON_QUICK_HELP_COPY,
+  DEFAULT_LEAKAGE_METRICS,
+} from '../scopes';
 import type { DashboardOverview } from '@/features/dashboard/types';
 
 export type CompanyNavItem = Readonly<{
@@ -95,12 +99,7 @@ export const companyLandingContent = {
       bills: 'Bills',
     },
   },
-  quickHelp: {
-    title: 'Quick Help',
-    onlineStatus: 'Online Now',
-    offlineStatus: 'Offline',
-    whatsappCta: 'Contact on WhatsApp',
-  },
+  quickHelp: COMMON_QUICK_HELP_COPY,
   error: {
     title: 'Unable to load dashboard',
     emptyMessage: 'No dashboard data returned.',
@@ -173,23 +172,7 @@ export const companyDashboardFallbackData: DashboardOverview = {
     total: 0,
     items: [],
   },
-  leakage: {
-    kots: {
-      items: [
-        { label: 'Cancelled', value: 0 },
-        { label: 'Modified', value: 0 },
-        { label: 'Shifted', value: 0 },
-        { label: 'Not used in bills', value: 0 },
-      ],
-    },
-    bills: {
-      items: [
-        { label: 'Modified', value: 0 },
-        { label: 'Re-printed', value: 0 },
-        { label: 'Knocked off', value: '₹0', tone: 'neutral' },
-      ],
-    },
-  },
+  leakage: DEFAULT_LEAKAGE_METRICS,
   accountManager: {
     name: 'Hospixo Support',
     phone: '+91 98765 43210',

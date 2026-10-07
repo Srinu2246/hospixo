@@ -97,23 +97,7 @@ export function buildCompanyDashboardOverview(
       total: 0,
       items: [],
     },
-    leakage: {
-      kots: {
-        items: [
-          { label: 'Cancelled', value: 0 },
-          { label: 'Modified', value: 0 },
-          { label: 'Shifted', value: 0 },
-          { label: 'Not used in bills', value: 0 },
-        ],
-      },
-      bills: {
-        items: [
-          { label: 'Modified', value: 0 },
-          { label: 'Re-printed', value: 0 },
-          { label: 'Knocked off', value: '₹0', tone: 'neutral' },
-        ],
-      },
-    },
+    leakage: template.leakage,
     accountManager: template.accountManager,
   };
 }
