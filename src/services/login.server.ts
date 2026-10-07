@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { loginWithEmail } from '@/lib/api/auth';
 import { ApiRequestError, getApiErrorMessage } from '@/lib/api/errors';
 import { setAccessTokenCookie } from '@/lib/auth/session';
+import { resolveDashboardHomePath } from '@/lib/auth/access-level';
 import type { TokenUserInfo } from '@/types/platform-auth';
 import type { LoginFieldErrors, LoginState } from '@/types/auth';
 
@@ -56,7 +57,8 @@ export async function performLogin(
     const cookieStore = await cookies();
     setAccessTokenCookie(cookieStore, token);
 
-    return { ok: true, redirectTo: '/organisation', user: token.user };
+    const redirectTo = resolveDashboardHomePath(token.user);
+    return { ok: true, redirectTo, user: token.user };
   } catch (error) {
     return {
       ok: false,
