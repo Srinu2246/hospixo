@@ -14,8 +14,6 @@ export type WorkspaceNavPageDef = Readonly<{
 export const workspaceDedicatedPaths = new Set<string>([
   routes.dashboard.organisation,
   routes.dashboard.profile,
-  routes.dashboard.floors,
-  routes.dashboard.floorCreate,
   routes.platform.employees.organisation,
   routes.platform.employees.company,
   routes.platform.employees.branch,
