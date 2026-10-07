@@ -6,15 +6,13 @@ export type LoginSuccessResponse = Readonly<{
 
 export type LoginApiResponse = LoginState | LoginSuccessResponse;
 
-export type AdminLoginResult = Readonly<{
+export type LoginResult = Readonly<{
   ok: boolean;
   payload: LoginApiResponse | null;
 }>;
 
-export type PlatformLoginApiResponse =
-  import('@/types/platform-login').PlatformLoginState | LoginSuccessResponse;
-
-export type PlatformLoginResult = Readonly<{
-  ok: boolean;
-  payload: PlatformLoginApiResponse | null;
-}>;
+export type AdminLoginResult = LoginResult;
+export type PlatformLoginApiResponse = LoginApiResponse;
+export type PlatformLoginResult = LoginResult;
+export type ClientLoginApiResponse = LoginApiResponse;
+export type ClientLoginResult = LoginResult;

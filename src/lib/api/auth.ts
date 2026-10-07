@@ -34,8 +34,16 @@ async function postAuth<T>(path: string, body: unknown) {
 }
 
 export async function loginWithEmail(input: LoginInput) {
-  const data = await postAuth<Record<string, unknown>>(authPaths.login, input);
+  const payload = {
+    identifier: input.identifier ?? input.email ?? '',
+    password: input.password,
+  };
+  const data = await postAuth<Record<string, unknown>>(authPaths.login, payload);
   return normalizeLoginToken(data);
+}
+
+export async function loginWithIdentifier(input: LoginInput) {
+  return loginWithEmail(input);
 }
 
 /**
@@ -45,7 +53,11 @@ export async function loginWithEmail(input: LoginInput) {
  */
 
 export async function loginWithPlatform(input: PlatformLoginInput) {
-  const data = await postAuth<Record<string, unknown>>(authPaths.platformLogin, input);
+  const payload = {
+    identifier: input.identifier,
+    password: input.password,
+  };
+  const data = await postAuth<Record<string, unknown>>(authPaths.platformLogin, payload);
   return normalizePlatformAuthToken(data);
 }
 
