@@ -1,11 +1,8 @@
-export type PlatformLoginFieldErrors = Readonly<{
-  email?: string;
-  password?: string;
-  domain?: string;
-}>;
-
-export type PlatformLoginState = Readonly<{
-  error?: string;
-  fieldErrors?: PlatformLoginFieldErrors;
-  values?: { email?: string; domain?: string };
-}>;
+export type {
+  LoginFieldErrors as PlatformLoginFieldErrors,
+  LoginState as PlatformLoginState,
+} from './auth';
+export type {
+  LoginFieldErrors as ClientLoginFieldErrors,
+  LoginState as ClientLoginState,
+} from './auth';
