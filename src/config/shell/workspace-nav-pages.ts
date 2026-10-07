@@ -3,6 +3,7 @@ import {
   getUnderConstructionRoute,
   type UnderConstructionRouteDef,
 } from '@/config/shell/under-construction-routes';
+import { flowPaths } from '@/config/shell/flow-paths';
 import { platformPosRoutes, routes } from '@/config/routes';
 
 export type WorkspaceNavPageDef = Readonly<{
@@ -16,6 +17,7 @@ export const workspaceDedicatedPaths = new Set<string>([
   routes.dashboard.profile,
   routes.dashboard.floors,
   routes.dashboard.floorCreate,
+  flowPaths.branch.tables,
   routes.platform.employees.organisation,
   routes.platform.employees.company,
   routes.platform.employees.branch,
