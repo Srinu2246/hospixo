@@ -610,3 +610,62 @@ export function restaurantBranchMenuItemDeactivatePath(
 ): string {
   return `${restaurantBranchMenuItemOverridePath(branchId, assignmentId, itemOverrideId)}/deactivate`;
 }
+
+// Restaurant branch floors & tables ---------------------------------------------
+
+export type RestaurantBranchFloorsListQuery = Readonly<{
+  status?: 'active' | 'inactive';
+}>;
+
+export type RestaurantBranchTablesListQuery = Readonly<{
+  status?: 'active' | 'inactive';
+}>;
+
+/** `GET|POST /api/v1/restaurant/branches/{branch_id}/floors` */
+export function restaurantBranchFloorsPath(branchId: string | number): string {
+  return `/api/v1/restaurant/branches/${encodeURIComponent(String(branchId))}/floors`;
+}
+
+export function restaurantBranchFloorsListPath(
+  branchId: string | number,
+  query?: RestaurantBranchFloorsListQuery,
+): string {
+  const base = restaurantBranchFloorsPath(branchId);
+  if (!query?.status) return base;
+  return `${base}?status=${encodeURIComponent(query.status)}`;
+}
+
+/** `GET|PATCH|DELETE /api/v1/restaurant/branches/{branch_id}/floors/{floor_id}` */
+export function restaurantBranchFloorPath(
+  branchId: string | number,
+  floorId: string | number,
+): string {
+  return `${restaurantBranchFloorsPath(branchId)}/${encodeURIComponent(String(floorId))}`;
+}
+
+/** `GET|POST /api/v1/restaurant/branches/{branch_id}/floors/{floor_id}/tables` */
+export function restaurantBranchFloorTablesPath(
+  branchId: string | number,
+  floorId: string | number,
+): string {
+  return `${restaurantBranchFloorPath(branchId, floorId)}/tables`;
+}
+
+export function restaurantBranchFloorTablesListPath(
+  branchId: string | number,
+  floorId: string | number,
+  query?: RestaurantBranchTablesListQuery,
+): string {
+  const base = restaurantBranchFloorTablesPath(branchId, floorId);
+  if (!query?.status) return base;
+  return `${base}?status=${encodeURIComponent(query.status)}`;
+}
+
+/** `GET|PATCH|DELETE /api/v1/restaurant/branches/{branch_id}/floors/{floor_id}/tables/{table_id}` */
+export function restaurantBranchFloorTablePath(
+  branchId: string | number,
+  floorId: string | number,
+  tableId: string | number,
+): string {
+  return `${restaurantBranchFloorTablesPath(branchId, floorId)}/${encodeURIComponent(String(tableId))}`;
+}
