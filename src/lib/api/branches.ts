@@ -184,9 +184,9 @@ function buildCompanyBranchesPath(
   return `${platformCompanyBranchesPath(String(orgId), companyId)}?${params.toString()}`;
 }
 
-function mapBranch(raw: Record<string, unknown>): ApiBranch {
+function mapBranch(raw: Record<string, unknown>, defaultCompanyId?: string | number): ApiBranch {
   const id = raw.id ?? raw.branch_id ?? raw.branchId;
-  const companyId = raw.company_id ?? raw.companyId ?? 0;
+  const companyId = raw.company_id ?? raw.companyId ?? defaultCompanyId ?? 0;
   const name = String(raw.name ?? raw.branch_name ?? raw.branchName ?? raw.outlet_name ?? 'Branch');
 
   return {
@@ -207,8 +207,10 @@ function mapBranch(raw: Record<string, unknown>): ApiBranch {
   };
 }
 
-function normalizeBranches(payload: unknown): ApiBranch[] {
-  return unwrapBranches(payload).map((item) => mapBranch(item as Record<string, unknown>));
+function normalizeBranches(payload: unknown, defaultCompanyId?: string | number): ApiBranch[] {
+  return unwrapBranches(payload).map((item) =>
+    mapBranch(item as Record<string, unknown>, defaultCompanyId),
+  );
 }
 
 function dedupeBranches(branches: readonly ApiBranch[]): ApiBranch[] {
@@ -307,8 +309,11 @@ async function loadTenantBranches(
   return [];
 }
 
-function parsePlatformCompanyBranchesPayload(raw: unknown): BranchesListResponse {
-  const items = normalizeBranches(raw);
+function parsePlatformCompanyBranchesPayload(
+  raw: unknown,
+  defaultCompanyId?: string | number,
+): BranchesListResponse {
+  const items = normalizeBranches(raw, defaultCompanyId);
   const reportedTotal = readBranchTotal(raw);
   return { items, total: reportedTotal ?? items.length };
 }
@@ -322,7 +327,7 @@ async function fetchPlatformCompanyBranches(
   const path = buildCompanyBranchesPath(orgId, companyId, pageSize);
 
   const finish = async (raw: unknown): Promise<BranchesListResponse> => {
-    const result = parsePlatformCompanyBranchesPayload(raw);
+    const result = parsePlatformCompanyBranchesPayload(raw, companyId);
     const reportedTotal = readBranchTotal(raw);
     if (
       result.items.length === 0 &&
@@ -395,6 +400,13 @@ export async function listOrganizationBranches(
     }));
   }
 
+  if (companyList.length === 0) {
+    const tenantBranches = await loadTenantBranches(token, orgId);
+    if (tenantBranches.length > 0) {
+      return { items: tenantBranches, total: tenantBranches.length };
+    }
+  }
+
   const combined: ApiBranch[] = [];
 
   for (let start = 0; start < companyList.length; start += ORGANIZATION_BRANCHES_BATCH_SIZE) {
@@ -403,7 +415,10 @@ export async function listOrganizationBranches(
       batch.map(async (company) => {
         try {
           const result = await listCompanyBranches(token, orgId, company.id);
-          return result.items;
+          return result.items.map((b) => ({
+            ...b,
+            company_id: b.company_id || Number(company.id),
+          }));
         } catch {
           return [];
         }

@@ -1,8 +1,7 @@
 'use client';
 
-import { orgDash } from '@/features/dashboard/styles/org-dash-classes';
-
 import { useMemo } from 'react';
+import { Box } from '@mui/material';
 
 import { CompanyFallbackBanner } from '@/features/dashboard/components/company/fallback-banner/index';
 import { useOptionalDashboardData } from '@/context/dashboard-data';
@@ -14,6 +13,7 @@ import { CompanyPerformanceSection } from './company-performance-section';
 import { OrganisationDashboardHeader } from './organisation-dashboard-header';
 import { OrganisationKpiRow } from './organisation-kpi-row';
 import { OrganisationOperationsSummary } from './organisation-operations-summary';
+import { OrganisationBottomGrid } from './bottom-grid';
 
 type OrganisationDashboardViewProps = Readonly<{
   data: OrganisationDashboardOverview;
@@ -54,7 +54,18 @@ export function OrganisationDashboardView({
       ?.label ?? 'Total Sales';
 
   return (
-    <div className={orgDash.page}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: '1 0 auto',
+        minHeight: '100%',
+        gap: 2.5,
+        bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'background.default' : '#f8fafc'),
+        p: { xs: 2, sm: 2.5, md: 3 },
+        boxSizing: 'border-box',
+      }}
+    >
       <OrganisationDashboardHeader
         data={data}
         activeRange={controls.activeRange}
@@ -107,6 +118,14 @@ export function OrganisationDashboardView({
         taxSummary={data.taxSummary}
         financialBreakdown={data.financialBreakdown}
       />
-    </div>
+
+      <OrganisationBottomGrid
+        data={data}
+        expandedInsightId={controls.expandedInsightId}
+        onToggleInsight={(insightId) =>
+          controls.setExpandedInsightId((current) => (current === insightId ? null : insightId))
+        }
+      />
+    </Box>
   );
 }

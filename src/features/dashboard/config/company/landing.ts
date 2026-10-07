@@ -1,7 +1,6 @@
 import type { ElementType } from 'react';
 
 import { companySidebar } from '@/config/shell/access-navigation';
-import { organisationChartColors } from '@/features/dashboard/lib/organisation-chart-colors';
 import type { DashboardOverview } from '@/features/dashboard/types';
 import type { OrganisationDateRangeId } from '@/features/dashboard/types/organisation-dashboard';
 
@@ -152,72 +151,56 @@ export const companyDashboardFallbackData: DashboardOverview = {
   },
   salesByOutlet: [],
   taxSummary: {
-    total: 111300,
-    items: [
-      { label: 'CGST', amount: 45200, color: organisationChartColors.blue, shareLabel: '2.5%' },
-      { label: 'SGST', amount: 45200, color: organisationChartColors.green, shareLabel: '2.5%' },
-      { label: 'Service Tax', amount: 12500, color: organisationChartColors.purple },
-      { label: 'VAT', amount: 8400, color: organisationChartColors.amber },
-    ],
+    total: 0,
+    items: [],
   },
   discountsSummary: {
-    total: 73500,
-    items: [
-      { label: 'Promo Codes', amount: 28400, color: organisationChartColors.pink },
-      { label: 'Loyalty Points', amount: 15200, color: organisationChartColors.green },
-      { label: 'Managerial', amount: 8900, color: organisationChartColors.blue },
-      { label: 'Happy Hour', amount: 21000, color: organisationChartColors.amber },
-    ],
+    total: 0,
+    items: [],
   },
   revenueForecast: {
-    total: 342850,
-    confidence: 'High Confidence',
-    series: [32, 38, 35, 42, 48, 45, 52],
+    total: 0,
+    confidence: 'No data',
+    series: [0, 0, 0, 0, 0, 0, 0],
   },
   customerInsights: {
-    newCustomerRate: 72,
-    averageOrderValue: 412,
-    aovChangePercent: 5.2,
+    newCustomerRate: 0,
+    averageOrderValue: 0,
+    aovChangePercent: 0,
     peakHours: [
-      [1, 2, 3, 4, 5, 8, 9],
-      [2, 4, 5, 6, 7, 9, 10],
-      [4, 6, 8, 9, 10, 11, 12],
-      [2, 3, 4, 5, 6, 9, 11],
+      [0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0],
     ],
   },
   expenses: {
-    total: 104000,
-    items: [
-      { label: 'Food Purchases', amount: 26000 },
-      { label: 'Utilities', amount: 13000 },
-      { label: 'Delivery Commission', amount: 36000 },
-      { label: 'Kitchen Wastage', amount: 3000 },
-      { label: 'Miscellaneous', amount: 26000 },
-    ],
+    total: 0,
+    items: [],
   },
   leakage: {
     kots: {
       items: [
-        { label: 'Cancelled', value: 2 },
-        { label: 'Modified', value: 5 },
+        { label: 'Cancelled', value: 0 },
+        { label: 'Modified', value: 0 },
         { label: 'Shifted', value: 0 },
-        { label: 'Not used in bills', value: 1 },
+        { label: 'Not used in bills', value: 0 },
       ],
     },
     bills: {
       items: [
-        { label: 'Modified', value: 3 },
-        { label: 'Re-printed', value: 1 },
-        { label: 'Knocked off', value: '₹450', tone: 'danger' },
+        { label: 'Modified', value: 0 },
+        { label: 'Re-printed', value: 0 },
+        { label: 'Knocked off', value: '₹0', tone: 'neutral' },
       ],
     },
   },
   accountManager: {
-    name: 'Kumar Reddy',
+    name: 'Hospixo Support',
     phone: '+91 98765 43210',
     online: true,
-    supportId: '63284',
+    supportId: 'EMP-001',
     supportHours: '10:00 AM - 07:00 PM',
-    supportMessage: 'Your dedicated account manager. Reach out for any billing or support queries.',
+    supportMessage: 'Reach out for any billing, branch, or operational support queries.',
   },
 };

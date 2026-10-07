@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { Box, IconButton, MenuItem, Popover, Select, Typography } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
 import { Bell, Bot, ChevronDown, LayoutGrid, MapPin, Settings } from 'lucide-react';
 
 import { headerChrome, showsWorkspaceHeaderActions } from '@/config/shell/header-chrome';
@@ -17,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { WorkspaceThemeToggle } from '@/components/shell/workspace-theme-toggle';
 
 import {
+  canSwitchBranch,
   isBranchPickerPath,
   isBranchScopePath,
   isCompanyDashboardHome,
@@ -28,6 +31,80 @@ import {
 } from './dashboard-topbar-scope';
 import { useTopbarCompanyBranches } from './use-topbar-company-branches';
 import styles from './dashboard-topbar.module.css';
+
+const topbarSelectSx = {
+  height: 32,
+  minWidth: 160,
+  fontSize: '0.8125rem',
+  fontWeight: 600,
+  color: 'text.primary',
+  borderRadius: '0.5rem',
+  bgcolor: 'transparent',
+  '& .MuiOutlinedInput-notchedOutline': {
+    border: 'none',
+  },
+  '&:hover': {
+    bgcolor: 'transparent',
+    '& .MuiOutlinedInput-notchedOutline': {
+      border: 'none',
+    },
+  },
+  '&.Mui-focused': {
+    bgcolor: 'transparent',
+    '& .MuiOutlinedInput-notchedOutline': {
+      border: 'none',
+    },
+  },
+  '& .MuiSelect-select': {
+    display: 'flex',
+    alignItems: 'center',
+    py: 0.5,
+    pl: 1,
+    pr: 3.5,
+  },
+};
+
+const topbarMenuProps = {
+  slotProps: {
+    paper: {
+      elevation: 4,
+      sx: {
+        mt: 0.75,
+        borderRadius: '0.75rem',
+        border: 1,
+        borderColor: 'divider',
+
+        boxShadow: (theme: Theme) =>
+          theme.palette.mode === 'dark'
+            ? '0 10px 25px -5px rgba(0,0,0,0.5), 0 8px 10px -6px rgba(0,0,0,0.5)'
+            : '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.06)',
+        maxHeight: 320,
+        py: 0.5,
+        '& .MuiMenuItem-root': {
+          fontSize: '0.8125rem',
+          fontWeight: 500,
+          borderRadius: '0.375rem',
+          mx: 0.75,
+          my: 0.25,
+          py: 0.75,
+          px: 1.25,
+          transition: 'background-color 0.15s ease',
+          '&.Mui-selected': {
+            bgcolor: 'action.selected',
+            fontWeight: 600,
+            color: 'primary.main',
+          },
+          '&.Mui-selected:hover': {
+            bgcolor: 'action.selected',
+          },
+          '&:hover': {
+            bgcolor: 'action.hover',
+          },
+        },
+      },
+    },
+  },
+};
 
 type DashboardTopbarProps = Readonly<{
   /** Hide outlet picker on shells that do not filter by outlet. */
@@ -58,7 +135,7 @@ export function DashboardTopbar({
   const outletFromUrl = searchParams?.get('outlet');
   const effectiveOutletId = outletFromUrl ?? (companyDashboardHome ? 'all' : outletId);
   const selectedCompany = companies.find((company) => company.id === companyId);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsAnchor, setNotificationsAnchor] = useState<HTMLElement | null>(null);
 
   const allBranchesOption = useMemo(
     (): DashboardOutlet => ({
@@ -90,7 +167,6 @@ export function DashboardTopbar({
         ? fetchedCompanyOutlets
         : [allBranchesOption]
       : defaultOutlets);
-  const selected = outlets.find((outlet) => outlet.id === effectiveOutletId) ?? outlets[0];
   const currentBranchName = resolveCurrentBranchName(outlets, effectiveOutletId, user);
   const settingsHref = resolveWorkspaceSettingsHref(pathname);
 
@@ -104,6 +180,10 @@ export function DashboardTopbar({
 
   const initials =
     [user?.first_name?.[0], user?.last_name?.[0]].filter(Boolean).join('').toUpperCase() || 'AK';
+
+  const effectiveOutletValue =
+    outlets.find((o) => o.id === effectiveOutletId)?.id ??
+    (branchScope ? (outlets.find((o) => o.id !== 'all')?.id ?? 'all') : (outlets[0]?.id ?? 'all'));
 
   function handleOutletChange(nextOutletId: string) {
     setOutletId(nextOutletId);
@@ -139,56 +219,138 @@ export function DashboardTopbar({
       <div className={styles.topbarStart}>
         {onMenuClick ? <MobileNavToggle open={navOpen} onClick={onMenuClick} /> : null}
         {showOutlets ? (
-          <div className={styles.outletGroup}>
-            <span className={styles.outletLabel}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              gap: 0.25,
+              minWidth: 0,
+            }}
+          >
+            <Typography
+              component="span"
+              sx={{
+                fontSize: '0.6875rem',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                color: 'text.secondary',
+                lineHeight: 1.1,
+              }}
+            >
               {organisationDashboard
                 ? 'Companies'
                 : selectedCompany && companyId
                   ? `Company: ${selectedCompany.name}`
                   : outletLabel}
-            </span>
-            {branchScope ? (
-              <div className={styles.branchNameWrap}>
-                <MapPin className={styles.pinIcon} aria-hidden="true" />
-                <p className={styles.branchName}>{currentBranchName}</p>
-              </div>
+            </Typography>
+            {branchScope && !canSwitchBranch(user) ? (
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  height: 32,
+                  minWidth: 150,
+                  maxWidth: 'min(20rem, 50vw)',
+                  px: 0.5,
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  bgcolor: 'transparent',
+                }}
+              >
+                <MapPin size={14} style={{ flexShrink: 0, opacity: 0.75 }} />
+                <Typography
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    color: 'text.primary',
+                  }}
+                >
+                  {currentBranchName}
+                </Typography>
+              </Box>
             ) : organisationDashboard ? (
-              <div className={styles.selectWrap}>
-                <MapPin className={styles.pinIcon} aria-hidden="true" />
-                <select
-                  aria-label="Select company"
-                  defaultValue=""
-                  onChange={(event) => handleCompanyChange(event.target.value)}
-                  className={styles.select}
-                >
-                  <option value="">Select company</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className={styles.selectIcon} aria-hidden="true" />
-              </div>
+              <Select
+                size="small"
+                displayEmpty
+                value={selectedCompany ? selectedCompany.id : ''}
+                onChange={(event) => handleCompanyChange(event.target.value as string)}
+                startAdornment={
+                  <MapPin size={14} style={{ marginRight: 6, flexShrink: 0, opacity: 0.75 }} />
+                }
+                IconComponent={(props) => (
+                  <ChevronDown
+                    size={14}
+                    {...props}
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      pointerEvents: 'none',
+                      ...props.style,
+                    }}
+                  />
+                )}
+                renderValue={(val) => {
+                  if (!val) {
+                    return (
+                      <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                        Select company
+                      </Box>
+                    );
+                  }
+                  const comp = companies.find((c) => c.id === val);
+                  return comp ? comp.name : val;
+                }}
+                sx={topbarSelectSx}
+                MenuProps={topbarMenuProps}
+                aria-label="Select company"
+              >
+                <MenuItem value="" disabled sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                  Select company
+                </MenuItem>
+                {companies.map((company) => (
+                  <MenuItem key={company.id} value={company.id}>
+                    {company.name}
+                  </MenuItem>
+                ))}
+              </Select>
             ) : (
-              <div className={styles.selectWrap}>
-                <MapPin className={styles.pinIcon} aria-hidden="true" />
-                <select
-                  aria-label={branchPicker ? 'Select branch' : 'Select outlet'}
-                  value={selected?.id ?? 'all'}
-                  onChange={(event) => handleOutletChange(event.target.value)}
-                  className={styles.select}
-                >
-                  {outlets.map((outlet) => (
-                    <option key={outlet.id} value={outlet.id}>
-                      {outlet.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className={styles.selectIcon} aria-hidden="true" />
-              </div>
+              <Select
+                size="small"
+                value={effectiveOutletValue}
+                onChange={(event) => handleOutletChange(event.target.value as string)}
+                startAdornment={
+                  <MapPin size={14} style={{ marginRight: 6, flexShrink: 0, opacity: 0.75 }} />
+                }
+                IconComponent={(props) => (
+                  <ChevronDown
+                    size={14}
+                    {...props}
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      pointerEvents: 'none',
+                      ...props.style,
+                    }}
+                  />
+                )}
+                sx={topbarSelectSx}
+                MenuProps={topbarMenuProps}
+                aria-label={branchPicker ? 'Select branch' : 'Select outlet'}
+              >
+                {outlets.map((outlet) => (
+                  <MenuItem key={outlet.id} value={outlet.id}>
+                    {outlet.name}
+                  </MenuItem>
+                ))}
+              </Select>
             )}
-          </div>
+          </Box>
         ) : null}
       </div>
 
@@ -206,32 +368,63 @@ export function DashboardTopbar({
           </Link>
         ) : null}
         {showWorkspaceActions && headerChrome.showNotifications ? (
-          <div className={styles.notificationWrap}>
-            {notificationsOpen ? (
-              <button
-                type="button"
-                className={styles.notificationBackdrop}
-                aria-label="Close notifications"
-                onClick={() => setNotificationsOpen(false)}
-              />
-            ) : null}
-            <button
-              type="button"
-              className={styles.iconButton}
+          <Box sx={{ position: 'relative' }}>
+            <IconButton
+              size="small"
+              onClick={(e) => setNotificationsAnchor(notificationsAnchor ? null : e.currentTarget)}
               aria-label="Notifications"
-              aria-expanded={notificationsOpen}
-              aria-haspopup="dialog"
-              onClick={() => setNotificationsOpen((open) => !open)}
+              aria-expanded={Boolean(notificationsAnchor)}
+              sx={{
+                width: 34,
+                height: 34,
+                borderRadius: '0.5rem',
+                border: 1,
+                borderColor: 'divider',
+                bgcolor: Boolean(notificationsAnchor) ? 'action.selected' : 'transparent',
+                color: 'text.secondary',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                  color: 'text.primary',
+                },
+              }}
             >
-              <Bell className={styles.actionIcon} />
-            </button>
-            {notificationsOpen ? (
-              <div className={styles.notificationPanel} role="dialog" aria-label="Notifications">
-                <p className={styles.notificationTitle}>Notifications</p>
-                <p className={styles.notificationEmpty}>You&apos;re all caught up.</p>
-              </div>
-            ) : null}
-          </div>
+              <Bell size={16} />
+            </IconButton>
+            <Popover
+              open={Boolean(notificationsAnchor)}
+              anchorEl={notificationsAnchor}
+              onClose={() => setNotificationsAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              slotProps={{
+                paper: {
+                  elevation: 4,
+                  sx: {
+                    mt: 1,
+                    minWidth: 260,
+                    p: 2,
+                    borderRadius: '0.75rem',
+                    border: 1,
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                    boxShadow: (theme) =>
+                      theme.palette.mode === 'dark'
+                        ? '0 10px 25px -5px rgba(0,0,0,0.5), 0 8px 10px -6px rgba(0,0,0,0.5)'
+                        : '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.06)',
+                  },
+                },
+              }}
+            >
+              <Typography
+                sx={{ fontSize: '0.875rem', fontWeight: 700, color: 'text.primary', mb: 0.5 }}
+              >
+                Notifications
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.8125rem', color: 'text.secondary' }}>
+                You&apos;re all caught up.
+              </Typography>
+            </Popover>
+          </Box>
         ) : null}
         {showWorkspaceActions && headerChrome.showSettings ? (
           <Link href={settingsHref} className={styles.iconButton} aria-label="Settings">

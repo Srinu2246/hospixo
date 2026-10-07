@@ -1,161 +1,174 @@
 'use client';
 
-import { orgDash } from '@/features/dashboard/styles/org-dash-classes';
-
-import { Skeleton } from '@mui/material';
+import { Box, Card, Skeleton, Stack } from '@mui/material';
 
 const KPI_COUNT = 4;
 const CHART_BAR_COUNT = 6;
 const CHART_BAR_HEIGHTS = [72, 58, 85, 64, 91, 55];
 
-const skeletonSx = {
-  bgcolor: 'var(--muted)',
-  transform: 'none',
-} as const;
-
-function Block({
-  className,
-  style,
-}: Readonly<{ className?: string; style?: React.CSSProperties }>) {
-  return (
-    <Skeleton
-      variant="rounded"
-      animation="wave"
-      className={className}
-      style={style}
-      sx={skeletonSx}
-    />
-  );
-}
-
 function KpiCardSkeleton() {
   return (
-    <article className={orgDash.kpiCard}>
-      <div className={orgDash.kpiCardtop}>
-        <div>
-          <Block className={orgDash.skKpilabel} />
-          <Block className={orgDash.skKpivalue} />
-        </div>
-        <Block className={orgDash.skKpiicon} />
-      </div>
-      <Block className={orgDash.skKpimeta} />
-    </article>
+    <Card
+      variant="outlined"
+      sx={{
+        borderRadius: '0.75rem',
+        p: '1.25rem 1.5rem',
+        bgcolor: 'background.paper',
+        borderColor: 'divider',
+        boxShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        gap: 1.5,
+      }}
+    >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box sx={{ width: '60%' }}>
+          <Skeleton variant="text" width="60%" height={20} />
+          <Skeleton variant="text" width="80%" height={36} sx={{ mt: 0.5 }} />
+        </Box>
+        <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: '0.5rem' }} />
+      </Box>
+      <Skeleton variant="text" width="40%" height={16} />
+    </Card>
   );
 }
 
 function CompanyPerformanceChartSkeleton() {
   return (
-    <div className={orgDash.perfChart}>
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${CHART_BAR_COUNT}, minmax(0, 1fr))`,
+        alignItems: 'flex-end',
+        gap: 2,
+        height: 220,
+        pt: 3,
+        pb: 1,
+      }}
+    >
       {Array.from({ length: CHART_BAR_COUNT }).map((_, index) => (
-        <div key={index} className={orgDash.perfChartcolumn}>
-          <div className={orgDash.perfChartbartrack}>
-            <Block
-              className={orgDash.skChartbar}
-              style={{ height: `${CHART_BAR_HEIGHTS[index] ?? 60}%` }}
-            />
-          </div>
-          <Block className={orgDash.skChartlabel} />
-        </div>
+        <Box
+          key={index}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            height: '100%',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <Skeleton
+            variant="rounded"
+            width="50%"
+            height={`${CHART_BAR_HEIGHTS[index] ?? 60}%`}
+            sx={{ borderRadius: '6px 6px 0 0' }}
+          />
+          <Skeleton variant="text" width="70%" height={16} sx={{ mt: 1 }} />
+        </Box>
       ))}
-    </div>
-  );
-}
-
-function OperationsDonutSkeleton() {
-  return (
-    <div className={orgDash.skDonutcard}>
-      <Block className={orgDash.skSectionlabel} />
-      <Block className={orgDash.skDonutring} />
-      <div className={orgDash.skDonutlegend}>
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Block key={index} className={orgDash.skDonutlegendline} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function OperationsFinancialSkeleton() {
-  return (
-    <section className={`${orgDash.surfaceCard} ${orgDash.skFinancialcard}`}>
-      <Block className={orgDash.skSectionlabel} />
-      <Block className={orgDash.skStackbar} />
-      <div className={orgDash.skFinanciallines}>
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Block key={index} className={orgDash.skFinancialline} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function BottomPanelSkeleton({ tall = false }: Readonly<{ tall?: boolean }>) {
-  return (
-    <div className={orgDash.skPanelcard} style={tall ? { minHeight: '14rem' } : undefined}>
-      <Block className={orgDash.skPaneltitle} />
-      <div className={orgDash.skPanellines}>
-        <Block className={orgDash.skPanelline} />
-        <Block className={orgDash.skPanellineshort} />
-        <Block className={orgDash.skPanelline} />
-      </div>
-      <Block className={orgDash.skPanelfooter} />
-    </div>
+    </Box>
   );
 }
 
 export function OrganisationDashboardSkeleton() {
   return (
-    <div
-      className={orgDash.page}
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2.5,
+        bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'background.default' : '#f8fafc'),
+        p: { xs: 2, sm: 2.5, md: 3 },
+        pb: { xs: 6, md: 8 },
+        minHeight: '100%',
+        boxSizing: 'border-box',
+      }}
       role="status"
       aria-busy="true"
       aria-label="Loading organisation dashboard"
     >
-      <div className={orgDash.headerHeader}>
-        <Block className={orgDash.skPagetitle} />
-        <div className={orgDash.headerActions}>
-          <Block className={orgDash.skDatepicker} />
-          <Block className={orgDash.skExportbutton} />
-        </div>
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Skeleton variant="text" width={240} height={32} />
+        <Box sx={{ display: 'flex', gap: 1.5 }}>
+          <Skeleton variant="rounded" width={160} height={36} sx={{ borderRadius: '0.5rem' }} />
+          <Skeleton variant="rounded" width={120} height={36} sx={{ borderRadius: '0.5rem' }} />
+        </Box>
+      </Box>
 
-      <div className={orgDash.kpiGrid}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gap: 2,
+        }}
+      >
         {Array.from({ length: KPI_COUNT }).map((_, index) => (
           <KpiCardSkeleton key={index} />
         ))}
-      </div>
+      </Box>
 
-      <section className={orgDash.surfaceCard}>
-        <Block className={orgDash.skSectionlabel} />
-        <div className={orgDash.perfSectionheader}>
-          <Block className={orgDash.skMetricselect} />
-          <div className={orgDash.perfToolbar}>
-            <div className={orgDash.perfViewtoggle}>
-              <Block className={orgDash.skViewtoggleplaceholder} />
-            </div>
-          </div>
-        </div>
+      <Card
+        variant="outlined"
+        sx={{
+          borderRadius: '0.75rem',
+          p: '1.25rem 1.5rem',
+          bgcolor: 'background.paper',
+          borderColor: 'divider',
+          boxShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
+        }}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+          <Skeleton variant="rounded" width={140} height={32} sx={{ borderRadius: '0.5rem' }} />
+          <Skeleton variant="rounded" width={80} height={32} sx={{ borderRadius: '0.375rem' }} />
+        </Box>
         <CompanyPerformanceChartSkeleton />
-      </section>
+      </Card>
 
-      <div>
-        <Block className={orgDash.skSectionlabel} />
-        <div className={orgDash.opsGrid}>
-          <OperationsDonutSkeleton />
-          <OperationsFinancialSkeleton />
-        </div>
-      </div>
-
-      <div className={orgDash.bottomTwocolgrid}>
-        <BottomPanelSkeleton />
-        <BottomPanelSkeleton />
-      </div>
-
-      <div className={orgDash.bottomThreecolgrid}>
-        {Array.from({ length: 3 }).map((_, index) => (
-          <BottomPanelSkeleton key={index} tall />
-        ))}
-      </div>
-    </div>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' },
+          gap: 2,
+        }}
+      >
+        <Card
+          variant="outlined"
+          sx={{
+            borderRadius: '0.75rem',
+            p: '1.25rem 1.5rem',
+            boxShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
+            height: 200,
+          }}
+        >
+          <Skeleton variant="text" width={120} height={20} sx={{ mb: 2 }} />
+          <Box sx={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+            <Skeleton variant="circular" width={120} height={120} />
+            <Stack spacing={1} sx={{ flex: 1 }}>
+              <Skeleton variant="text" width="90%" height={20} />
+              <Skeleton variant="text" width="75%" height={20} />
+              <Skeleton variant="text" width="85%" height={20} />
+            </Stack>
+          </Box>
+        </Card>
+        <Card
+          variant="outlined"
+          sx={{
+            borderRadius: '0.75rem',
+            p: '1.25rem 1.5rem',
+            boxShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
+            height: 200,
+          }}
+        >
+          <Skeleton variant="text" width={140} height={20} sx={{ mb: 2 }} />
+          <Skeleton variant="rounded" width="100%" height={12} sx={{ borderRadius: 9999, mb: 3 }} />
+          <Stack spacing={1}>
+            <Skeleton variant="text" width="80%" height={20} />
+            <Skeleton variant="text" width="70%" height={20} />
+            <Skeleton variant="text" width="85%" height={20} />
+          </Stack>
+        </Card>
+      </Box>
+    </Box>
   );
 }

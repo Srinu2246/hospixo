@@ -1,5 +1,6 @@
-import { orgDash } from '@/features/dashboard/styles/org-dash-classes';
+'use client';
 
+import { Box, Button, Typography } from '@mui/material';
 import { Download } from 'lucide-react';
 
 import { organisationDashboardCopy } from '@/features/dashboard/config/organisation/dashboard';
@@ -36,9 +37,29 @@ export function OrganisationDashboardHeader({
   onCustomRangeApply,
 }: OrganisationDashboardHeaderProps) {
   return (
-    <header className={orgDash.headerHeader}>
-      <h1 className={orgDash.headerTitle}>{organisationDashboardCopy.title}</h1>
-      <div className={orgDash.headerActions}>
+    <Box
+      component="header"
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 2,
+      }}
+    >
+      <Typography
+        variant="h6"
+        sx={{
+          fontSize: '1.125rem',
+          fontWeight: 700,
+          color: 'text.primary',
+          letterSpacing: '-0.01em',
+        }}
+      >
+        {organisationDashboardCopy.title}
+      </Typography>
+
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
         <OrganisationDateRangePicker
           label={data.dateRangeLabel}
           activeRange={activeRange}
@@ -50,15 +71,30 @@ export function OrganisationDashboardHeader({
           onSelectPreset={onPresetRangeChange}
           onApplyCustom={onCustomRangeApply}
         />
-        <button
+        <Button
           type="button"
-          className={orgDash.headerExportbutton}
+          variant="outlined"
+          startIcon={<Download size={16} />}
           onClick={() => exportOrganisationDashboardCsv(data)}
+          sx={{
+            textTransform: 'none',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            borderRadius: '0.5rem',
+            px: 2,
+            py: 0.75,
+            color: 'info.main',
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            '&:hover': {
+              borderColor: 'info.main',
+              bgcolor: 'action.hover',
+            },
+          }}
         >
-          <Download className={orgDash.headerExporticon} aria-hidden />
           {organisationDashboardCopy.exportButton}
-        </button>
-      </div>
-    </header>
+        </Button>
+      </Box>
+    </Box>
   );
 }

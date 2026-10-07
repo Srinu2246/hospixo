@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Bell,
   ChevronDown,
@@ -12,7 +13,8 @@ import {
   Settings,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
+import { Avatar, Box, Divider, Menu as MuiMenu, MenuItem, Typography } from '@mui/material';
 
 import AdminLogoutDialog from '@/components/shell/topbar/AdminLogoutDialog';
 import { adminTopbarCopy } from '@/constants/navigation';
@@ -34,38 +36,19 @@ function profileLabel(userEmail?: string) {
 }
 
 export default function AdminTopbar({ navOpen = false, onMenuClick, userEmail }: AdminTopbarProps) {
+  const router = useRouter();
   const displayName = profileLabel(userEmail);
   const avatarLetter = displayName.charAt(0).toUpperCase() || 'A';
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [profileAnchorEl, setProfileAnchorEl] = useState<HTMLElement | null>(null);
   const [logoutOpen, setLogoutOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (menuRef.current && !menuRef.current.contains(target)) {
-        setMenuOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setMenuOpen(false);
-    }
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
+  const menuOpen = Boolean(profileAnchorEl);
 
   function onSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const query = new FormData(form).get('q');
     if (typeof query !== 'string' || !query.trim()) return;
-    window.location.assign(`${ADMIN_ROUTES.organizations}?q=${encodeURIComponent(query.trim())}`);
+    router.push(`${ADMIN_ROUTES.organizations}?q=${encodeURIComponent(query.trim())}`);
   }
 
   return (
@@ -131,7 +114,7 @@ export default function AdminTopbar({ navOpen = false, onMenuClick, userEmail }:
           <Settings className={styles.actionIcon} aria-hidden />
         </Link>
 
-        <div className={styles.profileWrap} ref={menuRef}>
+        <div className={styles.profileWrap}>
           <button
             type="button"
             className={styles.profileButton}
@@ -139,7 +122,7 @@ export default function AdminTopbar({ navOpen = false, onMenuClick, userEmail }:
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             title={userEmail?.trim() || displayName}
-            onClick={() => setMenuOpen((current) => !current)}
+            onClick={(e) => setProfileAnchorEl(profileAnchorEl ? null : e.currentTarget)}
           >
             <span className={styles.avatarFallback} aria-hidden>
               {avatarLetter}
@@ -151,34 +134,99 @@ export default function AdminTopbar({ navOpen = false, onMenuClick, userEmail }:
             />
           </button>
 
-          {menuOpen ? (
-            <div className={styles.profileMenu} role="menu" aria-label={adminTopbarCopy.menuLabel}>
-              <div className={styles.profileMenuHeader}>
-                <span className={styles.avatarFallback} aria-hidden>
-                  {avatarLetter}
-                </span>
-                <div className={styles.profileMenuIdentity}>
-                  <p className={styles.profileMenuName}>{displayName}</p>
-                  {userEmail?.trim() ? (
-                    <p className={styles.profileMenuEmail}>{userEmail.trim()}</p>
-                  ) : null}
-                </div>
-              </div>
-              <div className={styles.profileMenuDivider} />
-              <button
-                type="button"
-                className={styles.logoutItem}
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setLogoutOpen(true);
+          <MuiMenu
+            anchorEl={profileAnchorEl}
+            open={menuOpen}
+            onClose={() => setProfileAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{
+              paper: {
+                elevation: 4,
+                sx: {
+                  mt: 1,
+                  minWidth: 230,
+                  borderRadius: '0.75rem',
+                  border: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                  boxShadow: (theme) =>
+                    theme.palette.mode === 'dark'
+                      ? '0 10px 25px -5px rgba(0,0,0,0.5), 0 8px 10px -6px rgba(0,0,0,0.5)'
+                      : '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.06)',
+                  py: 0.5,
+                },
+              },
+            }}
+          >
+            <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Avatar
+                sx={{
+                  width: 36,
+                  height: 36,
+                  fontSize: '0.875rem',
+                  fontWeight: 700,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
                 }}
               >
-                <LogOut className={styles.logoutIcon} aria-hidden />
-                {adminTopbarCopy.logout}
-              </button>
-            </div>
-          ) : null}
+                {avatarLetter}
+              </Avatar>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  sx={{
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {displayName}
+                </Typography>
+                {userEmail?.trim() ? (
+                  <Typography
+                    sx={{
+                      fontSize: '0.75rem',
+                      color: 'text.secondary',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {userEmail.trim()}
+                  </Typography>
+                ) : null}
+              </Box>
+            </Box>
+
+            <Divider sx={{ my: 0.5 }} />
+
+            <MenuItem
+              onClick={() => {
+                setProfileAnchorEl(null);
+                setLogoutOpen(true);
+              }}
+              sx={{
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                borderRadius: '0.375rem',
+                mx: 0.75,
+                my: 0.25,
+                py: 0.75,
+                px: 1.25,
+                gap: 1.25,
+                color: 'error.main',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+              }}
+            >
+              <LogOut size={16} />
+              <span>{adminTopbarCopy.logout}</span>
+            </MenuItem>
+          </MuiMenu>
         </div>
       </div>
 

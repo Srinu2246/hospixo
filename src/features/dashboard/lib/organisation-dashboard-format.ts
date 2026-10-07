@@ -73,9 +73,6 @@ export function countOrganisationInclusiveDays(from: string, to: string): number
   return Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1);
 }
 
-const BASE_TOTAL_SALES = 4_852_300;
-const BASE_NET_SALES = 4_218_750;
-
 const organisationRangeProfiles: Record<
   OrganisationDateRangeId,
   Readonly<{
@@ -148,8 +145,11 @@ export function scaleOrganisationAmount(
   return Math.round(amount * profile.scale);
 }
 
-export function formatRelativeTime(_value: string | Date): string {
-  return 'Recently';
+export function formatRelativeTime(value?: string | Date): string {
+  if (!value) return 'Recently';
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return 'Recently';
+  return date.toLocaleDateString('en-IN');
 }
 
 export function formatUsageValue(used: number, limit: number, unit?: string): string {

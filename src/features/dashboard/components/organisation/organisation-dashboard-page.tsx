@@ -1,7 +1,5 @@
 'use client';
 
-import '@/features/dashboard/styles/organisation-dashboard.css';
-
 import { Alert } from '@mui/material';
 
 import {
@@ -32,7 +30,7 @@ export function OrganisationDashboardPage({
 
   if (isError || !data) {
     return (
-      <Alert severity="error" role="alert">
+      <Alert severity="error" role="alert" sx={{ m: 3 }}>
         {error instanceof Error ? error.message : 'Unable to load organisation dashboard.'}
       </Alert>
     );
