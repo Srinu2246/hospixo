@@ -1,4 +1,5 @@
 import { routes } from '@/config/routes';
+import { COMMON_DATE_RANGE_OPTIONS } from '../scopes';
 import {
   buildCompanyChartSeries,
   formatOrganisationCurrency,
@@ -33,12 +34,7 @@ export const organisationDashboardCopy = {
   applyDetail: 'Apply Detail',
   view: 'View',
   cycleRenewal: 'Cycle / Renewal',
-  dateRangeOptions: [
-    { id: 'today', label: 'Today' },
-    { id: 'last-7-days', label: 'Last 7 days' },
-    { id: 'last-30-days', label: 'Last 30 days' },
-    { id: 'custom', label: 'Custom' },
-  ] as const satisfies ReadonlyArray<{ id: OrganisationDateRangeId; label: string }>,
+  dateRangeOptions: COMMON_DATE_RANGE_OPTIONS,
   metricOptions: [
     { id: 'total-sales', label: 'Total Sales' },
     { id: 'revenue', label: 'Revenue' },

@@ -2,6 +2,7 @@ import {
   getOrganisationRangeProfile,
   resolveOrganisationDateRangeLabel,
 } from '@/features/dashboard/lib/organisation-dashboard-format';
+import { scaleAmount, scaleMetric } from './scale-metric';
 import type {
   BranchDashboardDisplayData,
   BranchDashboardOverview,
@@ -16,24 +17,6 @@ const periodScale: Record<BranchDashboardPeriod, number> = {
   yesterday: 1,
   week: 1,
 };
-
-function scaleMetric(
-  metric: BranchDashboardOverview['kpis']['totalSales'],
-  scaleFactor: number,
-  changePercent: number,
-  changeLabel: string,
-) {
-  return {
-    ...metric,
-    amount: Math.max(0, Math.round(metric.amount * scaleFactor)),
-    changePercent: metric.changePercent !== 0 ? metric.changePercent : changePercent,
-    changeLabel,
-  };
-}
-
-function scaleAmount(amount: number, scaleFactor: number) {
-  return Math.max(0, Math.round(amount * scaleFactor));
-}
 
 function scaleOrderTypes(rows: BranchDashboardOverview['salesByOrderType'], scaleFactor: number) {
   return rows.map((row) => ({

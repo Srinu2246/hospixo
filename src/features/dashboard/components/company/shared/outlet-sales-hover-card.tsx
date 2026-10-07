@@ -1,7 +1,6 @@
 'use client';
 
-import { Box, Paper, Typography } from '@mui/material';
-
+import { MetricHoverCard } from '@/features/dashboard/components/shared/metric-hover-card';
 import type { OutletSalesRow } from '@/features/dashboard/types';
 import { formatCurrency } from '@/features/dashboard/lib/format';
 
@@ -26,65 +25,10 @@ const fields: ReadonlyArray<{
 ];
 
 export function OutletSalesHoverCard({ row, placement = 'center', sx }: OutletSalesHoverCardProps) {
-  const placementSx =
-    placement === 'start'
-      ? { left: 0, right: 'auto', transform: 'none' }
-      : placement === 'end'
-        ? { right: 0, left: 'auto', transform: 'none' }
-        : { left: '50%', right: 'auto', transform: 'translateX(-50%)' };
+  const items = fields.map((field) => ({
+    label: field.label,
+    value: field.value(row),
+  }));
 
-  return (
-    <Paper
-      elevation={8}
-      role="tooltip"
-      sx={{
-        position: 'absolute',
-        bottom: 'calc(100% + 8px)',
-        zIndex: 1400,
-        width: 220,
-        p: 1.5,
-        borderRadius: '0.5rem',
-        border: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        pointerEvents: 'none',
-        ...placementSx,
-        ...sx,
-      }}
-    >
-      <Typography
-        sx={{
-          fontSize: '0.875rem',
-          fontWeight: 700,
-          color: 'text.primary',
-          mb: 1,
-          borderBottom: 1,
-          borderColor: 'divider',
-          pb: 0.5,
-        }}
-      >
-        {row.outletName}
-      </Typography>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {fields.map((field) => (
-          <Box
-            key={field.label}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '0.75rem',
-            }}
-          >
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {field.label}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600 }}>
-              {field.value(row)}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-    </Paper>
-  );
+  return <MetricHoverCard title={row.outletName} items={items} placement={placement} sx={sx} />;
 }

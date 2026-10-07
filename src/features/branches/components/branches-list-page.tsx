@@ -9,7 +9,6 @@ import {
   Button,
   Card,
   Chip,
-  InputAdornment,
   Skeleton,
   Table,
   TableBody,
@@ -17,15 +16,19 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material';
-import { ArrowRight, CheckCircle2, MapPin, RefreshCw, Search, Store, XCircle } from 'lucide-react';
+import { ArrowRight, MapPin, RefreshCw, Store } from 'lucide-react';
 
+import {
+  EntityListMetricsRow,
+  EntityListToolbar,
+  type StatusFilterTab,
+} from '@/components/common/entity-list';
 import { useBranchesList } from '../hooks/use-branches-list';
 import type { BranchListItem } from '../types';
 
-type StatusFilter = 'all' | 'active' | 'inactive';
+type StatusFilter = StatusFilterTab;
 
 type BranchesListPageProps = Readonly<{
   companyId?: string;
@@ -144,243 +147,28 @@ export function BranchesListPage({
       </Box>
 
       {/* KPI Metric Cards */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
-          gap: 1.25,
-          flexShrink: 0,
-        }}
-      >
-        <Card
-          variant="outlined"
-          sx={{
-            borderRadius: '0.75rem',
-            p: { xs: '0.75rem 1rem', md: '0.875rem 1.125rem' },
-            bgcolor: 'background.paper',
-            borderColor: 'divider',
-            boxShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Box>
-            <Typography
-              sx={{
-                fontSize: '0.6875rem',
-                fontWeight: 700,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: 'text.secondary',
-              }}
-            >
-              Total Branches
-            </Typography>
-            <Typography
-              sx={{ fontSize: '1.35rem', fontWeight: 700, color: 'text.primary', mt: 0.25 }}
-            >
-              {isLoading ? <Skeleton width={48} height={32} /> : metrics.total}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: '0.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: (theme) =>
-                theme.palette.mode === 'dark'
-                  ? 'rgba(56, 189, 248, 0.15)'
-                  : 'rgba(2, 132, 199, 0.1)',
-              color: 'info.main',
-              flexShrink: 0,
-            }}
-          >
-            <Store size={18} />
-          </Box>
-        </Card>
-
-        <Card
-          variant="outlined"
-          sx={{
-            borderRadius: '0.75rem',
-            p: { xs: '0.75rem 1rem', md: '0.875rem 1.125rem' },
-            bgcolor: 'background.paper',
-            borderColor: 'divider',
-            boxShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Box>
-            <Typography
-              sx={{
-                fontSize: '0.6875rem',
-                fontWeight: 700,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: 'text.secondary',
-              }}
-            >
-              Active Branches
-            </Typography>
-            <Typography
-              sx={{ fontSize: '1.35rem', fontWeight: 700, color: 'success.main', mt: 0.25 }}
-            >
-              {isLoading ? <Skeleton width={48} height={32} /> : metrics.active}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: '0.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: (theme) =>
-                theme.palette.mode === 'dark'
-                  ? 'rgba(34, 197, 94, 0.15)'
-                  : 'rgba(22, 163, 74, 0.1)',
-              color: 'success.main',
-              flexShrink: 0,
-            }}
-          >
-            <CheckCircle2 size={18} />
-          </Box>
-        </Card>
-
-        <Card
-          variant="outlined"
-          sx={{
-            borderRadius: '0.75rem',
-            p: { xs: '0.75rem 1rem', md: '0.875rem 1.125rem' },
-            bgcolor: 'background.paper',
-            borderColor: 'divider',
-            boxShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Box>
-            <Typography
-              sx={{
-                fontSize: '0.6875rem',
-                fontWeight: 700,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: 'text.secondary',
-              }}
-            >
-              Inactive Branches
-            </Typography>
-            <Typography
-              sx={{ fontSize: '1.35rem', fontWeight: 700, color: 'text.secondary', mt: 0.25 }}
-            >
-              {isLoading ? <Skeleton width={48} height={32} /> : metrics.inactive}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: '0.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: 'action.hover',
-              color: 'text.secondary',
-              flexShrink: 0,
-            }}
-          >
-            <XCircle size={18} />
-          </Box>
-        </Card>
-      </Box>
+      <EntityListMetricsRow
+        metrics={metrics}
+        totalLabel="Total Branches"
+        activeLabel="Active Branches"
+        inactiveLabel="Inactive Branches"
+        totalIcon={Store}
+        isLoading={isLoading}
+      />
 
       {/* Search & Filter Toolbar */}
-      <Card
-        variant="outlined"
-        sx={{
-          borderRadius: '0.75rem',
-          p: { xs: 1, sm: 1.25 },
-          bgcolor: 'background.paper',
-          borderColor: 'divider',
-          boxShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1.25,
-          flexShrink: 0,
+      <EntityListToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search branches by name, code, or city..."
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        counts={{
+          all: metrics.total,
+          active: metrics.active,
+          inactive: metrics.inactive,
         }}
-      >
-        <TextField
-          size="small"
-          placeholder="Search branches by name, code, or city..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={16} />
-                </InputAdornment>
-              ),
-            },
-          }}
-          sx={{
-            minWidth: { xs: '100%', sm: 300 },
-            '& .MuiOutlinedInput-root': {
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-            },
-          }}
-        />
-
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {(['all', 'active', 'inactive'] as const).map((tab) => {
-            const active = statusFilter === tab;
-            const count =
-              tab === 'all' ? metrics.total : tab === 'active' ? metrics.active : metrics.inactive;
-
-            return (
-              <Button
-                key={tab}
-                size="small"
-                variant={active ? 'contained' : 'outlined'}
-                onClick={() => setStatusFilter(tab)}
-                sx={{
-                  borderRadius: '0.5rem',
-                  textTransform: 'capitalize',
-                  fontWeight: 600,
-                  fontSize: '0.8125rem',
-                  px: 1.75,
-                  py: 0.625,
-                  ...(active
-                    ? {
-                        bgcolor: 'primary.main',
-                        color: 'primary.contrastText',
-                        boxShadow: 'none',
-                      }
-                    : {
-                        borderColor: 'divider',
-                        color: 'text.secondary',
-                        bgcolor: 'background.paper',
-                      }),
-                }}
-              >
-                {tab} ({count})
-              </Button>
-            );
-          })}
-        </Box>
-      </Card>
+      />
 
       {/* Error state */}
       {isError ? (

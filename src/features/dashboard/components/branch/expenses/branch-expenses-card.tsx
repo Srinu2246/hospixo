@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Card, Divider, Stack, Typography } from '@mui/material';
+import { Box, Card, Typography } from '@mui/material';
 
 import { branchDashboardCopy } from '@/features/dashboard/config/branch/dashboard';
 import type {
@@ -9,6 +9,7 @@ import type {
 } from '@/features/dashboard/types/branch-dashboard';
 import { formatCurrency, formatPercent } from '@/features/dashboard/lib/format';
 import { PeriodSelect } from '@/features/dashboard/components/branch/shared/period-select';
+import { ExpenseSummaryBody } from '@/features/dashboard/components/shared/expense-summary-body';
 
 type BranchExpensesCardProps = Readonly<{
   expenses: BranchDashboardOverview['expenses'];
@@ -78,51 +79,7 @@ export function BranchExpensesCard({ expenses, period, onPeriodChange }: BranchE
         <PeriodSelect value={period} onChange={onPeriodChange} ariaLabel="Expenses period" />
       </Box>
 
-      <Stack spacing={1.5} sx={{ mb: 'auto' }}>
-        {expenses.items.map((item) => (
-          <Box
-            key={item.label}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '0.8125rem',
-            }}
-          >
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8125rem' }}>
-              {item.label}
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.8125rem' }}
-            >
-              {formatCurrency(item.amount)}
-            </Typography>
-          </Box>
-        ))}
-        {expenses.items.length === 0 ? (
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-            No expenses recorded.
-          </Typography>
-        ) : null}
-      </Stack>
-
-      <Divider sx={{ my: 2 }} />
-
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-          {totalLabel}
-        </Typography>
-        <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: 'text.primary' }}>
-          {formatCurrency(expenses.total)}
-        </Typography>
-      </Box>
+      <ExpenseSummaryBody items={expenses.items} total={expenses.total} totalLabel={totalLabel} />
     </Card>
   );
 }

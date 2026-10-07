@@ -12,6 +12,11 @@ import {
   buildCompanyDashboardData,
   getDefaultCompanyCustomRange,
 } from '@/features/dashboard/lib/build-company-dashboard-data';
+import {
+  parseIsoDate,
+  parseRange,
+  syncDashboardSearchParams,
+} from '@/features/dashboard/lib/dashboard-date-params';
 import type { DashboardOverview } from '@/features/dashboard/types';
 import type { OrganisationDateRangeId } from '@/features/dashboard/types/organisation-dashboard';
 
@@ -55,22 +60,6 @@ export function useCompanyDashboardQuery(options?: UseCompanyDashboardQueryOptio
 
 type PresetRangeId = Exclude<OrganisationDateRangeId, 'custom'>;
 
-function parseRange(value: string | null): OrganisationDateRangeId {
-  if (
-    value === 'today' ||
-    value === 'last-7-days' ||
-    value === 'last-30-days' ||
-    value === 'custom'
-  ) {
-    return value;
-  }
-  return 'last-7-days';
-}
-
-function parseIsoDate(value: string | null, fallback: string): string {
-  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : fallback;
-}
-
 export function useCompanyDashboardControls(initialData: DashboardOverview) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -111,19 +100,7 @@ export function useCompanyDashboardControls(initialData: DashboardOverview) {
   }, []);
 
   function syncUrl(updates: Record<string, string | undefined>) {
-    const params = new URLSearchParams(searchParams.toString());
-
-    for (const [key, value] of Object.entries(updates)) {
-      if (!value) {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    }
-
-    const query = params.toString();
-    const nextUrl = query ? `${pathname}?${query}` : pathname;
-    window.history.replaceState(window.history.state, '', nextUrl);
+    syncDashboardSearchParams(pathname, searchParams, updates);
   }
 
   function handlePresetRangeChange(range: PresetRangeId) {

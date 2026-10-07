@@ -1,3 +1,5 @@
+import type { OrganisationDateRangeId } from '@/features/dashboard/types/organisation-dashboard';
+
 /**
  * Tenant dashboard scopes in `apps/platform`.
  * Post-login home is chosen by `resolveDashboardHomePath` from the user token.
@@ -27,3 +29,10 @@ export const platformDashboardScopes = {
 
 export type PlatformDashboardScope =
   (typeof platformDashboardScopes)[keyof typeof platformDashboardScopes]['key'];
+
+export const COMMON_DATE_RANGE_OPTIONS = [
+  { id: 'today', label: 'Today' },
+  { id: 'last-7-days', label: 'Last 7 days' },
+  { id: 'last-30-days', label: 'Last 30 days' },
+  { id: 'custom', label: 'Custom' },
+] as const satisfies ReadonlyArray<{ id: OrganisationDateRangeId; label: string }>;

@@ -1,8 +1,8 @@
 import type { ElementType } from 'react';
 
 import { companySidebar } from '@/config/shell/access-navigation';
+import { COMMON_DATE_RANGE_OPTIONS } from '../scopes';
 import type { DashboardOverview } from '@/features/dashboard/types';
-import type { OrganisationDateRangeId } from '@/features/dashboard/types/organisation-dashboard';
 
 export type CompanyNavItem = Readonly<{
   href: string;
@@ -33,12 +33,7 @@ export const companyLandingContent = {
     dateRange: '28 Jun - 4 Jul 2026',
     exportButton: 'Export Data',
   },
-  dateRangeOptions: [
-    { id: 'today', label: 'Today' },
-    { id: 'last-7-days', label: 'Last 7 days' },
-    { id: 'last-30-days', label: 'Last 30 days' },
-    { id: 'custom', label: 'Custom' },
-  ] as const satisfies ReadonlyArray<{ id: OrganisationDateRangeId; label: string }>,
+  dateRangeOptions: COMMON_DATE_RANGE_OPTIONS,
   fallback: {
     banner: 'Showing sample dashboard figures until live data is available.',
   },

@@ -10,6 +10,11 @@ import {
 } from '@/features/dashboard/api/branch-dashboard';
 import { getDefaultBranchCustomRange } from '@/features/dashboard/config/branch/dashboard';
 import { buildBranchDashboardData } from '@/features/dashboard/lib/build-branch-dashboard-data';
+import {
+  parseIsoDate,
+  parseRange,
+  syncDashboardSearchParams,
+} from '@/features/dashboard/lib/dashboard-date-params';
 import type {
   BranchDashboardOverview,
   BranchDashboardPeriod,
@@ -55,22 +60,6 @@ export function useBranchDashboardQuery(options?: UseBranchDashboardQueryOptions
 }
 
 type PresetRangeId = Exclude<OrganisationDateRangeId, 'custom'>;
-
-function parseRange(value: string | null): OrganisationDateRangeId {
-  if (
-    value === 'today' ||
-    value === 'last-7-days' ||
-    value === 'last-30-days' ||
-    value === 'custom'
-  ) {
-    return value;
-  }
-  return 'last-7-days';
-}
-
-function parseIsoDate(value: string | null, fallback: string): string {
-  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : fallback;
-}
 
 function parsePeriod(value: string | null, fallback: BranchDashboardPeriod): BranchDashboardPeriod {
   if (value === 'today' || value === 'yesterday' || value === 'week') {
@@ -147,19 +136,7 @@ export function useBranchDashboardControls(initialData: BranchDashboardOverview)
   }, []);
 
   function syncUrl(updates: Record<string, string | undefined>) {
-    const params = new URLSearchParams(searchParams.toString());
-
-    for (const [key, value] of Object.entries(updates)) {
-      if (!value) {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    }
-
-    const query = params.toString();
-    const nextUrl = query ? `${pathname}?${query}` : pathname;
-    window.history.replaceState(window.history.state, '', nextUrl);
+    syncDashboardSearchParams(pathname, searchParams, updates);
   }
 
   function handlePresetRangeChange(range: PresetRangeId) {

@@ -1,10 +1,10 @@
 'use client';
 
-import { Box, Card, Divider, Stack, Typography } from '@mui/material';
+import { Card, Typography } from '@mui/material';
 
 import { companyLandingContent } from '@/features/dashboard/config/company';
 import type { DashboardExpenseItem } from '@/features/dashboard/types';
-import { formatCurrency } from '@/features/dashboard/lib/format';
+import { ExpenseSummaryBody } from '@/features/dashboard/components/shared/expense-summary-body';
 
 type ExpensesCardProps = Readonly<{
   total: number;
@@ -40,51 +40,7 @@ export function ExpensesCard({ total, items }: ExpensesCardProps) {
         {title}
       </Typography>
 
-      <Stack spacing={1.5} sx={{ mb: 'auto' }}>
-        {items.map((item) => (
-          <Box
-            key={item.label}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '0.8125rem',
-            }}
-          >
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8125rem' }}>
-              {item.label}
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ color: 'text.primary', fontWeight: 500, fontSize: '0.8125rem' }}
-            >
-              {formatCurrency(item.amount)}
-            </Typography>
-          </Box>
-        ))}
-        {items.length === 0 ? (
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-            No expenses recorded.
-          </Typography>
-        ) : null}
-      </Stack>
-
-      <Divider sx={{ my: 2 }} />
-
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-          {totalLabel}
-        </Typography>
-        <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: 'text.primary' }}>
-          {formatCurrency(total)}
-        </Typography>
-      </Box>
+      <ExpenseSummaryBody items={items} total={total} totalLabel={totalLabel} />
     </Card>
   );
 }

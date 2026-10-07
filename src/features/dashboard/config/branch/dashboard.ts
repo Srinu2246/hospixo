@@ -1,7 +1,7 @@
 import { flowPaths } from '@/config/shell/flow-paths';
 import { organisationChartColors } from '@/features/dashboard/lib/organisation-chart-colors';
+import { COMMON_DATE_RANGE_OPTIONS } from '../scopes';
 import type { BranchDashboardOverview } from '@/features/dashboard/types/branch-dashboard';
-import type { OrganisationDateRangeId } from '@/features/dashboard/types/organisation-dashboard';
 
 export const branchDashboardCopy = {
   title: 'Sales Statistics',
@@ -19,12 +19,7 @@ export const branchDashboardCopy = {
       { key: 'offline', label: 'Offline Sales', dataKey: 'offlineSales', icon: 'banknote' },
     ],
   },
-  dateRangeOptions: [
-    { id: 'today', label: 'Today' },
-    { id: 'last-7-days', label: 'Last 7 days' },
-    { id: 'last-30-days', label: 'Last 30 days' },
-    { id: 'custom', label: 'Custom' },
-  ] as const satisfies ReadonlyArray<{ id: OrganisationDateRangeId; label: string }>,
+  dateRangeOptions: COMMON_DATE_RANGE_OPTIONS,
   periodOptions: [
     { id: 'today', label: 'Today' },
     { id: 'yesterday', label: 'Yesterday' },

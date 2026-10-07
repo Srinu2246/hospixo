@@ -2,6 +2,7 @@ import {
   getOrganisationRangeProfile,
   resolveOrganisationDateRangeLabel,
 } from '@/features/dashboard/lib/organisation-dashboard-format';
+import { scaleAmount, scaleMetric } from './scale-metric';
 import type { DashboardOverview } from '@/features/dashboard/types';
 import type { OrganisationDateRangeId } from '@/features/dashboard/types/organisation-dashboard';
 
@@ -14,24 +15,6 @@ export type CompanyDashboardDisplayData = DashboardOverview &
 
 export function getDefaultCompanyCustomRange(): Readonly<{ from: string; to: string }> {
   return { from: '2026-06-28', to: '2026-07-04' };
-}
-
-function scaleMetric(
-  metric: DashboardOverview['kpis']['totalSales'],
-  scaleFactor: number,
-  changePercent: number,
-  changeLabel: string,
-) {
-  return {
-    ...metric,
-    amount: Math.max(0, Math.round(metric.amount * scaleFactor)),
-    changePercent: metric.changePercent !== 0 ? metric.changePercent : changePercent,
-    changeLabel,
-  };
-}
-
-function scaleAmount(amount: number, scaleFactor: number) {
-  return Math.max(0, Math.round(amount * scaleFactor));
 }
 
 export function buildCompanyDashboardData(
