@@ -78,7 +78,10 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions): Promi
     const validation = payload as ApiErrorPayload | null;
     const message =
       getApiErrorMessageFromPayload(validation, response.statusText) ?? 'Request failed';
-    throw new ApiRequestError(message, response.status, normalizeApiErrorDetail(validation));
+    const details =
+      normalizeApiErrorDetail(validation) ??
+      (validation && typeof validation === 'object' ? validation : undefined);
+    throw new ApiRequestError(message, response.status, details as ApiErrorPayload['detail']);
   }
 
   return unwrapSuccessfulPayload<T>(payload, response.status);
@@ -98,11 +101,27 @@ function unwrapSuccessfulPayload<T>(payload: unknown, status: number): T {
   return payload as T;
 }
 
+function isGenericHttpStatusMessage(message: string): boolean {
+  return /^(bad request|unauthorized|forbidden|not found|conflict|unprocessable entity|internal server error|request failed)$/i.test(
+    message.trim(),
+  );
+}
+
 function getApiErrorMessageFromPayload(payload: ApiErrorPayload | null, statusText: string) {
-  if (payload?.message) return payload.message;
-  const structuredMessage = getStructuredApiErrorMessage(payload?.detail);
-  if (structuredMessage) return structuredMessage;
-  const validationMessage = formatApiValidationDetails(payload?.detail ?? undefined);
+  const detail = payload?.detail ?? payload?.details;
+  const validationMessage = formatApiValidationDetails(detail ?? undefined);
   if (validationMessage) return validationMessage;
-  return statusText || 'Request failed';
+
+  const structuredMessage = getStructuredApiErrorMessage(detail);
+  if (structuredMessage) return structuredMessage;
+
+  if (payload?.message && !isGenericHttpStatusMessage(payload.message)) {
+    return payload.message;
+  }
+
+  if (statusText && !isGenericHttpStatusMessage(statusText)) {
+    return statusText;
+  }
+
+  return payload?.message || statusText || 'Request failed';
 }

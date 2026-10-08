@@ -1,8 +1,8 @@
 export const colors = {
   primary: {
-    default: '#1976D2',
-    light: '#42A5F5',
-    dark: '#1565C0',
+    default: '#2563EB',
+    light: '#3B82F6',
+    dark: '#1D4ED8',
   },
 
   secondary: {
@@ -12,9 +12,9 @@ export const colors = {
   },
 
   success: {
-    default: '#2E7D32',
-    light: '#4CAF50',
-    dark: '#1B5E20',
+    default: '#16A34A',
+    light: '#22C55E',
+    dark: '#15803D',
   },
 
   info: {
@@ -24,15 +24,15 @@ export const colors = {
   },
 
   warning: {
-    default: '#ED6C02',
-    light: '#FF9800',
-    dark: '#E65100',
+    default: '#D97706',
+    light: '#F59E0B',
+    dark: '#B45309',
   },
 
   danger: {
-    default: '#D32F2F',
-    light: '#EF5350',
-    dark: '#B71C1C',
+    default: '#DC2626',
+    light: '#EF4444',
+    dark: '#B91C1C',
   },
 
   white: {
@@ -43,44 +43,44 @@ export const colors = {
 
   black: {
     default: '#000000',
-    light: '#212121',
+    light: '#0F172A',
     dark: '#000000',
   },
 
   gray: {
-    default: '#757575',
-    light: '#BDBDBD',
-    dark: '#424242',
+    default: '#64748B',
+    light: '#94A3B8',
+    dark: '#334155',
   },
 
   background: {
-    default: '#f8fafc',
+    default: '#F8FAFC',
     light: '#FAFAFA',
-    dark: '#121212',
+    dark: '#0B0D12',
   },
 
   surface: {
     default: '#FFFFFF',
-    light: '#F5F5F5',
-    dark: '#1E1E1E',
+    light: '#F8FAFC',
+    dark: '#111827',
   },
 
   text: {
-    primary: '#212121',
-    secondary: '#757575',
-    disabled: '#BDBDBD',
+    primary: '#0F172A',
+    secondary: '#475569',
+    disabled: '#94A3B8',
   },
 
   border: {
-    default: '#E0E0E0',
-    light: '#EEEEEE',
-    dark: '#BDBDBD',
+    default: '#E2E8F0',
+    light: '#F1F5F9',
+    dark: '#CBD5E1',
   },
 
   divider: {
-    default: '#E0E0E0',
-    light: '#F0F0F0',
-    dark: '#424242',
+    default: '#E2E8F0',
+    light: '#F1F5F9',
+    dark: '#334155',
   },
 
   /** Platform auth screens — dedicated accent (matches Hospixo platform login). */
