@@ -4,7 +4,7 @@ export type PreparationStation = {
   id: string;
   name: string;
   code: string;
-  status?: PreparationStationStatus | string;
+  status?: PreparationStationStatus;
   createdAt?: string;
   updatedAt?: string;
 };

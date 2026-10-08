@@ -1,28 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import CloseIcon from '@mui/icons-material/Close';
 
 import type { ItemVariant } from '../../types/menu';
 import { MenuFormField } from './menu-form-field';
+import { MenuFormDialogShell } from './menu-form-dialog-shell';
 import {
   menuFormDialogActionsSx,
-  menuFormDialogCloseButtonSx,
   menuFormDialogContentSx,
-  menuFormDialogPaperSx,
-  menuFormDialogTitleSx,
-  menuFormDialogTitleTextSx,
   menuFormTextFieldSx,
 } from './menu-form-dialog-styles';
 
@@ -108,24 +100,11 @@ export function AddVariantModal({
   }
 
   return (
-    <Dialog
-      open={isOpen}
+    <MenuFormDialogShell
+      isOpen={isOpen}
       onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      slotProps={{
-        paper: { sx: menuFormDialogPaperSx },
-      }}
+      title={isEditMode ? 'Edit Variant' : 'Variants'}
     >
-      <DialogTitle component="div" sx={menuFormDialogTitleSx}>
-        <Typography variant="h6" component="h2" sx={menuFormDialogTitleTextSx}>
-          {isEditMode ? 'Edit Variant' : 'Variants'}
-        </Typography>
-        <IconButton aria-label="close" onClick={onClose} sx={menuFormDialogCloseButtonSx}>
-          <CloseIcon sx={{ fontSize: 18 }} />
-        </IconButton>
-      </DialogTitle>
-
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <DialogContent sx={menuFormDialogContentSx}>
           <MenuFormField id="variant-size-name" label="Size Name">
@@ -189,6 +168,6 @@ export function AddVariantModal({
           </Button>
         </DialogActions>
       </Box>
-    </Dialog>
+    </MenuFormDialogShell>
   );
 }

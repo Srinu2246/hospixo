@@ -108,6 +108,13 @@ function mergePersistedMenuItem(existing: MenuItem | undefined, next: MenuItem):
   };
 }
 
+function generateSecureTempId(prefix: string): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+  }
+  return `${prefix}_${Date.now()}_${Date.now().toString(36)}`;
+}
+
 const DEFAULT_COMPANY_ID = 'default-company';
 const DEFAULT_BRANCH_ID = 'default-branch';
 const LEGACY_CATEGORIES_STORAGE_KEY = 'hospixo_branch_menu_categories';
@@ -549,7 +556,7 @@ export function MenuProvider({
   const addMenuItem = useCallback(
     async (input: CreateMenuItemInput) => {
       const matchedCat = categories.find((c) => c.id === input.categoryId);
-      const tempId = `temp_item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const tempId = generateSecureTempId('temp_item');
 
       const optimisticItem: MenuItem = {
         id: tempId,
@@ -1006,7 +1013,7 @@ export function MenuProvider({
 
   const addCategory = useCallback(
     async (input: CreateCategoryInput) => {
-      const tempId = `temp_cat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const tempId = generateSecureTempId('temp_cat');
       const optimisticCat: MenuCategory = {
         id: tempId,
         name: input.name.trim(),
@@ -1314,7 +1321,7 @@ export function MenuProvider({
       const createLocalPreview = (): ItemImage => {
         const objectUrl = URL.createObjectURL(file);
         return {
-          id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          id: generateSecureTempId('img'),
           url: objectUrl,
           previewUrl: objectUrl,
           mimeType: file.type,

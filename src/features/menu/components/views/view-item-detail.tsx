@@ -7,8 +7,6 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Chip from '@mui/material/Chip';
-import Breadcrumbs from '@mui/material/Breadcrumbs';
-import Link from '@mui/material/Link';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -21,7 +19,8 @@ import Alert from '@mui/material/Alert';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+
+import { StickyBreadcrumbBar } from '@/components/ui/sticky-breadcrumb-bar';
 
 import { useMenu } from '../../context/menu-context';
 import { getPrimaryMenuItemImageUrl } from '../../api/menu-item-images-map';
@@ -197,69 +196,13 @@ export function ViewItemDetail() {
 
   return (
     <Box sx={{ width: '100%', p: 0 }}>
-      {/* Sticky Breadcrumb Bar */}
-      <Box
-        sx={{
-          position: 'sticky',
-          top: { xs: -16, md: -24 },
-          zIndex: 10,
-          mx: { xs: -2, md: -3 },
-          mt: { xs: -2, md: -3 },
-          mb: 2.5,
-          px: { xs: 2, md: 3 },
-          py: 1.25,
-          bgcolor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <Breadcrumbs
-          separator={<NavigateNextIcon sx={{ fontSize: 14, color: 'text.disabled' }} />}
-          sx={{ fontSize: '0.8125rem' }}
-        >
-          <Link
-            component="button"
-            type="button"
-            onClick={backToList}
-            underline="hover"
-            sx={{
-              fontSize: '0.8125rem',
-              fontWeight: 500,
-              color: 'text.secondary',
-              cursor: 'pointer',
-              '&:hover': { color: 'primary.main' },
-            }}
-          >
-            Home
-          </Link>
-          <Link
-            component="button"
-            type="button"
-            onClick={backToList}
-            underline="hover"
-            sx={{
-              fontSize: '0.8125rem',
-              fontWeight: 500,
-              color: 'text.secondary',
-              cursor: 'pointer',
-              '&:hover': { color: 'primary.main' },
-            }}
-          >
-            Menu Creation
-          </Link>
-          <Typography
-            sx={{
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              color: 'primary.main',
-            }}
-          >
-            View Item
-          </Typography>
-        </Breadcrumbs>
-      </Box>
+      <StickyBreadcrumbBar
+        items={[
+          { label: 'Home', onClick: backToList },
+          { label: 'Menu Creation', onClick: backToList },
+          { label: 'View Item' },
+        ]}
+      />
 
       {/* Header */}
       <Box

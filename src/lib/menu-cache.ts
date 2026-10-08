@@ -78,9 +78,17 @@ function safeUnwrapArray<T>(payload: unknown): T[] {
   return [];
 }
 
+function safeStr(val: unknown, fallback = ''): string {
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  return fallback;
+}
+
 function resolveString(a: unknown, b?: unknown): string | undefined {
-  if (a != null) return String(a);
-  if (b != null) return String(b);
+  const strA = safeStr(a);
+  if (strA) return strA;
+  const strB = safeStr(b);
+  if (strB) return strB;
   return undefined;
 }
 
@@ -93,14 +101,14 @@ function resolveNumber(a: unknown, b?: unknown, c?: unknown): number | undefined
 
 function normalizeMenuCategory(raw: unknown): MenuCategory {
   const cat = (raw ?? {}) as Record<string, unknown>;
-  const statusRaw = String(cat.status ?? '').toLowerCase();
+  const statusRaw = safeStr(cat.status).toLowerCase();
   const status: MenuCategory['status'] = statusRaw === 'inactive' ? 'Inactive' : 'Active';
   return {
-    id: String(cat.id ?? ''),
-    name: String(cat.name ?? ''),
+    id: safeStr(cat.id),
+    name: safeStr(cat.name),
     parentId: resolveString(cat.parentId, cat.parent_id),
     status,
-    description: cat.description != null ? String(cat.description) : undefined,
+    description: cat.description != null ? safeStr(cat.description) : undefined,
     displayOrder: resolveNumber(cat.displayOrder, cat.display_order),
     scope: (cat.scope as 'company' | 'branch') ?? 'company',
     assignBranchId: resolveString(cat.assignBranchId, cat.assign_branch_id),
@@ -109,11 +117,11 @@ function normalizeMenuCategory(raw: unknown): MenuCategory {
 
 function normalizeMenuItemTag(raw: unknown): MenuItemTag {
   const tag = (raw ?? {}) as Record<string, unknown>;
-  const statusRaw = String(tag.status ?? '').toLowerCase();
+  const statusRaw = safeStr(tag.status).toLowerCase();
   return {
-    id: String(tag.id ?? ''),
-    name: String(tag.name ?? ''),
-    code: String(tag.code ?? ''),
+    id: safeStr(tag.id),
+    name: safeStr(tag.name),
+    code: safeStr(tag.code),
     status: statusRaw === 'inactive' ? 'Inactive' : 'Active',
   };
 }
@@ -129,10 +137,10 @@ function normalizeMenuItem(raw: unknown): MenuItem {
 function normalizePreparationStation(raw: unknown): PreparationStation {
   const s = (raw ?? {}) as Record<string, unknown>;
   return {
-    id: String(s.id ?? ''),
-    name: String(s.name ?? ''),
-    code: String(s.code ?? ''),
-    status: String(s.status ?? 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active',
+    id: safeStr(s.id),
+    name: safeStr(s.name),
+    code: safeStr(s.code),
+    status: safeStr(s.status, 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active',
     createdAt: resolveString(s.createdAt, s.created_at),
     updatedAt: resolveString(s.updatedAt, s.updated_at),
   };
@@ -141,12 +149,12 @@ function normalizePreparationStation(raw: unknown): PreparationStation {
 function normalizeModifierGroup(raw: unknown): ModifierGroup {
   const g = (raw ?? {}) as Record<string, unknown>;
   return {
-    id: String(g.id ?? ''),
-    name: String(g.name ?? ''),
+    id: safeStr(g.id),
+    name: safeStr(g.name),
     minSelect: Number(g.minSelect ?? g.min_select ?? 0),
     maxSelect: Number(g.maxSelect ?? g.max_select ?? 1),
     isRequired: Boolean(g.isRequired ?? g.is_required ?? false),
-    status: String(g.status ?? 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active',
+    status: safeStr(g.status, 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active',
     createdAt: resolveString(g.createdAt, g.created_at),
     updatedAt: resolveString(g.updatedAt, g.updated_at),
   };
@@ -155,23 +163,23 @@ function normalizeModifierGroup(raw: unknown): ModifierGroup {
 function normalizeItemVariant(raw: unknown): ItemVariant {
   const v = (raw ?? {}) as Record<string, unknown>;
   return {
-    id: String(v.id ?? ''),
-    size: String(v.size ?? v.name ?? ''),
+    id: safeStr(v.id),
+    size: safeStr(v.size ?? v.name),
     price: Number(v.price ?? v.price_adjustment ?? v.final_price ?? 0),
-    status: String(v.status ?? 'active').toLowerCase() === 'inactive' ? 'Inactive' : 'Active',
+    status: safeStr(v.status, 'active').toLowerCase() === 'inactive' ? 'Inactive' : 'Active',
   };
 }
 
 function normalizeItemImage(raw: unknown): ItemImage {
   const img = (raw ?? {}) as Record<string, unknown>;
   return {
-    id: String(img.id ?? ''),
-    url: String(img.url ?? img.image_url ?? ''),
+    id: safeStr(img.id),
+    url: safeStr(img.url ?? img.image_url),
     isPrimary: Boolean(img.isPrimary ?? img.is_primary ?? false),
     sortOrder: resolveNumber(img.sortOrder, img.displayOrder, img.sort_order),
     storageKey: resolveString(img.storageKey, img.storage_key),
     mimeType: resolveString(img.mimeType, img.mime_type),
-    status: String(img.status ?? 'active').toLowerCase() === 'inactive' ? 'Inactive' : 'Active',
+    status: safeStr(img.status, 'active').toLowerCase() === 'inactive' ? 'Inactive' : 'Active',
   };
 }
 
@@ -388,8 +396,8 @@ export async function fetchMenuItemImagesByItemId(
   return promise;
 }
 
-async function fetchBranchNameById(): Promise<Record<string, string>> {
-  return {};
+function fetchBranchNameById(): Promise<Record<string, string>> {
+  return Promise.resolve({});
 }
 
 async function fetchGstPercentByRateId(): Promise<Record<number, number>> {
@@ -517,7 +525,7 @@ type MenuMutationApiResponse<T> = Readonly<{
 function extractBffErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
     const body = error.body as Record<string, unknown> | null | undefined;
-    const detailSource = body?.detail ?? body?.details;
+    const detailSource = (body?.detail ?? body?.details) as ApiErrorPayload['detail'] | undefined;
     const validation = formatApiValidationDetails(detailSource);
     if (validation) return validation;
 

@@ -80,7 +80,12 @@ function pickPreferredAssignment(
   const active = records.filter((record) =>
     isActiveMenuStatus((record.status ?? 'active').toLowerCase()),
   );
-  const pool = dineIn.length > 0 ? dineIn : active.length > 0 ? active : records;
+  let pool = records;
+  if (dineIn.length > 0) {
+    pool = dineIn;
+  } else if (active.length > 0) {
+    pool = active;
+  }
 
   return (
     [...pool].sort((left, right) => {
@@ -113,8 +118,10 @@ export async function listBranchMenuAssignmentRows(
   const menuNameById: Record<string, string> = {};
 
   if (Array.isArray(menusRaw)) {
-    for (const menu of menusRaw as Array<{ id?: unknown; name?: string }>) {
-      if (menu.id != null && menu.name) menuNameById[String(menu.id)] = menu.name;
+    for (const menu of menusRaw as Array<{ id?: string | number; name?: string }>) {
+      if (menu.id != null && menu.name) {
+        menuNameById[String(menu.id)] = menu.name;
+      }
     }
   }
 

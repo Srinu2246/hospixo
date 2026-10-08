@@ -21,6 +21,15 @@ import type { RestaurantMenuType } from '../../types/restaurant-menu';
 
 const menuTypeOptions: RestaurantMenuType[] = ['All', 'Dine In', 'Takeaway', 'Delivery', 'Online'];
 
+function slugToCode(value: string): string {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+/, '')
+    .replace(/_+$/, '');
+}
+
 export function CreateRestaurantMenuView() {
   const { editingMenu, createMenu, updateMenu, backToList } = useRestaurantMenus();
   const isEditMode = Boolean(editingMenu);
@@ -42,14 +51,6 @@ export function CreateRestaurantMenuView() {
     setDescription(editingMenu?.description ?? '');
     setMenuType(editingMenu?.menuType ?? 'All');
     setDisplayOrder(String(editingMenu?.displayOrder ?? '0'));
-  }
-
-  function slugToCode(value: string): string {
-    return value
-      .trim()
-      .toUpperCase()
-      .replace(/[^A-Z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -200,7 +201,10 @@ export function CreateRestaurantMenuView() {
             disabled={isSubmitting}
             sx={{ textTransform: 'none' }}
           >
-            {isSubmitting ? 'Saving…' : isEditMode ? 'Save Menu' : 'Create Menu'}
+            {(() => {
+              if (isSubmitting) return 'Saving…';
+              return isEditMode ? 'Save Menu' : 'Create Menu';
+            })()}
           </Button>
         </Stack>
       </Paper>

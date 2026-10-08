@@ -1,34 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import CloseIcon from '@mui/icons-material/Close';
 
 import type { MenuItemTag } from '../../types/menu';
 import { MenuFormField } from './menu-form-field';
+import { MenuFormDialogShell } from './menu-form-dialog-shell';
 import {
   menuFormDialogActionsSx,
-  menuFormDialogCloseButtonSx,
   menuFormDialogContentSx,
-  menuFormDialogPaperSx,
-  menuFormDialogTitleSx,
-  menuFormDialogTitleTextSx,
   menuFormTextFieldSx,
 } from './menu-form-dialog-styles';
 
-type CreateTagsModalProps = {
+type CreateTagsModalProps = Readonly<{
   isOpen: boolean;
   onClose: () => void;
   editingTag?: MenuItemTag | null;
@@ -40,14 +32,15 @@ type CreateTagsModalProps = {
     tagId: string,
     input: { name: string; code: string; status?: MenuItemTag['status'] },
   ) => Promise<{ ok: boolean; message?: string }>;
-};
+}>;
 
 function slugToCode(name: string): string {
   return name
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+    .replace(/^_+/, '')
+    .replace(/_+$/, '');
 }
 
 export function CreateTagsModal({
@@ -115,24 +108,11 @@ export function CreateTagsModal({
   }
 
   return (
-    <Dialog
-      open={isOpen}
+    <MenuFormDialogShell
+      isOpen={isOpen}
       onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      slotProps={{
-        paper: { sx: menuFormDialogPaperSx },
-      }}
+      title={isEditMode ? 'Edit Tag' : 'Create Tags'}
     >
-      <DialogTitle component="div" sx={menuFormDialogTitleSx}>
-        <Typography variant="h6" component="h2" sx={menuFormDialogTitleTextSx}>
-          {isEditMode ? 'Edit Tag' : 'Create Tags'}
-        </Typography>
-        <IconButton aria-label="close" onClick={onClose} sx={menuFormDialogCloseButtonSx}>
-          <CloseIcon sx={{ fontSize: 18 }} />
-        </IconButton>
-      </DialogTitle>
-
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <DialogContent sx={menuFormDialogContentSx}>
           <MenuFormField id="tag-name" label="Tag Name">
@@ -202,10 +182,13 @@ export function CreateTagsModal({
             Cancel
           </Button>
           <Button type="submit" variant="contained" disabled={isSubmitting || !isFormValid}>
-            {isSubmitting ? 'Saving...' : isEditMode ? 'Save Tag' : 'Create Tag'}
+            {(() => {
+              if (isSubmitting) return 'Saving...';
+              return isEditMode ? 'Save Tag' : 'Create Tag';
+            })()}
           </Button>
         </DialogActions>
       </Box>
-    </Dialog>
+    </MenuFormDialogShell>
   );
 }

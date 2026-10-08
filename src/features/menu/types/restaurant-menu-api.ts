@@ -2,7 +2,7 @@ export type RestaurantMenuId = string;
 
 export type RestaurantMenuApiStatus = 'active' | 'inactive';
 
-export type RestaurantMenuTypeApi = 'all' | 'dine_in' | 'takeaway' | 'delivery' | 'online' | string;
+export type RestaurantMenuTypeApi = 'all' | 'dine_in' | 'takeaway' | 'delivery' | 'online';
 
 export type RestaurantMenuApi = Readonly<{
   id: number;

@@ -25,9 +25,7 @@ export function mapMenuItemImagesApi(images: readonly MenuItemImageApi[]): ItemI
   return images.map(mapMenuItemImageApi);
 }
 
-export function unwrapMenuItemImageList(
-  data: MenuItemImageApi[] | { items: MenuItemImageApi[] } | unknown,
-): MenuItemImageApi[] {
+export function unwrapMenuItemImageList(data: unknown): MenuItemImageApi[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
   if (typeof data === 'object' && 'items' in (data as Record<string, unknown>)) {

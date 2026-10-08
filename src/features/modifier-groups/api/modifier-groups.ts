@@ -130,6 +130,7 @@ export async function fetchModifierGroupsClient(
 ): Promise<ModifierGroup[]> {
   const params = new URLSearchParams();
   if (query?.status) params.set('status', query.status);
+  const qs = params.toString();
   const queryString = qs ? `?${qs}` : '';
   const res = await clientApi.get<{ success?: boolean; data?: unknown }>(
     `/menu/modifier-groups${queryString}`,
@@ -179,6 +180,7 @@ export async function fetchModifierOptionsClient(
 ): Promise<ModifierOption[]> {
   const params = new URLSearchParams();
   if (query?.status) params.set('status', query.status);
+  const qs = params.toString();
   const queryString = qs ? `?${qs}` : '';
   const res = await clientApi.get<{ success?: boolean; data?: unknown }>(
     `/menu/modifier-groups/${encodeURIComponent(groupId)}/options${queryString}`,

@@ -439,7 +439,7 @@ export function MenusProvider({
   );
 
   const unassignCategory = useCallback(
-    async (id: string, categoryId: string) => {
+    (id: string, categoryId: string) => {
       let assignmentId: string | undefined;
       function findInTree(cat: MenuTreeCategory) {
         if (cat.categoryId === categoryId && cat.assignmentId) {
@@ -456,20 +456,25 @@ export function MenusProvider({
         if (assignmentId) break;
       }
       if (!assignmentId) {
-        return { ok: false as const, message: 'Category assignment was not found.' };
+        return Promise.resolve({
+          ok: false as const,
+          message: 'Category assignment was not found.',
+        });
       }
       return unassignCategoryAssignment(id, assignmentId);
     },
     [unassignCategoryAssignment],
   );
 
-  const unassignItem = useCallback(async () => {
-    return {
-      ok: false as const,
-      message:
-        'Per-item unassignment is not supported by the restaurant menu API. Please unassign the entire category instead.',
-    };
-  }, []);
+  const unassignItem = useCallback(
+    () =>
+      Promise.resolve({
+        ok: false as const,
+        message:
+          'Per-item unassignment is not supported by the restaurant menu API. Please unassign the entire category instead.',
+      }),
+    [],
+  );
 
   const value = useMemo(
     () => ({

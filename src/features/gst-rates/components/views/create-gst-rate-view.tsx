@@ -1,22 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import {
-  Alert,
-  Box,
-  Breadcrumbs,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
-import { ArrowLeft } from 'lucide-react';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 
+import { CrudDetailHeader } from '@/components/ui/crud-detail-header';
+import { CrudFormActions } from '@/components/ui/crud-form-actions';
+import { StickyBreadcrumbBar } from '@/components/ui/sticky-breadcrumb-bar';
 import { useGstRates } from '../../context/gst-rates-context';
 
 function toDateTimeLocalValue(iso?: string): string {
@@ -81,77 +75,19 @@ export function CreateGstRateView() {
 
   return (
     <Box sx={{ width: '100%', p: 0 }}>
-      {/* Sticky Breadcrumb Bar */}
-      <Box
-        sx={{
-          position: 'sticky',
-          top: { xs: -16, md: -24 },
-          zIndex: 10,
-          mx: { xs: -2, md: -3 },
-          mt: { xs: -2, md: -3 },
-          mb: 2.5,
-          px: { xs: 2, md: 3 },
-          py: 1.25,
-          bgcolor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <Breadcrumbs
-          separator={<NavigateNextIcon sx={{ fontSize: 14, color: '#94a3b8' }} />}
-          sx={{ fontSize: '0.8125rem' }}
-        >
-          <Typography
-            component={Link}
-            href="/company"
-            sx={{
-              fontSize: '0.8125rem',
-              color: 'text.secondary',
-              textDecoration: 'none',
-              '&:hover': { color: 'primary.main' },
-            }}
-          >
-            Dashboard
-          </Typography>
-          <Typography
-            onClick={backToList}
-            sx={{
-              fontSize: '0.8125rem',
-              color: 'text.secondary',
-              cursor: 'pointer',
-              '&:hover': { color: 'primary.main' },
-            }}
-          >
-            GST Rates
-          </Typography>
-          <Typography sx={{ fontSize: '0.8125rem', color: 'primary.main', fontWeight: 600 }}>
-            Create GST Rate
-          </Typography>
-        </Breadcrumbs>
-      </Box>
+      <StickyBreadcrumbBar
+        items={[
+          { label: 'Dashboard', href: '/company' },
+          { label: 'GST Rates', onClick: backToList },
+          { label: 'Create GST Rate' },
+        ]}
+      />
 
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<ArrowLeft size={16} />}
-          onClick={backToList}
-          sx={{ height: 40, borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
-        >
-          Back
-        </Button>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            Create GST Rate
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Define a GST slab with CGST, SGST, and IGST components.
-          </Typography>
-        </Box>
-      </Box>
+      <CrudDetailHeader
+        title="Create GST Rate"
+        subtitle="Define a GST slab with CGST, SGST, and IGST components."
+        onBack={backToList}
+      />
 
       <Card variant="outlined" sx={{ borderRadius: '12px' }}>
         <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
@@ -365,31 +301,11 @@ export function CreateGstRateView() {
               </Box>
             </Box>
 
-            <Stack direction="row" spacing={2} sx={{ justifyContent: 'flex-end', mt: 1 }}>
-              <Button
-                variant="outlined"
-                onClick={backToList}
-                disabled={isSubmitting}
-                sx={{ height: 40, borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={isSubmitting}
-                startIcon={isSubmitting ? <CircularProgress size={16} color="inherit" /> : null}
-                sx={{
-                  height: 40,
-                  borderRadius: '8px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 3,
-                }}
-              >
-                {isSubmitting ? 'Saving...' : 'Create GST Rate'}
-              </Button>
-            </Stack>
+            <CrudFormActions
+              onCancel={backToList}
+              submitLabel="Create GST Rate"
+              isSubmitting={isSubmitting}
+            />
           </Box>
         </CardContent>
       </Card>

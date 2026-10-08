@@ -1,4 +1,4 @@
-export type RestaurantMenuType = 'All' | 'Dine In' | 'Takeaway' | 'Delivery' | 'Online' | string;
+export type RestaurantMenuType = 'All' | 'Dine In' | 'Takeaway' | 'Delivery' | 'Online';
 
 export type RestaurantMenu = {
   id: string;

@@ -210,8 +210,8 @@ export function CreateMenuItemView() {
         };
       })
       .sort((a, b) => {
-        const numA = parseFloat(a.value) || 0;
-        const numB = parseFloat(b.value) || 0;
+        const numA = Number.parseFloat(a.value) || 0;
+        const numB = Number.parseFloat(b.value) || 0;
         return numA - numB;
       });
   }, [gstRates]);
@@ -622,7 +622,7 @@ export function CreateMenuItemView() {
 
   function onFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
-      handleFilesSelected(e.target.files);
+      void handleFilesSelected(e.target.files);
       e.target.value = '';
     }
   }
@@ -648,7 +648,7 @@ export function CreateMenuItemView() {
     e.stopPropagation();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFilesSelected(e.dataTransfer.files);
+      void handleFilesSelected(e.dataTransfer.files);
     }
   }
 

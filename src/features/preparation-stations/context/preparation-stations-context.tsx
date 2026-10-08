@@ -73,7 +73,7 @@ export function PreparationStationsProvider({
   }, [statusFilter]);
 
   const stationsQuery = usePreparationStationsListQuery(listQuery);
-  const stations = stationsQuery.data ?? [];
+  const stations = useMemo(() => stationsQuery.data ?? [], [stationsQuery.data]);
   const stationsLoading = stationsQuery.isPending;
   const stationsError = stationsQuery.error instanceof Error ? stationsQuery.error.message : null;
   const isHydrated = stationsQuery.isFetched;

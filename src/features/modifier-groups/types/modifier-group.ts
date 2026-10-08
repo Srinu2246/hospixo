@@ -6,7 +6,7 @@ export type ModifierGroup = {
   minSelect: number;
   maxSelect: number;
   isRequired: boolean;
-  status?: ModifierGroupStatus | string;
+  status?: ModifierGroupStatus;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -17,7 +17,7 @@ export type ModifierOption = {
   name: string;
   priceDelta: number;
   displayOrder: number;
-  status?: ModifierGroupStatus | string;
+  status?: ModifierGroupStatus;
   createdAt?: string;
   updatedAt?: string;
 };

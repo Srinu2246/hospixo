@@ -51,11 +51,11 @@ function mapAssignmentStatus(
 }
 
 export function mapMenuTypeToApi(menuType: RestaurantMenuType): RestaurantMenuTypeApi {
-  return MENU_TYPE_TO_API[menuType] ?? menuType.toLowerCase().replace(/\s+/g, '_');
+  return MENU_TYPE_TO_API[menuType] ?? 'all';
 }
 
 export function mapMenuTypeFromApi(menuType: RestaurantMenuTypeApi): RestaurantMenuType {
-  return MENU_TYPE_FROM_API[menuType] ?? menuType;
+  return MENU_TYPE_FROM_API[menuType] ?? 'All';
 }
 
 export function mapRestaurantMenuApi(menu: RestaurantMenuApi): RestaurantMenu {
@@ -76,9 +76,7 @@ export function mapRestaurantMenusApi(menus: readonly RestaurantMenuApi[]): Rest
   return menus.map(mapRestaurantMenuApi);
 }
 
-export function unwrapRestaurantMenuList(
-  data: RestaurantMenuApi[] | { items: RestaurantMenuApi[] } | unknown,
-): RestaurantMenuApi[] {
+export function unwrapRestaurantMenuList(data: unknown): RestaurantMenuApi[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
   if (typeof data === 'object' && 'items' in (data as Record<string, unknown>)) {

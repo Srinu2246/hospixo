@@ -94,7 +94,7 @@ export function ModifierGroupsProvider({
   }, [statusFilter]);
 
   const groupsQuery = useModifierGroupsListQuery(listQuery);
-  const groups = groupsQuery.data ?? [];
+  const groups = useMemo(() => groupsQuery.data ?? [], [groupsQuery.data]);
   const groupsLoading = groupsQuery.isPending;
   const groupsError = groupsQuery.error instanceof Error ? groupsQuery.error.message : null;
   const isHydrated = groupsQuery.isFetched;

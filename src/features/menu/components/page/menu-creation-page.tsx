@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import NextLink from 'next/link';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -10,12 +9,11 @@ import InputAdornment from '@mui/material/InputAdornment';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import Breadcrumbs from '@mui/material/Breadcrumbs';
-import Link from '@mui/material/Link';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import BusinessIcon from '@mui/icons-material/Business';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+
+import { StickyBreadcrumbBar } from '@/components/ui/sticky-breadcrumb-bar';
 
 import { branchOptionsFromDashboardOutlets } from '@/lib/branches-cache';
 import { useOptionalDashboardData } from '@/context/dashboard-data';
@@ -93,52 +91,9 @@ function MenuCreationContent() {
 
   return (
     <Box sx={{ p: 0, width: '100%' }}>
-      {/* Sticky Breadcrumb Bar */}
-      <Box
-        sx={{
-          position: 'sticky',
-          top: { xs: -16, md: -24 },
-          zIndex: 10,
-          mx: { xs: -2, md: -3 },
-          mt: { xs: -2, md: -3 },
-          mb: 2.5,
-          px: { xs: 2, md: 3 },
-          py: 1.25,
-          bgcolor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <Breadcrumbs
-          separator={<NavigateNextIcon sx={{ fontSize: 14, color: '#94a3b8' }} />}
-          sx={{ fontSize: '0.8125rem' }}
-        >
-          <Link
-            component={NextLink}
-            href={pageConfig.homeHref}
-            underline="hover"
-            sx={{
-              fontSize: '0.8125rem',
-              fontWeight: 500,
-              color: 'text.secondary',
-              '&:hover': { color: 'primary.main' },
-            }}
-          >
-            Home
-          </Link>
-          <Typography
-            sx={{
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              color: 'primary.main',
-            }}
-          >
-            {pageConfig.pageTitle}
-          </Typography>
-        </Breadcrumbs>
-      </Box>
+      <StickyBreadcrumbBar
+        items={[{ label: 'Home', href: pageConfig.homeHref }, { label: pageConfig.pageTitle }]}
+      />
 
       {/* Header Row */}
       <Box

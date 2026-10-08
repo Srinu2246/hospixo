@@ -8,7 +8,7 @@ export type PreparationStationApi = Readonly<{
   company_id?: number;
   name: string;
   code: string;
-  status?: PreparationStationStatus | string;
+  status?: PreparationStationStatus;
   created_at?: string;
   updated_at?: string;
 }>;

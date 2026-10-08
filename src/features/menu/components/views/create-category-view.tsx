@@ -9,12 +9,10 @@ import TextField from '@mui/material/TextField';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import Breadcrumbs from '@mui/material/Breadcrumbs';
-import Link from '@mui/material/Link';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import Alert from '@mui/material/Alert';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
+import { CrudDetailHeader } from '@/components/ui/crud-detail-header';
+import { StickyBreadcrumbBar } from '@/components/ui/sticky-breadcrumb-bar';
 import { useMenu } from '../../context/menu-context';
 import { BranchScopeSelector } from '../shared/branch-scope-selector';
 import type { MenuScopeSelection } from '../../lib/menu-scope';
@@ -92,90 +90,19 @@ export function CreateCategoryView() {
 
   return (
     <Box sx={{ width: '100%', p: 0 }}>
-      {/* Breadcrumb Sticky Bar */}
-      <Box
-        sx={{
-          position: 'sticky',
-          top: { xs: -16, md: -24 },
-          zIndex: 10,
-          mx: { xs: -2, md: -3 },
-          mt: { xs: -2, md: -3 },
-          mb: 2.5,
-          px: { xs: 2, md: 3 },
-          py: 1.25,
-          bgcolor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <Breadcrumbs
-          separator={<NavigateNextIcon sx={{ fontSize: 14, color: '#94a3b8' }} />}
-          sx={{ fontSize: '0.8125rem' }}
-        >
-          <Link
-            component="button"
-            type="button"
-            onClick={backToList}
-            underline="hover"
-            sx={{
-              fontSize: '0.8125rem',
-              fontWeight: 500,
-              color: 'text.secondary',
-              cursor: 'pointer',
-              '&:hover': { color: 'primary.main' },
-            }}
-          >
-            Home
-          </Link>
-          <Link
-            component="button"
-            type="button"
-            onClick={backToList}
-            underline="hover"
-            sx={{
-              fontSize: '0.8125rem',
-              fontWeight: 500,
-              color: 'text.secondary',
-              cursor: 'pointer',
-              '&:hover': { color: 'primary.main' },
-            }}
-          >
-            Menu Creation
-          </Link>
-          <Typography
-            sx={{
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              color: 'primary.main',
-            }}
-          >
-            Create Category
-          </Typography>
-        </Breadcrumbs>
-      </Box>
+      <StickyBreadcrumbBar
+        items={[
+          { label: 'Home', onClick: backToList },
+          { label: 'Menu Creation', onClick: backToList },
+          { label: 'Create Category' },
+        ]}
+      />
 
-      {/* Header with Back button */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={backToList}
-          variant="outlined"
-          size="small"
-          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '8px' }}
-        >
-          Back
-        </Button>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary' }}>
-            Create Category
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Add a new group category to organize your menu items.
-          </Typography>
-        </Box>
-      </Box>
+      <CrudDetailHeader
+        title="Create Category"
+        subtitle="Add a new group category to organize your menu items."
+        onBack={backToList}
+      />
 
       {/* Main Card */}
       <Paper

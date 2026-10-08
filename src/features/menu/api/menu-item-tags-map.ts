@@ -22,9 +22,7 @@ export function mapMenuItemTagsApi(tags: readonly MenuItemTagApi[]): MenuItemTag
   return tags.map(mapMenuItemTagApi);
 }
 
-export function unwrapMenuItemTagList(
-  data: MenuItemTagApi[] | { items: MenuItemTagApi[] } | unknown,
-): MenuItemTagApi[] {
+export function unwrapMenuItemTagList(data: unknown): MenuItemTagApi[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
   if (typeof data === 'object' && 'items' in (data as Record<string, unknown>)) {

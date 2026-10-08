@@ -11,7 +11,7 @@ export type ModifierGroupApi = Readonly<{
   min_select: number;
   max_select: number;
   is_required: boolean;
-  status?: ModifierGroupStatus | string;
+  status?: ModifierGroupStatus;
   created_at?: string;
   updated_at?: string;
 }>;
@@ -22,7 +22,7 @@ export type ModifierOptionApi = Readonly<{
   name: string;
   price_delta: number;
   display_order: number;
-  status?: ModifierGroupStatus | string;
+  status?: ModifierGroupStatus;
   created_at?: string;
   updated_at?: string;
 }>;

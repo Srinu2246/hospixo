@@ -121,7 +121,10 @@ export function RestaurantMenusProvider({
   const [activeDetailMenuId, setActiveDetailMenuId] = useState<string | null>(null);
 
   const listQuery = useMemo((): ListRestaurantMenusApiQuery | undefined => {
-    const query: Partial<ListRestaurantMenusApiQuery> = {};
+    const query: {
+      status?: ListRestaurantMenusApiQuery['status'];
+      menu_type?: ListRestaurantMenusApiQuery['menu_type'];
+    } = {};
     if (statusFilter !== 'all') query.status = statusFilter;
     if (menuTypeFilter !== 'all')
       query.menu_type = menuTypeFilter as ListRestaurantMenusApiQuery['menu_type'];

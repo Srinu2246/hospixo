@@ -12,6 +12,7 @@ export const companyMenuSessionsQueryKey = ['menus', 'company-sessions'] as cons
 
 async function fetchCompanyMenuSessions(): Promise<MenuSession[]> {
   const response = await clientApi.get<unknown>('/menu/menus');
+  const list = unwrapBffData<RestaurantMenu[] | RestaurantMenu>(response);
   let menus: RestaurantMenu[] = [];
   if (Array.isArray(list)) {
     menus = list;

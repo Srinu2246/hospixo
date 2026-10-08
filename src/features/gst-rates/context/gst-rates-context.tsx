@@ -57,7 +57,7 @@ export function GstRatesProvider({
 
   const ratesQuery = useGstRatesListQuery(listQuery);
 
-  const rates = ratesQuery.data ?? [];
+  const rates = useMemo(() => ratesQuery.data ?? [], [ratesQuery.data]);
   const ratesLoading = ratesQuery.isPending;
   const ratesError = ratesQuery.error instanceof Error ? ratesQuery.error.message : null;
   const isHydrated = ratesQuery.isFetched;
