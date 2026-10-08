@@ -5,6 +5,8 @@ export const AUTH_ROUTES = {
   forgotPassword: '/forgot-password',
   sso: '/sso',
   mfa: '/mfa',
+  inviteAccept: '/invite/accept',
+  inviteReject: '/invite/reject',
 } as const;
 
 export const ADMIN_ROUTES = {
