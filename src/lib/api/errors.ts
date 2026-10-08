@@ -201,6 +201,17 @@ export function normalizeApiErrorDetail(
     return { code: payload.code.trim(), message: payload.message };
   }
 
+  if (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'success' in payload &&
+    (payload as { success?: boolean }).success === false &&
+    typeof payload.message === 'string' &&
+    payload.message.trim()
+  ) {
+    return { message: payload.message.trim() };
+  }
+
   return undefined;
 }
 
@@ -280,7 +291,7 @@ export function resolveApiErrorMessage(
 }
 
 function isGenericHttpStatusText(message: string) {
-  return /^(bad request|unauthorized|forbidden|not found|conflict|unprocessable entity|internal server error)$/i.test(
+  return /^(bad request|unauthorized|forbidden|not found|conflict|unprocessable entity|internal server error|request failed)$/i.test(
     message.trim(),
   );
 }

@@ -1,0 +1,228 @@
+import type {
+  CreateRestaurantMenuInput,
+  MenuCategoryAssignment,
+  MenuTree,
+  MenuTreeCategory,
+  MenuTreeItem,
+  RestaurantMenu,
+  RestaurantMenuType,
+} from '../types/restaurant-menu';
+import type {
+  CreateMenuCategoryAssignmentApiRequest,
+  CreateRestaurantMenuApiRequest,
+  MenuCategoryAssignmentApi,
+  MenuCategoryAssignmentApiStatus,
+  MenuTreeApi,
+  MenuTreeCategoryApi,
+  MenuTreeItemApi,
+  RestaurantMenuApi,
+  RestaurantMenuApiStatus,
+  RestaurantMenuTypeApi,
+  UpdateMenuCategoryAssignmentApiRequest,
+  UpdateRestaurantMenuApiRequest,
+} from '../types/restaurant-menu-api';
+import type { MenuCategory } from '../types/menu';
+
+const MENU_TYPE_TO_API: Record<string, RestaurantMenuTypeApi> = {
+  All: 'all',
+  'Dine In': 'dine_in',
+  Takeaway: 'takeaway',
+  Delivery: 'delivery',
+  Online: 'online',
+};
+
+const MENU_TYPE_FROM_API: Record<string, RestaurantMenuType> = {
+  all: 'All',
+  dine_in: 'Dine In',
+  takeaway: 'Takeaway',
+  delivery: 'Delivery',
+  online: 'Online',
+};
+
+function mapMenuStatus(status: RestaurantMenuApiStatus): RestaurantMenu['status'] {
+  return status === 'active' ? 'Active' : 'Inactive';
+}
+
+function mapAssignmentStatus(
+  status?: MenuCategoryAssignmentApiStatus,
+): MenuCategoryAssignment['status'] {
+  if (!status) return 'Active';
+  return status === 'active' ? 'Active' : 'Inactive';
+}
+
+export function mapMenuTypeToApi(menuType: RestaurantMenuType): RestaurantMenuTypeApi {
+  return MENU_TYPE_TO_API[menuType] ?? menuType.toLowerCase().replace(/\s+/g, '_');
+}
+
+export function mapMenuTypeFromApi(menuType: RestaurantMenuTypeApi): RestaurantMenuType {
+  return MENU_TYPE_FROM_API[menuType] ?? menuType;
+}
+
+export function mapRestaurantMenuApi(menu: RestaurantMenuApi): RestaurantMenu {
+  return {
+    id: String(menu.id),
+    name: menu.name,
+    code: menu.code,
+    description: menu.description ?? undefined,
+    menuType: mapMenuTypeFromApi(menu.menu_type),
+    displayOrder: menu.display_order,
+    status: mapMenuStatus(menu.status),
+    createdAt: menu.created_at,
+    updatedAt: menu.updated_at,
+  };
+}
+
+export function mapRestaurantMenusApi(menus: readonly RestaurantMenuApi[]): RestaurantMenu[] {
+  return menus.map(mapRestaurantMenuApi);
+}
+
+export function unwrapRestaurantMenuList(
+  data: RestaurantMenuApi[] | { items: RestaurantMenuApi[] } | unknown,
+): RestaurantMenuApi[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (typeof data === 'object' && 'items' in (data as Record<string, unknown>)) {
+    return (data as { items: RestaurantMenuApi[] }).items;
+  }
+  return [];
+}
+
+export function toCreateRestaurantMenuPayload(
+  input: CreateRestaurantMenuInput,
+): CreateRestaurantMenuApiRequest {
+  return {
+    name: input.name.trim(),
+    code: input.code.trim().toUpperCase(),
+    description: input.description?.trim() || undefined,
+    menu_type: mapMenuTypeToApi(input.menuType),
+    display_order: input.displayOrder ?? 0,
+  };
+}
+
+export function toUpdateRestaurantMenuPayload(
+  updates: Partial<CreateRestaurantMenuInput> & {
+    status?: RestaurantMenu['status'];
+    displayOrder?: number;
+  },
+): UpdateRestaurantMenuApiRequest {
+  return {
+    ...(updates.name !== undefined ? { name: updates.name.trim() } : {}),
+    ...(updates.code !== undefined ? { code: updates.code.trim().toUpperCase() } : {}),
+    ...(updates.description !== undefined
+      ? { description: updates.description.trim() || null }
+      : {}),
+    ...(updates.menuType !== undefined ? { menu_type: mapMenuTypeToApi(updates.menuType) } : {}),
+    ...(updates.displayOrder !== undefined ? { display_order: updates.displayOrder } : {}),
+    ...(updates.status !== undefined
+      ? { status: updates.status === 'Active' ? 'active' : 'inactive' }
+      : {}),
+  };
+}
+
+export function mapMenuCategoryAssignmentApi(
+  assignment: MenuCategoryAssignmentApi,
+  categoryNameById: Record<string, string> = {},
+): MenuCategoryAssignment {
+  const categoryId = String(assignment.category_id);
+  return {
+    id: String(assignment.id),
+    menuId: String(assignment.menu_id),
+    categoryId,
+    categoryName: categoryNameById[categoryId],
+    displayOrder: assignment.display_order,
+    status: mapAssignmentStatus(assignment.status),
+  };
+}
+
+export function mapMenuCategoryAssignmentsApi(
+  assignments: readonly MenuCategoryAssignmentApi[],
+  categoryNameById: Record<string, string> = {},
+): MenuCategoryAssignment[] {
+  return assignments
+    .map((assignment) => mapMenuCategoryAssignmentApi(assignment, categoryNameById))
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+}
+
+export function unwrapMenuCategoryAssignmentList(
+  data: MenuCategoryAssignmentApi[] | { items: MenuCategoryAssignmentApi[] } | unknown,
+): MenuCategoryAssignmentApi[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (typeof data === 'object' && 'items' in (data as Record<string, unknown>)) {
+    return (data as { items: MenuCategoryAssignmentApi[] }).items;
+  }
+  return [];
+}
+
+export function toCreateMenuCategoryAssignmentPayload(input: {
+  categoryId: string;
+  displayOrder?: number;
+}): CreateMenuCategoryAssignmentApiRequest {
+  return {
+    category_id: Number(input.categoryId),
+    display_order: input.displayOrder ?? 0,
+  };
+}
+
+export function toUpdateMenuCategoryAssignmentPayload(input: {
+  displayOrder?: number;
+  status?: MenuCategoryAssignment['status'];
+}): UpdateMenuCategoryAssignmentApiRequest {
+  return {
+    ...(input.displayOrder !== undefined ? { display_order: input.displayOrder } : {}),
+    ...(input.status !== undefined
+      ? { status: input.status === 'Active' ? 'active' : 'inactive' }
+      : {}),
+  };
+}
+
+function mapTreeItemOrderTypes(item: MenuTreeItemApi): string[] | undefined {
+  if (item.order_types?.length) return [...item.order_types];
+  const types: string[] = [];
+  if (item.allow_dine_in) types.push('Dine In');
+  if (item.allow_takeaway) types.push('Take Away');
+  if (item.allow_delivery) types.push('Delivery');
+  return types.length > 0 ? types : undefined;
+}
+
+function mapMenuTreeItemApi(item: MenuTreeItemApi): MenuTreeItem {
+  const imageUrl = item.image_url || item.primary_image_url || item.thumbnail_url || undefined;
+  return {
+    id: String(item.id),
+    name: item.name,
+    code: item.code,
+    basePrice: item.base_price,
+    status: item.status,
+    displayOrder: item.display_order,
+    imageUrl,
+    dietary: item.dietary_type ?? undefined,
+    orderTypes: mapTreeItemOrderTypes(item),
+  };
+}
+
+function mapMenuTreeCategoryApi(category: MenuTreeCategoryApi): MenuTreeCategory {
+  const categoryId = category.category_id ?? category.category?.id;
+  const categoryItems = category.items ?? category.category?.items ?? [];
+
+  return {
+    assignmentId: category.assignment_id != null ? String(category.assignment_id) : undefined,
+    categoryId: categoryId != null ? String(categoryId) : '',
+    name: category.name ?? category.category?.name ?? '',
+    displayOrder: category.display_order,
+    status: category.status,
+    items: categoryItems.map(mapMenuTreeItemApi),
+    children: (category.children ?? []).map(mapMenuTreeCategoryApi),
+  };
+}
+
+export function mapMenuTreeApi(tree: MenuTreeApi): MenuTree {
+  return {
+    menuId: String(tree.menu_id),
+    menu: tree.menu ? mapRestaurantMenuApi(tree.menu) : undefined,
+    categories: (tree.categories ?? []).map(mapMenuTreeCategoryApi),
+  };
+}
+
+export function buildCategoryNameById(categories: readonly MenuCategory[]): Record<string, string> {
+  return Object.fromEntries(categories.map((category) => [category.id, category.name]));
+}
