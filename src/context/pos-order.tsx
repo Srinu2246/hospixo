@@ -2,16 +2,20 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-import type { DineInOrderLine, MenuItemCustomization } from '@/features/pos/config/dine-in';
-import { computeCustomizedUnitPrice, dineInMenuItems } from '@/features/pos/config/dine-in';
+import type {
+  DineInMenuItem,
+  DineInOrderLine,
+  MenuItemCustomization,
+} from '@/features/pos/config/dine-in';
+import { computeCustomizedUnitPrice } from '@/features/pos/config/dine-in';
 import {
   INITIAL_ORDER_SEQUENCE,
   formatPosOrderNumber,
-  getDemoPosOrderState,
   getEmptyPosOrderState,
   getTableLabel,
   getTableNumber,
 } from '@/features/pos/lib/order/state';
+import { normalizeTableId } from '@/features/pos/config/tables';
 
 interface PosOrderContextValue {
   orderLines: DineInOrderLine[];
@@ -19,7 +23,7 @@ interface PosOrderContextValue {
   menuQuantities: Record<string, number>;
   setMenuQuantities: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   selectedTableId: string;
-  setSelectedTableId: (tableId: string) => void;
+  setSelectedTable: (tableId: string, label?: string) => void;
   tableLabel: string;
   tableNumber: string;
   orderNumber: string;
@@ -30,19 +34,26 @@ interface PosOrderContextValue {
 const PosOrderContext = createContext<PosOrderContextValue | null>(null);
 
 export function PosOrderProvider({ children }: Readonly<{ children: React.ReactNode }>) {
-  const demoState = getDemoPosOrderState();
+  const emptyState = getEmptyPosOrderState();
   const [orderSequence, setOrderSequence] = useState(INITIAL_ORDER_SEQUENCE);
-  const [selectedTableId, setSelectedTableId] = useState(demoState.selectedTableId);
+  const [selectedTableId, setSelectedTableId] = useState(emptyState.selectedTableId);
+  const [selectedTableLabel, setSelectedTableLabel] = useState(emptyState.selectedTableLabel);
   const [menuQuantities, setMenuQuantities] = useState<Record<string, number>>(
-    demoState.menuQuantities,
+    emptyState.menuQuantities,
   );
-  const [orderLines, setOrderLines] = useState<DineInOrderLine[]>(demoState.orderLines);
+  const [orderLines, setOrderLines] = useState<DineInOrderLine[]>(emptyState.orderLines);
+
+  const setSelectedTable = useCallback((tableId: string, label?: string) => {
+    setSelectedTableId(normalizeTableId(tableId));
+    setSelectedTableLabel(label?.trim() ?? '');
+  }, []);
 
   const resetOrder = useCallback(() => {
-    const emptyState = getEmptyPosOrderState();
-    setSelectedTableId(emptyState.selectedTableId);
-    setMenuQuantities(emptyState.menuQuantities);
-    setOrderLines(emptyState.orderLines);
+    const next = getEmptyPosOrderState();
+    setSelectedTableId(next.selectedTableId);
+    setSelectedTableLabel(next.selectedTableLabel);
+    setMenuQuantities(next.menuQuantities);
+    setOrderLines(next.orderLines);
   }, []);
 
   const completeOrder = useCallback(() => {
@@ -50,8 +61,14 @@ export function PosOrderProvider({ children }: Readonly<{ children: React.ReactN
     resetOrder();
   }, [resetOrder]);
 
-  const tableLabel = useMemo(() => getTableLabel(selectedTableId), [selectedTableId]);
-  const tableNumber = useMemo(() => getTableNumber(selectedTableId), [selectedTableId]);
+  const tableLabel = useMemo(
+    () => getTableLabel(selectedTableId, [], selectedTableLabel),
+    [selectedTableId, selectedTableLabel],
+  );
+  const tableNumber = useMemo(
+    () => getTableNumber(selectedTableId, [], selectedTableLabel),
+    [selectedTableId, selectedTableLabel],
+  );
   const orderNumber = useMemo(() => formatPosOrderNumber(orderSequence), [orderSequence]);
 
   const value = useMemo(
@@ -61,7 +78,7 @@ export function PosOrderProvider({ children }: Readonly<{ children: React.ReactN
       menuQuantities,
       setMenuQuantities,
       selectedTableId,
-      setSelectedTableId,
+      setSelectedTable,
       tableLabel,
       tableNumber,
       orderNumber,
@@ -72,6 +89,7 @@ export function PosOrderProvider({ children }: Readonly<{ children: React.ReactN
       orderLines,
       menuQuantities,
       selectedTableId,
+      setSelectedTable,
       tableLabel,
       tableNumber,
       orderNumber,
@@ -92,10 +110,11 @@ export function usePosOrder() {
 }
 
 export function createLineFromMenuItem(
+  menuItems: readonly DineInMenuItem[],
   menuItemId: string,
   customization?: MenuItemCustomization,
 ): DineInOrderLine | null {
-  const menuItem = dineInMenuItems.find((item) => item.id === menuItemId);
+  const menuItem = menuItems.find((item) => item.id === menuItemId);
   if (!menuItem) return null;
 
   const unitPrice = customization

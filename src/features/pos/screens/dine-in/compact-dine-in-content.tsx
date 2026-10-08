@@ -7,7 +7,6 @@ import { ArrowRight, Minus, Plus } from 'lucide-react';
 import {
   dineInActions,
   dineInMenuCategories,
-  dineInMenuItems,
   dineInPageMeta,
   formatDineInRupee,
 } from '@/features/pos/config/dine-in';
@@ -59,6 +58,7 @@ export function CompactDineInContent({
   setCustomizingItemId,
   searchQuery,
   setSearchQuery,
+  menuItems,
   filteredMenuItems,
   menuQuantities,
   itemCount,
@@ -70,7 +70,7 @@ export function CompactDineInContent({
   kotSentNotice,
 }: Readonly<CompactDineInContentProps>) {
   const customizingItem = customizingItemId
-    ? (dineInMenuItems.find((item) => item.id === customizingItemId) ?? null)
+    ? (menuItems.find((item) => item.id === customizingItemId) ?? null)
     : null;
 
   if (!selectedTableId) {

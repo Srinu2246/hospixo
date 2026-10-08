@@ -24,7 +24,7 @@ export function mapFloorTablesToPos(floors: readonly Floor[]): Readonly<{
   }));
 
   const posTables: PosTable[] = floors.flatMap((floor) =>
-    floor.tables.map((table) => ({
+    (floor.tables ?? []).map((table) => ({
       id: table.id,
       label: table.number,
       floorId: floor.id,

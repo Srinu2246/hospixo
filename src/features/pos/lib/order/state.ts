@@ -1,19 +1,14 @@
 import type { DineInOrderLine } from '@/features/pos/config/dine-in';
-import { dineInInitialOrderLines } from '@/features/pos/config/dine-in';
-import { normalizeTableId, posTables } from '@/features/pos/config/tables';
+import { normalizeTableId } from '@/features/pos/config/tables';
 
-export const INITIAL_ORDER_SEQUENCE = 39;
-
-const defaultTable = posTables.find((entry) => entry.status === 'occupied') ?? posTables[0];
-
-export const dineInDefaultTableId = defaultTable?.id ?? '';
+export const INITIAL_ORDER_SEQUENCE = 1;
 
 export function createMenuQuantitiesFromLines(
   lines: readonly DineInOrderLine[],
 ): Record<string, number> {
   return lines.reduce<Record<string, number>>((acc, line) => {
     if (line.menuItemId) {
-      acc[line.menuItemId] = line.quantity;
+      acc[line.menuItemId] = (acc[line.menuItemId] ?? 0) + line.quantity;
     }
     return acc;
   }, {});
@@ -23,31 +18,36 @@ export function formatPosOrderNumber(sequence: number) {
   return `#${String(sequence).padStart(4, '0')}`;
 }
 
-export function getTableLabel(tableId: string) {
+export function getTableLabel(
+  tableId: string,
+  tables: readonly { id: string; label: string }[] = [],
+  explicitLabel?: string,
+) {
+  if (explicitLabel?.trim()) return explicitLabel;
   const table =
-    posTables.find((entry) => normalizeTableId(entry.id) === normalizeTableId(tableId)) ?? null;
-  if (!table) return '—';
+    tables.find((entry) => normalizeTableId(entry.id) === normalizeTableId(tableId)) ?? null;
+  if (!table) return tableId ? `Table ${table.label}` : '—';
   const number = table.label.replace(/^T-?/i, '').padStart(2, '0');
   return `Table ${number}`;
 }
 
-export function getTableNumber(tableId: string) {
+export function getTableNumber(
+  tableId: string,
+  tables: readonly { id: string; label: string }[] = [],
+  explicitLabel?: string,
+) {
+  if (explicitLabel?.trim()) {
+    return explicitLabel.replace(/^T-?/i, '');
+  }
   const table =
-    posTables.find((entry) => normalizeTableId(entry.id) === normalizeTableId(tableId)) ?? null;
+    tables.find((entry) => normalizeTableId(entry.id) === normalizeTableId(tableId)) ?? null;
   return table?.label.replace(/^T-?/i, '') ?? '—';
-}
-
-export function getDemoPosOrderState() {
-  return {
-    selectedTableId: dineInDefaultTableId,
-    orderLines: [...dineInInitialOrderLines],
-    menuQuantities: createMenuQuantitiesFromLines(dineInInitialOrderLines),
-  };
 }
 
 export function getEmptyPosOrderState() {
   return {
-    selectedTableId: dineInDefaultTableId,
+    selectedTableId: '',
+    selectedTableLabel: '',
     orderLines: [] as DineInOrderLine[],
     menuQuantities: {} as Record<string, number>,
   };

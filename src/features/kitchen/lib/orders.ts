@@ -1,22 +1,20 @@
-import {
-  kitchenPreviewConnection,
-  kitchenPreviewOrders,
-  kitchenPreviewStats,
-} from '@/features/kitchen/config';
 import type { KitchenConnectionStatus, KitchenOrder, KitchenStats } from '@/features/kitchen/types';
+import { getKitchenStats } from '@/features/kitchen/lib/stats';
 
-/**
- * Loads kitchen tickets for the active venue.
- * Uses design preview data until the kitchen / POS API is wired.
- */
+/** @deprecated Use `useKitchenOrdersQuery` / `/api/kitchen/orders` instead. */
 export async function getKitchenOrders(): Promise<KitchenOrder[]> {
-  return kitchenPreviewOrders;
+  return [];
 }
 
+/** @deprecated Use kitchen orders query + `getKitchenStats`. */
 export async function getKitchenStatsSummary(): Promise<KitchenStats> {
-  return kitchenPreviewStats;
+  return getKitchenStats([]);
 }
 
+/** @deprecated Connection status comes from live kitchen query errors. */
 export async function getKitchenConnectionStatus(): Promise<KitchenConnectionStatus> {
-  return kitchenPreviewConnection;
+  return {
+    printerConnected: true,
+    posSyncActive: true,
+  };
 }

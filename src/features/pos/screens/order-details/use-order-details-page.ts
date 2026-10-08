@@ -20,7 +20,7 @@ export function useOrderDetailsPage(orderId: string) {
   const router = useRouter();
   const flowPaths = usePosFlowPaths();
   const { openOrders, selectOrderForCheckout } = usePosOrdersStore();
-  const { setSelectedTableId, setOrderLines } = usePosOrder();
+  const { setSelectedTable, setOrderLines } = usePosOrder();
 
   const order = useMemo(
     () => openOrders.find((entry) => entry.id === orderId),
@@ -43,7 +43,7 @@ export function useOrderDetailsPage(orderId: string) {
 
   function handleGenerateReceipt() {
     if (!order) return;
-    if (order.tableId) setSelectedTableId(order.tableId);
+    if (order.tableId) setSelectedTable(order.tableId, order.reference);
     setOrderLines(order.lines ?? []);
     selectOrderForCheckout(order.id);
     router.push(flowPaths.checkout);

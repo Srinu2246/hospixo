@@ -1,5 +1,6 @@
 'use client';
 
+import Alert from '@mui/material/Alert';
 import { Plus } from 'lucide-react';
 
 import { normalizeTableId } from '@/features/pos/config/tables';
@@ -35,10 +36,25 @@ export function CompactTablesContent({
   selectedTableId,
   handleCompactTableSelect,
   handleOrderMenu,
+  isError,
+  loadError,
+  isFetching,
+  hasAnyTables,
 }: Readonly<CompactTablesContentProps>) {
+  const emptyMessage = loadError
+    ? loadError
+    : !hasAnyTables
+      ? 'No tables configured for this branch.'
+      : 'No tables match your filters.';
+
   return (
     <PosMobileShell activeNavId="tables" hasStickyBar={Boolean(selectedTable)} withPageBg>
       <PosCompactPage>
+        {isError || loadError ? (
+          <Alert severity="error" sx={{ mx: 2, mt: 1 }}>
+            {loadError ?? 'Unable to load tables.'}
+          </Alert>
+        ) : null}
         <PosCompactHeader>
           <PosMobileHeader title="Hospixo Tables" subtitle={posMobileOutlet.name} />
           <PosCompactHeaderChrome>
@@ -88,8 +104,8 @@ export function CompactTablesContent({
             ))}
           </section>
 
-          {visibleTables.length === 0 ? (
-            <p className={styles.emptyState}>No tables match your search.</p>
+          {!isFetching && visibleTables.length === 0 ? (
+            <p className={styles.emptyState}>{emptyMessage}</p>
           ) : null}
         </PosCompactBody>
       </PosCompactPage>

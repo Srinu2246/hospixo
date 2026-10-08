@@ -2,28 +2,34 @@
 
 import { useState } from 'react';
 
+import type { DuePayment } from '@/features/pos/config/due-payments';
 import {
-  duePayments as initialDuePayments,
-  type DuePayment,
-} from '@/features/pos/config/due-payments';
+  useDuePaymentsQuery,
+  useSettleDuePaymentMutation,
+} from '@/features/pos/hooks/use-due-payments';
+import { useFloorBranchOutletId } from '@/features/floor-table-setup/hooks/use-floor-branch-outlet';
 
 export interface DuePaymentsPageViewModel {
   settleFromPos: boolean;
   setSettleFromPos: (value: boolean) => void;
   payments: DuePayment[];
   handleSettle: (paymentId: string) => void;
+  isLoading: boolean;
+  isError: boolean;
+  loadError: string | null;
 }
 
 export function useDuePaymentsPage(): DuePaymentsPageViewModel {
   const [settleFromPos, setSettleFromPos] = useState(true);
-  const [payments, setPayments] = useState<DuePayment[]>(initialDuePayments);
+  const outletId = useFloorBranchOutletId();
+  const { data, isPending, isError, error } = useDuePaymentsQuery();
+  const settleMutation = useSettleDuePaymentMutation(outletId);
+
+  const payments = data?.payments ?? [];
 
   function handleSettle(paymentId: string) {
-    setPayments((current) =>
-      current.map((payment) =>
-        payment.id === paymentId ? { ...payment, status: 'paid' } : payment,
-      ),
-    );
+    if (!settleFromPos) return;
+    settleMutation.mutate(paymentId);
   }
 
   return {
@@ -31,5 +37,8 @@ export function useDuePaymentsPage(): DuePaymentsPageViewModel {
     setSettleFromPos,
     payments,
     handleSettle,
+    isLoading: isPending || settleMutation.isPending,
+    isError,
+    loadError: error instanceof Error ? error.message : (data?.loadError ?? null),
   };
 }

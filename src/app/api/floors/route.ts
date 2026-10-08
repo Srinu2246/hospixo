@@ -29,11 +29,8 @@ export async function GET(request: Request) {
   const scope = await resolveBranchId(parseBranchId(url));
   if (scope.error) return scope.error;
 
-  const status = url.searchParams.get('status');
-  const query = status === 'active' || status === 'inactive' ? ({ status } as const) : undefined;
-
   try {
-    const data = await listFloors(auth.token, scope.branchId, query);
+    const data = await listFloors(auth.token, scope.branchId);
     return jsonOk(data);
   } catch (err) {
     return floorsApiError(err, 'Unable to load floors.');

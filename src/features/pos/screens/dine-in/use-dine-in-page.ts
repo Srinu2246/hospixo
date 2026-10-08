@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import type { DineInMenuCategoryId, MenuItemCustomization } from '@/features/pos/config/dine-in';
-import { dineInMenuItems } from '@/features/pos/config/dine-in';
+import { useDineInMenu } from '@/features/pos/hooks/use-dine-in-menu';
 import { usePosFlowPaths } from '@/features/pos/hooks/use-pos-flow-paths';
 import { createLineFromMenuItem, usePosOrder } from '@/context/pos-order';
 import { usePosOrdersStore } from '@/context/pos-orders-store';
@@ -15,6 +15,14 @@ export function useDineInPage() {
   const { orderLines, setOrderLines, selectedTableId, tableLabel, tableNumber, orderNumber } =
     usePosOrder();
   const { sendToKot, editingOrderId, setEditingOrderId } = usePosOrdersStore();
+  const {
+    data: menuData,
+    isFetching: isMenuLoading,
+    isError: isMenuError,
+    error: menuError,
+  } = useDineInMenu();
+  const menuItems = menuData?.items ?? [];
+
   const [activeCategory, setActiveCategory] = useState<DineInMenuCategoryId>('all');
   const [customizingItemId, setCustomizingItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,8 +31,8 @@ export function useDineInPage() {
   const filteredMenuItems = useMemo(() => {
     const items =
       activeCategory === 'all'
-        ? dineInMenuItems
-        : dineInMenuItems.filter((item) => item.category === activeCategory);
+        ? menuItems
+        : menuItems.filter((item) => item.category === activeCategory);
 
     const query = searchQuery.trim().toLowerCase();
     if (!query) return items;
@@ -32,7 +40,7 @@ export function useDineInPage() {
     return items.filter(
       (item) => item.name.toLowerCase().includes(query) || item.group.toLowerCase().includes(query),
     );
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory, menuItems, searchQuery]);
 
   const menuQuantities = useMemo(() => {
     return orderLines.reduce<Record<string, number>>((acc, line) => {
@@ -48,10 +56,8 @@ export function useDineInPage() {
   const itemCount = orderLines.reduce((sum, line) => sum + line.quantity, 0);
 
   const selectedTable = useMemo(() => {
-    const table = tableLabel;
-    const waiter = orderLines.length > 0 ? 'Ravi' : undefined;
-    return { table, waiter };
-  }, [tableLabel, orderLines.length]);
+    return { table: tableLabel, waiter: undefined as string | undefined };
+  }, [tableLabel]);
 
   function handleMenuQuantityChange(menuItemId: string, quantity: number) {
     setOrderLines((prev) => {
@@ -82,7 +88,7 @@ export function useDineInPage() {
   }
 
   function handleCustomizeAdd(menuItemId: string, customization: MenuItemCustomization) {
-    const created = createLineFromMenuItem(menuItemId, customization);
+    const created = createLineFromMenuItem(menuItems, menuItemId, customization);
     if (!created) return;
 
     setOrderLines((prev) => [...prev, created]);
@@ -107,7 +113,6 @@ export function useDineInPage() {
       tableLabel,
       orderNumber,
       lines: orderLines,
-      waiter: selectedTable.waiter,
       existingOrderId: editingOrderId,
     });
 
@@ -131,6 +136,7 @@ export function useDineInPage() {
     setCustomizingItemId,
     searchQuery,
     setSearchQuery,
+    menuItems,
     filteredMenuItems,
     menuQuantities,
     orderLines,
@@ -139,6 +145,10 @@ export function useDineInPage() {
     total,
     itemCount,
     selectedTable,
+    isMenuLoading,
+    isMenuError,
+    menuError: menuError instanceof Error ? menuError.message : (menuData?.loadError ?? null),
+    menuIsEmpty: !isMenuLoading && menuItems.length === 0,
     handleMenuQuantityChange,
     handleCustomizeAdd,
     handleOrderQuantityChange,

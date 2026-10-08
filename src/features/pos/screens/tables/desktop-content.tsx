@@ -1,5 +1,6 @@
 'use client';
 
+import Alert from '@mui/material/Alert';
 import { Search } from 'lucide-react';
 
 import { normalizeTableId, posTableStatusLegend } from '@/features/pos/config/tables';
@@ -24,10 +25,25 @@ export function TablesDesktopContent({
   selectedTable,
   selectedTableId,
   handleDesktopTableSelect,
+  isError,
+  loadError,
+  isFetching,
+  hasAnyTables,
 }: Readonly<TablesPageViewModel>) {
+  const emptyMessage = loadError
+    ? loadError
+    : !hasAnyTables
+      ? 'No tables configured for this branch. Add tables in Floor & Table Setup.'
+      : 'No tables match your filters.';
+
   return (
     <PosOperationsShell withPageBg>
       <div className={`${styles.page} ${selectedTable ? styles.pageWithBar : ''}`}>
+        {isError || loadError ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {loadError ?? 'Unable to load tables.'}
+          </Alert>
+        ) : null}
         <header className={styles.pageHeader}>
           <div className={styles.titleBlock}>
             <h1 className={styles.title}>Tables</h1>
@@ -66,8 +82,8 @@ export function TablesDesktopContent({
           ))}
         </section>
 
-        {visibleTables.length === 0 ? (
-          <p className={styles.emptyState}>No tables match your filters.</p>
+        {!isFetching && visibleTables.length === 0 ? (
+          <p className={styles.emptyState}>{emptyMessage}</p>
         ) : null}
 
         <SelectedTableBar table={selectedTable} />

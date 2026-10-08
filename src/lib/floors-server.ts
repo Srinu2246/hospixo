@@ -259,6 +259,66 @@ export async function loadFloorsPageData(
   }
 }
 
+/** Floors list with dining tables loaded per section (for POS tables map). */
+export async function loadFloorsWithTablesPageData(
+  options: FloorRequestOptions = {},
+): Promise<FloorsListPageData> {
+  const { token, branchId, companyId, error } = await resolveFloorRequestContext(options);
+
+  if (!token) {
+    return { floors: [], branchId, companyId, error: 'Sign in required.' };
+  }
+
+  if (branchId == null) {
+    return {
+      floors: [],
+      branchId,
+      companyId,
+      error: error ?? tenancyContent.branchRequiredForFloors,
+    };
+  }
+
+  try {
+    const list = await listFloors(token, branchId);
+    const floors = await Promise.all(
+      list.items.map(async (apiFloor) => {
+        const floor = await mapFloorListItem(token, branchId, apiFloor);
+        const floorId = floor.id;
+
+        try {
+          const sections = await listSections(token, branchId, floorId).catch(() => ({
+            items: [],
+            total: 0,
+          }));
+          const sectionItems = sections.items;
+          const tables = await loadTablesForFloorSections(token, branchId, floorId, sectionItems);
+          return { ...floor, tables };
+        } catch (sectionErr) {
+          logger.api.warn('loadFloorsWithTablesPageData section load failed', {
+            floorId,
+            error: sectionErr,
+          });
+          return { ...floor, tables: [] as const };
+        }
+      }),
+    );
+
+    return {
+      floors,
+      branchId,
+      companyId,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      floors: [],
+      branchId,
+      companyId,
+      error: mapContextError(err, 'Unable to load floors and tables.'),
+    };
+  }
+}
+
 async function loadTablesForFloorSections(
   token: string,
   branchId: number,

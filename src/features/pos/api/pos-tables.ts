@@ -9,7 +9,7 @@ const posTablesResponseSchema = z.object({
       floors: z.custom<PosFloor[]>(),
       tables: z.custom<PosTable[]>(),
       branchId: z.number().nullable(),
-      source: z.enum(['backend', 'fallback']),
+      source: z.enum(['backend']),
       loadError: z.string().nullable(),
     })
     .optional(),

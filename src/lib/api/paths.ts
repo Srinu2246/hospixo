@@ -698,3 +698,50 @@ export function restaurantBranchFloorTablePath(
 ): string {
   return `${restaurantBranchFloorTablesPath(branchId, floorId)}/${encodeURIComponent(String(tableId))}`;
 }
+
+// Restaurant branch POS (orders, kitchen, due payments) --------------------------------
+
+export type RestaurantBranchOrdersListQuery = Readonly<{
+  status?: string;
+  payment_status?: string;
+  kitchen_status?: string;
+  channel?: string;
+}>;
+
+/** `GET|POST /api/v1/restaurant/branches/{branch_id}/orders` */
+export function restaurantBranchOrdersPath(branchId: string | number): string {
+  return `/api/v1/restaurant/branches/${encodeURIComponent(String(branchId))}/orders`;
+}
+
+export function restaurantBranchOrdersListPath(
+  branchId: string | number,
+  query?: RestaurantBranchOrdersListQuery,
+): string {
+  const base = restaurantBranchOrdersPath(branchId);
+  if (!query) return base;
+  const params = new URLSearchParams();
+  if (query.status) params.set('status', query.status);
+  if (query.payment_status) params.set('payment_status', query.payment_status);
+  if (query.kitchen_status) params.set('kitchen_status', query.kitchen_status);
+  if (query.channel) params.set('channel', query.channel);
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
+/** `GET|PATCH /api/v1/restaurant/branches/{branch_id}/orders/{order_id}` */
+export function restaurantBranchOrderPath(
+  branchId: string | number,
+  orderId: string | number,
+): string {
+  return `${restaurantBranchOrdersPath(branchId)}/${encodeURIComponent(String(orderId))}`;
+}
+
+/** `GET /api/v1/restaurant/branches/{branch_id}/kitchen/orders` */
+export function restaurantBranchKitchenOrdersPath(branchId: string | number): string {
+  return `/api/v1/restaurant/branches/${encodeURIComponent(String(branchId))}/kitchen/orders`;
+}
+
+/** `GET /api/v1/restaurant/branches/{branch_id}/payments/due` */
+export function restaurantBranchDuePaymentsPath(branchId: string | number): string {
+  return `/api/v1/restaurant/branches/${encodeURIComponent(String(branchId))}/payments/due`;
+}
