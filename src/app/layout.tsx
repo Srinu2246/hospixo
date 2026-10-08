@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Inter } from 'next/font/google';
 
+import { themeInitScript } from '@/lib/theme/theme-init-script';
 import { AppProvider } from '@/providers/AppProvider';
 
 import './globals.css';
@@ -23,6 +25,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <Script id="theme-init" strategy="beforeInteractive">
+          {themeInitScript}
+        </Script>
+      </head>
       <body>
         <AppProvider>{children}</AppProvider>
       </body>

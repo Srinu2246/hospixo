@@ -1,0 +1,100 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--pos-border);
+  border-radius: var(--pos-radius-md);
+  background: var(--pos-surface);
+  box-shadow: var(--pos-shadow-card);
+}
+
+.header {
+  padding: 16px 16px 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pos-text);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.tableCard {
+  padding: 12px;
+  border: 1px solid var(--pos-border);
+  border-radius: var(--pos-radius-sm);
+  background: var(--muted);
+}
+
+.tableLabel {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pos-text);
+}
+
+.tableStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--pos-text-muted);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotOccupied {
+  background: #2563eb;
+}
+
+.dotVacant {
+  background: var(--pos-success);
+}
+
+.dotReserved {
+  background: var(--pos-warning);
+}
+
+.dotCleaning {
+  background: #a1a1aa;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0 16px 16px;
+  list-style: none;
+  font-size: 11px;
+  color: var(--pos-text-muted);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 768px) {
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px 16px;
+  }
+}

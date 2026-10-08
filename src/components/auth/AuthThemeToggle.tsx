@@ -3,7 +3,7 @@
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import { IconButton } from '@mui/material';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/providers/app-theme-provider';
 
 import { useClientMounted } from '@/hooks/use-client-mounted';
 

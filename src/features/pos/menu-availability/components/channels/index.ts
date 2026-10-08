@@ -1,0 +1,1 @@
+export { MenuChannels } from './channels';

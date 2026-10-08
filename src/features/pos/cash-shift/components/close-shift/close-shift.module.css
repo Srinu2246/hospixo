@@ -1,0 +1,456 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 100%;
+  padding-bottom: 1rem;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.85fr);
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem 1.15rem;
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.95rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .summaryGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.fieldLabel {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.fieldValue {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.voucher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.voucherLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.voucherIcon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.voucherMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.voucherName {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.voucherSub {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.voucherAmount {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.paymentList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paymentRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.paymentLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.payIcon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.payIconCash {
+  background: color-mix(in srgb, var(--success) 14%, var(--card));
+  color: var(--success);
+}
+
+.payIconCard {
+  background: color-mix(in srgb, var(--info) 14%, var(--card));
+  color: var(--info);
+}
+
+.payIconUpi {
+  background: color-mix(in srgb, var(--info) 10%, color-mix(in srgb, var(--destructive) 10%, var(--card)));
+  color: color-mix(in srgb, var(--info) 40%, var(--destructive));
+}
+
+.payIconComp {
+  background: color-mix(in srgb, var(--warning) 18%, var(--card));
+  color: var(--warning-foreground);
+}
+
+.payMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.payName {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.paySub {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.payAmount {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.payAmountCash {
+  color: var(--success);
+}
+
+.payAmountCard {
+  color: var(--info);
+}
+
+.payAmountUpi {
+  color: color-mix(in srgb, var(--info) 40%, var(--destructive));
+}
+
+.payAmountComp {
+  color: var(--warning-foreground);
+}
+
+.notes {
+  width: 100%;
+  min-height: 7.5rem;
+  resize: vertical;
+  padding: 0.85rem 0.95rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--muted);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.notes::placeholder {
+  color: var(--muted-foreground);
+}
+
+.notes:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  border-color: var(--ring);
+  background: var(--card);
+}
+
+.reconList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.reconRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.reconLabel {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.reconValue {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.actualField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.actualLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.actualInput {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.actualInput:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  border-color: var(--ring);
+}
+
+.diff {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.diffOk {
+  background: color-mix(in srgb, var(--success) 14%, var(--card));
+  color: var(--success);
+}
+
+.diffWarn {
+  background: color-mix(in srgb, var(--destructive) 12%, var(--card));
+  color: var(--destructive);
+}
+
+.pinField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pinLabel {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.pinInput {
+  width: 100%;
+  max-width: 10rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+  font: inherit;
+  font-size: 0.95rem;
+  letter-spacing: 0.2em;
+  color: var(--foreground);
+}
+
+.pinInput:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  border-color: var(--ring);
+}
+
+.info {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--info) 12%, var(--card));
+  color: var(--info);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.infoIcon {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: auto;
+  padding-top: 0.35rem;
+}
+
+.secondaryBtn,
+.confirmBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondaryBtn {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.secondaryBtn:hover {
+  background: var(--muted);
+}
+
+.confirmBtn {
+  border: none;
+  background: var(--info);
+  color: var(--info-foreground);
+}
+
+.confirmBtn:hover {
+  background: color-mix(in srgb, var(--info) 88%, var(--foreground));
+}
+
+.confirmBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnIcon {
+  width: 1rem;
+  height: 1rem;
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { MoonIcon, SunIcon } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/providers/app-theme-provider';
 
 import { useClientMounted } from '@/hooks/use-client-mounted';
 import { cn } from '@/lib/utils';

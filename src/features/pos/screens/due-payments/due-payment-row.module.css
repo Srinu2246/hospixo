@@ -1,0 +1,120 @@
+.row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.35fr) minmax(120px, 0.8fr) minmax(110px, 0.75fr) 90px 64px;
+  align-items: center;
+  gap: 18px;
+  min-height: 60px;
+  padding: 12px 8px;
+  border-bottom: 1px solid #e8ebef;
+}
+
+.guest h2,
+.guest p,
+.detail span,
+.detail strong {
+  margin: 0;
+}
+
+.guest h2 {
+  color: var(--foreground);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.guest p {
+  margin-top: 2px;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.detail span {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.detail strong {
+  color: var(--foreground);
+  font-size: 0.875rem;
+}
+
+.status {
+  justify-self: start;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.overdue {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.pending {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.paid {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.settleButton {
+  justify-self: end;
+  min-width: 56px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settleButton:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+@media (max-width: 820px) {
+  .row {
+    grid-template-columns: 1fr auto;
+    gap: 10px 16px;
+    padding-block: 14px;
+  }
+
+  .detail {
+    grid-column: 1;
+  }
+
+  .status,
+  .settleButton {
+    grid-column: 2;
+  }
+
+  .guest h2 {
+    font-size: 13px;
+  }
+
+  .guest p,
+  .detail span,
+  .status,
+  .settleButton {
+    font-size: 10px;
+  }
+
+  .detail strong {
+    font-size: 12px;
+  }
+}

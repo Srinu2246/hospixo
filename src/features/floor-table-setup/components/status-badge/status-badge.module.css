@@ -1,0 +1,27 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.5rem;
+  padding: 0.15rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.active {
+  background: color-mix(in srgb, var(--success) 16%, var(--card));
+  color: color-mix(in srgb, var(--success) 82%, var(--foreground));
+}
+
+.draft {
+  background: color-mix(in srgb, var(--warning) 22%, var(--card));
+  color: color-mix(in srgb, var(--warning) 55%, var(--foreground));
+}
+
+.archived {
+  background: color-mix(in srgb, var(--destructive) 12%, var(--card));
+  color: var(--destructive);
+}

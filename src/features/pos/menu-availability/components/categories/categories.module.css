@@ -1,0 +1,100 @@
+.panel {
+  width: 100%;
+  max-width: 16.5rem;
+  border-radius: 0.75rem;
+  background: var(--card);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.list {
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.55rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.15rem;
+}
+
+.rowActive {
+  background: #eff6ff;
+}
+
+.labelBtn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.45rem 0.4rem;
+  color: var(--foreground);
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.switch {
+  position: relative;
+  width: 2.35rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.switchOn {
+  background: var(--pos-success);
+}
+
+.switchOff {
+  background: #cbd5e1;
+}
+
+.knob {
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.2);
+  transition: transform 0.15s ease;
+}
+
+.switchOn .knob {
+  transform: translateX(1.05rem);
+}
+
+@media (max-width: 900px) {
+  .panel {
+    max-width: none;
+  }
+}

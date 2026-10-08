@@ -610,3 +610,91 @@ export function restaurantBranchMenuItemDeactivatePath(
 ): string {
   return `${restaurantBranchMenuItemOverridePath(branchId, assignmentId, itemOverrideId)}/deactivate`;
 }
+
+// Branch floors, sections, and dining tables ----------------------------------
+
+/** `GET|POST /api/v1/branches/{branch_id}/floors` */
+export function branchFloorsPath(branchId: string | number, floorId?: string | number): string {
+  const base = `/api/v1/branches/${encodeURIComponent(String(branchId))}/floors`;
+  return floorId == null ? base : `${base}/${encodeURIComponent(String(floorId))}`;
+}
+
+/** `GET|POST /api/v1/branches/{branch_id}/floors/{floor_id}/sections` */
+export function branchFloorSectionsPath(
+  branchId: string | number,
+  floorId: string | number,
+  sectionId?: string | number,
+): string {
+  const base = `${branchFloorsPath(branchId, floorId)}/sections`;
+  return sectionId == null ? base : `${base}/${encodeURIComponent(String(sectionId))}`;
+}
+
+/** `GET|POST /api/v1/branches/{branch_id}/floors/{floor_id}/sections/{section_id}/tables` */
+export function branchFloorSectionTablesPath(
+  branchId: string | number,
+  floorId: string | number,
+  sectionId: string | number,
+  tableId?: string | number,
+): string {
+  const base = `${branchFloorSectionsPath(branchId, floorId, sectionId)}/tables`;
+  return tableId == null ? base : `${base}/${encodeURIComponent(String(tableId))}`;
+}
+
+// Restaurant branch floors & tables ---------------------------------------------
+
+export type RestaurantBranchFloorsListQuery = Readonly<{
+  status?: 'active' | 'inactive';
+}>;
+
+export type RestaurantBranchTablesListQuery = Readonly<{
+  status?: 'active' | 'inactive';
+}>;
+
+/** `GET|POST /api/v1/restaurant/branches/{branch_id}/floors` */
+export function restaurantBranchFloorsPath(branchId: string | number): string {
+  return `/api/v1/restaurant/branches/${encodeURIComponent(String(branchId))}/floors`;
+}
+
+export function restaurantBranchFloorsListPath(
+  branchId: string | number,
+  query?: RestaurantBranchFloorsListQuery,
+): string {
+  const base = restaurantBranchFloorsPath(branchId);
+  if (!query?.status) return base;
+  return `${base}?status=${encodeURIComponent(query.status)}`;
+}
+
+/** `GET|PATCH|DELETE /api/v1/restaurant/branches/{branch_id}/floors/{floor_id}` */
+export function restaurantBranchFloorPath(
+  branchId: string | number,
+  floorId: string | number,
+): string {
+  return `${restaurantBranchFloorsPath(branchId)}/${encodeURIComponent(String(floorId))}`;
+}
+
+/** `GET|POST /api/v1/restaurant/branches/{branch_id}/floors/{floor_id}/tables` */
+export function restaurantBranchFloorTablesPath(
+  branchId: string | number,
+  floorId: string | number,
+): string {
+  return `${restaurantBranchFloorPath(branchId, floorId)}/tables`;
+}
+
+export function restaurantBranchFloorTablesListPath(
+  branchId: string | number,
+  floorId: string | number,
+  query?: RestaurantBranchTablesListQuery,
+): string {
+  const base = restaurantBranchFloorTablesPath(branchId, floorId);
+  if (!query?.status) return base;
+  return `${base}?status=${encodeURIComponent(query.status)}`;
+}
+
+/** `GET|PATCH|DELETE /api/v1/restaurant/branches/{branch_id}/floors/{floor_id}/tables/{table_id}` */
+export function restaurantBranchFloorTablePath(
+  branchId: string | number,
+  floorId: string | number,
+  tableId: string | number,
+): string {
+  return `${restaurantBranchFloorTablesPath(branchId, floorId)}/${encodeURIComponent(String(tableId))}`;
+}

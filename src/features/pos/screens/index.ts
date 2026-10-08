@@ -1,0 +1,12 @@
+export { PosDashboardPage } from './dashboard/pos-dashboard-page';
+export { PosFlowShell } from './layout/pos-flow-shell';
+export { PosOperationsShell } from './layout/pos-operations-shell';
+export { CheckoutPaymentPage } from './checkout-payment/checkout-payment-page';
+export { DineInPage } from './dine-in/dine-in-page';
+export { DuePaymentsPage } from './due-payments/due-payments-page';
+export { OnlineOrdersPage } from './online-orders/online-orders-page';
+export { OpenOrdersPage } from './open-orders/open-orders-page';
+export { OrderDetailsPage } from './order-details/order-details-page';
+export { PaymentSuccessPage } from './payment-success/payment-success-page';
+export { ReadyListPage } from './ready-list/ready-list-page';
+export { TablesPage } from './tables/tables-page';

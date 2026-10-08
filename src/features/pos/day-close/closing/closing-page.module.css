@@ -1,0 +1,46 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: min(70vh, 560px);
+  text-align: center;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #dbeafe;
+  border-top-color: var(--pos-primary);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+.title {
+  margin: 8px 0 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--pos-text);
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 420px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--pos-text-muted);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 767px) {
+  .title {
+    font-size: 24px;
+  }
+}

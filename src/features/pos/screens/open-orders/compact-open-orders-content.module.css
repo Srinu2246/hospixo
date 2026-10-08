@@ -1,0 +1,128 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.gridTablet {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.card {
+  padding: 16px;
+  border-radius: var(--pos-radius-md);
+  background: var(--pos-surface);
+  box-shadow: none;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--pos-text-muted);
+}
+
+.orderNumber {
+  font-weight: 700;
+  color: var(--pos-text);
+}
+
+.mainRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.reference {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--pos-text);
+}
+
+.amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pos-primary);
+  white-space: nowrap;
+}
+
+.statusRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.paymentDot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pos-text-muted);
+  display: none;
+}
+
+.paymentDot i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: none;
+}
+
+.paidDot {
+  background: var(--pos-success);
+}
+
+.unpaidDot {
+  background: var(--pos-danger);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.viewBtn,
+.settleBtn {
+  flex: 1;
+  min-height: 40px;
+  border-radius: var(--pos-radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.viewBtn {
+  border: 1px solid var(--pos-border-strong);
+  background: var(--pos-surface);
+  color: var(--pos-text);
+}
+
+.settleBtn {
+  border: 0;
+  background: var(--pos-primary);
+  color: var(--pos-on-accent);
+}
+
+.empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--pos-text-muted);
+  font-size: 14px;
+}
