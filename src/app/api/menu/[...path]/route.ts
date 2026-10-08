@@ -39,6 +39,9 @@ import {
   unwrapMenuCategoryAssignmentList,
   unwrapRestaurantMenuList,
 } from '@/features/menu/api/restaurant-menus-map';
+
+type ItemStatusFilter = 'active' | 'inactive';
+type DietaryTypeFilter = 'veg' | 'non_veg' | 'egg' | 'vegan';
 import type {
   MenuCategoryAssignmentApi,
   MenuTreeApi,
@@ -207,10 +210,9 @@ export async function GET(request: Request, context: RouteContext) {
     // Items
     if (resource === 'items') {
       if (path.length === 1) {
-        const status = searchParams.get('status') as 'active' | 'inactive' | null;
+        const status = searchParams.get('status') as ItemStatusFilter | null;
         const categoryId = searchParams.get('category_id');
-        const dietaryType = searchParams.get('dietary_type') as
-          'veg' | 'non_veg' | 'egg' | 'vegan' | null;
+        const dietaryType = searchParams.get('dietary_type') as DietaryTypeFilter | null;
         const data = await listBackendMenuItems(token, {
           status: status ?? undefined,
           category_id: categoryId ? Number(categoryId) : undefined,
@@ -458,7 +460,7 @@ export async function POST(request: Request, context: RouteContext) {
         let data = await createBackendMenuItem(token, itemPayload);
 
         const unwrapped = unwrapMenuItemApi(data) ?? (data as Record<string, unknown>);
-        if (unwrapped && unwrapped.id && unwrapped.status !== 'active') {
+        if (unwrapped?.id && unwrapped.status !== 'active') {
           try {
             const activated = await activateBackendMenuItem(token, String(unwrapped.id));
             if (activated) data = activated;

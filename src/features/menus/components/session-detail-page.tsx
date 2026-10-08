@@ -33,7 +33,7 @@ import { AssignedItemsTableSkeleton, SessionDetailSkeleton } from './skeleton/me
 
 const PAGE_SIZE = 10;
 
-function ItemThumb({ item }: { item: MenuCatalogItem }) {
+function ItemThumb({ item }: Readonly<{ item: MenuCatalogItem }>) {
   const [broken, setBroken] = useState(false);
 
   if (item.image && !broken) {
@@ -214,128 +214,141 @@ export function SessionDetailPage() {
           </Box>
         </Box>
 
-        {!detailReady ? (
-          <AssignedItemsTableSkeleton />
-        ) : assignedItems.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 6 }}>
-            <Avatar sx={{ mx: 'auto', mb: 2, bgcolor: 'action.hover', color: 'text.secondary' }}>
-              <CalendarDays size={22} />
-            </Avatar>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-              {menusCopy.emptyTitle}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-              {menusCopy.emptyBody}
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Plus size={16} />}
-              onClick={() => setAssignOpen(true)}
-              sx={{ textTransform: 'none', fontWeight: 600 }}
-            >
-              {menusCopy.assignItems}
-            </Button>
-          </Box>
-        ) : (
-          <>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2.5 }}>
-              {chips.map((chip) => {
-                const count =
-                  chip === 'all' ? assignedItems.length : (categoryCounts.get(chip) ?? 0);
-                const label = chip === 'all' ? menusCopy.allChip : chip;
-                const active = category === chip;
-                return (
-                  <Chip
-                    key={chip}
-                    label={`${label} (${count})`}
-                    variant={active ? 'filled' : 'outlined'}
-                    color={active ? 'primary' : 'default'}
-                    onClick={() => {
-                      setCategory(chip);
-                      setPage(1);
-                    }}
-                    onDelete={
-                      chip !== 'all'
-                        ? async () => {
-                            const targetItem = assignedItems.find(
-                              (item) => item.categoryName === chip,
-                            );
-                            if (targetItem) {
-                              await unassignCategory(session.id, targetItem.categoryId);
-                              if (category === chip) {
-                                setCategory('all');
-                                setPage(1);
+        {(() => {
+          if (!detailReady) {
+            return <AssignedItemsTableSkeleton />;
+          }
+          if (assignedItems.length === 0) {
+            return (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Avatar
+                  sx={{ mx: 'auto', mb: 2, bgcolor: 'action.hover', color: 'text.secondary' }}
+                >
+                  <CalendarDays size={22} />
+                </Avatar>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  {menusCopy.emptyTitle}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+                  {menusCopy.emptyBody}
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<Plus size={16} />}
+                  onClick={() => setAssignOpen(true)}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  {menusCopy.assignItems}
+                </Button>
+              </Box>
+            );
+          }
+          return (
+            <>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2.5 }}>
+                {chips.map((chip) => {
+                  const count =
+                    chip === 'all' ? assignedItems.length : (categoryCounts.get(chip) ?? 0);
+                  const label = chip === 'all' ? menusCopy.allChip : chip;
+                  const active = category === chip;
+                  return (
+                    <Chip
+                      key={chip}
+                      label={`${label} (${count})`}
+                      variant={active ? 'filled' : 'outlined'}
+                      color={active ? 'primary' : 'default'}
+                      onClick={() => {
+                        setCategory(chip);
+                        setPage(1);
+                      }}
+                      onDelete={
+                        chip !== 'all'
+                          ? async () => {
+                              const targetItem = assignedItems.find(
+                                (item) => item.categoryName === chip,
+                              );
+                              if (targetItem) {
+                                await unassignCategory(session.id, targetItem.categoryId);
+                                if (category === chip) {
+                                  setCategory('all');
+                                  setPage(1);
+                                }
                               }
                             }
-                          }
-                        : undefined
-                    }
-                    deleteIcon={chip !== 'all' ? <X size={14} /> : undefined}
-                    sx={{ fontWeight: 500, cursor: 'pointer' }}
-                  />
-                );
-              })}
-            </Box>
+                          : undefined
+                      }
+                      deleteIcon={chip !== 'all' ? <X size={14} /> : undefined}
+                      sx={{ fontWeight: 500, cursor: 'pointer' }}
+                    />
+                  );
+                })}
+              </Box>
 
-            <TableContainer
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, mb: 2 }}
-            >
-              <Table size="small">
-                <TableHead sx={{ bgcolor: 'action.hover' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: 64 }}>Image</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Item Name</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Base Price</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Dietary</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Order Types</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {paged.map((item) => (
-                    <TableRow key={item.id} hover>
-                      <TableCell>
-                        <ItemThumb item={item} />
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{item.name}</TableCell>
-                      <TableCell>
-                        <Chip label={item.categoryName} size="small" variant="outlined" />
-                      </TableCell>
-                      <TableCell>{formatPrice(item.basePrice)}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={item.dietary}
-                          size="small"
-                          color={item.dietary === 'Veg' ? 'success' : 'error'}
-                          variant="outlined"
-                          sx={{ fontSize: '0.72rem', height: 22 }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
-                        {item.orderTypesLabel || '—'}
-                      </TableCell>
+              <TableContainer
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, mb: 2 }}
+              >
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: 'action.hover' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, width: 64 }}>Image</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Item Name</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Base Price</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Dietary</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Order Types</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {paged.map((item) => (
+                      <TableRow key={item.id} hover>
+                        <TableCell>
+                          <ItemThumb item={item} />
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{item.name}</TableCell>
+                        <TableCell>
+                          <Chip label={item.categoryName} size="small" variant="outlined" />
+                        </TableCell>
+                        <TableCell>{formatPrice(item.basePrice)}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.dietary}
+                            size="small"
+                            color={item.dietary === 'Veg' ? 'success' : 'error'}
+                            variant="outlined"
+                            sx={{ fontSize: '0.72rem', height: 22 }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
+                          {item.orderTypesLabel || '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
 
-            <Box
-              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 1 }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                {menusCopy.showing(start, end, filtered.length)}
-              </Typography>
-              <Pagination
-                count={totalPages}
-                page={currentPage}
-                onChange={(_, newPage) => setPage(newPage)}
-                size="small"
-                color="primary"
-              />
-            </Box>
-          </>
-        )}
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  pt: 1,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  {menusCopy.showing(start, end, filtered.length)}
+                </Typography>
+                <Pagination
+                  count={totalPages}
+                  page={currentPage}
+                  onChange={(_, newPage) => setPage(newPage)}
+                  size="small"
+                  color="primary"
+                />
+              </Box>
+            </>
+          );
+        })()}
       </Card>
 
       <AssignItemsModal

@@ -1,6 +1,6 @@
 import type { MenuItemId } from './menu-item-api';
 
-export type MenuItemImageId = string;
+export type MenuItemImageId = string; // NOSONAR
 
 export type MenuItemImageApiStatus = 'active' | 'inactive';
 

@@ -12,9 +12,9 @@ import { menusRoutes } from '@/features/menus/config/paths';
 
 export default function EditCompanyMenuSessionPage({
   params,
-}: {
+}: Readonly<{
   params: Promise<{ sessionId: string }>;
-}) {
+}>) {
   const resolvedParams = use(params);
   const sessionId = decodeURIComponent(resolvedParams.sessionId ?? '');
   const { getSession, ready } = useMenus();

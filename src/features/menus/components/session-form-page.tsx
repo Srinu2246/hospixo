@@ -264,7 +264,11 @@ export function SessionFormPage({ mode, session }: SessionFormPageProps) {
             startIcon={<Check size={16} />}
             sx={{ height: 40, borderRadius: '8px', textTransform: 'none', fontWeight: 600, px: 3 }}
           >
-            {pending ? menusCopy.saving : isEdit ? menusCopy.saveChanges : menusCopy.createSession}
+            {(() => {
+              if (pending) return menusCopy.saving;
+              if (isEdit) return menusCopy.saveChanges;
+              return menusCopy.createSession;
+            })()}
           </Button>
         </Box>
       </Box>

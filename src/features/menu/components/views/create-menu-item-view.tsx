@@ -347,7 +347,7 @@ export function CreateMenuItemView() {
 
   async function handleUpdateTag(
     tagId: string,
-    input: { name: string; code: string; status?: MenuItemTag['status'] },
+    input: { name: string; code: string } & Partial<Pick<MenuItemTag, 'status'>>,
   ) {
     const result = await updateMenuItemTag(tagId, input);
     if (!result.ok) {
@@ -593,6 +593,7 @@ export function CreateMenuItemView() {
 
       if (editingItem && isPersistedMenuItemId(editingItem.id)) {
         setImages((prev) => [...prev, optimisticImage]);
+        // NOSONAR: sequential upload to preserve file order and track per-file progress
         const result = await uploadMenuItemImage(editingItem.id, file, {
           sortOrder: images.length + i,
           isPrimary: images.length === 0 && i === 0,
@@ -772,12 +773,10 @@ export function CreateMenuItemView() {
 
     const selectedGstRate =
       pageConfig?.scope === 'company' ? gstRates.find((rate) => rate.id === gstRateId) : undefined;
-    const resolvedGst =
-      pageConfig?.scope === 'company'
-        ? selectedGstRate
-          ? resolveGstDisplayValue(selectedGstRate)
-          : gst
-        : gst;
+    let resolvedGst = gst;
+    if (pageConfig?.scope === 'company' && selectedGstRate) {
+      resolvedGst = resolveGstDisplayValue(selectedGstRate);
+    }
 
     const itemPayload = {
       categoryId: effectiveCategoryId,
@@ -1284,44 +1283,53 @@ export function CreateMenuItemView() {
                 />
               </Box>
 
-              {prepStationsLoading ? (
-                <Typography variant="body2" color="text.secondary">
-                  Loading stations...
-                </Typography>
-              ) : safePreparationStations.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  No active preparation stations yet. Create stations under Company → Prep Stations.
-                </Typography>
-              ) : (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {safePreparationStations.map((station) => {
-                    const isSelected = selectedPreparationStations.some(
-                      (selected) => selected.stationId === station.id,
-                    );
-                    const order = selectedPreparationStations.find(
-                      (selected) => selected.stationId === station.id,
-                    )?.defaultOrder;
+              {(() => {
+                if (prepStationsLoading) {
+                  return (
+                    <Typography variant="body2" color="text.secondary">
+                      Loading stations...
+                    </Typography>
+                  );
+                }
+                if (safePreparationStations.length === 0) {
+                  return (
+                    <Typography variant="body2" color="text.secondary">
+                      No active preparation stations yet. Create stations under Company → Prep
+                      Stations.
+                    </Typography>
+                  );
+                }
+                return (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {safePreparationStations.map((station) => {
+                      const isSelected = selectedPreparationStations.some(
+                        (selected) => selected.stationId === station.id,
+                      );
+                      const order = selectedPreparationStations.find(
+                        (selected) => selected.stationId === station.id,
+                      )?.defaultOrder;
 
-                    return (
-                      <FormControlLabel
-                        key={station.id}
-                        control={
-                          <Checkbox
-                            checked={isSelected}
-                            onChange={() => togglePreparationStation(station.id)}
-                            size="small"
-                          />
-                        }
-                        label={
-                          <Typography variant="body2">
-                            {station.name} ({station.code}) {isSelected ? `· #${order}` : ''}
-                          </Typography>
-                        }
-                      />
-                    );
-                  })}
-                </Box>
-              )}
+                      return (
+                        <FormControlLabel
+                          key={station.id}
+                          control={
+                            <Checkbox
+                              checked={isSelected}
+                              onChange={() => togglePreparationStation(station.id)}
+                              size="small"
+                            />
+                          }
+                          label={
+                            <Typography variant="body2">
+                              {station.name} ({station.code}) {isSelected ? `· #${order}` : ''}
+                            </Typography>
+                          }
+                        />
+                      );
+                    })}
+                  </Box>
+                );
+              })()}
             </Paper>
           )}
 
@@ -1848,16 +1856,22 @@ export function CreateMenuItemView() {
             </Box>
 
             {pageConfig?.scope === 'company' ? (
-              <>
-                {modifierGroupsLoading ? (
-                  <Typography variant="body2" color="text.secondary">
-                    Loading modifier groups...
-                  </Typography>
-                ) : safeModifierGroups.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No active modifier groups yet. Create groups under Company → Modifier Groups.
-                  </Typography>
-                ) : (
+              (() => {
+                if (modifierGroupsLoading) {
+                  return (
+                    <Typography variant="body2" color="text.secondary">
+                      Loading modifier groups...
+                    </Typography>
+                  );
+                }
+                if (safeModifierGroups.length === 0) {
+                  return (
+                    <Typography variant="body2" color="text.secondary">
+                      No active modifier groups yet. Create groups under Company → Modifier Groups.
+                    </Typography>
+                  );
+                }
+                return (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {safeModifierGroups.map((group) => {
                       const isSelected = selectedModifierGroups.some(
@@ -1886,8 +1900,8 @@ export function CreateMenuItemView() {
                       );
                     })}
                   </Box>
-                )}
-              </>
+                );
+              })()
             ) : (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {modifiers.map((m) => (
@@ -1925,7 +1939,11 @@ export function CreateMenuItemView() {
             Cancel
           </Button>
           <Button type="submit" variant="contained" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : editingItem ? 'Save Changes' : 'Save Item'}
+            {(() => {
+              if (isSubmitting) return 'Saving...';
+              if (editingItem) return 'Save Changes';
+              return 'Save Item';
+            })()}
           </Button>
         </Box>
       </Box>

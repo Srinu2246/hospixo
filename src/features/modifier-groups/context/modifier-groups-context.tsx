@@ -73,10 +73,10 @@ const ModifierGroupsContext = createContext<ModifierGroupsContextType | null>(nu
 export function ModifierGroupsProvider({
   children,
   pageConfig,
-}: {
+}: Readonly<{
   children: ReactNode;
   pageConfig: ModifierGroupsPageConfig;
-}) {
+}>) {
   const [selectedGroup, setSelectedGroup] = useState<ModifierGroup | null>(null);
   const [options, setOptions] = useState<ModifierOption[]>([]);
   const [viewMode, setViewMode] = useState<ModifierGroupsViewMode>('list');
@@ -220,32 +220,60 @@ export function ModifierGroupsProvider({
     [],
   );
 
-  const value: ModifierGroupsContextType = {
-    pageConfig,
-    groups,
-    selectedGroup,
-    options,
-    viewMode,
-    statusFilter,
-    isHydrated,
-    groupsLoading,
-    groupsError,
-    detailLoading,
-    detailError,
-    optionsLoading,
-    optionsError,
-    setStatusFilter,
-    openCreateGroupPage,
-    openViewGroupPage,
-    openEditGroupPage,
-    backToList,
-    createGroup,
-    updateGroup,
-    loadGroupDetail,
-    loadGroupOptions,
-    createOption,
-    updateOption,
-  };
+  const value = useMemo<ModifierGroupsContextType>(
+    () => ({
+      pageConfig,
+      groups,
+      selectedGroup,
+      options,
+      viewMode,
+      statusFilter,
+      isHydrated,
+      groupsLoading,
+      groupsError,
+      detailLoading,
+      detailError,
+      optionsLoading,
+      optionsError,
+      setStatusFilter,
+      openCreateGroupPage,
+      openViewGroupPage,
+      openEditGroupPage,
+      backToList,
+      createGroup,
+      updateGroup,
+      loadGroupDetail,
+      loadGroupOptions,
+      createOption,
+      updateOption,
+    }),
+    [
+      pageConfig,
+      groups,
+      selectedGroup,
+      options,
+      viewMode,
+      statusFilter,
+      isHydrated,
+      groupsLoading,
+      groupsError,
+      detailLoading,
+      detailError,
+      optionsLoading,
+      optionsError,
+      setStatusFilter,
+      openCreateGroupPage,
+      openViewGroupPage,
+      openEditGroupPage,
+      backToList,
+      createGroup,
+      updateGroup,
+      loadGroupDetail,
+      loadGroupOptions,
+      createOption,
+      updateOption,
+    ],
+  );
 
   return <ModifierGroupsContext.Provider value={value}>{children}</ModifierGroupsContext.Provider>;
 }

@@ -24,11 +24,11 @@ import {
   menuFormTextFieldSx,
 } from './menu-form-dialog-styles';
 
-type AddModifierModalProps = {
+type AddModifierModalProps = Readonly<{
   isOpen: boolean;
   onClose: () => void;
   onAddModifier: (name: string, price: number) => void;
-};
+}>;
 
 export function AddModifierModal({ isOpen, onClose, onAddModifier }: AddModifierModalProps) {
   const [name, setName] = useState('');

@@ -55,10 +55,10 @@ const PreparationStationsContext = createContext<PreparationStationsContextType 
 export function PreparationStationsProvider({
   children,
   pageConfig,
-}: {
+}: Readonly<{
   children: ReactNode;
   pageConfig: PreparationStationsPageConfig;
-}) {
+}>) {
   const [selectedStation, setSelectedStation] = useState<PreparationStation | null>(null);
   const [viewMode, setViewMode] = useState<PreparationStationsViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<PreparationStationStatus | 'all'>('all');
@@ -149,26 +149,48 @@ export function PreparationStationsProvider({
     }
   }, []);
 
-  const value: PreparationStationsContextType = {
-    pageConfig,
-    stations,
-    selectedStation,
-    viewMode,
-    statusFilter,
-    isHydrated,
-    stationsLoading,
-    stationsError,
-    detailLoading,
-    detailError,
-    setStatusFilter,
-    openCreateStationPage,
-    openViewStationPage,
-    openEditStationPage,
-    backToList,
-    createStation,
-    updateStation,
-    loadStationDetail,
-  };
+  const value = useMemo<PreparationStationsContextType>(
+    () => ({
+      pageConfig,
+      stations,
+      selectedStation,
+      viewMode,
+      statusFilter,
+      isHydrated,
+      stationsLoading,
+      stationsError,
+      detailLoading,
+      detailError,
+      setStatusFilter,
+      openCreateStationPage,
+      openViewStationPage,
+      openEditStationPage,
+      backToList,
+      createStation,
+      updateStation,
+      loadStationDetail,
+    }),
+    [
+      pageConfig,
+      stations,
+      selectedStation,
+      viewMode,
+      statusFilter,
+      isHydrated,
+      stationsLoading,
+      stationsError,
+      detailLoading,
+      detailError,
+      setStatusFilter,
+      openCreateStationPage,
+      openViewStationPage,
+      openEditStationPage,
+      backToList,
+      createStation,
+      updateStation,
+      loadStationDetail,
+    ],
+  );
 
   return (
     <PreparationStationsContext.Provider value={value}>

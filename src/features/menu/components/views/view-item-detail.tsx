@@ -99,7 +99,6 @@ export function ViewItemDetail() {
 
     if (!result.ok) {
       setStatusError(result.message ?? 'Failed to activate variant.');
-      return;
     }
   }
 
@@ -113,7 +112,6 @@ export function ViewItemDetail() {
 
     if (!result.ok) {
       setStatusError(result.message ?? 'Failed to deactivate variant.');
-      return;
     }
   }
 
@@ -127,7 +125,6 @@ export function ViewItemDetail() {
 
     if (!result.ok) {
       setStatusError(result.message ?? 'Failed to activate image.');
-      return;
     }
   }
 
@@ -141,7 +138,6 @@ export function ViewItemDetail() {
 
     if (!result.ok) {
       setStatusError(result.message ?? 'Failed to deactivate image.');
-      return;
     }
   }
 
@@ -420,85 +416,98 @@ export function ViewItemDetail() {
             'Soft cottage cheese cubes marinated in aromatic spices and grilled in a tandoor. Served with mint chutney and fresh onion rings.'}
         </Typography>
 
-        {imagesLoading ? (
-          <Typography variant="body2" color="text.secondary">
-            Loading images…
-          </Typography>
-        ) : itemImages.length > 0 ? (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-            {itemImages.map((image) => (
-              <Box
-                key={image.id}
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  p: 1.5,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 1,
-                  width: 160,
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={image.previewUrl ?? image.url}
-                  alt={selectedItem.name}
-                  style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 6 }}
-                />
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    flexWrap: 'wrap',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {image.isPrimary && (
-                    <Chip
-                      label="Primary"
-                      size="small"
-                      color="primary"
-                      sx={{ height: 20, fontSize: '0.7rem' }}
-                    />
-                  )}
-                  <Chip
-                    label={image.status ?? 'Active'}
-                    size="small"
+        {(() => {
+          if (imagesLoading) {
+            return (
+              <Typography variant="body2" color="text.secondary">
+                Loading images…
+              </Typography>
+            );
+          }
+          if (itemImages.length > 0) {
+            return (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                {itemImages.map((image) => (
+                  <Box
+                    key={image.id}
                     sx={{
-                      height: 20,
-                      fontSize: '0.7rem',
-                      bgcolor:
-                        image.status === 'Inactive' ? 'action.focus' : 'rgba(46, 125, 50, 0.08)',
-                      color: image.status === 'Inactive' ? 'text.secondary' : 'success.main',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      p: 1.5,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 1,
+                      width: 160,
                     }}
-                  />
-                  {pageConfig?.scope === 'company' && (
-                    <StatusToggleButton
-                      isActive={image.status !== 'Inactive'}
-                      disabled={imageActionId === image.id}
-                      resourceLabel="image"
-                      onClick={() =>
-                        void (image.status === 'Inactive'
-                          ? handleActivateImage(image.id)
-                          : handleDeactivateImage(image.id))
-                      }
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={image.previewUrl ?? image.url}
+                      alt={selectedItem.name}
+                      style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 6 }}
                     />
-                  )}
-                </Box>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        flexWrap: 'wrap',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {image.isPrimary && (
+                        <Chip
+                          label="Primary"
+                          size="small"
+                          color="primary"
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                      )}
+                      <Chip
+                        label={image.status ?? 'Active'}
+                        size="small"
+                        sx={{
+                          height: 20,
+                          fontSize: '0.7rem',
+                          bgcolor:
+                            image.status === 'Inactive'
+                              ? 'action.focus'
+                              : 'rgba(46, 125, 50, 0.08)',
+                          color: image.status === 'Inactive' ? 'text.secondary' : 'success.main',
+                        }}
+                      />
+                      {pageConfig?.scope === 'company' && (
+                        <StatusToggleButton
+                          isActive={image.status !== 'Inactive'}
+                          disabled={imageActionId === image.id}
+                          resourceLabel="image"
+                          onClick={() =>
+                            void (image.status === 'Inactive'
+                              ? handleActivateImage(image.id)
+                              : handleDeactivateImage(image.id))
+                          }
+                        />
+                      )}
+                    </Box>
+                  </Box>
+                ))}
               </Box>
-            ))}
-          </Box>
-        ) : primaryImageUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={primaryImageUrl}
-            alt={selectedItem.name}
-            style={{ maxWidth: 300, maxHeight: 180, objectFit: 'cover', borderRadius: 6 }}
-          />
-        ) : null}
+            );
+          }
+          if (primaryImageUrl) {
+            return (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={primaryImageUrl}
+                alt={selectedItem.name}
+                style={{ maxWidth: 300, maxHeight: 180, objectFit: 'cover', borderRadius: 6 }}
+              />
+            );
+          }
+          return null;
+        })()}
       </Paper>
 
       {/* Card 3: Dietary & Order Type */}

@@ -1,6 +1,6 @@
 export type MenuItemDietaryTypeApi = 'veg' | 'non_veg' | 'egg';
 
-export type MenuItemId = string;
+export type MenuItemId = string; // NOSONAR
 
 export type MenuItemTaxApi = Readonly<{
   gst_rate_id: number;

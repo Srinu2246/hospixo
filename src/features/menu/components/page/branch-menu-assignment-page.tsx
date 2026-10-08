@@ -50,11 +50,12 @@ export function BranchMenuAssignmentPage() {
     return { ...map, ...userSelectedMenuByBranch };
   }, [data, userSelectedMenuByBranch]);
 
-  const pendingKey = assignMutation.isPending
-    ? `assign-${assignMutation.variables?.branchId}`
-    : syncMutation.isPending
-      ? `sync-${syncMutation.variables?.branchId}`
-      : null;
+  let pendingKey: string | null = null;
+  if (assignMutation.isPending) {
+    pendingKey = `assign-${assignMutation.variables?.branchId}`;
+  } else if (syncMutation.isPending) {
+    pendingKey = `sync-${syncMutation.variables?.branchId}`;
+  }
 
   const handleAssign = useCallback(
     async (branchId: number) => {

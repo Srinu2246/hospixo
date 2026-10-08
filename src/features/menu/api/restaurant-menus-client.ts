@@ -6,8 +6,6 @@ import {
   mapMenuTreeApi,
   mapRestaurantMenuApi,
   mapRestaurantMenusApi,
-  toCreateMenuCategoryAssignmentPayload,
-  toCreateRestaurantMenuPayload,
   toUpdateRestaurantMenuPayload,
   unwrapMenuCategoryAssignmentList,
   unwrapRestaurantMenuList,
@@ -177,4 +175,7 @@ export async function removeMenuCategoryAssignmentClient(
   );
 }
 
-export { toCreateRestaurantMenuPayload, toCreateMenuCategoryAssignmentPayload };
+export {
+  toCreateRestaurantMenuPayload,
+  toCreateMenuCategoryAssignmentPayload,
+} from './restaurant-menus-map';

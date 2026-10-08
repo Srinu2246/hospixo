@@ -135,7 +135,9 @@ function ModifierGroupsPageContent() {
   );
 }
 
-export function ModifierGroupsPage({ pageConfig }: { pageConfig: ModifierGroupsPageConfig }) {
+export function ModifierGroupsPage({
+  pageConfig,
+}: Readonly<{ pageConfig: ModifierGroupsPageConfig }>) {
   return (
     <ModifierGroupsProvider pageConfig={pageConfig}>
       <ModifierGroupsPageContent />

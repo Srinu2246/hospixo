@@ -14,12 +14,12 @@ function parseUploadResponse(payload: unknown): ItemImage {
     throw new Error('Invalid image upload response.');
   }
   const record = payload as MenuImageApiResponse<MenuItemImageApi> & MenuItemImageApi;
-  const data =
-    'success' in record && record.data
-      ? record.data
-      : 'id' in record && 'url' in record
-        ? (record as MenuItemImageApi)
-        : null;
+  let data: MenuItemImageApi | null = null;
+  if ('success' in record && record.data) {
+    data = record.data;
+  } else if ('id' in record && 'url' in record) {
+    data = record as MenuItemImageApi;
+  }
   if (!data?.url) {
     const message =
       'message' in record && typeof record.message === 'string'

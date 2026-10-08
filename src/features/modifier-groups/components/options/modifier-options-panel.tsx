@@ -26,9 +26,9 @@ import { Plus } from 'lucide-react';
 import { useModifierGroups } from '../../context/modifier-groups-context';
 import type { ModifierGroupStatus } from '../../types/modifier-group-api';
 
-type ModifierOptionsPanelProps = {
+type ModifierOptionsPanelProps = Readonly<{
   groupId: string;
-};
+}>;
 
 export function ModifierOptionsPanel({ groupId }: ModifierOptionsPanelProps) {
   const { options, optionsLoading, optionsError, loadGroupOptions, createOption, updateOption } =
@@ -151,62 +151,70 @@ export function ModifierOptionsPanel({ groupId }: ModifierOptionsPanelProps) {
 
         <Divider sx={{ mb: 3 }} />
 
-        {optionsLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : options.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-            No options defined for this modifier group yet.
-          </Typography>
-        ) : (
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead sx={{ bgcolor: 'action.hover' }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Option Name</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Price Delta</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Order</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    Action
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {options.map((option) => {
-                  const isActive = (option.status ?? 'active').toLowerCase() === 'active';
-                  return (
-                    <TableRow key={option.id} hover>
-                      <TableCell sx={{ fontWeight: 500 }}>{option.name}</TableCell>
-                      <TableCell>+₹{option.priceDelta}</TableCell>
-                      <TableCell>{option.displayOrder}</TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={isActive ? 'Active' : 'Inactive'}
-                          color={isActive ? 'success' : 'default'}
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <Button
-                          size="small"
-                          variant="text"
-                          color={isActive ? 'error' : 'primary'}
-                          onClick={() => toggleOptionStatus(option.id, option.status)}
-                          sx={{ textTransform: 'none' }}
-                        >
-                          {isActive ? 'Deactivate' : 'Activate'}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+        {(() => {
+          if (optionsLoading) {
+            return (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress size={24} />
+              </Box>
+            );
+          }
+          if (options.length === 0) {
+            return (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                No options defined for this modifier group yet.
+              </Typography>
+            );
+          }
+          return (
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead sx={{ bgcolor: 'action.hover' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Option Name</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Price Delta</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Order</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>
+                      Action
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {options.map((option) => {
+                    const isActive = (option.status ?? 'active').toLowerCase() === 'active';
+                    return (
+                      <TableRow key={option.id} hover>
+                        <TableCell sx={{ fontWeight: 500 }}>{option.name}</TableCell>
+                        <TableCell>+₹{option.priceDelta}</TableCell>
+                        <TableCell>{option.displayOrder}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={isActive ? 'Active' : 'Inactive'}
+                            color={isActive ? 'success' : 'default'}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Button
+                            size="small"
+                            variant="text"
+                            color={isActive ? 'error' : 'primary'}
+                            onClick={() => toggleOptionStatus(option.id, option.status)}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            {isActive ? 'Deactivate' : 'Activate'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          );
+        })()}
       </CardContent>
     </Card>
   );

@@ -67,12 +67,12 @@ export function toMenuItemTaxesFromGst(
   isInclusive = false,
   gstRateId?: number | null,
 ): MenuItemTaxApi[] {
-  const resolvedRateId =
-    gstRateId != null && Number.isFinite(gstRateId) && gstRateId > 0
-      ? gstRateId
-      : gstRateId === undefined
-        ? resolveGstRateId(gst)
-        : null;
+  let resolvedRateId: number | null = null;
+  if (gstRateId != null && Number.isFinite(gstRateId) && gstRateId > 0) {
+    resolvedRateId = gstRateId;
+  } else if (gstRateId === undefined) {
+    resolvedRateId = resolveGstRateId(gst);
+  }
 
   if (resolvedRateId == null || !Number.isFinite(resolvedRateId) || resolvedRateId <= 0) {
     return [];

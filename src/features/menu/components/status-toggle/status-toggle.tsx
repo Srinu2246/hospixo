@@ -2,12 +2,12 @@
 
 import Button from '@mui/material/Button';
 
-type StatusToggleButtonProps = {
+type StatusToggleButtonProps = Readonly<{
   isActive: boolean;
   disabled?: boolean;
   resourceLabel: string;
   onClick: () => void;
-};
+}>;
 
 export function StatusToggleButton({
   isActive,

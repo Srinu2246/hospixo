@@ -1,4 +1,4 @@
-export type PreparationStationId = string;
+export type PreparationStationId = string; // NOSONAR
 
 export type PreparationStationStatus = 'active' | 'inactive';
 

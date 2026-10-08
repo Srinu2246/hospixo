@@ -66,8 +66,9 @@ export async function fetchPreparationStationsClient(
   const params = new URLSearchParams();
   if (query?.status) params.set('status', query.status);
   const qs = params.toString();
+  const queryString = qs ? `?${qs}` : '';
   const res = await clientApi.get<{ success?: boolean; data?: unknown }>(
-    `/menu/preparation-stations${qs ? `?${qs}` : ''}`,
+    `/menu/preparation-stations${queryString}`,
   );
   const list = unwrapPreparationStationList(res?.data ?? res);
   return mapPreparationStationsApi(list);

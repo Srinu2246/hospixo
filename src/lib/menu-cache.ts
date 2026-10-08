@@ -78,6 +78,19 @@ function safeUnwrapArray<T>(payload: unknown): T[] {
   return [];
 }
 
+function resolveString(a: unknown, b?: unknown): string | undefined {
+  if (a != null) return String(a);
+  if (b != null) return String(b);
+  return undefined;
+}
+
+function resolveNumber(a: unknown, b?: unknown, c?: unknown): number | undefined {
+  if (typeof a === 'number') return a;
+  if (typeof b === 'number') return b;
+  if (typeof c === 'number') return c;
+  return undefined;
+}
+
 function normalizeMenuCategory(raw: unknown): MenuCategory {
   const cat = (raw ?? {}) as Record<string, unknown>;
   const statusRaw = String(cat.status ?? '').toLowerCase();
@@ -85,27 +98,12 @@ function normalizeMenuCategory(raw: unknown): MenuCategory {
   return {
     id: String(cat.id ?? ''),
     name: String(cat.name ?? ''),
-    parentId:
-      cat.parentId != null
-        ? String(cat.parentId)
-        : cat.parent_id != null
-          ? String(cat.parent_id)
-          : undefined,
+    parentId: resolveString(cat.parentId, cat.parent_id),
     status,
     description: cat.description != null ? String(cat.description) : undefined,
-    displayOrder:
-      typeof cat.displayOrder === 'number'
-        ? cat.displayOrder
-        : typeof cat.display_order === 'number'
-          ? cat.display_order
-          : undefined,
+    displayOrder: resolveNumber(cat.displayOrder, cat.display_order),
     scope: (cat.scope as 'company' | 'branch') ?? 'company',
-    assignBranchId:
-      cat.assignBranchId != null
-        ? String(cat.assignBranchId)
-        : cat.assign_branch_id != null
-          ? String(cat.assign_branch_id)
-          : undefined,
+    assignBranchId: resolveString(cat.assignBranchId, cat.assign_branch_id),
   };
 }
 
@@ -135,18 +133,8 @@ function normalizePreparationStation(raw: unknown): PreparationStation {
     name: String(s.name ?? ''),
     code: String(s.code ?? ''),
     status: String(s.status ?? 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active',
-    createdAt:
-      s.createdAt != null
-        ? String(s.createdAt)
-        : s.created_at != null
-          ? String(s.created_at)
-          : undefined,
-    updatedAt:
-      s.updatedAt != null
-        ? String(s.updatedAt)
-        : s.updated_at != null
-          ? String(s.updated_at)
-          : undefined,
+    createdAt: resolveString(s.createdAt, s.created_at),
+    updatedAt: resolveString(s.updatedAt, s.updated_at),
   };
 }
 
@@ -159,18 +147,8 @@ function normalizeModifierGroup(raw: unknown): ModifierGroup {
     maxSelect: Number(g.maxSelect ?? g.max_select ?? 1),
     isRequired: Boolean(g.isRequired ?? g.is_required ?? false),
     status: String(g.status ?? 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active',
-    createdAt:
-      g.createdAt != null
-        ? String(g.createdAt)
-        : g.created_at != null
-          ? String(g.created_at)
-          : undefined,
-    updatedAt:
-      g.updatedAt != null
-        ? String(g.updatedAt)
-        : g.updated_at != null
-          ? String(g.updated_at)
-          : undefined,
+    createdAt: resolveString(g.createdAt, g.created_at),
+    updatedAt: resolveString(g.updatedAt, g.updated_at),
   };
 }
 
@@ -190,26 +168,9 @@ function normalizeItemImage(raw: unknown): ItemImage {
     id: String(img.id ?? ''),
     url: String(img.url ?? img.image_url ?? ''),
     isPrimary: Boolean(img.isPrimary ?? img.is_primary ?? false),
-    sortOrder:
-      typeof img.sortOrder === 'number'
-        ? img.sortOrder
-        : typeof img.displayOrder === 'number'
-          ? img.displayOrder
-          : typeof img.sort_order === 'number'
-            ? img.sort_order
-            : undefined,
-    storageKey:
-      img.storageKey != null
-        ? String(img.storageKey)
-        : img.storage_key != null
-          ? String(img.storage_key)
-          : undefined,
-    mimeType:
-      img.mimeType != null
-        ? String(img.mimeType)
-        : img.mime_type != null
-          ? String(img.mime_type)
-          : undefined,
+    sortOrder: resolveNumber(img.sortOrder, img.displayOrder, img.sort_order),
+    storageKey: resolveString(img.storageKey, img.storage_key),
+    mimeType: resolveString(img.mimeType, img.mime_type),
     status: String(img.status ?? 'active').toLowerCase() === 'inactive' ? 'Inactive' : 'Active',
   };
 }
@@ -555,19 +516,22 @@ type MenuMutationApiResponse<T> = Readonly<{
 
 function extractBffErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
-    const body = error.body as
-      (ApiErrorPayload & { details?: ApiErrorPayload['detail'] }) | undefined;
+    const body = error.body as Record<string, unknown> | null | undefined;
     const detailSource = body?.detail ?? body?.details;
     const validation = formatApiValidationDetails(detailSource);
     if (validation) return validation;
 
+    const message = typeof body?.message === 'string' ? body.message : error.message;
     const resolved = resolveApiErrorMessage(
-      new ApiRequestError(body?.message ?? error.message, error.status, detailSource),
+      new ApiRequestError(message, error.status, detailSource),
       { fallback },
     );
     if (resolved !== fallback) return resolved;
 
-    if (body?.message && !/^(bad request|request failed)$/i.test(body.message.trim())) {
+    if (
+      typeof body?.message === 'string' &&
+      !/^(bad request|request failed)$/i.test(body.message.trim())
+    ) {
       return body.message;
     }
     return error.message || fallback;
@@ -721,11 +685,12 @@ export async function updateMenuItemViaBff(
       effectiveBranchId != null &&
       (branchChanged || !existingItem.assignBranchName);
 
-    const branchNameById = needsBranchLookup
-      ? await fetchBranchNameById()
-      : existingItem.assignBranchId != null && existingItem.assignBranchName
-        ? { [String(existingItem.assignBranchId)]: existingItem.assignBranchName }
-        : {};
+    let branchNameById: Record<string, string> = {};
+    if (needsBranchLookup) {
+      branchNameById = await fetchBranchNameById();
+    } else if (existingItem.assignBranchId != null && existingItem.assignBranchName) {
+      branchNameById = { [String(existingItem.assignBranchId)]: existingItem.assignBranchName };
+    }
 
     const resolvedCategoryName = options.categoryName || existingItem.categoryName;
     const mapped = mapMenuItemApi(
@@ -995,14 +960,9 @@ export async function deactivateMenuItemVariantViaBff(
 export async function updateMenuItemImageViaBff(
   itemId: MenuItemId,
   imageId: MenuItemImageId,
-  updates: {
-    url?: string;
-    storageKey?: string;
-    mimeType?: string;
-    sortOrder?: number;
-    isPrimary?: boolean;
-    status?: ItemImage['status'];
-  },
+  updates: Partial<
+    Pick<ItemImage, 'url' | 'storageKey' | 'mimeType' | 'sortOrder' | 'isPrimary' | 'status'>
+  >,
 ): Promise<{ ok: true; data: ItemImage } | { ok: false; message: string }> {
   try {
     const payload = toUpdateMenuItemImagePayload(updates);
@@ -1084,7 +1044,7 @@ export async function createMenuItemTagViaBff(input: {
 
 export async function updateMenuItemTagViaBff(
   tagId: string,
-  updates: { name?: string; code?: string; status?: MenuItemTag['status'] },
+  updates: Partial<Pick<MenuItemTag, 'name' | 'code' | 'status'>>,
 ): Promise<{ ok: true; data: MenuItemTag } | { ok: false; message: string }> {
   try {
     const payload = toUpdateMenuItemTagPayload(updates);

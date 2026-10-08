@@ -399,15 +399,16 @@ export function MenusProvider({
       try {
         const assigned = assignedCategoryIds(treeRef.current);
         const nextIds = categoryIds.filter((categoryId) => !assigned.has(categoryId));
-        let order = assigned.size;
+        const order = assigned.size;
 
-        for (const categoryId of nextIds) {
-          await clientApi.post(`/menu/menus/${id}/category-assignments`, {
-            categoryId,
-            displayOrder: order,
-          });
-          order += 1;
-        }
+        await Promise.all(
+          nextIds.map((categoryId, index) =>
+            clientApi.post(`/menu/menus/${id}/category-assignments`, {
+              categoryId,
+              displayOrder: order + index,
+            }),
+          ),
+        );
 
         await loadDetail(id);
         return { ok: true as const, data: undefined };

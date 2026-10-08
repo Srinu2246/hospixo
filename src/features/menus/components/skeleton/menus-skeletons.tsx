@@ -62,7 +62,7 @@ export function MenusListSkeleton() {
   );
 }
 
-export function SessionDetailSkeleton({ current }: { current: string }) {
+export function SessionDetailSkeleton({ current }: Readonly<{ current: string }>) {
   return (
     <Box sx={{ width: '100%', py: 2 }} aria-busy="true">
       <MenusBreadcrumb current={current} />
@@ -102,7 +102,7 @@ export function AssignedItemsTableSkeleton() {
   );
 }
 
-export function SessionFormSkeleton({ mode }: { mode: 'create' | 'edit' }) {
+export function SessionFormSkeleton({ mode }: Readonly<{ mode: 'create' | 'edit' }>) {
   return (
     <Box sx={{ width: '100%', py: 2 }} aria-busy="true">
       <MenusBreadcrumb current={mode === 'create' ? 'Create Session' : 'Edit Session'} />

@@ -1,5 +1,5 @@
-export type ModifierGroupId = string;
-export type ModifierOptionId = string;
+export type ModifierGroupId = string; // NOSONAR
+export type ModifierOptionId = string; // NOSONAR
 
 export type ModifierGroupStatus = 'active' | 'inactive';
 

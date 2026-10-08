@@ -23,9 +23,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers.set('Content-Type', 'application/json');
   }
 
-  const endpoint = path.startsWith('/api')
-    ? path
-    : `/api${path.startsWith('/') ? path : `/${path}`}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const endpoint = path.startsWith('/api') ? path : `/api${normalizedPath}`;
   const res = await fetch(endpoint, {
     ...init,
     headers,

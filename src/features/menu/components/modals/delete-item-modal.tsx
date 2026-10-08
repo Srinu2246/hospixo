@@ -12,10 +12,10 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import { useMenu } from '../../context/menu-context';
 import type { MenuItem } from '../../types/menu';
 
-type DeleteItemModalProps = {
+type DeleteItemModalProps = Readonly<{
   item: MenuItem | null;
   onClose: () => void;
-};
+}>;
 
 export function DeleteItemModal({ item, onClose }: DeleteItemModalProps) {
   const { deleteMenuItem } = useMenu();

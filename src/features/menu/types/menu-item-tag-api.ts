@@ -1,4 +1,4 @@
-export type MenuItemTagDefinitionId = string;
+export type MenuItemTagDefinitionId = string; // NOSONAR
 
 export type MenuItemTagApiStatus = 'active' | 'inactive';
 

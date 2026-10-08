@@ -104,10 +104,10 @@ const EMPTY_ASSIGNMENTS: MenuCategoryAssignment[] = [];
 export function RestaurantMenusProvider({
   children,
   pageConfig,
-}: {
+}: Readonly<{
   children: ReactNode;
   pageConfig: MenuBuilderPageConfig;
-}) {
+}>) {
   const queryClient = useQueryClient();
   const [selectedMenu, setSelectedMenu] = useState<RestaurantMenu | null>(null);
   const [editingMenu, setEditingMenu] = useState<RestaurantMenu | null>(null);
@@ -121,10 +121,7 @@ export function RestaurantMenusProvider({
   const [activeDetailMenuId, setActiveDetailMenuId] = useState<string | null>(null);
 
   const listQuery = useMemo((): ListRestaurantMenusApiQuery | undefined => {
-    const query: {
-      status?: ListRestaurantMenusApiQuery['status'];
-      menu_type?: ListRestaurantMenusApiQuery['menu_type'];
-    } = {};
+    const query: Partial<ListRestaurantMenusApiQuery> = {};
     if (statusFilter !== 'all') query.status = statusFilter;
     if (menuTypeFilter !== 'all')
       query.menu_type = menuTypeFilter as ListRestaurantMenusApiQuery['menu_type'];
@@ -328,31 +325,8 @@ export function RestaurantMenusProvider({
     treeQuery.isPending,
   ]);
 
-  const value: RestaurantMenusContextType = {
-    pageConfig,
-    menus,
-    categories,
-    selectedMenu,
-    editingMenu,
-    categoryAssignments,
-    menuTree,
-    viewMode,
-    statusFilter,
-    menuTypeFilter,
-    isHydrated: menusQuery.isFetched,
-    menusLoading: menusQuery.isPending,
-    menusError: menusQuery.error instanceof Error ? menusQuery.error.message : null,
-    categoriesLoading: categoriesQuery.isPending,
-    detailLoading,
-    serverDetailHydrated,
-    detailError,
-    setStatusFilter,
-    setMenuTypeFilter,
-    openCreateMenuPage,
-    openEditMenuPage,
-    openViewMenuPage,
-    backToList,
-    createMenu: async (input) => {
+  const createMenu = useCallback(
+    async (input: CreateRestaurantMenuInput) => {
       try {
         await createMenuMutation.mutateAsync(input);
         return { ok: true };
@@ -363,7 +337,17 @@ export function RestaurantMenusProvider({
         };
       }
     },
-    updateMenu: async (menuId, updates) => {
+    [createMenuMutation],
+  );
+
+  const updateMenu = useCallback(
+    async (
+      menuId: RestaurantMenuId,
+      updates: Partial<CreateRestaurantMenuInput> & {
+        status?: RestaurantMenu['status'];
+        displayOrder?: number;
+      },
+    ) => {
       try {
         await updateMenuMutation.mutateAsync({ menuId, updates });
         return { ok: true };
@@ -374,7 +358,11 @@ export function RestaurantMenusProvider({
         };
       }
     },
-    activateMenu: async (menuId) => {
+    [updateMenuMutation],
+  );
+
+  const activateMenu = useCallback(
+    async (menuId: RestaurantMenuId) => {
       try {
         await activateMenuMutation.mutateAsync(menuId);
         return { ok: true };
@@ -385,7 +373,11 @@ export function RestaurantMenusProvider({
         };
       }
     },
-    deactivateMenu: async (menuId) => {
+    [activateMenuMutation],
+  );
+
+  const deactivateMenu = useCallback(
+    async (menuId: RestaurantMenuId) => {
       try {
         await deactivateMenuMutation.mutateAsync(menuId);
         return { ok: true };
@@ -396,8 +388,11 @@ export function RestaurantMenusProvider({
         };
       }
     },
-    loadMenuDetail,
-    assignCategory: async (menuId, categoryId, displayOrder) => {
+    [deactivateMenuMutation],
+  );
+
+  const assignCategory = useCallback(
+    async (menuId: RestaurantMenuId, categoryId: string, displayOrder?: number) => {
       try {
         await assignCategoryMutation.mutateAsync({
           menuId,
@@ -412,7 +407,11 @@ export function RestaurantMenusProvider({
         };
       }
     },
-    removeCategoryAssignment: async (menuId, assignmentId) => {
+    [assignCategoryMutation, categoryAssignments.length],
+  );
+
+  const removeCategoryAssignment = useCallback(
+    async (menuId: RestaurantMenuId, assignmentId: MenuCategoryAssignmentId) => {
       try {
         await removeAssignmentMutation.mutateAsync({ menuId, assignmentId });
         return { ok: true };
@@ -423,8 +422,77 @@ export function RestaurantMenusProvider({
         };
       }
     },
-    availableCategoriesForAssignment,
-  };
+    [removeAssignmentMutation],
+  );
+
+  const value = useMemo<RestaurantMenusContextType>(
+    () => ({
+      pageConfig,
+      menus,
+      categories,
+      selectedMenu,
+      editingMenu,
+      categoryAssignments,
+      menuTree,
+      viewMode,
+      statusFilter,
+      menuTypeFilter,
+      isHydrated: menusQuery.isFetched,
+      menusLoading: menusQuery.isPending,
+      menusError: menusQuery.error instanceof Error ? menusQuery.error.message : null,
+      categoriesLoading: categoriesQuery.isPending,
+      detailLoading,
+      serverDetailHydrated,
+      detailError,
+      setStatusFilter,
+      setMenuTypeFilter,
+      openCreateMenuPage,
+      openEditMenuPage,
+      openViewMenuPage,
+      backToList,
+      createMenu,
+      updateMenu,
+      activateMenu,
+      deactivateMenu,
+      loadMenuDetail,
+      assignCategory,
+      removeCategoryAssignment,
+      availableCategoriesForAssignment,
+    }),
+    [
+      pageConfig,
+      menus,
+      categories,
+      selectedMenu,
+      editingMenu,
+      categoryAssignments,
+      menuTree,
+      viewMode,
+      statusFilter,
+      menuTypeFilter,
+      menusQuery.isFetched,
+      menusQuery.isPending,
+      menusQuery.error,
+      categoriesQuery.isPending,
+      detailLoading,
+      serverDetailHydrated,
+      detailError,
+      setStatusFilter,
+      setMenuTypeFilter,
+      openCreateMenuPage,
+      openEditMenuPage,
+      openViewMenuPage,
+      backToList,
+      createMenu,
+      updateMenu,
+      activateMenu,
+      deactivateMenu,
+      loadMenuDetail,
+      assignCategory,
+      removeCategoryAssignment,
+      availableCategoriesForAssignment,
+    ],
+  );
 
   return (
     <RestaurantMenusContext.Provider value={value}>{children}</RestaurantMenusContext.Provider>

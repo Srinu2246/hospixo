@@ -71,7 +71,8 @@ export async function fetchGstRates(
   if (activeOnly) queryParams.set('active_only', 'true');
   if (code?.trim()) queryParams.set('code', code.trim());
   const qs = queryParams.toString();
-  const path = `/menu/gst-rates${qs ? `?${qs}` : ''}`;
+  const queryString = qs ? `?${qs}` : '';
+  const path = `/menu/gst-rates${queryString}`;
 
   const requestPromise = (async () => {
     try {

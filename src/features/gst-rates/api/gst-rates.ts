@@ -59,8 +59,9 @@ export async function fetchGstRatesClient(query?: ListGstRatesApiQuery): Promise
   if (query?.code?.trim()) params.set('code', query.code.trim());
   if (query?.active_only) params.set('active_only', 'true');
   const qs = params.toString();
+  const queryString = qs ? `?${qs}` : '';
   const res = await clientApi.get<{ success?: boolean; data?: unknown }>(
-    `/menu/gst-rates${qs ? `?${qs}` : ''}`,
+    `/menu/gst-rates${queryString}`,
   );
   const unwrapped = unwrapGstRateList(res?.data ?? res);
   return mapGstRatesApi(unwrapped);

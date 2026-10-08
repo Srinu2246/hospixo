@@ -26,13 +26,13 @@ import {
   menuFormTextFieldSx,
 } from './menu-form-dialog-styles';
 
-type AddVariantModalProps = {
+type AddVariantModalProps = Readonly<{
   isOpen: boolean;
   onClose: () => void;
   editingVariant?: ItemVariant | null;
   onAddVariant: (sizeName: string, price: number) => void | Promise<void>;
   onUpdateVariant?: (variantId: string, sizeName: string, price: number) => void | Promise<void>;
-};
+}>;
 
 export function AddVariantModal({
   isOpen,
@@ -50,6 +50,13 @@ export function AddVariantModal({
   const [previousIsOpen, setPreviousIsOpen] = useState(isOpen);
 
   const isEditMode = Boolean(editingVariant);
+
+  let submitButtonLabel = 'Add Size';
+  if (isSubmitting) {
+    submitButtonLabel = 'Saving...';
+  } else if (isEditMode) {
+    submitButtonLabel = 'Save Changes';
+  }
 
   if (editingVariant !== previousEditingVariant || isOpen !== previousIsOpen) {
     setPreviousEditingVariant(editingVariant);
@@ -178,7 +185,7 @@ export function AddVariantModal({
             Cancel
           </Button>
           <Button type="submit" variant="contained" disabled={isSubmitting || !isFormValid}>
-            {isSubmitting ? 'Saving...' : isEditMode ? 'Save Changes' : 'Add Size'}
+            {submitButtonLabel}
           </Button>
         </DialogActions>
       </Box>

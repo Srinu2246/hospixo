@@ -5,11 +5,11 @@ import Typography from '@mui/material/Typography';
 
 import { menuFormFieldLabelSx } from './menu-form-dialog-styles';
 
-type MenuFormFieldProps = {
+type MenuFormFieldProps = Readonly<{
   id: string;
   label: string;
   children: React.ReactNode;
-};
+}>;
 
 export function MenuFormField({ id, label, children }: MenuFormFieldProps) {
   return (

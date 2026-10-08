@@ -18,7 +18,10 @@ import { ArrowLeft, Edit2, Plus, Trash2 } from 'lucide-react';
 import { useRestaurantMenus } from '../../context/restaurant-menus-context';
 import type { MenuTreeCategory } from '../../types/restaurant-menu';
 
-function TreeCategoryNode({ category, depth = 0 }: { category: MenuTreeCategory; depth?: number }) {
+function TreeCategoryNode({
+  category,
+  depth = 0,
+}: Readonly<{ category: MenuTreeCategory; depth?: number }>) {
   return (
     <Box sx={{ ml: depth > 0 ? depth * 1.5 : 0, mb: 1 }}>
       <Box sx={{ py: 0.75 }}>
@@ -202,75 +205,91 @@ export function RestaurantMenuDetailView() {
             </Alert>
           ) : null}
 
-          {detailLoading ? (
-            <Typography variant="body2" color="text.secondary">
-              Loading assignments…
-            </Typography>
-          ) : categoryAssignments.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No categories assigned to this menu yet.
-            </Typography>
-          ) : (
-            <Stack spacing={1}>
-              {categoryAssignments.map((assignment) => (
-                <Box
-                  key={assignment.id}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 2,
-                    p: 1.5,
-                    borderRadius: 1,
-                    border: 1,
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {assignment.categoryName ?? `Category ${assignment.categoryId}`}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Order {assignment.displayOrder}
-                    </Typography>
-                  </Box>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<Trash2 size={12} />}
-                    onClick={() => void removeCategoryAssignment(selectedMenu.id, assignment.id)}
-                    sx={{ textTransform: 'none' }}
+          {(() => {
+            if (detailLoading) {
+              return (
+                <Typography variant="body2" color="text.secondary">
+                  Loading assignments…
+                </Typography>
+              );
+            }
+            if (categoryAssignments.length === 0) {
+              return (
+                <Typography variant="body2" color="text.secondary">
+                  No categories assigned to this menu yet.
+                </Typography>
+              );
+            }
+            return (
+              <Stack spacing={1}>
+                {categoryAssignments.map((assignment) => (
+                  <Box
+                    key={assignment.id}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 2,
+                      p: 1.5,
+                      borderRadius: 1,
+                      border: 1,
+                      borderColor: 'divider',
+                    }}
                   >
-                    Remove
-                  </Button>
-                </Box>
-              ))}
-            </Stack>
-          )}
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {assignment.categoryName ?? `Category ${assignment.categoryId}`}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Order {assignment.displayOrder}
+                      </Typography>
+                    </Box>
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<Trash2 size={12} />}
+                      onClick={() => void removeCategoryAssignment(selectedMenu.id, assignment.id)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Remove
+                    </Button>
+                  </Box>
+                ))}
+              </Stack>
+            );
+          })()}
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
             Menu Tree
           </Typography>
-          {detailLoading ? (
-            <Typography variant="body2" color="text.secondary">
-              Loading menu tree…
-            </Typography>
-          ) : !menuTree || menuTree.categories.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              Menu tree is empty. Assign categories to build the tree.
-            </Typography>
-          ) : (
-            <Box>
-              {menuTree.categories.map((category) => (
-                <TreeCategoryNode
-                  key={`${category.categoryId}-${category.assignmentId ?? 'root'}`}
-                  category={category}
-                />
-              ))}
-            </Box>
-          )}
+          {(() => {
+            if (detailLoading) {
+              return (
+                <Typography variant="body2" color="text.secondary">
+                  Loading menu tree…
+                </Typography>
+              );
+            }
+            if (!menuTree || menuTree.categories.length === 0) {
+              return (
+                <Typography variant="body2" color="text.secondary">
+                  Menu tree is empty. Assign categories to build the tree.
+                </Typography>
+              );
+            }
+            return (
+              <Box>
+                {menuTree.categories.map((category) => (
+                  <TreeCategoryNode
+                    key={`${category.categoryId}-${category.assignmentId ?? 'root'}`}
+                    category={category}
+                  />
+                ))}
+              </Box>
+            );
+          })()}
         </Paper>
       </Box>
     </Box>

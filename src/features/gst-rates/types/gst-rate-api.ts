@@ -1,4 +1,4 @@
-export type GstRateId = string;
+export type GstRateId = string; // NOSONAR
 
 export type GstRateApi = Readonly<{
   id: number;

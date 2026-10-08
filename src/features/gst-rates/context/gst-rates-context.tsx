@@ -36,10 +36,10 @@ const GstRatesContext = createContext<GstRatesContextType | null>(null);
 export function GstRatesProvider({
   children,
   pageConfig,
-}: {
+}: Readonly<{
   children: ReactNode;
   pageConfig: GstRatesPageConfig;
-}) {
+}>) {
   const [selectedRate, setSelectedRate] = useState<GstRate | null>(null);
   const [viewMode, setViewMode] = useState<GstRatesViewMode>('list');
   const [codeFilter, setCodeFilter] = useState('');
@@ -111,26 +111,48 @@ export function GstRatesProvider({
     }
   }, []);
 
-  const value: GstRatesContextType = {
-    pageConfig,
-    rates,
-    selectedRate,
-    viewMode,
-    codeFilter,
-    activeOnlyFilter,
-    isHydrated,
-    ratesLoading,
-    ratesError,
-    detailLoading,
-    detailError,
-    setCodeFilter,
-    setActiveOnlyFilter,
-    openCreateRatePage,
-    openViewRatePage,
-    backToList,
-    createRate,
-    loadRateDetail,
-  };
+  const value = useMemo<GstRatesContextType>(
+    () => ({
+      pageConfig,
+      rates,
+      selectedRate,
+      viewMode,
+      codeFilter,
+      activeOnlyFilter,
+      isHydrated,
+      ratesLoading,
+      ratesError,
+      detailLoading,
+      detailError,
+      setCodeFilter,
+      setActiveOnlyFilter,
+      openCreateRatePage,
+      openViewRatePage,
+      backToList,
+      createRate,
+      loadRateDetail,
+    }),
+    [
+      pageConfig,
+      rates,
+      selectedRate,
+      viewMode,
+      codeFilter,
+      activeOnlyFilter,
+      isHydrated,
+      ratesLoading,
+      ratesError,
+      detailLoading,
+      detailError,
+      setCodeFilter,
+      setActiveOnlyFilter,
+      openCreateRatePage,
+      openViewRatePage,
+      backToList,
+      createRate,
+      loadRateDetail,
+    ],
+  );
 
   return <GstRatesContext.Provider value={value}>{children}</GstRatesContext.Provider>;
 }

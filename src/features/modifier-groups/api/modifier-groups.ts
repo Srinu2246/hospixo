@@ -130,9 +130,9 @@ export async function fetchModifierGroupsClient(
 ): Promise<ModifierGroup[]> {
   const params = new URLSearchParams();
   if (query?.status) params.set('status', query.status);
-  const qs = params.toString();
+  const queryString = qs ? `?${qs}` : '';
   const res = await clientApi.get<{ success?: boolean; data?: unknown }>(
-    `/menu/modifier-groups${qs ? `?${qs}` : ''}`,
+    `/menu/modifier-groups${queryString}`,
   );
   const list = unwrapModifierGroupList(res?.data ?? res);
   return mapModifierGroupsApi(list);
@@ -179,9 +179,9 @@ export async function fetchModifierOptionsClient(
 ): Promise<ModifierOption[]> {
   const params = new URLSearchParams();
   if (query?.status) params.set('status', query.status);
-  const qs = params.toString();
+  const queryString = qs ? `?${qs}` : '';
   const res = await clientApi.get<{ success?: boolean; data?: unknown }>(
-    `/menu/modifier-groups/${encodeURIComponent(groupId)}/options${qs ? `?${qs}` : ''}`,
+    `/menu/modifier-groups/${encodeURIComponent(groupId)}/options${queryString}`,
   );
   const list = unwrapModifierOptionList(res?.data ?? res);
   return mapModifierOptionsApi(list, groupId);

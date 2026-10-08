@@ -234,11 +234,21 @@ type MenuContextType = {
   }) => Promise<{ ok: boolean; message?: string; data?: MenuItemTag }>;
   updateMenuItemTag: (
     tagId: string,
-    updates: { name?: string; code?: string; status?: MenuItemTag['status'] },
+    updates: Partial<Pick<MenuItemTag, 'name' | 'code' | 'status'>>,
   ) => Promise<{ ok: boolean; message?: string; data?: MenuItemTag }>;
 };
 
 const MenuContext = createContext<MenuContextType | null>(null);
+
+function findFallbackItem(
+  itemId: string,
+  selectedItem: MenuItem | null,
+  editingItem: MenuItem | null,
+): MenuItem | undefined {
+  if (selectedItem?.id === itemId) return selectedItem;
+  if (editingItem?.id === itemId) return editingItem;
+  return undefined;
+}
 
 function resolveScopeId(
   scope: MenuPageConfig['scope'],
@@ -287,11 +297,11 @@ export function MenuProvider({
   children,
   pageConfig,
   initialData,
-}: {
+}: Readonly<{
   children: ReactNode;
   pageConfig?: MenuPageConfig;
   initialData?: CompanyMenuCreationInitialData;
-}) {
+}>) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const invalidateMenuManagementQueries = useInvalidateMenuManagementQueries();
@@ -325,23 +335,15 @@ export function MenuProvider({
     [invalidateMenuManagementQueries, queryClient],
   );
 
-  const [legacyCategories, setLegacyCategories] = useState<MenuCategory[]>(
-    usesApiCatalog
-      ? []
-      : hasServerBootstrap
-        ? (initialData?.categories ?? [])
-        : initialMockCategories,
-  );
-  const [legacyItems, setLegacyItems] = useState<MenuItem[]>(
-    usesApiCatalog ? [] : hasServerBootstrap ? (initialData?.items ?? []) : initialMockMenuItems,
-  );
-  const [legacyTagDefinitions, setLegacyTagDefinitions] = useState<MenuItemTag[]>(
-    usesApiCatalog
-      ? []
-      : hasServerBootstrap
-        ? (initialData?.tags ?? [])
-        : createBranchTagDefinitions(),
-  );
+  const initialCategories = usesApiCatalog
+    ? []
+    : (initialData?.categories ?? initialMockCategories);
+  const initialItems = usesApiCatalog ? [] : (initialData?.items ?? initialMockMenuItems);
+  const initialTags = usesApiCatalog ? [] : (initialData?.tags ?? createBranchTagDefinitions());
+
+  const [legacyCategories, setLegacyCategories] = useState<MenuCategory[]>(initialCategories);
+  const [legacyItems, setLegacyItems] = useState<MenuItem[]>(initialItems);
+  const [legacyTagDefinitions, setLegacyTagDefinitions] = useState<MenuItemTag[]>(initialTags);
   const [legacyPreparationStations] = useState<PreparationStation[]>(
     hasServerBootstrap ? (initialData?.preparationStations ?? []) : [],
   );
@@ -565,41 +567,43 @@ export function MenuProvider({
         exposeIn: input.exposeIn || ['Captain App'],
         tags: input.tags || ['chef-special'],
         tagIds: input.tagIds,
-        variants:
-          input.variants && input.variants.length > 0
-            ? input.variants
-            : usesPageFlow
-              ? [
-                  {
-                    id: 'v1',
-                    size: 'Mini',
-                    price: Math.round(input.basePrice * 0.7),
-                    status: 'Active',
-                  },
-                  { id: 'v2', size: 'Single', price: input.basePrice, status: 'Active' },
-                  {
-                    id: 'v3',
-                    size: 'Double',
-                    price: Math.round(input.basePrice * 1.6),
-                    status: 'Active',
-                  },
-                  {
-                    id: 'v4',
-                    size: 'Family Pack',
-                    price: Math.round(input.basePrice * 2.4),
-                    status: 'Active',
-                  },
-                ]
-              : undefined,
-        modifiers:
-          input.modifiers && input.modifiers.length > 0
-            ? input.modifiers
-            : usesPageFlow
-              ? [
-                  { id: 'm1', name: 'Extra Roti', price: 10 },
-                  { id: 'm2', name: 'Extra Gravy', price: 50 },
-                ]
-              : undefined,
+        variants: (() => {
+          if (input.variants && input.variants.length > 0) return input.variants;
+          if (usesPageFlow) {
+            return [
+              {
+                id: 'v1',
+                size: 'Mini',
+                price: Math.round(input.basePrice * 0.7),
+                status: 'Active',
+              },
+              { id: 'v2', size: 'Single', price: input.basePrice, status: 'Active' },
+              {
+                id: 'v3',
+                size: 'Double',
+                price: Math.round(input.basePrice * 1.6),
+                status: 'Active',
+              },
+              {
+                id: 'v4',
+                size: 'Family Pack',
+                price: Math.round(input.basePrice * 2.4),
+                status: 'Active',
+              },
+            ];
+          }
+          return undefined;
+        })(),
+        modifiers: (() => {
+          if (input.modifiers && input.modifiers.length > 0) return input.modifiers;
+          if (usesPageFlow) {
+            return [
+              { id: 'm1', name: 'Extra Roti', price: 10 },
+              { id: 'm2', name: 'Extra Gravy', price: 50 },
+            ];
+          }
+          return undefined;
+        })(),
         image: input.image || input.images?.[0]?.url || sampleFoodImages[0]?.url,
         images: input.images,
         description: input.description,
@@ -841,11 +845,7 @@ export function MenuProvider({
     async (itemId: MenuItemId) => {
       const existingItem =
         itemsRef.current.find((item) => item.id === itemId) ??
-        (selectedItem?.id === itemId
-          ? selectedItem
-          : editingItem?.id === itemId
-            ? editingItem
-            : undefined);
+        findFallbackItem(itemId, selectedItem, editingItem);
       const previousStatus = existingItem?.status ?? 'Available';
 
       setLegacyItems((prev) =>
@@ -908,11 +908,7 @@ export function MenuProvider({
     async (itemId: MenuItemId) => {
       const existingItem =
         itemsRef.current.find((item) => item.id === itemId) ??
-        (selectedItem?.id === itemId
-          ? selectedItem
-          : editingItem?.id === itemId
-            ? editingItem
-            : undefined);
+        findFallbackItem(itemId, selectedItem, editingItem);
       const previousStatus = existingItem?.status ?? 'Hidden';
 
       setLegacyItems((prev) =>
@@ -1484,10 +1480,7 @@ export function MenuProvider({
   );
 
   const updateMenuItemTag = useCallback(
-    async (
-      tagId: string,
-      updates: { name?: string; code?: string; status?: MenuItemTag['status'] },
-    ) => {
+    async (tagId: string, updates: Partial<Pick<MenuItemTag, 'name' | 'code' | 'status'>>) => {
       if (pageConfig?.scope === 'company') {
         const result = await updateMenuItemTagViaBff(tagId, updates);
         if (!result.ok) {
@@ -1519,79 +1512,149 @@ export function MenuProvider({
     [pageConfig?.scope],
   );
 
-  const value = {
-    pageConfig,
-    categories,
-    items,
-    activeCategoryId,
-    searchQuery,
-    currentPage,
-    pageSize,
-    filteredItems,
-    paginatedItems,
-    totalPages,
-    categoryCounts,
-    totalItemCount: scopedItems.length,
-    branchFilterId,
-    setBranchFilterId,
-    isHydrated,
-    categoriesLoading,
-    categoriesError,
-    itemsLoading,
-    itemsError,
-    tagDefinitions,
-    tagsLoading,
-    tagsError,
-    preparationStations,
-    modifierGroups,
-    catalogsLoading,
+  const value = useMemo<MenuContextType>(
+    () => ({
+      pageConfig,
+      categories,
+      items,
+      activeCategoryId,
+      searchQuery,
+      currentPage,
+      pageSize,
+      filteredItems,
+      paginatedItems,
+      totalPages,
+      categoryCounts,
+      totalItemCount: scopedItems.length,
+      branchFilterId,
+      setBranchFilterId,
+      isHydrated,
+      categoriesLoading,
+      categoriesError,
+      itemsLoading,
+      itemsError,
+      tagDefinitions,
+      tagsLoading,
+      tagsError,
+      preparationStations,
+      modifierGroups,
+      catalogsLoading,
 
-    viewMode,
-    selectedItem,
-    editingItem,
-    deletingItem,
+      viewMode,
+      selectedItem,
+      editingItem,
+      deletingItem,
 
-    setViewMode,
-    openCreateItemPage,
-    openEditItemPage,
-    openViewItemPage,
-    openCreateCategoryPage,
-    backToList,
-    closeDeleteModal,
+      setViewMode,
+      openCreateItemPage,
+      openEditItemPage,
+      openViewItemPage,
+      openCreateCategoryPage,
+      backToList,
+      closeDeleteModal,
 
-    isAddModalOpen,
-    isAddCategoryModalOpen,
-    openAddModal,
-    openEditModal,
-    openAddCategoryModal,
-    closeModals,
+      isAddModalOpen,
+      isAddCategoryModalOpen,
+      openAddModal,
+      openEditModal,
+      openAddCategoryModal,
+      closeModals,
 
-    setActiveCategoryId: handleCategorySelect,
-    setSearchQuery: handleSearchChange,
-    setCurrentPage,
-    openDeleteModal,
+      setActiveCategoryId: handleCategorySelect,
+      setSearchQuery: handleSearchChange,
+      setCurrentPage,
+      openDeleteModal,
 
-    addMenuItem,
-    updateMenuItem,
-    activateMenuItemByItemId,
-    deactivateMenuItemByItemId,
-    deleteMenuItem,
-    addCategory,
-    deactivateCategory,
-    activateCategory,
-    loadMenuItemVariants,
-    createMenuItemVariant,
-    updateMenuItemVariant,
-    activateMenuItemVariant,
-    deactivateMenuItemVariant,
-    loadMenuItemImages,
-    uploadMenuItemImage,
-    setPrimaryMenuItemImage,
-    activateMenuItemImage,
-    deactivateMenuItemImage,
-    createMenuItemTag,
-    updateMenuItemTag,
-  };
+      addMenuItem,
+      updateMenuItem,
+      activateMenuItemByItemId,
+      deactivateMenuItemByItemId,
+      deleteMenuItem,
+      addCategory,
+      deactivateCategory,
+      activateCategory,
+      loadMenuItemVariants,
+      createMenuItemVariant,
+      updateMenuItemVariant,
+      activateMenuItemVariant,
+      deactivateMenuItemVariant,
+      loadMenuItemImages,
+      uploadMenuItemImage,
+      setPrimaryMenuItemImage,
+      activateMenuItemImage,
+      deactivateMenuItemImage,
+      createMenuItemTag,
+      updateMenuItemTag,
+    }),
+    [
+      pageConfig,
+      categories,
+      items,
+      activeCategoryId,
+      searchQuery,
+      currentPage,
+      pageSize,
+      filteredItems,
+      paginatedItems,
+      totalPages,
+      categoryCounts,
+      scopedItems.length,
+      branchFilterId,
+      setBranchFilterId,
+      isHydrated,
+      categoriesLoading,
+      categoriesError,
+      itemsLoading,
+      itemsError,
+      tagDefinitions,
+      tagsLoading,
+      tagsError,
+      preparationStations,
+      modifierGroups,
+      catalogsLoading,
+      viewMode,
+      selectedItem,
+      editingItem,
+      deletingItem,
+      setViewMode,
+      openCreateItemPage,
+      openEditItemPage,
+      openViewItemPage,
+      openCreateCategoryPage,
+      backToList,
+      closeDeleteModal,
+      isAddModalOpen,
+      isAddCategoryModalOpen,
+      openAddModal,
+      openEditModal,
+      openAddCategoryModal,
+      closeModals,
+      handleCategorySelect,
+      handleSearchChange,
+      setCurrentPage,
+      openDeleteModal,
+      addMenuItem,
+      updateMenuItem,
+      activateMenuItemByItemId,
+      deactivateMenuItemByItemId,
+      deleteMenuItem,
+      addCategory,
+      deactivateCategory,
+      activateCategory,
+      loadMenuItemVariants,
+      createMenuItemVariant,
+      updateMenuItemVariant,
+      activateMenuItemVariant,
+      deactivateMenuItemVariant,
+      loadMenuItemImages,
+      uploadMenuItemImage,
+      setPrimaryMenuItemImage,
+      activateMenuItemImage,
+      deactivateMenuItemImage,
+      createMenuItemTag,
+      updateMenuItemTag,
+    ],
+  );
 
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;
 }

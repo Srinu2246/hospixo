@@ -137,46 +137,35 @@ export async function createBackendGstRate(token: string, body: unknown) {
   return apiFetch<unknown>(restaurantGstRatesPath(), authOptions(token, 'POST', body));
 }
 
+function unwrapApiList(data: unknown): unknown[] {
+  if (Array.isArray(data)) return data;
+  if (typeof data === 'object' && data !== null) {
+    if ('items' in data && Array.isArray((data as { items: unknown[] }).items)) {
+      return (data as { items: unknown[] }).items;
+    }
+    if ('data' in data && Array.isArray((data as { data: unknown[] }).data)) {
+      return (data as { data: unknown[] }).data;
+    }
+  }
+  return [];
+}
+
 export async function ensureBackendGstRates(token: string): Promise<unknown[]> {
   try {
     const existing = await listBackendGstRates(token);
-    const list = Array.isArray(existing)
-      ? existing
-      : typeof existing === 'object' &&
-          existing !== null &&
-          'items' in existing &&
-          Array.isArray((existing as { items: unknown[] }).items)
-        ? (existing as { items: unknown[] }).items
-        : typeof existing === 'object' &&
-            existing !== null &&
-            'data' in existing &&
-            Array.isArray((existing as { data: unknown[] }).data)
-          ? (existing as { data: unknown[] }).data
-          : [];
+    const list = unwrapApiList(existing);
     if (list.length > 0) return list;
 
-    for (const seed of DEFAULT_GST_RATE_SEEDS) {
-      try {
-        await createBackendGstRate(token, seed);
-      } catch {
-        // ignore seed conflict
-      }
-    }
+    await Promise.all(
+      DEFAULT_GST_RATE_SEEDS.map((seed) =>
+        createBackendGstRate(token, seed).catch(() => {
+          // ignore seed conflict
+        }),
+      ),
+    );
 
     const refreshed = await listBackendGstRates(token);
-    return Array.isArray(refreshed)
-      ? refreshed
-      : typeof refreshed === 'object' &&
-          refreshed !== null &&
-          'items' in refreshed &&
-          Array.isArray((refreshed as { items: unknown[] }).items)
-        ? (refreshed as { items: unknown[] }).items
-        : typeof refreshed === 'object' &&
-            refreshed !== null &&
-            'data' in refreshed &&
-            Array.isArray((refreshed as { data: unknown[] }).data)
-          ? (refreshed as { data: unknown[] }).data
-          : [];
+    return unwrapApiList(refreshed);
   } catch {
     return [];
   }
@@ -301,47 +290,21 @@ export const DEFAULT_CATEGORY_SEEDS = [
 export async function ensureBackendMenuCategories(token: string): Promise<unknown[]> {
   try {
     const existing = await listBackendMenuCategories(token);
-    const list = Array.isArray(existing)
-      ? existing
-      : typeof existing === 'object' &&
-          existing !== null &&
-          'items' in existing &&
-          Array.isArray((existing as { items: unknown[] }).items)
-        ? (existing as { items: unknown[] }).items
-        : typeof existing === 'object' &&
-            existing !== null &&
-            'data' in existing &&
-            Array.isArray((existing as { data: unknown[] }).data)
-          ? (existing as { data: unknown[] }).data
-          : [];
+    const list = unwrapApiList(existing);
     if (list.length > 0) return list;
 
-    for (const seed of DEFAULT_CATEGORY_SEEDS) {
-      try {
-        await createBackendMenuCategory(token, seed);
-      } catch {
-        try {
-          await createBackendMenuCategory(token, { name: seed.name });
-        } catch {
-          // continue
-        }
-      }
-    }
+    await Promise.all(
+      DEFAULT_CATEGORY_SEEDS.map((seed) =>
+        createBackendMenuCategory(token, seed)
+          .catch(() => createBackendMenuCategory(token, { name: seed.name }))
+          .catch(() => {
+            // continue
+          }),
+      ),
+    );
 
     const refreshed = await listBackendMenuCategories(token);
-    return Array.isArray(refreshed)
-      ? refreshed
-      : typeof refreshed === 'object' &&
-          refreshed !== null &&
-          'items' in refreshed &&
-          Array.isArray((refreshed as { items: unknown[] }).items)
-        ? (refreshed as { items: unknown[] }).items
-        : typeof refreshed === 'object' &&
-            refreshed !== null &&
-            'data' in refreshed &&
-            Array.isArray((refreshed as { data: unknown[] }).data)
-          ? (refreshed as { data: unknown[] }).data
-          : [];
+    return unwrapApiList(refreshed);
   } catch {
     return [];
   }

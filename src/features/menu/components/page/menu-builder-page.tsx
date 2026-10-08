@@ -113,7 +113,7 @@ function MenuBuilderPageContent() {
   );
 }
 
-export function MenuBuilderPage({ pageConfig }: { pageConfig: MenuBuilderPageConfig }) {
+export function MenuBuilderPage({ pageConfig }: Readonly<{ pageConfig: MenuBuilderPageConfig }>) {
   return (
     <RestaurantMenusProvider pageConfig={pageConfig}>
       <MenuBuilderPageContent />

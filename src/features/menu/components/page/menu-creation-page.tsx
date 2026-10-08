@@ -253,7 +253,7 @@ function MenuCreationContent() {
   );
 }
 
-export function MenuCreationPage({ pageConfig }: { pageConfig: MenuPageConfig }) {
+export function MenuCreationPage({ pageConfig }: Readonly<{ pageConfig: MenuPageConfig }>) {
   return (
     <MenuProvider pageConfig={pageConfig}>
       <MenuCreationContent />
