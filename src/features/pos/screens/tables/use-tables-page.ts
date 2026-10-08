@@ -18,7 +18,7 @@ const filterStatusMap: Record<Exclude<PosTableFilterId, 'all'>, TableStatus[]> =
 export function useTablesPage() {
   const router = useRouter();
   const flowPaths = usePosFlowPaths();
-  const { selectedTableId, setSelectedTableId } = usePosOrder();
+  const { selectedTableId, setSelectedTable } = usePosOrder();
   const { data: tableData, isFetching, isError, error } = usePosTables();
   const posFloors = tableData?.floors ?? [];
   const posTables = tableData?.tables ?? [];
@@ -58,12 +58,18 @@ export function useTablesPage() {
   );
 
   function handleDesktopTableSelect(tableId: string) {
-    setSelectedTableId(normalizeTableId(tableId));
+    const table = posTables.find(
+      (entry) => normalizeTableId(entry.id) === normalizeTableId(tableId),
+    );
+    setSelectedTable(tableId, table?.label);
     router.push(flowPaths.dineIn);
   }
 
   function handleCompactTableSelect(tableId: string) {
-    setSelectedTableId(normalizeTableId(tableId));
+    const table = posTables.find(
+      (entry) => normalizeTableId(entry.id) === normalizeTableId(tableId),
+    );
+    setSelectedTable(tableId, table?.label);
     router.push(flowPaths.dineIn);
   }
 
@@ -86,7 +92,8 @@ export function useTablesPage() {
     isFetching,
     isError,
     loadError: error instanceof Error ? error.message : (tableData?.loadError ?? null),
-    dataSource: tableData?.source ?? 'fallback',
+    dataSource: tableData?.source ?? 'backend',
+    hasAnyTables: posTables.length > 0,
     handleDesktopTableSelect,
     handleCompactTableSelect,
     handleOrderMenu,

@@ -13,6 +13,9 @@ export function DuePaymentsPanel({
   payments,
   handleSettle,
   hideTitle = false,
+  isLoading,
+  isError,
+  loadError,
 }: Readonly<DuePaymentsPageViewModel & { hideTitle?: boolean }>) {
   return (
     <section
@@ -48,11 +51,19 @@ export function DuePaymentsPanel({
         </p>
       </output>
 
+      {isError || loadError ? (
+        <p role="alert">{loadError ?? 'Unable to load due payments.'}</p>
+      ) : null}
+
       <div className={styles.list}>
         {payments.map((payment) => (
           <DuePaymentRow key={payment.id} payment={payment} onSettle={handleSettle} />
         ))}
       </div>
+
+      {!isLoading && !isError && payments.length === 0 ? (
+        <p>No due payments for this branch.</p>
+      ) : null}
 
       <footer className={styles.footer}>
         <p>Showing {payments.length} pending due payments</p>

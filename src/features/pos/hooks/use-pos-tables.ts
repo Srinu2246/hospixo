@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { posFloors, posTables } from '@/features/pos/config/tables';
 import { fetchPosTables } from '@/features/pos/api/pos-tables';
 import { useFloorBranchOutletId } from '@/features/floor-table-setup/hooks/use-floor-branch-outlet';
 
@@ -19,14 +18,10 @@ export function usePosTables() {
       if (!response.success || !response.data) {
         throw new Error(response.message ?? 'Unable to load tables.');
       }
+      if (response.data.loadError && response.data.floors.length === 0) {
+        throw new Error(response.data.loadError);
+      }
       return response.data;
-    },
-    placeholderData: {
-      floors: [...posFloors],
-      tables: [...posTables],
-      branchId: null,
-      source: 'fallback' as const,
-      loadError: null,
     },
   });
 }

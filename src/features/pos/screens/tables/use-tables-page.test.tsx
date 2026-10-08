@@ -12,6 +12,35 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/tables',
 }));
 
+vi.mock('@/features/pos/hooks/use-pos-tables', () => ({
+  usePosTables: () => ({
+    data: {
+      floors: [{ id: 'ground', label: 'Ground Floor' }],
+      tables: [
+        {
+          id: 't1',
+          label: 'T1',
+          floorId: 'ground',
+          status: 'available' as const,
+        },
+        {
+          id: 't2',
+          label: 'T2',
+          floorId: 'ground',
+          status: 'occupied' as const,
+          guests: 2,
+        },
+      ],
+      branchId: 1,
+      source: 'backend' as const,
+      loadError: null,
+    },
+    isFetching: false,
+    isError: false,
+    error: null,
+  }),
+}));
+
 function TablesProbe() {
   const page = useTablesPage();
   return (

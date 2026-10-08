@@ -1,2 +1,5 @@
-/** Placeholder � wire in a later phase. */
-export {};
+export {
+  kitchenOrdersQueryKey,
+  useKitchenOrdersQuery,
+  useKitchenOrderStatusMutation,
+} from './use-kitchen-orders';

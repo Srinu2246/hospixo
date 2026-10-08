@@ -22,11 +22,7 @@ export function useActiveBranchId(): number | null {
     activeBranchId == null ? null : String(activeBranchId),
   );
 
-  if (branchId != null) return branchId;
-
-  const selected = searchParams.get('outlet') ?? activeBranchId;
-  const fixtureMatch = selected?.match(/^outlet-(\d+)$/i);
-  return fixtureMatch ? Number(fixtureMatch[1]) : null;
+  return branchId;
 }
 
 /** String form of `useActiveBranchId` for path helpers. */

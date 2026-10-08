@@ -1,2 +1,1 @@
-/** Placeholder � wire in a later phase. */
-export {};
+export { fetchKitchenOrders, type KitchenOrdersResponse } from './kitchen-orders';

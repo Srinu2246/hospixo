@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DuePaymentRow } from '@/features/pos/screens/due-payments/due-payment-row';
-import { duePayments } from '@/features/pos/config/due-payments';
+import { duePaymentsFixture as duePayments } from '@/features/pos/config/due-payments.fixture';
 
 describe('DuePaymentRow', () => {
   afterEach(() => {

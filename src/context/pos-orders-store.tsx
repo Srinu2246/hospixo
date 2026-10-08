@@ -2,14 +2,9 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-import { kitchenPreviewOrders } from '@/features/kitchen/config/fixture';
 import type { KitchenOrder, KitchenOrderStatus } from '@/features/kitchen/types';
 import type { DineInOrderLine } from '@/features/pos/config/dine-in';
-import {
-  openOrders as seedOpenOrders,
-  type OpenOrder,
-  type OpenOrderKitchenStatus,
-} from '@/features/pos/config/open-orders';
+import type { OpenOrder } from '@/features/pos/config/open-orders';
 import { createKitchenOrderFromKot } from '@/features/pos/lib/order/kot';
 import { mapKitchenStatusToOpenOrder } from '@/features/pos/lib/order/kitchen-status';
 import { computeLinesAmount, mergeOrderLines } from '@/features/pos/lib/order/lines';
@@ -42,27 +37,9 @@ interface PosOrdersContextValue {
 
 const PosOrdersContext = createContext<PosOrdersContextValue | null>(null);
 
-function cloneSeedOpenOrders(): OpenOrder[] {
-  return seedOpenOrders.map((order) => {
-    const lines = order.lines ? [...order.lines] : undefined;
-    return {
-      ...order,
-      lines,
-      amount: lines ? computeLinesAmount(lines) : order.amount,
-    };
-  });
-}
-
 function matchesTableId(left?: string, right?: string) {
   if (!left || !right) return false;
   return normalizeTableId(left) === normalizeTableId(right);
-}
-
-function cloneSeedKitchenOrders(): KitchenOrder[] {
-  return kitchenPreviewOrders.map((order) => ({
-    ...order,
-    items: [...order.items],
-  }));
 }
 
 function nextKitchenOrderId() {
@@ -70,8 +47,8 @@ function nextKitchenOrderId() {
 }
 
 export function PosOrdersProvider({ children }: Readonly<{ children: React.ReactNode }>) {
-  const [openOrders, setOpenOrders] = useState<OpenOrder[]>(cloneSeedOpenOrders);
-  const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>(cloneSeedKitchenOrders);
+  const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
+  const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>([]);
   const [checkoutOrderId, setCheckoutOrderId] = useState<string | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [lastKotSentAt, setLastKotSentAt] = useState<number | null>(null);
@@ -82,97 +59,82 @@ export function PosOrdersProvider({ children }: Readonly<{ children: React.React
   );
 
   const sendToKot = useCallback((payload: SendToKotPayload) => {
+    const orderId = payload.existingOrderId ?? nextKitchenOrderId();
     const amount = computeLinesAmount(payload.lines);
-    const kitchenOrderId = nextKitchenOrderId();
-    const reference = buildTableReference(payload.tableId);
-
-    const kitchenTicket = createKitchenOrderFromKot({
-      id: kitchenOrderId,
+    const kitchenOrder = createKitchenOrderFromKot({
+      id: orderId,
       orderNumber: payload.orderNumber,
-      tableLabel: reference,
+      tableLabel: payload.tableLabel,
       lines: payload.lines,
     });
 
-    setKitchenOrders((prev) => [kitchenTicket, ...prev]);
-    setLastKotSentAt(Date.now());
-
-    let resolvedOrderId = payload.existingOrderId ?? '';
-
-    setOpenOrders((prev) => {
-      const existingIndex = payload.existingOrderId
-        ? prev.findIndex((order) => order.id === payload.existingOrderId)
-        : prev.findIndex(
-            (order) =>
-              order.type === 'dineIn' &&
-              matchesTableId(order.tableId, payload.tableId) &&
-              order.paymentStatus === 'unpaid',
-          );
-
+    setKitchenOrders((current) => {
+      const existingIndex = current.findIndex((order) => order.id === orderId);
       if (existingIndex >= 0) {
-        const existing = prev[existingIndex]!;
-        const mergedLines = mergeOrderLines(existing.lines ?? [], payload.lines);
-        resolvedOrderId = existing.id;
-
-        const updated: OpenOrder = {
-          ...existing,
-          lines: mergedLines,
-          amount: computeLinesAmount(mergedLines),
-          kitchenStatus: 'kotSent',
-          kitchenOrderId,
-          reference,
-          tableId: payload.tableId,
-          age: 'now',
-          waiter: payload.waiter ?? existing.waiter,
-        };
-        const rest = prev.filter((_, index) => index !== existingIndex);
-        return [updated, ...rest];
+        const next = [...current];
+        next[existingIndex] = kitchenOrder;
+        return next;
       }
-
-      resolvedOrderId = `o-${Date.now()}`;
-      const created: OpenOrder = {
-        id: resolvedOrderId,
-        orderNumber: payload.orderNumber,
-        type: 'dineIn',
-        reference,
-        kitchenStatus: 'kotSent',
-        paymentStatus: 'unpaid',
-        age: 'now',
-        amount,
-        tableId: payload.tableId,
-        lines: [...payload.lines],
-        waiter: payload.waiter,
-        kitchenOrderId,
-      };
-      return [created, ...prev];
+      return [...current, kitchenOrder];
     });
 
-    setEditingOrderId(resolvedOrderId);
-    return resolvedOrderId;
+    setOpenOrders((current) => {
+      const existing = current.find((order) => order.id === orderId);
+      const kitchenStatus = mapKitchenStatusToOpenOrder(kitchenOrder.status);
+      const reference = buildTableReference(payload.tableLabel, payload.tableId);
+
+      if (existing) {
+        return current.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                lines: mergeOrderLines(order.lines ?? [], payload.lines),
+                amount: computeLinesAmount(mergeOrderLines(order.lines ?? [], payload.lines)),
+                kitchenStatus,
+                kitchenOrderId: orderId,
+              }
+            : order,
+        );
+      }
+
+      return [
+        ...current,
+        {
+          id: orderId,
+          orderNumber: payload.orderNumber,
+          type: 'dineIn',
+          reference,
+          kitchenStatus,
+          paymentStatus: 'unpaid',
+          age: '0m',
+          amount,
+          tableId: payload.tableId,
+          lines: [...payload.lines],
+          waiter: payload.waiter,
+          kitchenOrderId: orderId,
+        },
+      ];
+    });
+
+    setLastKotSentAt(Date.now());
+    return orderId;
   }, []);
 
   const updateKitchenOrderStatus = useCallback(
     (kitchenOrderId: string, status: KitchenOrderStatus | 'served') => {
-      if (status === 'served') {
-        setKitchenOrders((prev) => prev.filter((order) => order.id !== kitchenOrderId));
-        setOpenOrders((prev) =>
-          prev.map((order) =>
-            order.kitchenOrderId === kitchenOrderId
-              ? { ...order, kitchenStatus: 'billing' as OpenOrderKitchenStatus }
-              : order,
-          ),
-        );
-        return;
-      }
-
-      const openStatus = mapKitchenStatusToOpenOrder(status);
-
-      setKitchenOrders((prev) =>
-        prev.map((order) => (order.id === kitchenOrderId ? { ...order, status } : order)),
+      setKitchenOrders((current) =>
+        current.map((order) =>
+          order.id === kitchenOrderId
+            ? { ...order, status: status === 'served' ? 'ready' : status }
+            : order,
+        ),
       );
 
-      setOpenOrders((prev) =>
-        prev.map((order) =>
-          order.kitchenOrderId === kitchenOrderId ? { ...order, kitchenStatus: openStatus } : order,
+      setOpenOrders((current) =>
+        current.map((order) =>
+          order.kitchenOrderId === kitchenOrderId
+            ? { ...order, kitchenStatus: mapKitchenStatusToOpenOrder(status) }
+            : order,
         ),
       );
     },
@@ -180,14 +142,14 @@ export function PosOrdersProvider({ children }: Readonly<{ children: React.React
   );
 
   const appendItemsToOrder = useCallback((orderId: string, lines: readonly DineInOrderLine[]) => {
-    setOpenOrders((prev) =>
-      prev.map((order) => {
+    setOpenOrders((current) =>
+      current.map((order) => {
         if (order.id !== orderId) return order;
-        const mergedLines = mergeOrderLines(order.lines ?? [], lines);
+        const merged = mergeOrderLines(order.lines ?? [], lines);
         return {
           ...order,
-          lines: mergedLines,
-          amount: computeLinesAmount(mergedLines),
+          lines: merged,
+          amount: computeLinesAmount(merged),
         };
       }),
     );
@@ -202,7 +164,7 @@ export function PosOrdersProvider({ children }: Readonly<{ children: React.React
   }, []);
 
   const value = useMemo(
-    () => ({
+    (): PosOrdersContextValue => ({
       openOrders,
       kitchenOrders,
       checkoutOrderId,
@@ -240,4 +202,8 @@ export function usePosOrdersStore() {
     throw new Error('usePosOrdersStore must be used within PosOrdersProvider');
   }
   return context;
+}
+
+export function findOpenOrderForTable(openOrders: readonly OpenOrder[], tableId: string) {
+  return openOrders.find((order) => matchesTableId(order.tableId, tableId));
 }

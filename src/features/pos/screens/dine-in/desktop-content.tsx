@@ -1,5 +1,9 @@
 'use client';
 
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Stack from '@mui/material/Stack';
+
 import { PosOperationsShell } from '@/features/pos/screens/layout/pos-operations-shell';
 import { DineInHeader } from '@/features/pos/screens/dine-in/dine-in-header';
 import { DineInMenuPanel } from '@/features/pos/screens/dine-in/dine-in-menu-panel';
@@ -29,6 +33,10 @@ export function DineInDesktopContent({
   handleRemoveLine,
   handleSendToKot,
   goToTables,
+  isMenuLoading,
+  isMenuError,
+  menuError,
+  menuIsEmpty,
 }: Readonly<DineInPageViewModel>) {
   if (!selectedTableId) {
     return (
@@ -50,6 +58,14 @@ export function DineInDesktopContent({
     <PosOperationsShell withPageBg>
       <div className={styles.page}>
         <DineInHeader tableNumber={tableNumber} />
+
+        <Stack spacing={2} sx={{ mb: 2 }}>
+          {isMenuLoading ? <CircularProgress size={24} aria-label="Loading menu" /> : null}
+          {isMenuError || menuError ? <Alert severity="error">{menuError}</Alert> : null}
+          {menuIsEmpty && !isMenuLoading && !menuError ? (
+            <Alert severity="info">No menu items are available for this branch.</Alert>
+          ) : null}
+        </Stack>
 
         <div className={styles.workspace}>
           <DineInMenuPanel

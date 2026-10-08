@@ -12,7 +12,7 @@ import { usePosOrdersStore } from '@/context/pos-orders-store';
 export function useOpenOrdersPage() {
   const router = useRouter();
   const flowPaths = usePosFlowPaths();
-  const { setSelectedTableId, setOrderLines } = usePosOrder();
+  const { setSelectedTable, setOrderLines } = usePosOrder();
   const { openOrders, setEditingOrderId } = usePosOrdersStore();
   const [activeType, setActiveType] = useState<OpenOrderType>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,7 +37,7 @@ export function useOpenOrdersPage() {
     if (!order) return;
 
     const tableId = order.tableId ?? resolveTableIdFromReference(order.reference) ?? null;
-    if (tableId) setSelectedTableId(tableId);
+    if (tableId) setSelectedTable(tableId, order.reference);
 
     setOrderLines(order.lines ?? []);
     setEditingOrderId(orderId);

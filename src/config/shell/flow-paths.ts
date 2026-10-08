@@ -81,6 +81,7 @@ export const branchPosFeaturePaths = [
   flowPaths.branch.menuAvailability,
   flowPaths.branch.cashShift,
   flowPaths.branch.duePayments,
+  flowPaths.branch.kitchen,
 ] as const;
 
 export function isBranchPosFeaturePath(pathname: string): boolean {
