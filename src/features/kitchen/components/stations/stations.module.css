@@ -1,0 +1,35 @@
+.tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--foreground);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.tabActive {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+}

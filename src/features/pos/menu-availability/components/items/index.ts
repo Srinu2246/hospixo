@@ -1,0 +1,1 @@
+export { MenuItemsTable } from './items';

@@ -1,0 +1,164 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  padding: 24px;
+  border: 1px solid var(--pos-border);
+  border-radius: var(--pos-radius-md);
+  background: var(--pos-surface);
+  box-shadow: var(--pos-shadow-card);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--pos-text);
+}
+
+.periodTag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pos-text-muted);
+}
+
+.distributionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.distributionLabel {
+  color: var(--pos-text-muted);
+  font-weight: 500;
+}
+
+.distributionTotal {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pos-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.distributionBar {
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.distributionSegment {
+  height: 100%;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pos-text-muted);
+}
+
+.methodDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.methodList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.methodItem {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--pos-border);
+  border-radius: var(--pos-radius-sm);
+  background: var(--muted);
+}
+
+.methodLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--pos-text);
+}
+
+.methodAmount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pos-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.methodBadge {
+  min-width: 42px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.badgeCash {
+  background: color-mix(in srgb, var(--info) 16%, var(--pos-surface));
+  color: var(--info);
+}
+
+.badgeCard {
+  background: color-mix(in srgb, var(--success) 16%, var(--pos-surface));
+  color: var(--success);
+}
+
+.badgeUpi {
+  background: color-mix(in srgb, var(--warning) 16%, var(--pos-surface));
+  color: var(--warning);
+}
+
+.toneCash {
+  background: var(--info);
+}
+
+.toneCard {
+  background: var(--success);
+}
+
+.toneUpi {
+  background: var(--warning);
+}

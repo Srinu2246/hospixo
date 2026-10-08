@@ -1,0 +1,1 @@
+export { KitchenHeader } from './header';

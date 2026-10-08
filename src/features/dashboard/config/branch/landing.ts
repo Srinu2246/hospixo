@@ -38,7 +38,7 @@ export const branchLandingContent = {
       id: 'tables',
       label: 'Tables',
       description: 'Floor map and seating',
-      href: routes.platform.pos.tables,
+      href: branch.tables,
       icon: LayoutGrid,
     },
     {

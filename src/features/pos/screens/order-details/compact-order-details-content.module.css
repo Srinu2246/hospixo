@@ -1,0 +1,166 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.emptyBody {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.summaryCard,
+.itemsCard {
+  padding: 16px;
+  border: 1px solid var(--pos-border);
+  border-radius: var(--pos-radius-md);
+  background: var(--pos-surface);
+}
+
+.summaryTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.tableLabel {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--pos-text);
+}
+
+.itemCount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pos-primary);
+}
+
+.meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--pos-text-muted);
+}
+
+.sectionLabel {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pos-text-muted);
+}
+
+.lineItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--pos-border);
+}
+
+.lineItem:last-of-type {
+  border-bottom: 0;
+}
+
+.lineLeft {
+  min-width: 0;
+}
+
+.lineName {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pos-text);
+}
+
+.lineQty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pos-text-muted);
+}
+
+.linePrice {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pos-text);
+  white-space: nowrap;
+}
+
+.couponField {
+  margin-top: 12px;
+}
+
+.totals {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--pos-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.totalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--pos-text-muted);
+}
+
+.totalRowStrong {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pos-primary);
+}
+
+.receiptBtn {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--pos-radius-sm);
+  background: var(--pos-primary);
+  color: var(--pos-on-accent);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.receiptBtn:hover {
+  background: var(--pos-primary-hover);
+}
+
+.emptyPage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+  padding: 24px;
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.emptyBtn {
+  min-height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--pos-radius-sm);
+  background: var(--pos-primary);
+  color: var(--pos-on-accent);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}

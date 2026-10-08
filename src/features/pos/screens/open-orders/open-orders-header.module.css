@@ -1,0 +1,97 @@
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.topFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.topFilterBtn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pos-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.topFilterBtnActive {
+  color: var(--pos-primary);
+}
+
+.searchRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 280px;
+  max-width: 420px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  color: var(--pos-text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px 0 42px;
+  border: 1px solid var(--pos-border-strong);
+  border-radius: 999px;
+  background: var(--pos-surface);
+  font-size: 14px;
+}
+
+.syncPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #d1fae5;
+  color: #022c22;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .titleRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search {
+    max-width: none;
+    width: 100%;
+  }
+}

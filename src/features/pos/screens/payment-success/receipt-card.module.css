@@ -1,0 +1,134 @@
+.card {
+  width: min(100%, 440px);
+  flex-shrink: 0;
+  padding: 24px 22px;
+  border: 1px solid var(--pos-border);
+  border-radius: var(--pos-radius-lg);
+  background: var(--pos-surface);
+  box-shadow: var(--pos-shadow-card);
+}
+
+.header {
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--pos-border-strong);
+  text-align: center;
+}
+
+.brand {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #2563eb;
+}
+
+.metaLine {
+  margin: 0 0 3px;
+  color: var(--pos-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.lines {
+  margin: 0;
+  padding: 12px 0;
+  list-style: none;
+  border-bottom: 1px dashed var(--pos-border-strong);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--pos-text);
+}
+
+.line strong {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--pos-border-strong);
+}
+
+.totalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--pos-text-muted);
+}
+
+.totalRow dt,
+.totalRow dd {
+  margin: 0;
+}
+
+.discount {
+  color: var(--pos-danger);
+}
+
+.grandTotal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--pos-border-strong);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pos-text);
+}
+
+.grandTotal strong {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--pos-flow-accent);
+}
+
+.paymentRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--pos-border-strong);
+  font-size: 14px;
+  color: var(--pos-text-muted);
+}
+
+.paymentRow strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pos-text);
+}
+
+.thankYou {
+  margin: 12px 0 0;
+  text-align: center;
+  color: var(--pos-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 767px) {
+  .card {
+    width: 100%;
+    padding: 20px 16px;
+  }
+
+  .grandTotal strong {
+    font-size: 20px;
+  }
+}
