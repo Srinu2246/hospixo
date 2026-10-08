@@ -7,7 +7,7 @@ const statEntries = [
   { id: 'totalTables', key: 'totalTables' },
   { id: 'totalSeats', key: 'totalSeats' },
   { id: 'activeTables', key: 'activeTables' },
-  { id: 'maintenance', key: 'maintenance' },
+  { id: 'inactiveTables', key: 'inactiveTables' },
 ] as const;
 
 type FloorStatCardsProps = Readonly<{

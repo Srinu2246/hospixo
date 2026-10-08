@@ -51,7 +51,7 @@ export function createDraftFloor(name: string): Floor {
       totalTables: 0,
       totalSeats: 0,
       activeTables: 0,
-      maintenance: 0,
+      inactiveTables: 0,
     },
     activity: [
       {

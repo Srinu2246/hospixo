@@ -1,5 +1,7 @@
 'use client';
 
+import FormHelperText from '@mui/material/FormHelperText';
+
 import { TextAreaField, TextField } from '@/components/form/wizard-shared';
 import { StatusToggle } from '@/features/floor-table-setup/components/status-toggle';
 import { wizardCopy } from '@/features/floor-table-setup/config';
@@ -11,7 +13,7 @@ type FloorCreationStepProps = Readonly<{
   value: FloorDraftForm;
   onChange: (next: FloorDraftForm) => void;
   title?: string;
-  errors?: Partial<Record<'name' | 'code' | 'description', string>>;
+  errors?: Partial<Record<'name' | 'code' | 'description' | 'status', string>>;
 }>;
 
 export function FloorCreationStep({
@@ -57,6 +59,11 @@ export function FloorCreationStep({
         checked={value.active}
         onChange={(active) => onChange({ ...value, active })}
       />
+      {errors?.status ? (
+        <FormHelperText error sx={{ mt: 0.5, mx: 0 }}>
+          {errors.status}
+        </FormHelperText>
+      ) : null}
     </section>
   );
 }

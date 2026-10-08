@@ -359,7 +359,47 @@ export function getUserFriendlyErrorMessage(
       return 'The requested record could not be found. It may have been deleted or modified.';
     }
     if (error.status === 409) {
-      return 'A user or invitation with this email address already exists. Please verify the email address or manage the existing staff profile.';
+      const validation = formatApiValidationDetails(error.details);
+      if (validation) return validation;
+
+      const detailStr =
+        typeof error.details === 'string'
+          ? error.details
+          : Array.isArray(error.details)
+            ? error.details
+                .map(
+                  (d: { msg?: string; message?: string }) =>
+                    d.msg || d.message || JSON.stringify(d),
+                )
+                .join(', ')
+            : error.message;
+
+      if (
+        /email.*already exists|invitation.*already|user.*already exists|already registered/i.test(
+          detailStr,
+        )
+      ) {
+        return 'A user or invitation with this email address already exists. Please verify the email address or manage the existing staff profile.';
+      }
+      if (/username.*already exists|duplicate.*username/i.test(detailStr)) {
+        return 'This username is already in use. Please choose a different username.';
+      }
+      if (/table_number|table number|duplicate.*table/i.test(detailStr)) {
+        return detailStr && !/^conflict$/i.test(detailStr.trim())
+          ? detailStr
+          : 'A table with this number already exists on this floor. Please choose a different table number.';
+      }
+      if (
+        /floor|section/i.test(detailStr) &&
+        /already exists|duplicate|conflict/i.test(detailStr)
+      ) {
+        return detailStr;
+      }
+      const sanitized = sanitizeAuthErrorMessage(error.message);
+      if (sanitized && !/^conflict$/i.test(sanitized.trim())) {
+        return sanitized;
+      }
+      return fallback;
     }
     if (error.status === 422 || error.status === 400) {
       const validation = formatApiValidationDetails(error.details);

@@ -46,6 +46,7 @@ type AddUserFormFields = Readonly<{
   firstName: string;
   lastName: string;
   email: string;
+  username: string;
   phone: string;
   password: string;
   scope?: 'organisation' | 'company' | 'branch';
@@ -79,6 +80,7 @@ export function buildCreateUserInput(
 
   return {
     email: user.email.trim(),
+    username: user.username.trim(),
     password: user.password,
     first_name: user.firstName.trim(),
     last_name: user.lastName.trim() || null,

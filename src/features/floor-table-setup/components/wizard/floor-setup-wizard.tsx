@@ -405,7 +405,7 @@ export function FloorSetupWizard() {
       floorId,
       table.sectionId,
       tableId,
-      buildUpdateTableInputFromEdit(value, table.version ?? 1),
+      buildUpdateTableInputFromEdit(value, table.version ?? 0),
       actionScope,
     );
     if (!updated.ok) {
@@ -721,7 +721,7 @@ export function FloorSetupWizard() {
                 })
               : Promise.resolve(false)
           }
-          error={submitError}
+          statusError={submitError}
         />
       </div>
     </section>

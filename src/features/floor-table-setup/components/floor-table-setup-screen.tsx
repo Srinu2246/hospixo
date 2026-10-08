@@ -120,7 +120,6 @@ function FloorTablesPanel({
             <TableRow>
               <TableCell>Name</TableCell>
               <TableCell align="right">Seats</TableCell>
-              <TableCell>Shape</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
@@ -130,9 +129,6 @@ function FloorTablesPanel({
               <TableRow key={table.id} hover>
                 <TableCell>{table.name}</TableCell>
                 <TableCell align="right">{table.seats}</TableCell>
-                <TableCell sx={{ textTransform: 'capitalize' }}>
-                  {table.shape ?? 'square'}
-                </TableCell>
                 <TableCell>
                   <StatusChip status={table.status} />
                 </TableCell>

@@ -12,12 +12,10 @@ type StatusToggleProps = Readonly<{
 export function StatusToggle({ label, hint, checked, onChange }: StatusToggleProps) {
   return (
     <div className={styles.row}>
-      {hint ? (
-        <div className={styles.copy}>
-          <p className={styles.label}>{label}</p>
-          <p className={styles.hint}>{hint}</p>
-        </div>
-      ) : null}
+      <div className={styles.copy}>
+        <p className={styles.label}>{label}</p>
+        {hint ? <p className={styles.hint}>{hint}</p> : null}
+      </div>
       <button
         type="button"
         role="switch"

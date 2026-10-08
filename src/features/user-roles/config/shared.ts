@@ -30,11 +30,12 @@ export const userFormFields = {
   firstName: { label: 'First Name', placeholder: 'Enter first name' },
   lastName: { label: 'Last Name', placeholder: 'Enter last name' },
   email: { label: 'Email Address', placeholder: 'e.g. sarah.chen@example.com' },
+  username: { label: 'Username', placeholder: 'e.g. srinukummitha' },
   phone: { label: 'Phone Number', placeholder: 'e.g. +919876543210' },
   phoneAlt: { label: 'Phone Number', placeholder: 'e.g. +1 (555) 000-0000' },
   password: {
-    label: 'Temporary Password',
-    placeholder: 'Required to create the account',
+    label: 'Password',
+    placeholder: 'At least 8 characters',
   },
 } as const;
 

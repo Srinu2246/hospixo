@@ -319,7 +319,7 @@ export function commitDraftToFloor(draft: FloorSetupDraft, branchLabel = ''): Fl
       totalTables: tables.length,
       totalSeats: seatCount,
       activeTables: tables.filter((table) => table.status === 'available').length,
-      maintenance: 0,
+      inactiveTables: 0,
     },
     activity: [
       {

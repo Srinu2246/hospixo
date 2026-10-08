@@ -78,6 +78,7 @@ describe('buildUpdateFloorInput', () => {
       code: 'GF-001',
       description: 'Updated',
       is_active: true,
+      status: 'active',
       version: 2,
     });
   });
@@ -109,19 +110,17 @@ describe('buildUpdateTableInputFromEdit', () => {
           number: sampleTable.number,
           capacity: sampleTable.capacity,
           shape: 'rectangle',
-          configStatus: 'maintenance',
+          configStatus: 'inactive',
           reservations: false,
         },
         3,
       ),
     ).toEqual({
       name: 'T01',
-      table_number: 'T01',
+      description: '',
       capacity: 4,
-      shape: 'rectangle',
-      is_active: false,
-      status: 'maintenance',
-      reservations_enabled: false,
+      sort_order: 0,
+      status: 'inactive',
       version: 3,
     });
   });
@@ -134,12 +133,10 @@ describe('buildBulkUpdateTablesInput', () => {
         {
           table_id: '42',
           name: 'T01',
-          table_number: 'T01',
+          description: '',
           capacity: 4,
-          shape: 'round',
-          is_active: true,
+          sort_order: 0,
           status: 'active',
-          reservations_enabled: true,
           version: 3,
         },
       ],

@@ -1,5 +1,7 @@
 'use client';
 
+import FormHelperText from '@mui/material/FormHelperText';
+
 import { AsyncButton } from '@/features/floor-table-setup/components/shared/async-button';
 import { StatusToggle } from '@/features/floor-table-setup/components/status-toggle';
 import { detailCopy, floorTableSetupCopy, wizardCopy } from '@/features/floor-table-setup/config';
@@ -14,6 +16,7 @@ type SectionEditFormProps = Readonly<{
   onSave: () => Promise<void>;
   loading?: boolean;
   showFooter?: boolean;
+  statusError?: string | null;
 }>;
 
 export function SectionEditForm({
@@ -23,6 +26,7 @@ export function SectionEditForm({
   onSave,
   loading = false,
   showFooter = true,
+  statusError = null,
 }: SectionEditFormProps) {
   async function handleSave() {
     await onSave();
@@ -68,6 +72,11 @@ export function SectionEditForm({
           checked={value.active}
           onChange={(active) => onChange({ ...value, active })}
         />
+        {statusError ? (
+          <FormHelperText error sx={{ mt: 0.5, mx: 0 }}>
+            {statusError}
+          </FormHelperText>
+        ) : null}
       </section>
       {showFooter ? (
         <div className={wizardStyles.footer}>

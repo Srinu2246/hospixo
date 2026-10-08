@@ -13,7 +13,6 @@ import {
   sectionCodePrefix,
   tableColumnKeys,
   tableConfigStatusOptions,
-  tableShapeLabels,
   tableViewOptions,
   wizardCopy,
 } from '@/features/floor-table-setup/config';
@@ -24,6 +23,7 @@ import {
   nextEntityCode,
   nextTableNumber,
   parseTableSectionChoice,
+  resolveLifecycleFieldError,
   validateTableNumberRange,
 } from '@/features/floor-table-setup/lib';
 import type {
@@ -102,7 +102,7 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
     if (!targetSection) return false;
 
     let sectionId = table.sectionId;
-    let version = table.version ?? 1;
+    let version = table.version ?? 0;
 
     if (targetSection.id !== table.sectionId) {
       const moved = await mutations.moveTable(table.sectionId, id, targetSection.id, version);
@@ -114,14 +114,14 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
     const patch = {
       number: value.number.trim(),
       capacity: value.capacity,
-      shape: value.shape,
+      shape: table.shape,
       configStatus: value.configStatus,
       reservations: value.reservations,
     };
 
-    const updated = await mutations.updateTable(sectionId, id, patch, version);
-    if (updated) setEditingId(null);
-    return updated;
+    const result = await mutations.updateTable(sectionId, id, patch, version);
+    if (result.ok) setEditingId(null);
+    return result.ok;
   }
 
   async function handleBulk(value: BulkEditValue): Promise<boolean> {
@@ -163,7 +163,10 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
     newSection?: { name: string; code: string };
   }): Promise<boolean> {
     const rangeCheck = validateTableNumberRange(tables, value.startNumber, value.count);
-    if (!rangeCheck.ok) return false;
+    if (!rangeCheck.ok) {
+      mutations.reportError(rangeCheck.message);
+      return false;
+    }
 
     const choice = parseTableSectionChoice(value);
     let sectionId: string | undefined;
@@ -204,11 +207,6 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
 
   return (
     <div className={wizardStyles.page}>
-      {mutations.error ? (
-        <p className={styles.bannerText} role="alert">
-          {mutations.error}
-        </p>
-      ) : null}
       <div className={wizardStyles.listHeader}>
         <div className={wizardStyles.listCopy}>
           <h2 className={wizardStyles.listTitle}>{detailCopy.tablesTitle}</h2>
@@ -331,7 +329,6 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
                   <td>{table.number}</td>
                   <td>{table.area}</td>
                   <td>{table.capacity}</td>
-                  <td>{tableShapeLabels[table.shape]}</td>
                   <td>
                     <FloorStatusBadge status={table.configStatus} />
                   </td>
@@ -364,29 +361,31 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
                   {table.capacity} {floorTableSetupCopy.seatsSuffix}
                 </span>
               </div>
-              <FloorStatusBadge status={table.configStatus} />
-              <div className={wizardStyles.iconActions}>
-                <button
-                  type="button"
-                  className={wizardStyles.iconButton}
-                  aria-label={detailCopy.edit}
-                  onClick={() => {
-                    mutations.clearError();
-                    setEditingId(table.id);
-                  }}
-                  disabled={mutations.isPending}
-                >
-                  <SquarePen className={wizardStyles.icon} />
-                </button>
-                <button
-                  type="button"
-                  className={wizardStyles.iconButton}
-                  aria-label={detailCopy.deleteTable}
-                  onClick={() => void handleDelete(table)}
-                  disabled={mutations.isPending}
-                >
-                  <Trash2 className={wizardStyles.icon} />
-                </button>
+              <div className={styles.tileFooter}>
+                <FloorStatusBadge status={table.configStatus} />
+                <div className={`${wizardStyles.iconActions} ${styles.tileFooterActions}`}>
+                  <button
+                    type="button"
+                    className={wizardStyles.iconButton}
+                    aria-label={detailCopy.edit}
+                    onClick={() => {
+                      mutations.clearError();
+                      setEditingId(table.id);
+                    }}
+                    disabled={mutations.isPending}
+                  >
+                    <SquarePen className={wizardStyles.icon} />
+                  </button>
+                  <button
+                    type="button"
+                    className={wizardStyles.iconButton}
+                    aria-label={detailCopy.deleteTable}
+                    onClick={() => void handleDelete(table)}
+                    disabled={mutations.isPending}
+                  >
+                    <Trash2 className={wizardStyles.icon} />
+                  </button>
+                </div>
               </div>
             </article>
           ))}
@@ -430,15 +429,28 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
         open={Boolean(editing)}
         table={editing}
         areas={areas.length > 0 ? areas : [floor.name]}
-        error={mutations.error}
-        onClose={() => setEditingId(null)}
-        onSave={(value) => (editing ? handleEdit(editing.id, value) : Promise.resolve(false))}
+        statusError={resolveLifecycleFieldError(mutations.fieldErrors, mutations.error)}
+        saving={mutations.isPending}
+        onClose={() => {
+          mutations.clearError();
+          setEditingId(null);
+        }}
+        onSave={async (value) => {
+          if (!editing) return false;
+          mutations.clearError();
+          const ok = await handleEdit(editing.id, value);
+          if (ok) mutations.clearError();
+          return ok;
+        }}
       />
       <BulkEditModal
         open={bulkOpen}
         defaults={bulkDefaults}
-        error={mutations.error}
-        onClose={() => setBulkOpen(false)}
+        statusError={resolveLifecycleFieldError(mutations.fieldErrors, mutations.error)}
+        onClose={() => {
+          mutations.clearError();
+          setBulkOpen(false);
+        }}
         onApply={handleBulk}
       />
     </div>

@@ -15,6 +15,7 @@ import { withRoleScope } from '@/features/user-roles/hooks/use-role-management-l
 import { toBranchSelectOptions } from '@/features/user-roles/lib/backend-options';
 import { fetchCompanyBranches } from '@/lib/branches-cache';
 import { fetchRolesList } from '@/lib/roles';
+import { addUserContent } from '@/features/user-roles/config/add-user';
 import { validateUserInvitation } from '@/lib/validation/user-invitation';
 import type { UserAssignmentOptions } from '@/lib/users-server';
 
@@ -150,6 +151,17 @@ export function AddUserDetailsStep({
       return;
     }
 
+    const username = user.username.trim();
+    if (username.length < 3) {
+      setValidationError('Username must be at least 3 characters.');
+      return;
+    }
+
+    if (user.password.length < 8) {
+      setValidationError(addUserContent.review.errors.passwordMin);
+      return;
+    }
+
     setValidationError(null);
     router.push(withRoleScope(addUser.permissions, level));
   }
@@ -245,6 +257,42 @@ export function AddUserDetailsStep({
                 </label>
 
                 <label className={styles.field}>
+                  <span className={styles.label}>Username</span>
+
+                  <input
+                    className={styles.input}
+                    value={user.username}
+                    onChange={(event) =>
+                      setUser({
+                        username: event.target.value,
+                      })
+                    }
+                    placeholder="e.g. srinukummitha"
+                    autoComplete="off"
+                    required
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.label}>Password</span>
+
+                  <input
+                    type="password"
+                    className={styles.input}
+                    value={user.password}
+                    onChange={(event) =>
+                      setUser({
+                        password: event.target.value,
+                      })
+                    }
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                  />
+                </label>
+
+                <label className={styles.field}>
                   <span className={styles.label}>Phone Number</span>
 
                   <input
@@ -259,10 +307,6 @@ export function AddUserDetailsStep({
                   />
                 </label>
               </div>
-
-              <p className={styles.helper}>
-                The invitee sets their own password when they accept the invitation.
-              </p>
             </section>
 
             <section className={styles.section}>
@@ -384,49 +428,6 @@ export function AddUserDetailsStep({
                   </div>
                 </div>
               </div>
-            </section>
-
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>Invitation Settings</h2>
-
-              <div className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>Send invitation email immediately</span>
-
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={user.sendInvite}
-                  className={`${styles.switch} ${user.sendInvite ? styles.switchOn : ''}`}
-                  onClick={() =>
-                    setUser({
-                      sendInvite: !user.sendInvite,
-                    })
-                  }
-                >
-                  <span className={styles.switchThumb} />
-                </button>
-              </div>
-
-              <span className={styles.helper}>
-                {user.sendInvite
-                  ? 'An email invitation will be sent to the user with an activation link.'
-                  : 'Account will be created immediately without sending an email invitation.'}
-              </span>
-
-              <label className={styles.field}>
-                <span className={styles.label}>Personal Message (Optional)</span>
-
-                <textarea
-                  className={styles.textarea}
-                  rows={4}
-                  value={user.message}
-                  onChange={(event) =>
-                    setUser({
-                      message: event.target.value,
-                    })
-                  }
-                />
-              </label>
             </section>
           </div>
         </div>
