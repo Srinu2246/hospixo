@@ -1,0 +1,1 @@
+export { KitchenItem } from './item';

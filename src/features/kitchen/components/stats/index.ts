@@ -1,0 +1,1 @@
+export { KitchenStatsBar } from './stats';
