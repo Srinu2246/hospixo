@@ -1,0 +1,17 @@
+responses: 201, 422
+201: #/components/schemas/APIResponse_MenuItemResponse_
+422: #/components/schemas/HTTPValidationError
+error schemas sample: APIResponse_AssetActionResult_, APIResponse_BranchMenuItemModifierOptionResponse_, APIResponse_BranchMenuItemPrepStationResponse_, APIResponse_BranchMenuItemResponse_, APIResponse_BranchMenuItemVariantResponse_, APIResponse_BranchMenuResponse_, APIResponse_BranchMenuSyncResponse_, APIResponse_BranchMenuTreeResponse_, APIResponse_BranchResponse_, APIResponse_CommercialPlanVersionResponse_, APIResponse_CompanyDetailV2Response_, APIResponse_CompanyListV2Result_, APIResponse_CompanyStatusUpdateResult_, APIResponse_CreateUploadIntentResult_, APIResponse_EnterprisePackagingResponse_, APIResponse_EntitlementResolveResponse_, APIResponse_FloorMapResponse_, APIResponse_FloorResponse_, APIResponse_GroupedPermissionsResponse_, APIResponse_GstRateResponse_, APIResponse_InvitationAcceptResponse_, APIResponse_InvitationResponse_, APIResponse_InvitationsListResponse_, APIResponse_KitchenBoardResponse_, APIResponse_KitchenStatusUpdateResponse_, APIResponse_MenuCategoryAssignmentResponse_, APIResponse_MenuCategoryResponse_, APIResponse_MenuItemImageResponse_, APIResponse_MenuItemImageUploadUrlResponse_, APIResponse_MenuItemResponse_
+HTTPValidationError: {
+  "properties": {
+    "detail": {
+      "items": {
+        "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+    }
+  },
+  "type": "object",
+  "title": "HTTPValidationError"
+}

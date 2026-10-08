@@ -177,6 +177,12 @@ export const organisationSidebar: AccessSidebarConfig = {
           icon: CalendarDays,
         },
         {
+          id: 'menu-management',
+          href: flowPaths.company.menuManagement,
+          label: 'Menu Management',
+          icon: Store,
+        },
+        {
           id: 'menu-fields',
           href: flowPaths.company.menuFields,
           label: 'Menu Builder',
@@ -314,24 +320,6 @@ export const companySidebar: AccessSidebarConfig = {
           href: flowPaths.company.menus,
           label: 'Menus',
           icon: CalendarDays,
-        },
-        {
-          id: 'menu-management',
-          href: companyMenu.menuManagement,
-          label: 'Menu Management',
-          icon: Store,
-        },
-        {
-          id: 'menu-availability',
-          href: branch.menuAvailability,
-          label: 'Menu Availability',
-          icon: Package,
-        },
-        {
-          id: 'menu-fields',
-          href: companyMenu.menuFields,
-          label: 'Menu Builder',
-          icon: Tags,
         },
         {
           id: 'gst-rates',
