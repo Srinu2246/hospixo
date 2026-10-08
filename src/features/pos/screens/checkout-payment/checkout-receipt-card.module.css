@@ -1,0 +1,105 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.rootEmbedded {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--pos-border);
+}
+
+.rootCard {
+  padding: 16px;
+  border: 1px solid var(--pos-border);
+  border-radius: var(--pos-radius-md);
+  background: var(--pos-surface);
+  box-shadow: var(--pos-shadow-card);
+}
+
+.notifyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pos-text);
+}
+
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--pos-border-strong);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggleOn {
+  background: var(--pos-flow-accent);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--card);
+  transition: transform 0.15s ease;
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(18px);
+}
+
+.phoneField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phoneLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pos-text-muted);
+}
+
+.phoneInput {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--pos-border-strong);
+  border-radius: var(--pos-radius-sm);
+  font-size: 13px;
+  color: var(--foreground);
+  background: var(--pos-surface);
+}
+
+.messageActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  color: var(--pos-text);
+}
+
+.messageBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--pos-border-strong);
+  border-radius: var(--pos-radius-sm);
+  background: var(--pos-surface);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}

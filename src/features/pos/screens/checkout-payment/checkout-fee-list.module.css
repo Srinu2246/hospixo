@@ -1,0 +1,86 @@
+.feeList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.feeListBordered {
+  padding-top: 12px;
+  border-top: 1px solid var(--pos-border);
+}
+
+.feeListBorderedDashed {
+  padding-top: 12px;
+  border-top: 1px dashed var(--pos-border-strong);
+}
+
+.feeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.feeLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--pos-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.feeTag {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--pos-text-muted);
+  font-size: 10px;
+}
+
+.feeAmount {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pos-text);
+}
+
+.discount {
+  color: var(--pos-danger);
+}
+
+.totalBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: var(--pos-radius-sm);
+  background: color-mix(in srgb, var(--pos-primary) 8%, var(--pos-surface));
+  flex-shrink: 0;
+}
+
+.totalBarInline {
+  padding: 12px 0 0;
+  margin-top: 8px;
+  border-top: 0;
+  background: transparent;
+}
+
+.totalLabel {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--pos-text);
+}
+
+.totalValue {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--pos-primary);
+}

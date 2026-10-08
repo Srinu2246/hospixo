@@ -1,0 +1,79 @@
+.wrap {
+  overflow-x: auto;
+  border: 1px solid var(--pos-border);
+  border-radius: var(--pos-radius-md);
+  background: var(--pos-surface);
+  box-shadow: var(--pos-shadow-card);
+}
+
+.table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--pos-border);
+  color: var(--pos-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 16px;
+  border-bottom: 1px solid var(--pos-border);
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.orderNumber,
+.amount {
+  font-weight: 700;
+  color: var(--pos-text);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewBtn,
+.settleBtn {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.viewBtn {
+  border: 0;
+  background: transparent;
+  color: var(--pos-primary);
+}
+
+.settleBtn {
+  border: 0;
+  background: var(--pos-primary);
+  color: #fff;
+}
+
+@media (max-width: 767px) {
+  .table th,
+  .table td {
+    padding: 12px;
+    font-size: 13px;
+  }
+}
