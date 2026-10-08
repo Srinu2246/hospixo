@@ -54,7 +54,7 @@ export const colors = {
   },
 
   background: {
-    default: '#FFFFFF',
+    default: '#f8fafc',
     light: '#FAFAFA',
     dark: '#121212',
   },

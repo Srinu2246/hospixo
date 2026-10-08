@@ -1,5 +1,5 @@
 import { routes } from '@/config/routes';
-import { organisationChartColors } from '@/features/dashboard/lib/organisation-chart-colors';
+import { COMMON_DATE_RANGE_OPTIONS } from '../scopes';
 import {
   buildCompanyChartSeries,
   formatOrganisationCurrency,
@@ -34,12 +34,7 @@ export const organisationDashboardCopy = {
   applyDetail: 'Apply Detail',
   view: 'View',
   cycleRenewal: 'Cycle / Renewal',
-  dateRangeOptions: [
-    { id: 'today', label: 'Today' },
-    { id: 'last-7-days', label: 'Last 7 days' },
-    { id: 'last-30-days', label: 'Last 30 days' },
-    { id: 'custom', label: 'Custom' },
-  ] as const satisfies ReadonlyArray<{ id: OrganisationDateRangeId; label: string }>,
+  dateRangeOptions: COMMON_DATE_RANGE_OPTIONS,
   metricOptions: [
     { id: 'total-sales', label: 'Total Sales' },
     { id: 'revenue', label: 'Revenue' },
@@ -79,8 +74,8 @@ export function buildOrganisationDashboardFallback(
     expenses: scaleRange(row.expenses),
     profit: scaleRange(row.profit),
   }));
-  const totalSales = scaleRange(4_852_300);
-  const netSales = scaleRange(4_218_750);
+  const totalSales = 0;
+  const netSales = 0;
 
   return {
     dateRangeLabel: resolveOrganisationDateRangeLabel(range, customRange),
@@ -89,14 +84,14 @@ export function buildOrganisationDashboardFallback(
         id: 'total-sales',
         label: 'Total Sales',
         value: formatOrganisationCurrency(totalSales),
-        changePercent: rangeProfile.totalSalesChange,
+        changePercent: 0,
         changeLabel: rangeProfile.changeLabel,
       },
       {
         id: 'net-sales',
         label: 'Net Sales',
         value: formatOrganisationCurrency(netSales),
-        changePercent: rangeProfile.netSalesChange,
+        changePercent: 0,
         changeLabel: rangeProfile.changeLabel,
       },
       {
@@ -126,59 +121,36 @@ export function buildOrganisationDashboardFallback(
     performancePageSize: pageSize,
     companySeries: buildCompanyChartSeries(scaledPerformanceRows, metric),
     taxSummary: {
-      total: scaleRange(111_300),
-      items: [
-        {
-          label: 'CGST',
-          amount: scaleRange(27_800),
-          color: organisationChartColors.blue,
-          shareLabel: '2.5%',
-        },
-        {
-          label: 'SGST',
-          amount: scaleRange(13_900),
-          color: organisationChartColors.green,
-          shareLabel: '12.5%',
-        },
-        {
-          label: 'Service Tax',
-          amount: scaleRange(42_000),
-          color: organisationChartColors.amber,
-        },
-        {
-          label: 'VAT',
-          amount: scaleRange(27_600),
-          color: organisationChartColors.purple,
-        },
-      ],
+      total: 0,
+      items: [],
     },
     financialBreakdown: [
       {
         id: 'cogs',
         label: 'COGS',
-        percent: 49.2,
-        amount: scaleRange(2_386_500),
+        percent: 0,
+        amount: 0,
         tone: 'cogs',
       },
       {
         id: 'expenses',
         label: 'Expenses',
-        percent: 20.3,
-        amount: scaleRange(984_000),
+        percent: 0,
+        amount: 0,
         tone: 'expenses',
       },
       {
         id: 'profit',
         label: 'Profit',
-        percent: 17.1,
-        amount: scaleRange(829_000),
+        percent: 0,
+        amount: 0,
         tone: 'profit',
       },
       {
         id: 'taxes',
         label: 'Taxes',
-        percent: 5.1,
-        amount: scaleRange(247_000),
+        percent: 0,
+        amount: 0,
         tone: 'taxes',
       },
     ],
@@ -187,61 +159,23 @@ export function buildOrganisationDashboardFallback(
       plan: 'Enterprise Pro',
       status: 'active',
       billingCycle: 'Monthly',
-      renewalDate: '2025-09-15',
+      renewalDate: '-',
       managePlanHref: routes.dashboard.company,
       usage: [
-        { id: 'companies', label: 'Companies', used: 3, limit: 10 },
-        { id: 'branches', label: 'Branches', used: 8, limit: 50 },
-        { id: 'users', label: 'Active Users', used: 142, limit: 500 },
-        { id: 'devices', label: 'Devices', used: 142, limit: 250 },
+        { id: 'companies', label: 'Companies', used: 0, limit: 10 },
+        { id: 'branches', label: 'Branches', used: 0, limit: 50 },
+        { id: 'users', label: 'Active Users', used: 0, limit: 500 },
+        { id: 'devices', label: 'Devices', used: 0, limit: 250 },
       ],
     },
-    alerts: [
-      {
-        id: 'budget',
-        title: '3 branches exceeded budget threshold',
-        occurredAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        severity: 'critical',
-        href: routes.dashboard.company,
-      },
-      {
-        id: 'license',
-        title: 'License renewal due in 14 days',
-        occurredAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-        severity: 'warning',
-        href: routes.dashboard.company,
-      },
-      {
-        id: 'inventory',
-        title: 'Inventory sync failed at 2 locations',
-        occurredAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        severity: 'critical',
-        href: routes.dashboard.company,
-      },
-    ],
-    insights: [
-      {
-        id: 'revenue',
-        title: 'Revenue at Marina Branch increased 34% compared to last week',
-        confidence: 94,
-      },
-      {
-        id: 'staffing',
-        title: 'Weekend sales spike expected — increase staffing by 15% on Fri-Sat',
-        confidence: 87,
-      },
-      {
-        id: 'menu',
-        title: "Menu item 'Grilled Platter' underperforming — consider promotion or removal",
-        confidence: 76,
-      },
-    ],
+    alerts: [],
+    insights: [],
     accountManager: {
-      name: 'Kumar Reddy',
-      role: 'Account Manager',
-      avatarInitials: 'KR',
+      name: 'Hospixo Support',
+      role: 'Account Support',
+      avatarInitials: 'HS',
       isOnline: true,
-      employeeId: 'EMP-2847',
+      employeeId: 'EMP-001',
       availability: '10:00 AM - 07:00 PM',
       whatsappPhone: '919876543210',
     },

@@ -15,7 +15,6 @@ import {
   ListOrdered,
   Package,
   Percent,
-  Plus,
   Receipt,
   Settings,
   ShoppingBag,
@@ -120,8 +119,7 @@ export const organisationSidebar: AccessSidebarConfig = {
       collapsible: true,
       defaultOpen: true,
       items: [
-        { id: 'all-companies', href: '/company', label: 'All Companies', icon: Building2 },
-        { id: 'add-company', href: `${org}/companies/new`, label: 'Add Company', icon: Plus },
+        { id: 'all-companies', href: `${org}/companies`, label: 'All Companies', icon: Building2 },
         {
           id: 'company-analytics',
           href: `${org}/companies/analytics`,
@@ -136,8 +134,7 @@ export const organisationSidebar: AccessSidebarConfig = {
       collapsible: true,
       defaultOpen: true,
       items: [
-        { id: 'all-branches', href: '/branch', label: 'All Branches', icon: Store },
-        { id: 'add-branch', href: `${org}/branch/new`, label: 'Add Branch', icon: Plus },
+        { id: 'all-branches', href: `${org}/branches`, label: 'All Branches', icon: Store },
         {
           id: 'branch-performance',
           href: `${org}/branches/performance`,
@@ -270,7 +267,7 @@ export const companySidebar: AccessSidebarConfig = {
       collapsible: true,
       defaultOpen: true,
       items: [
-        { id: 'all-branches', href: branch.root, label: 'All Branches', icon: Store },
+        { id: 'all-branches', href: `${company}/branches`, label: 'All Branches', icon: Store },
         {
           id: 'branch-analytics',
           href: `${company}/branches/analytics`,

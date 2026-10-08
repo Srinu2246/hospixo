@@ -20,8 +20,10 @@
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--workspace-canvas);
+  -webkit-overflow-scrolling: touch;
 }
 
 .mainPadding {
@@ -36,18 +38,32 @@
 
 .mainInner {
   display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
+  min-height: 100%;
+  flex: 1 0 auto;
   flex-direction: column;
 }
 
 .main {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
 }
 
 .main::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+  height: 6px;
+}
+
+.main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 9999px;
+}
+
+.main::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
 }
 
 .contentColumn {
@@ -56,8 +72,3 @@
   flex: 1 1 auto;
 }
 
-@media (max-width: 900px) {
-  .main {
-    overflow-x: clip;
-  }
-}

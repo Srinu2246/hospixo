@@ -30,31 +30,85 @@ export const ORG_ROLES = [
   'organization_admin',
   'org_admin',
   'org_owner',
+  'organisation_owner',
+  'organization_owner',
+  'organisation_manager',
+  'organization_manager',
+  'org_manager',
   'tenant_admin',
+  'superadmin',
 ] as const;
 
-export const COMPANY_ROLES = ['company_admin', 'company_owner', 'company_manager'] as const;
+export const COMPANY_ROLES = [
+  'company_admin',
+  'company_owner',
+  'company_manager',
+  'company_staff',
+  'company_user',
+] as const;
 
-export const BRANCH_ROLES = ['branch_manager', 'branch_admin', 'store_manager'] as const;
+export const BRANCH_ROLES = [
+  'branch_manager',
+  'branch_admin',
+  'store_manager',
+  'branch_staff',
+  'branch_user',
+  'branch',
+] as const;
 
-export const COUNTER_ROLES = ['cashier', 'counter', 'pos_cashier', 'counter_staff'] as const;
+export const COUNTER_ROLES = [
+  'cashier',
+  'counter',
+  'pos_cashier',
+  'counter_staff',
+  'cashier_staff',
+  'billing',
+  'billing_staff',
+  'pos',
+] as const;
 
-export const CAPTAIN_ROLES = ['captain', 'waiter', 'server', 'host'] as const;
+export const CAPTAIN_ROLES = ['captain', 'waiter', 'server', 'host', 'steward'] as const;
 
-export const CHEF_ROLES = ['chef', 'kitchen', 'kitchen_staff'] as const;
+export const CHEF_ROLES = ['chef', 'kitchen', 'kitchen_staff', 'cook'] as const;
 
 /**
  * Resolve the user's access level for sidebar + post-login home.
  * Operational roles (kitchen / captain / counter) win over hierarchy roles.
+ * Branch credentials win over broad organisation tenant scope.
  */
 export function resolveAccessLevel(user: AccessUser): AccessLevel {
   const { roles, scope, company_id: companyId, branch_id: branchId } = user;
   const scopeKey = normalizeRole(scope);
 
-  if (hasAnyRole(roles, CHEF_ROLES)) return 'kitchen';
-  if (hasAnyRole(roles, CAPTAIN_ROLES)) return 'captain';
-  if (hasAnyRole(roles, COUNTER_ROLES)) return 'counter';
+  // 1. Operational roles
+  if (hasAnyRole(roles, CHEF_ROLES) || scopeKey === 'kitchen' || scopeKey === 'chef')
+    return 'kitchen';
+  if (hasAnyRole(roles, CAPTAIN_ROLES) || scopeKey === 'captain') return 'captain';
+  if (hasAnyRole(roles, COUNTER_ROLES) || scopeKey === 'counter' || scopeKey === 'cashier')
+    return 'counter';
 
+  // 2. Branch roles or branch assignment
+  if (
+    hasAnyRole(roles, BRANCH_ROLES) ||
+    scopeKey === 'branch' ||
+    (branchId != null && Number(branchId) > 0 && !hasAnyRole(roles, ORG_ROLES))
+  ) {
+    return 'branch';
+  }
+
+  // 3. Company roles or company assignment
+  if (
+    hasAnyRole(roles, COMPANY_ROLES) ||
+    scopeKey === 'company' ||
+    (companyId != null &&
+      Number(companyId) > 0 &&
+      (branchId == null || Number(branchId) <= 0) &&
+      !hasAnyRole(roles, ORG_ROLES))
+  ) {
+    return 'company';
+  }
+
+  // 4. Organisation roles or explicit org scope
   if (
     hasAnyRole(roles, ORG_ROLES) ||
     scopeKey === 'organisation' ||
@@ -64,19 +118,9 @@ export function resolveAccessLevel(user: AccessUser): AccessLevel {
     return 'organisation';
   }
 
-  if (
-    hasAnyRole(roles, COMPANY_ROLES) ||
-    scopeKey === 'company' ||
-    (companyId != null && branchId == null)
-  ) {
-    return 'company';
-  }
-
-  if (hasAnyRole(roles, BRANCH_ROLES) || scopeKey === 'branch' || branchId != null) {
-    return 'branch';
-  }
-
-  if (companyId != null) return 'company';
+  // Fallbacks based on IDs if roles were unspecified
+  if (branchId != null && Number(branchId) > 0) return 'branch';
+  if (companyId != null && Number(companyId) > 0) return 'company';
 
   return 'organisation';
 }
@@ -186,7 +230,7 @@ export function resolveSidebarLevel(
   return userLevel;
 }
 
-/** Dashboard home for a hierarchy access level (null for operational roles). */
+/** Dashboard home for an access level. */
 export function resolveHierarchyHomePath(level: AccessLevel): string | null {
   switch (level) {
     case 'organisation':
@@ -195,8 +239,50 @@ export function resolveHierarchyHomePath(level: AccessLevel): string | null {
       return routes.dashboard.company;
     case 'branch':
       return routes.dashboard.branch;
+    case 'counter':
+      return routes.dashboard.cashier;
+    case 'captain':
+      return routes.dashboard.captain;
+    case 'kitchen':
+      return routes.dashboard.kitchen;
     default:
       return null;
+  }
+}
+
+/**
+ * Dashboard home for a user based on their login credentials.
+ * - branch credentials -> branch dashboard
+ * - company manager -> company dashboard
+ * - cashier -> cashier dashboard
+ * - captain -> captain
+ * - kitchen -> kitchen
+ * - organisation admin -> organisation dashboard
+ */
+export function resolveDashboardHomePath(user: AccessUser): string {
+  const level = resolveAccessLevel(user);
+  switch (level) {
+    case 'kitchen':
+      return routes.dashboard.kitchen;
+    case 'captain':
+      return routes.dashboard.captain;
+    case 'counter':
+      return routes.dashboard.cashier;
+    case 'branch': {
+      if (user.branch_id != null && Number(user.branch_id) > 0) {
+        return `${routes.dashboard.branch}?outlet=${encodeURIComponent(String(user.branch_id))}`;
+      }
+      return routes.dashboard.branch;
+    }
+    case 'company': {
+      if (user.company_id != null && Number(user.company_id) > 0) {
+        return `${routes.dashboard.company}?company_id=${encodeURIComponent(String(user.company_id))}`;
+      }
+      return routes.dashboard.company;
+    }
+    case 'organisation':
+    default:
+      return routes.dashboard.organisation;
   }
 }
 

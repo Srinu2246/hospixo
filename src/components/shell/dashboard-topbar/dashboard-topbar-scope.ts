@@ -17,9 +17,10 @@ export function canSwitchBranch(user: AuthUser | null) {
   return user != null && user.scope !== 'branch';
 }
 
-/** Org / company dashboards — filter stats by branch. */
+/** Org / company / branch dashboards — filter stats by branch. */
 export function isBranchPickerPath(pathname: string) {
   return (
+    pathMatches(pathname, routes.dashboard.branch) ||
     pathMatches(pathname, routes.dashboard.company) ||
     pathMatches(pathname, routes.dashboard.organisation)
   );
@@ -63,17 +64,18 @@ export function resolveCurrentBranchName(
   return dashboardLoadCopy.unknownOutlet;
 }
 
-/** Navigate to branch dashboard when a specific branch is picked on org/company routes. */
+/** Navigate to branch dashboard when a specific branch is picked. */
 export function resolveBranchPickerHref(
   pathname: string,
   outletId: string,
   companyId?: string | null,
 ): string | null {
-  if (!isBranchPickerPath(pathname) || outletId === 'all') {
-    return null;
-  }
-
-  if (isCompanyDashboardHome(pathname)) {
+  if (outletId === 'all') {
+    if (pathMatches(pathname, routes.dashboard.branch)) {
+      return companyId
+        ? `${routes.dashboard.company}?company_id=${encodeURIComponent(companyId)}`
+        : routes.dashboard.company;
+    }
     return null;
   }
 

@@ -54,6 +54,8 @@ export const routes = {
     company: '/company',
     organisation: '/organisation',
     branch: '/branch',
+    companies: '/organisation/companies',
+    branches: '/organisation/branches',
     /** Captain floor flow — fixed captain AccessSidebar. */
     captain: '/captain',
     /** Cashier / counter flow — fixed cashier AccessSidebar. */

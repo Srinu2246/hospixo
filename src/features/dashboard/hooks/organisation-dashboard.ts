@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -95,6 +95,7 @@ function parseViewMode(value: string | null): OrganisationDashboardViewMode {
 
 export function useOrganisationDashboardControls(initialData: OrganisationDashboardOverview) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const defaultCustomRange = getDefaultOrganisationCustomRange();
 
@@ -257,6 +258,15 @@ export function useOrganisationDashboardControls(initialData: OrganisationDashbo
 
   function handleKpiSelect(kpiId: string) {
     setSelectedKpiId(kpiId);
+    if (kpiId === 'companies') {
+      router.push('/organisation/companies');
+      return;
+    }
+    if (kpiId === 'branches') {
+      router.push('/organisation/branches');
+      return;
+    }
+
     const nextMetric =
       kpiId === 'total-sales'
         ? 'total-sales'

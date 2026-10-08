@@ -1,10 +1,8 @@
-import { orgDash } from '@/features/dashboard/styles/org-dash-classes';
+'use client';
 
-import { Download } from 'lucide-react';
-
+import { DashboardPageHeader } from '@/features/dashboard/components/shared/dashboard-page-header';
 import { organisationDashboardCopy } from '@/features/dashboard/config/organisation/dashboard';
 import { exportOrganisationDashboardCsv } from '@/features/dashboard/utils/export-organisation-dashboard-csv';
-import { OrganisationDateRangePicker } from '@/features/dashboard/components/organisation/shared/organisation-date-range-picker';
 import type {
   OrganisationDashboardOverview,
   OrganisationDateRangeId,
@@ -36,29 +34,19 @@ export function OrganisationDashboardHeader({
   onCustomRangeApply,
 }: OrganisationDashboardHeaderProps) {
   return (
-    <header className={orgDash.headerHeader}>
-      <h1 className={orgDash.headerTitle}>{organisationDashboardCopy.title}</h1>
-      <div className={orgDash.headerActions}>
-        <OrganisationDateRangePicker
-          label={data.dateRangeLabel}
-          activeRange={activeRange}
-          customFrom={customFrom}
-          customTo={customTo}
-          isOpen={dateMenuOpen}
-          menuRef={dateMenuRef}
-          onToggle={onDateMenuToggle}
-          onSelectPreset={onPresetRangeChange}
-          onApplyCustom={onCustomRangeApply}
-        />
-        <button
-          type="button"
-          className={orgDash.headerExportbutton}
-          onClick={() => exportOrganisationDashboardCsv(data)}
-        >
-          <Download className={orgDash.headerExporticon} aria-hidden />
-          {organisationDashboardCopy.exportButton}
-        </button>
-      </div>
-    </header>
+    <DashboardPageHeader
+      title={organisationDashboardCopy.title}
+      dateRangeLabel={data.dateRangeLabel}
+      activeRange={activeRange}
+      customFrom={customFrom}
+      customTo={customTo}
+      dateMenuOpen={dateMenuOpen}
+      dateMenuRef={dateMenuRef}
+      onDateMenuToggle={onDateMenuToggle}
+      onPresetRangeChange={onPresetRangeChange}
+      onCustomRangeApply={onCustomRangeApply}
+      exportButtonLabel={organisationDashboardCopy.exportButton}
+      onExportCsv={() => exportOrganisationDashboardCsv(data)}
+    />
   );
 }

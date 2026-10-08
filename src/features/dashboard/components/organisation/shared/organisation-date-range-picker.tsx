@@ -1,8 +1,7 @@
 'use client';
 
-import { orgDash } from '@/features/dashboard/styles/org-dash-classes';
-
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Box, Button, Paper, Stack, Typography, TextField } from '@mui/material';
 import { Calendar, ChevronDown } from 'lucide-react';
 
 import { organisationDashboardCopy } from '@/features/dashboard/config/organisation/dashboard';
@@ -67,69 +66,155 @@ export function OrganisationDateRangePicker({
   }
 
   return (
-    <div className={orgDash.rangeWrap} ref={menuRef}>
-      <button
+    <Box sx={{ position: 'relative', display: 'inline-block' }} ref={menuRef}>
+      <Button
         type="button"
-        className={orgDash.rangeTrigger}
+        variant="outlined"
+        startIcon={<Calendar size={16} />}
+        endIcon={<ChevronDown size={16} />}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={onToggle}
+        sx={{
+          textTransform: 'none',
+          fontSize: '0.8125rem',
+          fontWeight: 500,
+          color: 'text.primary',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          borderRadius: '0.5rem',
+          px: 1.5,
+          py: 0.75,
+          '&:hover': {
+            bgcolor: 'action.hover',
+            borderColor: 'divider',
+          },
+        }}
       >
-        <Calendar className={orgDash.rangeIcon} aria-hidden />
-        <span>{label}</span>
-        <ChevronDown className={orgDash.rangeChevron} aria-hidden size={16} />
-      </button>
+        {label}
+      </Button>
+
       {isOpen ? (
-        <div className={orgDash.rangeMenu} role="listbox" aria-label="Date range">
-          {organisationDashboardCopy.dateRangeOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="option"
-              aria-selected={activeRange === option.id}
-              className={
-                activeRange === option.id ? orgDash.rangeMenuitemactive : orgDash.rangeMenuitem
-              }
-              onClick={() => handlePresetSelect(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'absolute',
+            right: 0,
+            top: 'calc(100% + 6px)',
+            zIndex: 1300,
+            minWidth: 220,
+            p: 1,
+            borderRadius: '0.5rem',
+            border: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+          }}
+          role="listbox"
+          aria-label="Date range"
+        >
+          <Stack spacing={0.5}>
+            {organisationDashboardCopy.dateRangeOptions.map((option) => {
+              const isSelected = activeRange === option.id;
+              return (
+                <Box
+                  component="button"
+                  key={option.id}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => handlePresetSelect(option.id)}
+                  sx={{
+                    width: '100%',
+                    textAlign: 'left',
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: '0.375rem',
+                    fontSize: '0.8125rem',
+                    fontWeight: isSelected ? 600 : 400,
+                    color: isSelected ? 'primary.main' : 'text.primary',
+                    bgcolor: isSelected ? 'action.selected' : 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease-in-out',
+                    '&:hover': {
+                      bgcolor: 'action.hover',
+                    },
+                  }}
+                >
+                  {option.label}
+                </Box>
+              );
+            })}
+          </Stack>
 
           {customPanelOpen ? (
-            <div className={orgDash.rangeCustompanel}>
-              <label className={orgDash.rangeDatefield}>
-                <span className={orgDash.rangeDatelabel}>From</span>
-                <input
-                  type="date"
-                  className={orgDash.rangeDateinput}
-                  value={draftFrom}
-                  max={draftTo || undefined}
-                  onChange={(event) => setDraftFrom(event.target.value)}
-                />
-              </label>
-              <label className={orgDash.rangeDatefield}>
-                <span className={orgDash.rangeDatelabel}>To</span>
-                <input
-                  type="date"
-                  className={orgDash.rangeDateinput}
-                  value={draftTo}
-                  min={draftFrom || undefined}
-                  onChange={(event) => setDraftTo(event.target.value)}
-                />
-              </label>
-              <button
-                type="button"
-                className={orgDash.rangeApplybutton}
-                disabled={!draftFrom || !draftTo}
-                onClick={handleApplyCustom}
-              >
-                Apply range
-              </button>
-            </div>
+            <Box
+              sx={{
+                mt: 1.5,
+                pt: 1.5,
+                borderTop: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}
+                  >
+                    From
+                  </Typography>
+                  <TextField
+                    type="date"
+                    size="small"
+                    fullWidth
+                    value={draftFrom}
+                    slotProps={{ htmlInput: { max: draftTo || undefined } }}
+                    onChange={(event) => setDraftFrom(event.target.value)}
+                    sx={{
+                      '& .MuiInputBase-input': { fontSize: '0.8125rem', py: 0.75, px: 1 },
+                    }}
+                  />
+                </Box>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}
+                  >
+                    To
+                  </Typography>
+                  <TextField
+                    type="date"
+                    size="small"
+                    fullWidth
+                    value={draftTo}
+                    slotProps={{ htmlInput: { min: draftFrom || undefined } }}
+                    onChange={(event) => setDraftTo(event.target.value)}
+                    sx={{
+                      '& .MuiInputBase-input': { fontSize: '0.8125rem', py: 0.75, px: 1 },
+                    }}
+                  />
+                </Box>
+                <Button
+                  variant="contained"
+                  size="small"
+                  fullWidth
+                  disabled={!draftFrom || !draftTo}
+                  onClick={handleApplyCustom}
+                  sx={{
+                    textTransform: 'none',
+                    fontSize: '0.8125rem',
+                    borderRadius: '0.5rem',
+                    mt: 0.5,
+                  }}
+                >
+                  Apply range
+                </Button>
+              </Stack>
+            </Box>
           ) : null}
-        </div>
+        </Paper>
       ) : null}
-    </div>
+    </Box>
   );
 }

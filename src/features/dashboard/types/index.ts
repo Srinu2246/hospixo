@@ -43,7 +43,7 @@ export type DashboardExpenseItem = Readonly<{
 export type DashboardLeakageStat = Readonly<{
   label: string;
   value: number | string;
-  tone?: 'danger';
+  tone?: 'danger' | 'neutral';
 }>;
 
 export type DashboardLeakageGroup = Readonly<{

@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { Avatar, Box, Divider, Menu, MenuItem, Typography } from '@mui/material';
 import { HelpCircle, FileText, LogOut, PenLine, Shield, UserRound } from 'lucide-react';
 
 import { routes } from '@/config/routes';
@@ -9,8 +10,6 @@ import { useAuth } from '@/context/auth';
 import { LogoutDialog } from '@/features/profile/components/logout-dialog/logout-dialog';
 import { profileMenuCopy } from '@/features/profile/config/profile';
 import { buildUserProfile } from '@/features/profile/lib/build-user-profile';
-
-import styles from './profile-menu.module.css';
 
 type ProfileMenuProps = Readonly<{
   initials: string;
@@ -47,84 +46,179 @@ const menuLinks = [
 export function ProfileMenu({ initials }: ProfileMenuProps) {
   const { user } = useAuth();
   const profile = buildUserProfile(user);
-  const [open, setOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [logoutOpen, setLogoutOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const open = Boolean(anchorEl);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      if (menuRef.current && !menuRef.current.contains(target)) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
 
   return (
-    <div className={styles.wrap} ref={menuRef}>
-      <button
+    <>
+      <Box
+        component="button"
         type="button"
-        className={styles.avatarButton}
         aria-label={profileMenuCopy.menuLabel}
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen((current) => !current)}
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 0,
+          border: 'none',
+          bgcolor: 'transparent',
+          cursor: 'pointer',
+          borderRadius: '50%',
+          outline: 'none',
+          '&:focus-visible': {
+            boxShadow: (theme) => `0 0 0 2px ${theme.palette.primary.main}`,
+          },
+        }}
       >
-        <span className={styles.avatar}>{initials}</span>
-      </button>
+        <Avatar
+          sx={{
+            width: 32,
+            height: 32,
+            fontSize: '0.8125rem',
+            fontWeight: 700,
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
+          }}
+        >
+          {initials}
+        </Avatar>
+      </Box>
 
-      {open ? (
-        <div className={styles.menu} role="menu" aria-label={profileMenuCopy.menuLabel}>
-          <div className={styles.menuHeader}>
-            <span className={styles.menuAvatar}>{initials}</span>
-            <div className={styles.menuIdentity}>
-              <p className={styles.menuName}>{profile.name}</p>
-              <p className={styles.menuRole}>{profile.roleLabel}</p>
-            </div>
-          </div>
-
-          <div className={styles.divider} />
-
-          <ul className={styles.linkList}>
-            {menuLinks.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className={styles.menuLink}
-                    role="menuitem"
-                    onClick={() => setOpen(false)}
-                  >
-                    <Icon className={styles.menuIcon} aria-hidden="true" />
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className={styles.divider} />
-
-          <button
-            type="button"
-            className={styles.logoutLink}
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              setLogoutOpen(true);
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{
+          paper: {
+            elevation: 4,
+            sx: {
+              mt: 1,
+              minWidth: 230,
+              borderRadius: '0.75rem',
+              border: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              boxShadow: (theme) =>
+                theme.palette.mode === 'dark'
+                  ? '0 10px 25px -5px rgba(0,0,0,0.5), 0 8px 10px -6px rgba(0,0,0,0.5)'
+                  : '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.06)',
+              py: 0.5,
+            },
+          },
+        }}
+      >
+        {/* Menu Header */}
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Avatar
+            sx={{
+              width: 36,
+              height: 36,
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
             }}
           >
-            <LogOut className={styles.logoutIcon} aria-hidden="true" />
-            {profileMenuCopy.logout}
-          </button>
-        </div>
-      ) : null}
+            {initials}
+          </Avatar>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: 'text.primary',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {profile.name}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: '0.75rem',
+                color: 'text.secondary',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {profile.roleLabel}
+            </Typography>
+          </Box>
+        </Box>
+
+        <Divider sx={{ my: 0.5 }} />
+
+        {/* Links */}
+        {menuLinks.map((item) => {
+          const Icon = item.icon;
+          return (
+            <MenuItem
+              key={item.label}
+              component={Link}
+              href={item.href}
+              onClick={handleClose}
+              sx={{
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                borderRadius: '0.375rem',
+                mx: 0.75,
+                my: 0.25,
+                py: 0.75,
+                px: 1.25,
+                gap: 1.25,
+                color: 'text.primary',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+              }}
+            >
+              <Icon size={16} style={{ opacity: 0.75 }} />
+              <span>{item.label}</span>
+            </MenuItem>
+          );
+        })}
+
+        <Divider sx={{ my: 0.5 }} />
+
+        {/* Logout */}
+        <MenuItem
+          onClick={() => {
+            handleClose();
+            setLogoutOpen(true);
+          }}
+          sx={{
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            borderRadius: '0.375rem',
+            mx: 0.75,
+            my: 0.25,
+            py: 0.75,
+            px: 1.25,
+            gap: 1.25,
+            color: 'error.main',
+            '&:hover': {
+              bgcolor: 'action.hover',
+            },
+          }}
+        >
+          <LogOut size={16} />
+          <span>{profileMenuCopy.logout}</span>
+        </MenuItem>
+      </Menu>
 
       <LogoutDialog open={logoutOpen} onOpenChange={setLogoutOpen} />
-    </div>
+    </>
   );
 }

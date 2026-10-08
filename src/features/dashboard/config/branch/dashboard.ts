@@ -1,7 +1,7 @@
 import { flowPaths } from '@/config/shell/flow-paths';
 import { organisationChartColors } from '@/features/dashboard/lib/organisation-chart-colors';
+import { COMMON_DATE_RANGE_OPTIONS } from '../scopes';
 import type { BranchDashboardOverview } from '@/features/dashboard/types/branch-dashboard';
-import type { OrganisationDateRangeId } from '@/features/dashboard/types/organisation-dashboard';
 
 export const branchDashboardCopy = {
   title: 'Sales Statistics',
@@ -19,12 +19,7 @@ export const branchDashboardCopy = {
       { key: 'offline', label: 'Offline Sales', dataKey: 'offlineSales', icon: 'banknote' },
     ],
   },
-  dateRangeOptions: [
-    { id: 'today', label: 'Today' },
-    { id: 'last-7-days', label: 'Last 7 days' },
-    { id: 'last-30-days', label: 'Last 30 days' },
-    { id: 'custom', label: 'Custom' },
-  ] as const satisfies ReadonlyArray<{ id: OrganisationDateRangeId; label: string }>,
+  dateRangeOptions: COMMON_DATE_RANGE_OPTIONS,
   periodOptions: [
     { id: 'today', label: 'Today' },
     { id: 'yesterday', label: 'Yesterday' },
@@ -78,65 +73,38 @@ export const branchDashboardFallbackData: BranchDashboardOverview = {
   },
   kpis: {
     totalSales: {
-      amount: 42850,
+      amount: 0,
       currency: 'INR',
-      changePercent: 12.4,
+      changePercent: 0,
       changeLabel: 'vs yesterday',
     },
     netSales: {
-      amount: 42000,
+      amount: 0,
       currency: 'INR',
-      changePercent: 8.2,
+      changePercent: 0,
       changeLabel: 'vs yesterday',
     },
     onlineSales: {
-      amount: 20000,
+      amount: 0,
       currency: 'INR',
-      changePercent: -4.1,
+      changePercent: 0,
       changeLabel: 'vs yesterday',
     },
     offlineSales: {
-      amount: 22000,
+      amount: 0,
       currency: 'INR',
-      changePercent: 15.6,
+      changePercent: 0,
       changeLabel: 'vs yesterday',
     },
   },
   paymentBreakdown: {
-    total: 887260,
-    items: [
-      { label: 'Cash', amount: 142783, color: organisationChartColors.blue },
-      { label: 'Card', amount: 53786, color: organisationChartColors.purple },
-      { label: 'UPI', amount: 37730, color: organisationChartColors.green },
-      { label: 'Other', amount: 652961, color: organisationChartColors.amber },
-    ],
+    total: 0,
+    items: [],
   },
-  salesByOrderType: [
-    {
-      id: 'dine-in',
-      label: 'Dine in',
-      sales: 120000,
-      orders: 420,
-      color: organisationChartColors.blue,
-    },
-    {
-      id: 'take-away',
-      label: 'Take Away',
-      sales: 85000,
-      orders: 310,
-      color: organisationChartColors.green,
-    },
-    {
-      id: 'delivery',
-      label: 'Delivery',
-      sales: 145000,
-      orders: 202,
-      color: organisationChartColors.pink,
-    },
-  ],
+  salesByOrderType: [],
   salesSummary: {
-    totalOrders: 932,
-    totalSales: 48560,
+    totalOrders: 0,
+    totalSales: 0,
   },
   onlineOrders: {
     totalSales: 0,
@@ -151,61 +119,55 @@ export const branchDashboardFallbackData: BranchDashboardOverview = {
     {
       id: 'dine-in',
       label: 'Dine In',
-      sales: 848582,
-      orders: 3321,
+      sales: 0,
+      orders: 0,
       color: organisationChartColors.blue,
     },
     {
       id: 'take-away',
       label: 'Take Away',
-      sales: 6084,
-      orders: 121,
+      sales: 0,
+      orders: 0,
       color: organisationChartColors.green,
     },
     {
       id: 'delivery',
       label: 'Delivery',
-      sales: 32594,
-      orders: 24,
+      sales: 0,
+      orders: 0,
       color: organisationChartColors.pink,
     },
   ],
   expenses: {
-    headerAmount: 9580,
-    changePercent: 6.2,
+    headerAmount: 0,
+    changePercent: 0,
     changeLabel: 'vs yesterday',
-    items: [
-      { label: 'Food Purchases', amount: 26000 },
-      { label: 'Utilities', amount: 13000 },
-      { label: 'Delivery Commission', amount: 36000 },
-      { label: 'Kitchen Wastage', amount: 3000 },
-      { label: 'Miscellaneous', amount: 26000 },
-    ],
-    total: 130000,
+    items: [],
+    total: 0,
   },
   leakage: {
     kots: {
       items: [
-        { label: 'Cancelled', value: 27 },
-        { label: 'Modified', value: 47 },
-        { label: 'Not used in bills', value: 21 },
-        { label: 'Shifted', value: 3 },
+        { label: 'Cancelled', value: 0 },
+        { label: 'Modified', value: 0 },
+        { label: 'Not used in bills', value: 0 },
+        { label: 'Shifted', value: 0 },
       ],
     },
     bills: {
       items: [
-        { label: 'Modified', value: 3 },
-        { label: 'Re-printed', value: 1 },
-        { label: 'Waived off', value: 1 },
+        { label: 'Modified', value: 0 },
+        { label: 'Re-printed', value: 0 },
+        { label: 'Waived off', value: 0 },
       ],
     },
   },
   accountManager: {
-    name: 'Kumar Reddy',
+    name: 'Hospixo Support',
     role: 'Your dedicated account manager',
     phone: '+91 98765 43210',
     online: true,
-    outletId: '63284',
+    outletId: '-',
     supportHours: '10:00 AM - 07:00 PM',
     supportMessage: 'Reach out for any billing, inventory, or operational support queries.',
   },

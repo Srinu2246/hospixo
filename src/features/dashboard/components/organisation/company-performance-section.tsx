@@ -1,7 +1,8 @@
-import { orgDash } from '@/features/dashboard/styles/org-dash-classes';
+'use client';
 
-import { BarChart3, ChevronDown, LayoutList } from 'lucide-react';
 import { useMemo } from 'react';
+import { Box, Button, Card, IconButton, Stack, Typography } from '@mui/material';
+import { BarChart3, ChevronDown, LayoutList } from 'lucide-react';
 
 import { organisationDashboardCopy } from '@/features/dashboard/config/organisation/dashboard';
 import type {
@@ -17,7 +18,6 @@ import {
   CompanyPerformancePagination,
   CompanyPerformanceTable,
 } from './company-performance-parts';
-import { OrganisationDateRangePicker } from './shared/organisation-date-range-picker';
 
 type PresetRangeId = Exclude<OrganisationDateRangeId, 'custom'>;
 
@@ -50,15 +50,6 @@ type CompanyPerformanceSectionProps = Readonly<{
 }>;
 
 export function CompanyPerformanceSection({
-  dateRangeLabel,
-  activeRange,
-  customFrom,
-  customTo,
-  dateMenuOpen,
-  dateMenuRef,
-  onDateMenuToggle,
-  onPresetRangeChange,
-  onCustomRangeApply,
   activeMetric,
   activeMetricLabel,
   viewMode,
@@ -73,7 +64,6 @@ export function CompanyPerformanceSection({
   onMetricMenuToggle,
   onMetricChange,
   onViewChange,
-  onCompareCompanies,
   onPageChange,
 }: CompanyPerformanceSectionProps) {
   const rowsById = useMemo(
@@ -82,60 +72,155 @@ export function CompanyPerformanceSection({
   );
 
   return (
-    <section className={orgDash.surfaceCard} id="company-performance">
-      <p className={orgDash.perfMutedtitle}>{organisationDashboardCopy.companyPerformanceTitle}</p>
-      <div className={orgDash.perfSectionheader}>
-        <div className={orgDash.perfMetricselectwrap} ref={metricMenuRef}>
-          <div className={orgDash.perfMetricselectbutton}>{activeMetricLabel}</div>
-          {metricMenuOpen ? (
-            <div className={orgDash.perfMetricmenu} role="listbox">
-              {organisationDashboardCopy.metricOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="option"
-                  aria-selected={activeMetric === option.id}
-                  className={
-                    activeMetric === option.id
-                      ? orgDash.perfMetricmenuitemactive
-                      : orgDash.perfMetricmenuitem
-                  }
-                  onClick={() => onMetricChange(option.id)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
+    <Card
+      variant="outlined"
+      id="company-performance"
+      sx={{
+        borderRadius: '0.75rem',
+        p: { xs: 2, sm: '1.25rem 1.5rem' },
+        bgcolor: 'background.paper',
+        borderColor: 'divider',
+        boxShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
+        overflow: 'visible',
+      }}
+    >
+      <Typography
+        sx={{
+          fontSize: '0.75rem',
+          fontWeight: 700,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: 'text.secondary',
+          mb: 1.5,
+        }}
+      >
+        {organisationDashboardCopy.companyPerformanceTitle}
+      </Typography>
 
-        <div className={orgDash.perfToolbar}>
-          <div className={orgDash.perfViewtoggle}>
-            <button
-              type="button"
-              className={
-                viewMode === 'chart' ? orgDash.perfIconbuttonactive : orgDash.perfIconbutton
-              }
-              aria-label="Chart view"
-              aria-pressed={viewMode === 'chart'}
-              onClick={() => onViewChange('chart')}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1.5,
+          mb: 2,
+        }}
+      >
+        <Box sx={{ position: 'relative' }} ref={metricMenuRef}>
+          <Button
+            type="button"
+            variant="outlined"
+            size="small"
+            endIcon={<ChevronDown size={14} />}
+            onClick={onMetricMenuToggle}
+            sx={{
+              textTransform: 'none',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              color: 'text.primary',
+              borderColor: 'divider',
+              borderRadius: '0.5rem',
+              px: 1.5,
+              py: 0.5,
+            }}
+          >
+            {activeMetricLabel}
+          </Button>
+
+          {metricMenuOpen ? (
+            <Card
+              elevation={4}
+              sx={{
+                position: 'absolute',
+                top: 'calc(100% + 4px)',
+                left: 0,
+                zIndex: 1300,
+                minWidth: 160,
+                p: 0.5,
+                borderRadius: '0.5rem',
+                border: 1,
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+              }}
+              role="listbox"
             >
-              <BarChart3 className={orgDash.perfActionicon} aria-hidden />
-            </button>
-            <button
-              type="button"
-              className={
-                viewMode === 'list' ? orgDash.perfIconbuttonactive : orgDash.perfIconbutton
-              }
-              aria-label="List view"
-              aria-pressed={viewMode === 'list'}
-              onClick={() => onViewChange('list')}
-            >
-              <LayoutList className={orgDash.perfActionicon} aria-hidden />
-            </button>
-          </div>
-        </div>
-      </div>
+              <Stack spacing={0.25}>
+                {organisationDashboardCopy.metricOptions.map((option) => (
+                  <Box
+                    component="button"
+                    key={option.id}
+                    type="button"
+                    role="option"
+                    aria-selected={activeMetric === option.id}
+                    onClick={() => {
+                      onMetricChange(option.id);
+                      onMetricMenuToggle();
+                    }}
+                    sx={{
+                      width: '100%',
+                      textAlign: 'left',
+                      px: 1.5,
+                      py: 0.75,
+                      borderRadius: '0.375rem',
+                      fontSize: '0.8125rem',
+                      fontWeight: activeMetric === option.id ? 600 : 400,
+                      color: activeMetric === option.id ? 'primary.main' : 'text.primary',
+                      bgcolor: activeMetric === option.id ? 'action.selected' : 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                  >
+                    {option.label}
+                  </Box>
+                ))}
+              </Stack>
+            </Card>
+          ) : null}
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <IconButton
+            size="small"
+            onClick={() => onViewChange('chart')}
+            aria-label="Chart view"
+            aria-pressed={viewMode === 'chart'}
+            sx={{
+              borderRadius: '0.375rem',
+              bgcolor: viewMode === 'chart' ? 'action.selected' : 'transparent',
+              color: viewMode === 'chart' ? 'primary.main' : 'text.secondary',
+              border: 1,
+              borderColor: 'divider',
+              '&:hover': {
+                bgcolor: 'action.hover',
+              },
+            }}
+          >
+            <BarChart3 size={16} aria-hidden />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => onViewChange('list')}
+            aria-label="List view"
+            aria-pressed={viewMode === 'list'}
+            sx={{
+              borderRadius: '0.375rem',
+              bgcolor: viewMode === 'list' ? 'action.selected' : 'transparent',
+              color: viewMode === 'list' ? 'primary.main' : 'text.secondary',
+              border: 1,
+              borderColor: 'divider',
+              '&:hover': {
+                bgcolor: 'action.hover',
+              },
+            }}
+          >
+            <LayoutList size={16} aria-hidden />
+          </IconButton>
+        </Box>
+      </Box>
 
       {viewMode === 'chart' ? (
         <CompanyPerformanceChart
@@ -155,6 +240,6 @@ export function CompanyPerformanceSection({
           />
         </>
       )}
-    </section>
+    </Card>
   );
 }

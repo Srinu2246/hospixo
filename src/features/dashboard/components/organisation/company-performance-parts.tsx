@@ -1,7 +1,19 @@
-import { orgDash } from '@/features/dashboard/styles/org-dash-classes';
+'use client';
 
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  Box,
+  Chip,
+  Pagination,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
 
 import { organisationDashboardCopy } from '@/features/dashboard/config/organisation/dashboard';
 import { formatCurrency } from '@/features/dashboard/lib/format';
@@ -14,10 +26,10 @@ import type {
 
 import { CompanyPerformanceHoverCard } from './company-performance-hover-card';
 
-const statusClassMap: Record<OrganisationCompanyStatus, string> = {
-  active: orgDash.perfStatusactive,
-  warning: orgDash.perfStatuswarning,
-  inactive: orgDash.perfStatusinactive,
+const statusColorMap: Record<OrganisationCompanyStatus, 'success' | 'warning' | 'default'> = {
+  active: 'success',
+  warning: 'warning',
+  inactive: 'default',
 };
 
 type CompanyPerformanceChartProps = Readonly<{
@@ -43,34 +55,123 @@ export function CompanyPerformanceChart({
   metricLabel,
   metric,
 }: CompanyPerformanceChartProps) {
+  const router = useRouter();
+  if (series.length === 0) {
+    return (
+      <Box sx={{ py: 6, textAlign: 'center' }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          No company performance data available.
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
-    <div className={orgDash.perfChart}>
-      {series.map((point) => {
-        const heightPercent = Math.max(12, Math.round((point.value / maxValue) * 100));
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${series.length}, minmax(0, 1fr))`,
+        alignItems: 'flex-end',
+        gap: { xs: 1, sm: 2 },
+        minHeight: 240,
+        height: 260,
+        pt: 6,
+        pb: 1,
+        overflow: 'visible',
+      }}
+    >
+      {series.map((point, index) => {
+        const heightPercent = Math.max(10, Math.round((point.value / maxValue) * 100));
         const row = rowsById.get(point.id);
+        const placement =
+          series.length <= 1 || index === 0
+            ? 'start'
+            : index === series.length - 1
+              ? 'end'
+              : index === 1
+                ? 'start'
+                : index === series.length - 2
+                  ? 'end'
+                  : 'center';
 
         return (
-          <div key={point.id} className={orgDash.perfChartcolumn}>
-            <div className={orgDash.perfChartbartrack}>
-              <div className={orgDash.perfChartbarinner} style={{ height: `${heightPercent}%` }}>
-                <span className={orgDash.perfChartbar} aria-hidden />
-                {row ? (
+          <Box
+            key={point.id}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              height: '100%',
+              justifyContent: 'flex-end',
+              position: 'relative',
+              overflow: 'visible',
+              '&:hover .hover-card': {
+                display: 'block',
+              },
+            }}
+          >
+            <Box
+              sx={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'visible',
+              }}
+            >
+              <Box
+                onClick={() => {
+                  if (row?.href) router.push(row.href);
+                }}
+                sx={{
+                  width: { xs: '60%', sm: '48%' },
+                  height: `${heightPercent}%`,
+                  bgcolor: (theme) =>
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(56, 189, 248, 0.2)'
+                      : 'rgba(14, 165, 233, 0.18)',
+                  borderRadius: '6px 6px 0 0',
+                  transition: 'height 0.3s ease-in-out, background-color 0.15s',
+                  cursor: row?.href ? 'pointer' : 'default',
+                  '&:hover': {
+                    bgcolor: 'info.main',
+                  },
+                }}
+              />
+              {row ? (
+                <Box className="hover-card" sx={{ display: 'none', position: 'static' }}>
                   <CompanyPerformanceHoverCard
                     row={row}
                     metricLabel={metricLabel}
                     metricValue={formatChartMetricValue(point.value, metric)}
-                    className={orgDash.perfCharthovercard}
+                    placement={placement}
                   />
-                ) : null}
-              </div>
-            </div>
-            <span className={orgDash.perfChartlabel} title={point.label}>
+                </Box>
+              ) : null}
+            </Box>
+            <Typography
+              variant="caption"
+              title={point.label}
+              sx={{
+                color: 'text.secondary',
+                fontSize: '0.75rem',
+                mt: 1,
+                textAlign: 'center',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                width: '100%',
+                display: 'block',
+              }}
+            >
               {point.label}
-            </span>
-          </div>
+            </Typography>
+          </Box>
         );
       })}
-    </div>
+    </Box>
   );
 }
 
@@ -79,53 +180,105 @@ type CompanyPerformanceTableProps = Readonly<{
 }>;
 
 export function CompanyPerformanceTable({ rows }: CompanyPerformanceTableProps) {
+  const router = useRouter();
+
   return (
-    <div className={orgDash.perfTablewrap}>
-      <table className={orgDash.perfTable}>
-        <thead>
-          <tr>
-            <th>{organisationDashboardCopy.tableHeaders.companyName}</th>
-            <th>{organisationDashboardCopy.tableHeaders.branches}</th>
-            <th>{organisationDashboardCopy.tableHeaders.revenue}</th>
-            <th>{organisationDashboardCopy.tableHeaders.orders}</th>
-            <th>{organisationDashboardCopy.tableHeaders.expenses}</th>
-            <th>{organisationDashboardCopy.tableHeaders.profit}</th>
-            <th>{organisationDashboardCopy.tableHeaders.status}</th>
-          </tr>
-        </thead>
-        <tbody>
+    <TableContainer sx={{ borderRadius: '0.5rem', border: 1, borderColor: 'divider', mt: 2 }}>
+      <Table size="small">
+        <TableHead sx={{ bgcolor: 'action.hover' }}>
+          <TableRow>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+              {organisationDashboardCopy.tableHeaders.companyName}
+            </TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+              {organisationDashboardCopy.tableHeaders.branches}
+            </TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+              {organisationDashboardCopy.tableHeaders.revenue}
+            </TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+              {organisationDashboardCopy.tableHeaders.orders}
+            </TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+              {organisationDashboardCopy.tableHeaders.expenses}
+            </TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+              {organisationDashboardCopy.tableHeaders.profit}
+            </TableCell>
+            <TableCell sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+              {organisationDashboardCopy.tableHeaders.status}
+            </TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
           {rows.map((row) => (
-            <tr key={row.id}>
-              <td>
+            <TableRow
+              key={row.id}
+              hover
+              onClick={() => {
+                if (row.href) router.push(row.href);
+              }}
+              sx={{
+                cursor: row.href ? 'pointer' : 'default',
+                transition: 'background-color 0.15s ease',
+              }}
+            >
+              <TableCell sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>
                 {row.href ? (
-                  <Link href={row.href} className={orgDash.perfCompanylink}>
-                    {row.companyName}
+                  <Link
+                    href={row.href}
+                    style={{
+                      color: 'inherit',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <Box
+                      component="span"
+                      sx={{ '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
+                    >
+                      {row.companyName}
+                    </Box>
                   </Link>
                 ) : (
                   row.companyName
                 )}
-              </td>
-              <td>{row.branches}</td>
-              <td>{formatCurrency(row.revenue)}</td>
-              <td>{row.orders.toLocaleString('en-IN')}</td>
-              <td>{formatCurrency(row.expenses)}</td>
-              <td
-                className={
-                  row.profit >= 0 ? orgDash.perfProfitpositive : orgDash.perfProfitnegative
-                }
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.8125rem' }}>{row.branches}</TableCell>
+              <TableCell sx={{ fontSize: '0.8125rem' }}>{formatCurrency(row.revenue)}</TableCell>
+              <TableCell sx={{ fontSize: '0.8125rem' }}>
+                {row.orders.toLocaleString('en-IN')}
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.8125rem' }}>{formatCurrency(row.expenses)}</TableCell>
+              <TableCell
+                sx={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  color: row.profit >= 0 ? 'success.main' : 'error.main',
+                }}
               >
                 {formatCurrency(row.profit)}
-              </td>
-              <td>
-                <span className={statusClassMap[row.status]}>
-                  {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                </span>
-              </td>
-            </tr>
+              </TableCell>
+              <TableCell sx={{ fontSize: '0.8125rem' }}>
+                <Chip
+                  size="small"
+                  label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                  color={statusColorMap[row.status]}
+                  variant="outlined"
+                  sx={{ fontSize: '0.75rem', height: 22 }}
+                />
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7} sx={{ textAlign: 'center', py: 3, color: 'text.secondary' }}>
+                No companies found.
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
@@ -142,39 +295,15 @@ export function CompanyPerformancePagination({
 }: CompanyPerformancePaginationProps) {
   if (totalPages <= 1) return null;
 
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
-
   return (
-    <nav className={orgDash.perfPagination} aria-label="Company performance pagination">
-      <button
-        type="button"
-        className={orgDash.perfPagebutton}
-        aria-label="Previous page"
-        disabled={currentPage <= 1}
-        onClick={() => onPageChange(currentPage - 1)}
-      >
-        <ChevronLeft aria-hidden size={16} />
-      </button>
-      {pages.map((page) => (
-        <button
-          key={page}
-          type="button"
-          className={page === currentPage ? orgDash.perfPagebuttonactive : orgDash.perfPagebutton}
-          aria-current={page === currentPage ? 'page' : undefined}
-          onClick={() => onPageChange(page)}
-        >
-          {page}
-        </button>
-      ))}
-      <button
-        type="button"
-        className={orgDash.perfPagebutton}
-        aria-label="Next page"
-        disabled={currentPage >= totalPages}
-        onClick={() => onPageChange(currentPage + 1)}
-      >
-        <ChevronRight aria-hidden size={16} />
-      </button>
-    </nav>
+    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+      <Pagination
+        count={totalPages}
+        page={currentPage}
+        onChange={(_, page) => onPageChange(page)}
+        color="primary"
+        size="small"
+      />
+    </Box>
   );
 }
