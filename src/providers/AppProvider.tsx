@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
-import { useTheme as useNextTheme } from 'next-themes';
 import { useMemo } from 'react';
 
 import { useClientMounted } from '@/hooks/use-client-mounted';
@@ -11,7 +10,7 @@ import { useClientMounted } from '@/hooks/use-client-mounted';
 import { AuthProvider } from '@/context/auth';
 import { createAppTheme, type AppColorScheme } from '@/lib/theme/mui/theme';
 import { AppStoreProvider } from '@/stores/provider';
-import { AuthThemeProvider } from '@/providers/AuthThemeProvider';
+import { AppThemeProvider, useTheme } from '@/providers/app-theme-provider';
 
 import { QueryProvider } from './QueryProvider';
 
@@ -20,7 +19,7 @@ type AppProviderProps = {
 };
 
 function MuiThemeBridge({ children }: Readonly<{ children: ReactNode }>) {
-  const { resolvedTheme } = useNextTheme();
+  const { resolvedTheme } = useTheme();
   const mounted = useClientMounted();
 
   const mode: AppColorScheme = mounted && resolvedTheme === 'dark' ? 'dark' : 'light';
@@ -68,11 +67,11 @@ export function AppProvider({ children }: AppProviderProps) {
     <AppStoreProvider>
       <QueryProvider>
         <AppRouterCacheProvider>
-          <AuthThemeProvider>
+          <AppThemeProvider>
             <MuiThemeBridge>
               <AuthProvider>{children}</AuthProvider>
             </MuiThemeBridge>
-          </AuthThemeProvider>
+          </AppThemeProvider>
         </AppRouterCacheProvider>
       </QueryProvider>
     </AppStoreProvider>

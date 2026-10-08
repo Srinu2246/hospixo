@@ -1,0 +1,2 @@
+/** Inline script for `layout.tsx` — avoids next-themes `<script>` inside client components (React 19). */
+export const themeInitScript = `(function(){try{var t=localStorage.getItem('theme')||'system';var d=document.documentElement;var r=t==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;if(r!=='light'&&r!=='dark')r='light';d.classList.remove('light','dark');d.classList.add(r);d.style.colorScheme=r}catch(e){}})();`;
