@@ -87,12 +87,14 @@ export type UsersListApiPayload = Readonly<{
 /** Input for creating a new user */
 export type CreateUserInput = Readonly<{
   email: string;
+  username: string;
   password: string;
   first_name: string;
   last_name?: string | null;
   phone?: string | null;
   /** System or custom role code, e.g. "cashier", "branch_manager" */
   role_code: string;
+  organization_id?: number | null;
   company_id?: number | null;
   /** Required for branch-scoped roles */
   branch_id?: number | null;

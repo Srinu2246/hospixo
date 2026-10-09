@@ -48,23 +48,29 @@ export function useFloorDetailMutations(floorId: string) {
   const scope = useFloorActionScope();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Readonly<Record<string, string>>>({});
 
   const execute = useCallback(
     async (mutation: MutationRunner): Promise<FloorsActionResult> => {
       if (!scope.activeBranchId) {
         const message = 'Select a branch before making changes.';
         setError(message);
+        setFieldErrors({});
         return { ok: false, message };
       }
 
       setIsPending(true);
       setError(null);
+      setFieldErrors({});
       try {
         const result = await mutation(scope);
         if (!result.ok) {
           setError(result.message ?? 'Unable to complete this action.');
+          setFieldErrors(result.fieldErrors ?? {});
           return result;
         }
+        setError(null);
+        setFieldErrors({});
         router.refresh();
         return result;
       } finally {
@@ -84,10 +90,10 @@ export function useFloorDetailMutations(floorId: string) {
 
   const updateFloor = useCallback(
     (form: FloorDraftForm, version: number) =>
-      run((actionScope) =>
+      execute((actionScope) =>
         updateFloorAction(floorId, buildUpdateFloorInput(form, version), actionScope),
       ),
-    [floorId, run],
+    [floorId, execute],
   );
 
   const createSection = useCallback(
@@ -110,7 +116,7 @@ export function useFloorDetailMutations(floorId: string) {
 
   const updateSection = useCallback(
     (sectionId: string, draft: SectionDraft) =>
-      run((actionScope) =>
+      execute((actionScope) =>
         updateSectionAction(
           floorId,
           sectionId,
@@ -126,7 +132,7 @@ export function useFloorDetailMutations(floorId: string) {
           actionScope,
         ),
       ),
-    [floorId, run],
+    [floorId, execute],
   );
 
   const archiveSection = useCallback(
@@ -180,7 +186,7 @@ export function useFloorDetailMutations(floorId: string) {
       >,
       version: number,
     ) =>
-      run((actionScope) =>
+      execute((actionScope) =>
         updateTableAction(
           floorId,
           sectionId,
@@ -189,7 +195,7 @@ export function useFloorDetailMutations(floorId: string) {
           actionScope,
         ),
       ),
-    [floorId, run],
+    [floorId, execute],
   );
 
   const moveTable = useCallback(
@@ -247,7 +253,12 @@ export function useFloorDetailMutations(floorId: string) {
     scopeReady: scope.activeBranchId != null,
     isPending,
     error,
-    clearError: () => setError(null),
+    fieldErrors,
+    clearError: () => {
+      setError(null);
+      setFieldErrors({});
+    },
+    reportError: (message: string) => setError(message),
     updateFloor,
     createSection,
     createSectionId,

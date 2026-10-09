@@ -30,11 +30,16 @@ import type {
 } from '@/types/floors';
 
 const FLOOR_TYPES: readonly FloorType[] = ['indoor', 'outdoor', 'vip', 'banquet'];
-const FLOOR_STATUSES: readonly FloorStatus[] = ['active', 'draft', 'archived'];
-const SECTION_STATUSES: readonly SectionStatus[] = ['active', 'maintenance', 'inactive'];
+const FLOOR_STATUSES: readonly FloorStatus[] = ['active', 'inactive', 'draft'];
+const SECTION_STATUSES: readonly SectionStatus[] = ['active', 'inactive'];
 const TABLE_SHAPES: readonly TableShape[] = ['round', 'square', 'rectangle'];
-const TABLE_STATUSES: readonly FloorTableStatus[] = ['available', 'reserved', 'occupied'];
-const TABLE_CONFIG_STATUSES: readonly TableConfigStatus[] = ['active', 'inactive', 'maintenance'];
+const TABLE_CONFIG_STATUSES: readonly TableConfigStatus[] = ['active', 'inactive'];
+
+function normalizeLifecycleStatus(value: unknown): 'active' | 'inactive' {
+  if (value === 'inactive' || value === 'archived' || value === 'maintenance') return 'inactive';
+  if (value === 'active') return 'active';
+  return 'active';
+}
 
 function asFloorType(value: unknown): FloorType {
   return typeof value === 'string' && FLOOR_TYPES.includes(value as FloorType)
@@ -43,15 +48,18 @@ function asFloorType(value: unknown): FloorType {
 }
 
 function asFloorStatus(floor: ApiFloor): FloorStatus {
+  if (typeof floor.status === 'string' && floor.status === 'draft') return 'draft';
+  if (floor.is_active === false || floor.status === 'inactive' || floor.status === 'archived') {
+    return 'inactive';
+  }
   if (typeof floor.status === 'string' && FLOOR_STATUSES.includes(floor.status as FloorStatus)) {
     return floor.status as FloorStatus;
   }
-  if (floor.is_active === false) return 'draft';
   return 'active';
 }
 
 function asSectionStatus(section: ApiFloorSection): SectionStatus {
-  if (section.status === 'archived') return 'inactive';
+  if (section.status === 'archived' || section.status === 'maintenance') return 'inactive';
   if (
     typeof section.status === 'string' &&
     SECTION_STATUSES.includes(section.status as SectionStatus)
@@ -130,11 +138,12 @@ export function buildCreateFloorInput(form: FloorDraftForm): CreateFloorInput {
 }
 
 export function buildUpdateFloorInput(form: FloorDraftForm, version: number): UpdateFloorInput {
+  const status = form.active ? 'active' : 'inactive';
   return {
     name: form.name.trim(),
     code: form.code.trim() || null,
     description: form.description.trim() || null,
-    is_active: form.active,
+    status,
     version,
   };
 }
@@ -164,6 +173,7 @@ export function buildUpdateSectionInput(
 ): UpdateSectionInput {
   return {
     ...buildCreateSectionInput(input),
+    status: input.active ? 'active' : 'inactive',
     version,
   };
 }
@@ -191,21 +201,31 @@ function asTableShape(value: unknown): TableShape {
     : 'square';
 }
 
-function asTableStatus(value: unknown): FloorTableStatus {
-  return typeof value === 'string' && TABLE_STATUSES.includes(value as FloorTableStatus)
-    ? (value as FloorTableStatus)
-    : 'available';
-}
-
 function asTableConfigStatus(table: ApiDiningTable): TableConfigStatus {
+  if (table.status === 'active') return 'active';
+  if (
+    table.status === 'inactive' ||
+    table.status === 'archived' ||
+    table.status === 'maintenance'
+  ) {
+    return 'inactive';
+  }
+  if (table.is_active === false) return 'inactive';
   if (
     typeof table.status === 'string' &&
     TABLE_CONFIG_STATUSES.includes(table.status as TableConfigStatus)
   ) {
     return table.status as TableConfigStatus;
   }
-  if (table.status === 'archived') return 'inactive';
-  return table.is_active === false ? 'inactive' : 'active';
+  return 'active';
+}
+
+function asTableOperationalStatus(table: ApiDiningTable): FloorTableStatus {
+  const value = table.status;
+  if (value === 'available' || value === 'reserved' || value === 'occupied') {
+    return value;
+  }
+  return 'available';
 }
 
 export function mapApiTableToFloorTable(
@@ -216,9 +236,13 @@ export function mapApiTableToFloorTable(
   return {
     id: String(table.id ?? `${section.id}-table-${index + 1}`),
     number:
-      table.table_number ?? table.number ?? table.code ?? `T${String(index + 1).padStart(3, '0')}`,
+      table.name ??
+      table.table_number ??
+      table.number ??
+      table.code ??
+      `T${String(index + 1).padStart(3, '0')}`,
     capacity: table.capacity ?? table.seats ?? 0,
-    status: asTableStatus(table.status),
+    status: asTableOperationalStatus(table),
     configStatus: asTableConfigStatus(table),
     version: table.version ?? undefined,
     reservations: table.reservations_enabled ?? false,
@@ -267,18 +291,18 @@ export function buildBulkCreateTablesInput(
   };
 }
 
-function buildTablePatchFields(
-  table: Pick<FloorTableItem, 'number' | 'capacity' | 'shape' | 'configStatus' | 'reservations'>,
-) {
-  const label = table.number.trim();
+function buildTableUpdateBody(
+  table: Pick<FloorTableItem, 'number' | 'capacity' | 'configStatus'>,
+  version: number,
+): UpdateTableInput {
+  const lifecycle = normalizeLifecycleStatus(table.configStatus);
   return {
-    name: label,
-    table_number: label,
+    name: table.number.trim(),
+    description: '',
     capacity: table.capacity,
-    shape: table.shape,
-    is_active: table.configStatus === 'active',
-    status: table.configStatus,
-    reservations_enabled: table.reservations,
+    sort_order: 0,
+    status: lifecycle,
+    version,
   };
 }
 
@@ -288,8 +312,7 @@ export function buildBulkUpdateTablesInput(
   return {
     items: tables.map((table) => ({
       table_id: table.id,
-      ...buildTablePatchFields(table),
-      version: table.version ?? 1,
+      ...buildTableUpdateBody(table, table.version ?? 0),
     })),
   };
 }
@@ -298,10 +321,7 @@ export function buildUpdateTableInputFromEdit(
   value: Pick<FloorTableItem, 'number' | 'capacity' | 'shape' | 'configStatus' | 'reservations'>,
   version: number,
 ): UpdateTableInput {
-  return {
-    ...buildTablePatchFields(value),
-    version,
-  };
+  return buildTableUpdateBody(value, version);
 }
 
 export function buildMoveTableInput(targetSectionId: string): MoveTableInput {
@@ -349,7 +369,7 @@ export function mapApiFloorToFloor(floor: ApiFloor): Floor {
       totalTables: tableCount,
       totalSeats: seatCount,
       activeTables: tableCount,
-      maintenance: 0,
+      inactiveTables: 0,
     },
     activity: updatedAt
       ? [{ id: `${floor.id}-updated`, message: 'Floor updated', occurredAt: updatedAt }]

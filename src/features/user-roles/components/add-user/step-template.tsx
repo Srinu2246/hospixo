@@ -16,9 +16,11 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 
-import { getCreatableRoleTemplates, type RoleTemplateId } from '@/features/user-roles/config/roles';
+import { getCreatableRoleTemplates } from '@/features/user-roles/config/roles';
 import type { UiRoleTemplate } from '@/lib/roles-map';
+import { resolveRoleCode } from '@/lib/roles-map';
 import { useAddUser } from '@/features/user-roles/components/add-user/add-user-context';
+import type { AddUserTemplateSelection } from '@/features/user-roles/components/add-user/add-user-context';
 import { useCreateRole } from '@/features/user-roles/components/create-role/create-role-context';
 import { FooterActions } from '@/features/user-roles/components/shared/footer-actions';
 import { SuccessToast } from '@/components/ui/success-toast';
@@ -50,7 +52,8 @@ export function AddUserTemplateStep({
   loadError = null,
 }: AddUserTemplateStepProps = {}) {
   const router = useRouter();
-  const { selectedTemplateId, setSelectedTemplateId } = useAddUser();
+  const { selectedTemplateId, setSelectedTemplateId, setRoleName, setDescription, setUser } =
+    useAddUser();
   const { startCustomTemplate } = useCreateRole();
   const { level, employeesHref, addUser } = useUsersRolesNav();
   const { showToast, toastMessage, dismissToast } = useTemplateCreatedToast();
@@ -71,7 +74,13 @@ export function AddUserTemplateStep({
   }
 
   function handleSelect(id: string) {
-    setSelectedTemplateId(id as RoleTemplateId);
+    const template = templates.find((item) => item.id === id);
+    setSelectedTemplateId(id as AddUserTemplateSelection);
+    if (template) {
+      setRoleName(template.title);
+      setDescription(template.description);
+      setUser({ roleCode: resolveRoleCode(template.code || template.id) });
+    }
   }
 
   function handleCreateTemplate() {

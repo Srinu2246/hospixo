@@ -2,16 +2,29 @@
 
 import { useMemo, useState } from 'react';
 
+import { readyListTabs, type ReadyListTab } from '@/features/pos/config/ready-list';
 import {
-  readyListTabs,
-  readyOrders as initialReadyOrders,
-  type ReadyListTab,
-} from '@/features/pos/config/ready-list';
+  usePatchBranchOrderMutation,
+  useReadyOrdersQuery,
+} from '@/features/pos/hooks/use-branch-orders';
 
 export function useReadyListPage() {
   const [activeTab, setActiveTab] = useState<ReadyListTab>('active');
   const [query, setQuery] = useState('');
-  const [orders, setOrders] = useState(initialReadyOrders);
+  const { data, isPending, isError, error } = useReadyOrdersQuery();
+  const patchOrder = usePatchBranchOrderMutation();
+
+  const orders = data?.orders ?? [];
+
+  const tabs = useMemo(() => {
+    const activeCount = orders.filter((order) => order.tab === 'active').length;
+    const pendingCount = orders.filter((order) => order.tab === 'pending').length;
+    return readyListTabs.map((tab) => {
+      if (tab.id === 'active') return { ...tab, count: activeCount };
+      if (tab.id === 'pending') return { ...tab, count: pendingCount };
+      return tab;
+    });
+  }, [orders]);
 
   const visibleOrders = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -27,7 +40,10 @@ export function useReadyListPage() {
   }, [activeTab, orders, query]);
 
   function handleServe(orderId: string) {
-    setOrders((current) => current.filter((order) => order.id !== orderId));
+    patchOrder.mutate({
+      orderId,
+      body: { kitchen_status: 'served' },
+    });
   }
 
   const activeCount = orders.filter((order) => order.tab === 'active').length;
@@ -40,7 +56,11 @@ export function useReadyListPage() {
     visibleOrders,
     handleServe,
     activeCount,
-    tabs: readyListTabs,
+    tabs,
+    isLoading: isPending,
+    isError,
+    loadError: error instanceof Error ? error.message : (data?.loadError ?? null),
+    isMutating: patchOrder.isPending,
   };
 }
 

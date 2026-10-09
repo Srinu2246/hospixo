@@ -169,14 +169,38 @@ export async function restoreSection(
   });
 }
 
+const SECTION_TABLES_PAGE_SIZE = 100;
+const SECTION_TABLES_MAX_PAGES = 50;
+
 export async function listSectionTables(
   token: string,
   branchId: string | number,
   floorId: string | number,
   sectionId: string | number,
 ) {
-  const data = await request<unknown>(token, tablePath(branchId, floorId, sectionId));
-  return listPath<ApiDiningTable>(data);
+  const base = tablePath(branchId, floorId, sectionId);
+  const allItems: ApiDiningTable[] = [];
+  const seenIds = new Set<string>();
+
+  for (let page = 1; page <= SECTION_TABLES_MAX_PAGES; page += 1) {
+    const query = `?page=${page}&page_size=${SECTION_TABLES_PAGE_SIZE}`;
+    const data = await request<unknown>(token, `${base}${query}`);
+    const batch = listPath<ApiDiningTable>(data);
+    if (batch.items.length === 0) break;
+
+    let added = 0;
+    for (const table of batch.items) {
+      const id = String(table.id ?? '');
+      if (id && seenIds.has(id)) continue;
+      if (id) seenIds.add(id);
+      allItems.push(table);
+      added += 1;
+    }
+
+    if (added === 0) break;
+  }
+
+  return { items: allItems, total: allItems.length };
 }
 
 export async function getTable(

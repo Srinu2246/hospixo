@@ -12,6 +12,7 @@ import {
   filterByQuery,
   formatFloorStats,
   nextEntityCode,
+  resolveLifecycleFieldError,
   sectionToDraft,
   tablesForSection,
 } from '@/features/floor-table-setup/lib';
@@ -84,7 +85,7 @@ export function SectionsTab({ floor, tables }: SectionsTabProps) {
   async function saveDraft() {
     if (!draft) return;
     const result = await mutations.updateSection(draft.id, draft);
-    if (result) {
+    if (result.ok) {
       setSections((current) =>
         current.map((section) =>
           section.id === draft.id
@@ -113,9 +114,14 @@ export function SectionsTab({ floor, tables }: SectionsTabProps) {
     return (
       <SectionEditForm
         value={draft}
-        onChange={setDraft}
+        onChange={(next) => {
+          mutations.clearError();
+          setDraft(next);
+        }}
         onCancel={() => setView(selected ? 'detail' : 'list')}
         onSave={() => saveDraft()}
+        loading={mutations.isPending}
+        statusError={resolveLifecycleFieldError(mutations.fieldErrors, mutations.error)}
       />
     );
   }
@@ -267,11 +273,11 @@ export function SectionsTab({ floor, tables }: SectionsTabProps) {
               seatCount: editingSection.seatCount,
               version: editingSection.version ?? 1,
             });
-            if (result) {
+            if (result.ok) {
               setCreateOpen(false);
               setEditingSectionId(null);
             }
-            return result;
+            return result.ok;
           }
           return addSection(input);
         }}

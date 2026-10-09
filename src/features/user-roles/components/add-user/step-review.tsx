@@ -17,11 +17,9 @@ import {
 } from '@/features/user-roles/hooks/use-role-management-level';
 
 import { useAuth } from '@/context/auth';
-import { sendInvitationAction, type InvitationsActionResult } from '@/lib/invitations-actions';
-import { fetchRolesList } from '@/lib/roles';
-import { createUserAction } from '@/lib/users-actions';
-import { buildCreateUserInput, buildSendInvitationInput } from '@/lib/users-map';
-import { validateUserInvitation } from '@/lib/validation/user-invitation';
+import { createUserAction, type UsersActionResult } from '@/lib/users-actions';
+import { buildCreateUserInput } from '@/lib/users-map';
+import { addUserContent } from '@/features/user-roles/config/add-user';
 
 import styles from '../create-role/review-page.module.css';
 
@@ -45,13 +43,13 @@ export function AddUserReviewStep() {
   } = useAddUser();
 
   const { level, employeesHref, addUser } = useUsersRolesNav();
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const template = getTemplateById(selectedTemplateId);
-  const scope = template?.scope ?? user.scope ?? 'branch';
+  const configTemplate = getTemplateById(selectedTemplateId);
+  const templateLabel = configTemplate?.title ?? (roleName || 'Branch Manager');
+  const scope = configTemplate?.scope ?? user.scope ?? 'branch';
 
   const permissionsHref = withRoleScope(addUser.permissions, level);
   const detailsHref = withRoleScope(addUser.details, level);
@@ -63,56 +61,33 @@ export function AddUserReviewStep() {
   const branchId = scope === 'branch' ? (user.branchId ?? authUser?.branch_id ?? null) : null;
 
   function handleCreateRole() {
-    if (!user.firstName.trim() || !user.email.trim()) {
-      setError('First name and email are required.');
+    if (!user.firstName.trim() || !user.email.trim() || !user.username.trim()) {
+      setError(addUserContent.review.errors.required);
+      return;
+    }
+
+    if (user.password.length < 8) {
+      setError(addUserContent.review.errors.passwordMin);
       return;
     }
 
     setError(null);
 
     startTransition(async () => {
-      const rolesRes = await fetchRolesList();
-      const matchingRole = rolesRes.items.find((role) => {
-        if (user.roleId && String(role.id) === String(user.roleId)) return true;
-        return role.display_name === roleName || role.code === roleName;
-      });
-
-      let result: InvitationsActionResult;
-      if (user.sendInvite) {
-        result = await sendInvitationAction(
-          buildSendInvitationInput(
-            {
-              email: user.email,
-              scope,
-              branchId,
-              companyId,
-              roleId: user.roleId,
-              roleCode: matchingRole?.code ?? undefined,
-            },
-            selectedTemplateId,
-          ),
-        );
-      } else {
-        const tempPassword = user.password || `Temp@${Math.random().toString(36).slice(-8)}1A`;
-        result = await createUserAction(
-          buildCreateUserInput(
-            {
-              ...user,
-              password: tempPassword,
-              branchId,
-              companyId,
-              scope,
-            },
-            selectedTemplateId,
-          ),
-        );
-      }
+      const result: UsersActionResult = await createUserAction(
+        buildCreateUserInput(
+          {
+            ...user,
+            branchId,
+            companyId,
+            scope,
+          },
+          selectedTemplateId,
+        ),
+      );
 
       if (!result.ok) {
-        setError(
-          result.message ??
-            (user.sendInvite ? 'Unable to send invitation.' : 'Unable to create user.'),
-        );
+        setError(result.message ?? addUserContent.review.errors.createFailed);
         return;
       }
 
@@ -120,12 +95,12 @@ export function AddUserReviewStep() {
         setDraftStaffId(result.id);
         setInvitationId(result.id);
       }
-      setInvitationStatus(result.status ?? null);
+      setInvitationStatus('active');
 
       const searchObj: Record<string, string> = {
         email: user.email,
         name: fullName,
-        role: roleName || template?.title || 'Branch Manager',
+        role: roleName || templateLabel,
         branch:
           scope === 'branch'
             ? user.branch || 'Downtown Branch'
@@ -133,7 +108,7 @@ export function AddUserReviewStep() {
               ? `${user.company || 'Company'} (All Branches)`
               : 'All Branches',
         scope,
-        sendInvite: String(user.sendInvite),
+        sendInvite: 'false',
       };
 
       router.push(withSearchParams(addUser.invitationSuccess, searchObj));
@@ -155,11 +130,6 @@ export function AddUserReviewStep() {
       </p>
 
       <div className={styles.body}>
-        {validationError ? (
-          <p role="alert" className={styles.error}>
-            {validationError}
-          </p>
-        ) : null}
         <AddUserWizardStepper
           currentStepId="review-save"
           completedThrough={2}
@@ -199,7 +169,7 @@ export function AddUserReviewStep() {
             <div className={styles.summaryItem}>
               <p className={styles.summaryLabel}>Template</p>
 
-              <p className={styles.summaryValue}>{template?.title ?? 'Branch Manager'}</p>
+              <p className={styles.summaryValue}>{templateLabel}</p>
             </div>
           </div>
         </section>
@@ -235,6 +205,14 @@ export function AddUserReviewStep() {
 
               <p className={user.email.trim() ? styles.summaryValue : styles.summaryValueMuted}>
                 {displayText(user.email, 'e.g. sarah.chen@example.com')}
+              </p>
+            </div>
+
+            <div className={styles.summaryItem}>
+              <p className={styles.summaryLabel}>Username</p>
+
+              <p className={user.username.trim() ? styles.summaryValue : styles.summaryValueMuted}>
+                {displayText(user.username, 'Enter username')}
               </p>
             </div>
 
@@ -278,26 +256,7 @@ export function AddUserReviewStep() {
             <div className={styles.summaryItem}>
               <p className={styles.summaryLabel}>Role</p>
 
-              <p className={styles.summaryValue}>
-                {roleName || 'Branch Manager'}
-                {roleName || template?.title || 'Branch Manager'}
-              </p>
-            </div>
-
-            <div className={`${styles.summaryItem} ${styles.summaryItemFull}`}>
-              <div className={styles.statusRow}>
-                <p className={styles.summaryLabel}>Send invitation email immediately</p>
-
-                <span className={user.sendInvite ? styles.statusEnabled : styles.statusDisabled}>
-                  {user.sendInvite ? 'Enabled' : 'Disabled'}
-                </span>
-              </div>
-            </div>
-
-            <div className={`${styles.summaryItem} ${styles.summaryItemFull}`}>
-              <p className={styles.summaryLabel}>Personal Message</p>
-
-              <p className={styles.summaryValue}>{user.message}</p>
+              <p className={styles.summaryValue}>{roleName || templateLabel}</p>
             </div>
           </div>
         </section>

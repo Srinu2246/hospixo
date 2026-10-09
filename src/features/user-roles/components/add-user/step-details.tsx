@@ -15,6 +15,7 @@ import { withRoleScope } from '@/features/user-roles/hooks/use-role-management-l
 import { toBranchSelectOptions } from '@/features/user-roles/lib/backend-options';
 import { fetchCompanyBranches } from '@/lib/branches-cache';
 import { fetchRolesList } from '@/lib/roles';
+import { addUserContent } from '@/features/user-roles/config/add-user';
 import { validateUserInvitation } from '@/lib/validation/user-invitation';
 import type { UserAssignmentOptions } from '@/lib/users-server';
 
@@ -30,7 +31,9 @@ export function AddUserDetailsStep({
   const { level, employeesHref, addUser } = useUsersRolesNav();
   const [validationError, setValidationError] = useState<string | null>(null);
   const [branchOptions, setBranchOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [roleOptions, setRoleOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [roleOptions, setRoleOptions] = useState<
+    Array<{ value: string; label: string; code: string }>
+  >([]);
 
   useEffect(() => {
     void (async () => {
@@ -62,16 +65,29 @@ export function AddUserDetailsStep({
               : ['organisation', 'company', 'branch'];
         const nextRoles = rolesRes.items
           .filter((role) => allowedScopes.includes(role.scope))
-          .map((role) => ({ value: String(role.id ?? ''), label: role.display_name }))
-          .filter((role) => role.value && role.label);
+          .map((role) => ({
+            value: String(role.id ?? ''),
+            label: role.display_name,
+            code: role.code,
+          }))
+          .filter((role) => role.value && role.label && role.code);
         setRoleOptions(nextRoles);
 
         if (nextRoles.length > 0) {
           const selectedRole =
-            nextRoles.find((option) => option.label === roleName) ?? nextRoles[0];
-          if (roleName !== selectedRole.label || user.roleId !== selectedRole.value) {
+            nextRoles.find(
+              (option) =>
+                option.label === roleName ||
+                (user.roleCode && option.code === user.roleCode) ||
+                (user.roleId && option.value === user.roleId),
+            ) ?? nextRoles[0];
+          if (
+            roleName !== selectedRole.label ||
+            user.roleId !== selectedRole.value ||
+            user.roleCode !== selectedRole.code
+          ) {
             setRoleName(selectedRole.label);
-            setUser({ roleId: selectedRole.value });
+            setUser({ roleId: selectedRole.value, roleCode: selectedRole.code });
           }
         }
       } catch {
@@ -79,7 +95,7 @@ export function AddUserDetailsStep({
         setRoleOptions([]);
       }
     })();
-  }, [level, roleName, setRoleName, setUser, user.branch]);
+  }, [level, roleName, setRoleName, setUser, user.branch, user.roleCode, user.roleId]);
 
   const template = getTemplateById(selectedTemplateId);
   const scope = template?.scope ?? user.scope ?? 'branch';
@@ -147,6 +163,17 @@ export function AddUserDetailsStep({
 
     if (typeof validation === 'string') {
       setValidationError(validation);
+      return;
+    }
+
+    const username = user.username.trim();
+    if (username.length < 3) {
+      setValidationError('Username must be at least 3 characters.');
+      return;
+    }
+
+    if (user.password.length < 8) {
+      setValidationError(addUserContent.review.errors.passwordMin);
       return;
     }
 
@@ -245,6 +272,42 @@ export function AddUserDetailsStep({
                 </label>
 
                 <label className={styles.field}>
+                  <span className={styles.label}>Username</span>
+
+                  <input
+                    className={styles.input}
+                    value={user.username}
+                    onChange={(event) =>
+                      setUser({
+                        username: event.target.value,
+                      })
+                    }
+                    placeholder="e.g. srinukummitha"
+                    autoComplete="off"
+                    required
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.label}>Password</span>
+
+                  <input
+                    type="password"
+                    className={styles.input}
+                    value={user.password}
+                    onChange={(event) =>
+                      setUser({
+                        password: event.target.value,
+                      })
+                    }
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                  />
+                </label>
+
+                <label className={styles.field}>
                   <span className={styles.label}>Phone Number</span>
 
                   <input
@@ -259,10 +322,6 @@ export function AddUserDetailsStep({
                   />
                 </label>
               </div>
-
-              <p className={styles.helper}>
-                The invitee sets their own password when they accept the invitation.
-              </p>
             </section>
 
             <section className={styles.section}>
@@ -362,7 +421,10 @@ export function AddUserDetailsStep({
                         const nextValue = event.target.value;
                         const selected = roleOptions.find((option) => option.label === nextValue);
                         setRoleName(nextValue);
-                        setUser({ roleId: selected ? selected.value : null });
+                        setUser({
+                          roleId: selected ? selected.value : null,
+                          roleCode: selected ? selected.code : null,
+                        });
                       }}
                     >
                       {roleOptions.length === 0 ? (
@@ -384,49 +446,6 @@ export function AddUserDetailsStep({
                   </div>
                 </div>
               </div>
-            </section>
-
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>Invitation Settings</h2>
-
-              <div className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>Send invitation email immediately</span>
-
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={user.sendInvite}
-                  className={`${styles.switch} ${user.sendInvite ? styles.switchOn : ''}`}
-                  onClick={() =>
-                    setUser({
-                      sendInvite: !user.sendInvite,
-                    })
-                  }
-                >
-                  <span className={styles.switchThumb} />
-                </button>
-              </div>
-
-              <span className={styles.helper}>
-                {user.sendInvite
-                  ? 'An email invitation will be sent to the user with an activation link.'
-                  : 'Account will be created immediately without sending an email invitation.'}
-              </span>
-
-              <label className={styles.field}>
-                <span className={styles.label}>Personal Message (Optional)</span>
-
-                <textarea
-                  className={styles.textarea}
-                  rows={4}
-                  value={user.message}
-                  onChange={(event) =>
-                    setUser({
-                      message: event.target.value,
-                    })
-                  }
-                />
-              </label>
             </section>
           </div>
         </div>

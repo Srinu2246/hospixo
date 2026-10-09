@@ -45,7 +45,7 @@ export const floors: readonly Floor[] = [
         name: 'Outdoor Patio',
         code: 'OP-001',
         description: 'Seasonal patio seating currently under maintenance.',
-        status: 'maintenance',
+        status: 'inactive',
         tableCount: 8,
         seatCount: 32,
       },
@@ -81,7 +81,7 @@ export const floors: readonly Floor[] = [
       totalTables: 42,
       totalSeats: 178,
       activeTables: 40,
-      maintenance: 2,
+      inactiveTables: 2,
     },
     activity: [
       {
@@ -143,7 +143,7 @@ export const floors: readonly Floor[] = [
       totalTables: 32,
       totalSeats: 128,
       activeTables: 30,
-      maintenance: 2,
+      inactiveTables: 2,
     },
     activity: [
       {
@@ -185,7 +185,7 @@ export const floors: readonly Floor[] = [
       totalTables: 12,
       totalSeats: 48,
       activeTables: 12,
-      maintenance: 0,
+      inactiveTables: 0,
     },
     activity: [
       {
@@ -227,7 +227,7 @@ export const floors: readonly Floor[] = [
       totalTables: 80,
       totalSeats: 400,
       activeTables: 0,
-      maintenance: 0,
+      inactiveTables: 0,
     },
     activity: [
       {
@@ -269,7 +269,7 @@ export const floors: readonly Floor[] = [
       totalTables: 20,
       totalSeats: 80,
       activeTables: 20,
-      maintenance: 0,
+      inactiveTables: 0,
     },
     activity: [
       {
@@ -283,7 +283,7 @@ export const floors: readonly Floor[] = [
     id: 'basement',
     name: 'Basement Bar',
     type: 'indoor',
-    status: 'archived',
+    status: 'inactive',
     tableCount: 30,
     seatCount: 120,
     updatedAt: isoAgo(30 * DAY),
@@ -311,7 +311,7 @@ export const floors: readonly Floor[] = [
       totalTables: 30,
       totalSeats: 120,
       activeTables: 0,
-      maintenance: 0,
+      inactiveTables: 0,
     },
     activity: [
       {

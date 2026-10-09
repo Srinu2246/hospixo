@@ -48,7 +48,8 @@ export type CreateFloorInput = Readonly<{
   is_active?: boolean;
   sort_order?: number | null;
 }>;
-export type UpdateFloorInput = CreateFloorInput & Readonly<{ version?: number }>;
+export type UpdateFloorInput = CreateFloorInput &
+  Readonly<{ version?: number; status?: ApiFloorStatus | null }>;
 export type ArchiveEntityInput = Readonly<{ version: number; reason?: string | null }>;
 export type ReorderFloorsInput = Readonly<{
   items: readonly Readonly<{ floor_id: number | string; sort_order: number; version: number }>[];
@@ -79,12 +80,15 @@ export type SectionsListApiPayload = Readonly<{
 export type ApiDiningTable = Readonly<{
   id: number | string;
   section_id?: number | string | null;
+  name?: string | null;
+  description?: string | null;
   table_number?: string | null;
   number?: string | null;
   code?: string | null;
   capacity?: number | null;
   seats?: number | null;
   shape?: string | null;
+  sort_order?: number | null;
   status?: string | null;
   is_active?: boolean | null;
   reservations_enabled?: boolean | null;
@@ -107,16 +111,15 @@ export type BulkUpdateTablesInput = Readonly<{
   tables?: readonly Readonly<{ id: number | string; version?: number } & UpdateTableInput>[];
   items?: readonly Readonly<{ table_id: number | string; version: number } & UpdateTableInput>[];
 }>;
+export type TableLifecycleStatus = 'active' | 'inactive';
+
 export type UpdateTableInput = Readonly<{
-  table_number?: string;
-  name?: string | null;
+  name?: string;
+  description?: string | null;
   capacity?: number | null;
-  shape?: string | null;
-  status?: string | null;
-  is_active?: boolean;
-  reservations_enabled?: boolean;
-  version?: number;
   sort_order?: number | null;
+  status?: TableLifecycleStatus;
+  version: number;
 }>;
 export type MoveTableInput = Readonly<{ target_section_id: number | string }>;
 export type ReorderTablesInput = Readonly<{ items: readonly unknown[] }>;

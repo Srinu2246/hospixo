@@ -10,10 +10,10 @@
  * Scope notes:
  * - tenant_admin needs company_id only
  * - branch-scoped roles (branch_manager, cashier, …) also need a real branch_id
- * - UI template ids map to backend role_code via TEMPLATE_TO_API_ROLE
+ * - UI template ids map to backend role_code via resolveRoleCode (roles-map)
  */
 
-import type { RoleTemplateId } from '@/features/user-roles/config/roles';
+import { resolveRoleCode } from '@/lib/roles-map';
 import type { TeamUser, UserRole, UserStatus } from '@/features/user-roles/config/users';
 import type {
   ApiInvitation,
@@ -24,34 +24,29 @@ import type {
   UserStatus as ApiUserStatus,
 } from '@/types/users';
 
-/**
- * UI Add User template id → backend `role_code`.
- * Store Manager → branch_manager; several specialty templates collapse to `staff`
- * until /api/v1/roles/templates is wired for exact codes.
- */
-const TEMPLATE_TO_API_ROLE: Record<RoleTemplateId, string> = {
-  'organisation-manager': 'org_admin',
-  'company-manager': 'company_admin',
-  'branch-manager': 'branch_manager',
-  'store-manager': 'branch_manager',
-  procurement: 'staff',
-  'finance-approver': 'staff',
-  auditor: 'staff',
-  cashier: 'cashier',
-  'kitchen-staff': 'kitchen_staff',
-  'general-staff': 'staff',
-};
-
 type AddUserFormFields = Readonly<{
   firstName: string;
   lastName: string;
   email: string;
+  username: string;
   phone: string;
   password: string;
   scope?: 'organisation' | 'company' | 'branch';
   branchId?: number | null;
   companyId?: number | null;
+  /** Active org role code from GET /api/roles (Assign Role step). */
+  roleCode?: string | null;
 }>;
+
+function resolveWizardRoleCode(
+  user: Pick<AddUserFormFields, 'roleCode'>,
+  templateId: string | null,
+): string {
+  const explicit = user.roleCode?.trim();
+  if (explicit) return explicit;
+  if (templateId) return resolveRoleCode(templateId);
+  return 'staff';
+}
 
 function isOrgRole(roleCode: string): boolean {
   return [
@@ -70,15 +65,16 @@ function isCompanyRole(roleCode: string): boolean {
 /** Build CreateUserInput from the Add User wizard (matches UserCreateRequest). */
 export function buildCreateUserInput(
   user: AddUserFormFields,
-  templateId: RoleTemplateId | null,
+  templateId: string | null,
 ): CreateUserInput {
-  const role_code = (templateId ? TEMPLATE_TO_API_ROLE[templateId] : undefined) ?? 'staff';
+  const role_code = resolveWizardRoleCode(user, templateId);
 
   const isOrg = isOrgRole(role_code) || user.scope === 'organisation';
   const isComp = isCompanyRole(role_code) || user.scope === 'company';
 
   return {
     email: user.email.trim(),
+    username: user.username.trim(),
     password: user.password,
     first_name: user.firstName.trim(),
     last_name: user.lastName.trim() || null,
@@ -95,10 +91,9 @@ export function buildSendInvitationInput(
     roleId?: number | string | null;
     roleCode?: string | null;
   },
-  templateId: RoleTemplateId | null,
+  templateId: string | null,
 ): SendInvitationInput {
-  const role_code =
-    user.roleCode ?? (templateId ? TEMPLATE_TO_API_ROLE[templateId] : undefined) ?? 'staff';
+  const role_code = resolveWizardRoleCode(user, templateId);
 
   const isOrg = isOrgRole(role_code) || user.scope === 'organisation';
   const isComp = isCompanyRole(role_code) || user.scope === 'company';
@@ -165,6 +160,8 @@ export function toApiRoleCode(role: string): string {
   if (normalized === 'inventory') {
     return 'inventory';
   }
+  const fromDisplayName = normalized.replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
+  if (fromDisplayName.length > 0) return fromDisplayName.slice(0, 50);
   return 'staff';
 }
 

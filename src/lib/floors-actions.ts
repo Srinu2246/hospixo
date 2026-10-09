@@ -26,6 +26,7 @@ import {
 } from '@/lib/api/floors';
 import {
   ApiRequestError,
+  formatApiValidationDetails,
   getFirstLoginActionMessage,
   getTenancyContextErrorMessage,
   getUserFriendlyErrorMessage,
@@ -137,6 +138,11 @@ function revalidateFloorRoutes(floorId?: string) {
 
 function toConflictMessage(error: unknown, fallback: string) {
   if (error instanceof ApiRequestError && error.status === 409) {
+    const validation = formatApiValidationDetails(error.details);
+    if (validation) return validation;
+    const fieldErrors = mapFloorFieldErrors(error);
+    const firstFieldMessage = Object.values(fieldErrors)[0];
+    if (firstFieldMessage) return firstFieldMessage;
     return getUserFriendlyErrorMessage(error, fallback);
   }
   return (
@@ -159,6 +165,56 @@ function zodFieldErrors(error: {
   return Object.fromEntries(
     error.issues.map((issue) => [String(issue.path[0] ?? 'name'), issue.message]),
   );
+}
+
+/** Split large bulk-create payloads so backend batch limits do not truncate creates. */
+const BULK_TABLE_CREATE_BATCH_SIZE = 100;
+
+async function createSectionTables(
+  token: string,
+  branchId: number,
+  floorId: string,
+  sectionId: string,
+  items: readonly CreateTableInput[],
+): Promise<number> {
+  if (items.length === 0) return 0;
+
+  let created = 0;
+
+  for (let offset = 0; offset < items.length; offset += BULK_TABLE_CREATE_BATCH_SIZE) {
+    const chunk = items.slice(offset, offset + BULK_TABLE_CREATE_BATCH_SIZE);
+    if (chunk.length === 1) {
+      await createTable(token, branchId, floorId, sectionId, chunk[0]);
+      created += 1;
+      continue;
+    }
+
+    const result = await bulkCreateTables(token, branchId, floorId, sectionId, { items: chunk });
+    const batchCreated =
+      result.items.length > 0
+        ? result.items.length
+        : result.total > 0
+          ? Math.min(result.total, chunk.length)
+          : chunk.length;
+
+    if (result.items.length > 0 && batchCreated < chunk.length) {
+      throw new ApiRequestError(
+        `Only ${batchCreated} of ${chunk.length} tables were created. Check for duplicate table numbers.`,
+        409,
+      );
+    }
+
+    created += batchCreated;
+  }
+
+  if (created < items.length) {
+    throw new ApiRequestError(
+      `Only ${created} of ${items.length} tables were created. Try a smaller batch or verify table numbers.`,
+      409,
+    );
+  }
+
+  return created;
 }
 
 function archiveBody(version = 1): ArchiveEntityInput {
@@ -418,13 +474,7 @@ export async function bulkCreateTablesAction(
     if (!scope.ok) return { ok: false, message: scope.message };
 
     try {
-      if (parsed.data.items.length === 1 && parsed.data.items[0]) {
-        await createTable(scope.token, scope.branchId, floorId, sectionId, parsed.data.items[0]);
-      } else {
-        await bulkCreateTables(scope.token, scope.branchId, floorId, sectionId, {
-          items: parsed.data.items,
-        });
-      }
+      await createSectionTables(scope.token, scope.branchId, floorId, sectionId, parsed.data.items);
       revalidateFloorRoutes(floorId);
       return { ok: true, id: sectionId };
     } catch (error) {

@@ -21,12 +21,13 @@ export const addUserDefaults = {
     firstName: '',
     lastName: '',
     email: '',
+    username: '',
     phone: '',
     password: '',
     branch: userInviteDefaults.branch as string,
     branchId: null as number | null,
-    sendInvite: userInviteDefaults.sendInvite as boolean,
-    message: userInviteDefaults.message as string,
+    sendInvite: false as boolean,
+    message: '' as string,
   },
 };
 

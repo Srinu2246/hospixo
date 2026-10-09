@@ -33,8 +33,6 @@ type SetupTableCardProps = Readonly<{
 const statusDotClass: Record<SetupStatus, string> = {
   active: styles.dotActive,
   draft: styles.dotDraft,
-  archived: styles.dotArchived,
-  maintenance: styles.dotMaintenance,
   inactive: styles.dotInactive,
 };
 

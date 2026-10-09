@@ -106,11 +106,11 @@ const tableNameField = requiredText('Table name').max(
   'Table name must be 100 characters or fewer.',
 );
 
-const tableShapeSchema = z.enum(['round', 'square', 'rectangle']);
-
-const tableLifecycleStatusSchema = z.enum(['active', 'inactive', 'maintenance', 'archived'], {
-  error: 'Status is required.',
+export const tableLifecycleStatusSchema = z.enum(['active', 'inactive'], {
+  error: 'Status must be active or inactive.',
 });
+
+const tableUpdateVersionField = z.number().int().nonnegative('Version is required.');
 
 export const createTableSchema = z
   .object({
@@ -146,16 +146,12 @@ export const bulkCreateTablesSchema = z.preprocess(
 );
 
 export const updateTableSchema = z.object({
-  table_number: z.string().trim().min(1).optional(),
-  name: tableNameField.optional().nullable(),
-  description: optionalFloorDescription,
-  capacity: z.number().int().positive('Capacity must be at least 1.').optional().nullable(),
-  shape: tableShapeSchema.optional().nullable(),
-  status: tableLifecycleStatusSchema.optional().nullable(),
-  is_active: z.boolean().optional(),
-  reservations_enabled: z.boolean().optional(),
-  version: versionField,
+  name: tableNameField,
+  description: optionalFloorDescription.optional().nullable(),
+  capacity: z.number().int().positive('Capacity must be at least 1.'),
   sort_order: z.number().int().nonnegative().nullable().optional(),
+  status: tableLifecycleStatusSchema,
+  version: tableUpdateVersionField,
 });
 
 export const bulkUpdateTableItemSchema = updateTableSchema.extend({

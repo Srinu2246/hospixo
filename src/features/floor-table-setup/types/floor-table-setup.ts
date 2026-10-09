@@ -1,4 +1,4 @@
-export type FloorStatus = 'active' | 'draft' | 'archived';
+export type FloorStatus = 'active' | 'inactive' | 'draft';
 
 export type FloorType = 'indoor' | 'outdoor' | 'vip' | 'banquet';
 
@@ -12,9 +12,9 @@ export type WizardStepId = 'floor' | 'section' | 'table' | 'review';
 
 export type FloorTableStatus = 'available' | 'reserved' | 'occupied';
 
-export type SectionStatus = 'active' | 'maintenance' | 'inactive';
+export type SectionStatus = 'active' | 'inactive';
 
-export type TableConfigStatus = 'active' | 'inactive' | 'maintenance';
+export type TableConfigStatus = 'active' | 'inactive';
 
 export type TableShape = 'round' | 'square' | 'rectangle';
 
@@ -59,7 +59,7 @@ export type FloorStats = Readonly<{
   totalTables: number;
   totalSeats: number;
   activeTables: number;
-  maintenance: number;
+  inactiveTables: number;
 }>;
 
 export type FloorActivity = Readonly<{

@@ -86,19 +86,19 @@
     --pos-checkout-header-bg: var(--card);
   }
 
-  :global(html[data-pos-compact-chrome] [data-access-chrome="main"]) {
+  html[data-pos-compact-chrome] [data-access-chrome='main'] {
     padding: 0 !important;
     background: var(--pos-compact-chrome-bg);
   }
 }
 
 /* Hide scrollbars inside POS shells while keeping wheel/touch scroll */
-:global(.posHideScrollbar) {
+.posHideScrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-:global(.posHideScrollbar::-webkit-scrollbar) {
+.posHideScrollbar::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;
@@ -106,16 +106,16 @@
 
 /* Match page bg on desktop main when POS embedded shell fills the viewport. */
 @media (min-width: 1024px) {
-  :global([data-access-chrome="main"]:has(.embedded.pageBg)),
-  :global([data-access-chrome="main"]:has(.pageBg.shell)) {
+  [data-access-chrome='main']:has(.embedded.pageBg),
+  [data-access-chrome='main']:has(.pageBg.shell) {
     background: var(--pos-page-bg);
   }
 }
 
 /* Hide workspace sidebar + topbar when POS compact shell is active (mobile/tablet). */
 @media (max-width: 1023px) {
-  :global(html[data-pos-compact-chrome] [data-access-chrome="sidebar"]),
-  :global(html[data-pos-compact-chrome] [data-access-chrome="topbar"]) {
+  html[data-pos-compact-chrome] [data-access-chrome='sidebar'],
+  html[data-pos-compact-chrome] [data-access-chrome='topbar'] {
     display: none !important;
   }
 }

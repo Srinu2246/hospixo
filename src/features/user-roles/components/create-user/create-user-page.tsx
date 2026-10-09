@@ -9,14 +9,12 @@ import { type UserRole } from '@/features/user-roles/config/users';
 import { AddUserWizardStepper } from '@/features/user-roles/components/add-user/add-user-wizard-stepper';
 import { FooterActions } from '@/features/user-roles/components/shared/footer-actions';
 import { useUsersRolesNav } from '@/features/user-roles/hooks/use-users-roles-nav';
-import {
-  toBranchSelectOptions,
-  toRoleSelectOptions,
-} from '@/features/user-roles/lib/backend-options';
+import { toBranchSelectOptions } from '@/features/user-roles/lib/backend-options';
 import { fetchCompanyBranches } from '@/lib/branches-cache';
 import { fetchRolesList } from '@/lib/roles';
 import { validateUserInvitation } from '@/lib/validation/user-invitation';
-import { createUserAction, sendInvitationAction } from '@/lib/users-actions';
+import { addUserContent } from '@/features/user-roles/config/add-user';
+import { createUserAction } from '@/lib/users-actions';
 import { toApiRoleCode } from '@/lib/users-map';
 import type { UserAssignmentOptions } from '@/lib/users-server';
 
@@ -36,6 +34,8 @@ export function CreateUserPage({
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
 
   const [role, setRole] = useState<UserRole>('Branch Manager');
@@ -51,10 +51,11 @@ export function CreateUserPage({
   const [branchId, setBranchId] = useState<number | null>(initialBranches[0]?.id ?? null);
   const [branches, setBranches] = useState(() => initialBranches);
   const [roleId, setRoleId] = useState<string | null>(null);
+  const [roleCode, setRoleCode] = useState<string | null>(null);
   const [branchOptions, setBranchOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [roleOptions, setRoleOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [sendInvite, setSendInvite] = useState(true);
-  const [message, setMessage] = useState('Welcome to the team! Here is your access to Hospixo.');
+  const [roleOptions, setRoleOptions] = useState<
+    Array<{ value: string; label: string; code: string }>
+  >([]);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -98,16 +99,25 @@ export function CreateUserPage({
             : level === 'company'
               ? ['company', 'branch']
               : ['organisation', 'company', 'branch'];
-        const nextRoles = toRoleSelectOptions(rolesRes.items).filter((option) => {
-          const roleRecord = rolesRes.items.find((item) => String(item.id) === option.value);
-          return roleRecord ? allowedScopes.includes(roleRecord.scope) : true;
-        });
+        const nextRoles = rolesRes.items
+          .filter((roleRecord) => allowedScopes.includes(roleRecord.scope))
+          .map((roleRecord) => ({
+            value: String(roleRecord.id ?? ''),
+            label: roleRecord.display_name,
+            code: roleRecord.code,
+          }))
+          .filter((option) => option.value && option.label && option.code);
         setRoleOptions(nextRoles);
         if (nextRoles.length > 0) {
           const selectedRole = nextRoles.find((option) => option.label === role) ?? nextRoles[0];
-          if (role !== selectedRole.label || roleId !== selectedRole.value) {
+          if (
+            role !== selectedRole.label ||
+            roleId !== selectedRole.value ||
+            roleCode !== selectedRole.code
+          ) {
             setRole(selectedRole.label as UserRole);
             setRoleId(selectedRole.value);
+            setRoleCode(selectedRole.code);
           }
         }
       } catch {
@@ -123,7 +133,7 @@ export function CreateUserPage({
     const lastNameValue = lastName.trim();
     const emailValue = email.trim();
     const phoneValue = phone.trim();
-    const messageValue = message.trim();
+    const usernameValue = username.trim();
     const validation = validateUserInvitation({
       firstName: firstNameValue,
       lastName: lastNameValue,
@@ -135,49 +145,50 @@ export function CreateUserPage({
       branch,
       branchId,
       role,
-      message: messageValue,
+      message: '',
     });
 
     const selectedBranchId = branchOptions.find((option) => option.label === branch)?.value ?? null;
-    const selectedRoleId = roleOptions.find((option) => option.label === role)?.value ?? null;
+    const selectedRoleOption = roleOptions.find((option) => option.label === role);
     if (selectedBranchId) setBranchId(Number(selectedBranchId));
-    if (selectedRoleId) setRoleId(selectedRoleId);
+    if (selectedRoleOption) {
+      setRoleId(selectedRoleOption.value);
+      setRoleCode(selectedRoleOption.code);
+    }
 
     if (typeof validation === 'string') {
       setValidationError(validation);
       return;
     }
 
+    if (usernameValue.length < 3) {
+      setValidationError('Username must be at least 3 characters.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setValidationError(addUserContent.review.errors.passwordMin);
+      return;
+    }
+
     setValidationError(null);
 
     startTransition(async () => {
-      const roleCode = toApiRoleCode(role);
-      let result;
-      if (sendInvite) {
-        result = await sendInvitationAction({
-          email: emailValue,
-          role_code: roleCode,
-          company_id: scope === 'organisation' ? null : companyId,
-          branch_id: scope === 'branch' ? branchId : null,
-        });
-      } else {
-        const tempPassword = `Temp@${Math.random().toString(36).slice(-8)}1A`;
-        result = await createUserAction({
-          email: emailValue,
-          password: tempPassword,
-          first_name: firstNameValue,
-          last_name: lastNameValue || null,
-          phone: phoneValue || null,
-          role_code: roleCode,
-          company_id: scope === 'organisation' ? null : companyId,
-          branch_id: scope === 'branch' ? branchId : null,
-        });
-      }
+      const resolvedRoleCode = roleCode ?? toApiRoleCode(role);
+      const result = await createUserAction({
+        email: emailValue,
+        username: usernameValue,
+        password,
+        first_name: firstNameValue,
+        last_name: lastNameValue || null,
+        phone: phoneValue || null,
+        role_code: resolvedRoleCode,
+        company_id: scope === 'organisation' ? null : companyId,
+        branch_id: scope === 'branch' ? branchId : null,
+      });
 
       if (!result.ok) {
-        setValidationError(
-          result.message ?? (sendInvite ? 'Unable to send invitation.' : 'Unable to create user.'),
-        );
+        setValidationError(result.message ?? addUserContent.review.errors.createFailed);
         return;
       }
 
@@ -192,7 +203,7 @@ export function CreateUserPage({
               ? `${company} (All Branches)`
               : 'All Branches',
         scope,
-        sendInvite: String(sendInvite),
+        sendInvite: 'false',
       });
       router.push(`${invitationSuccess}?${params.toString()}`);
     });
@@ -256,6 +267,30 @@ export function CreateUserPage({
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="e.g. sarah.chen@example.com"
                     required
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>Username</span>
+                  <input
+                    className={styles.input}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="e.g. srinukummitha"
+                    autoComplete="off"
+                    required
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>Password</span>
+                  <input
+                    type="password"
+                    className={styles.input}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
                   />
                 </label>
                 <label className={styles.field}>
@@ -382,36 +417,6 @@ export function CreateUserPage({
                 </div>
               </div>
             </section>
-
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>Invitation Settings</h2>
-              <div className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>Send invitation email immediately</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={sendInvite}
-                  className={`${styles.switch} ${sendInvite ? styles.switchOn : ''}`}
-                  onClick={() => setSendInvite((value) => !value)}
-                >
-                  <span className={styles.switchThumb} />
-                </button>
-              </div>
-              <p className={styles.helper}>
-                {sendInvite
-                  ? 'An email invitation will be sent to the user with an activation link.'
-                  : 'Account will be created immediately without sending an email invitation.'}
-              </p>
-              <label className={styles.field}>
-                <span className={styles.label}>Personal Message (Optional)</span>
-                <textarea
-                  className={styles.textarea}
-                  rows={4}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                />
-              </label>
-            </section>
           </div>
         </div>
 
@@ -423,13 +428,7 @@ export function CreateUserPage({
           }
           right={
             <button type="submit" className={styles.primaryBtn} disabled={isPending}>
-              {isPending
-                ? sendInvite
-                  ? 'Sending…'
-                  : 'Creating…'
-                : sendInvite
-                  ? 'Send Invitation'
-                  : 'Create User'}
+              {isPending ? 'Creating…' : 'Create User'}
             </button>
           }
         />

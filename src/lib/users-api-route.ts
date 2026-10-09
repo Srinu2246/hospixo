@@ -79,9 +79,12 @@ export async function withCallerScope<T extends Record<string, unknown>>(body: T
   const isOrg = isOrgRole(roleCode);
   const isCompany = isCompanyRole(roleCode);
 
+  const organizationId = body.organization_id ?? session.user.org_id ?? null;
+
   if (isOrg) {
     return {
       ...body,
+      organization_id: organizationId,
       company_id: null,
       branch_id: null,
     };
@@ -92,6 +95,7 @@ export async function withCallerScope<T extends Record<string, unknown>>(body: T
 
   return {
     ...body,
+    organization_id: organizationId,
     company_id: companyId,
     branch_id: branchId,
   };
