@@ -45,8 +45,8 @@ export function ModifierGroupForm({ mode }: { readonly mode: 'create' | 'edit' }
       return;
     }
 
-    const min = Math.max(0, parseInt(minSelect, 10) || 0);
-    const max = Math.max(min, parseInt(maxSelect, 10) || 1);
+    const min = Math.max(0, Number.parseInt(minSelect, 10) || 0);
+    const max = Math.max(min, Number.parseInt(maxSelect, 10) || 1);
 
     setIsSubmitting(true);
     setError(null);

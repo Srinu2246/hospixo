@@ -20,10 +20,8 @@ import type {
 import type {
   ListRestaurantMenusApiQuery,
   MenuCategoryAssignmentApi,
-  MenuCategoryAssignmentId,
   MenuTreeApi,
   RestaurantMenuApi,
-  RestaurantMenuId,
 } from '../types/restaurant-menu-api';
 
 function buildQueryString(query?: ListRestaurantMenusApiQuery): string {
@@ -52,7 +50,7 @@ export async function fetchRestaurantMenusClient(
   return mapRestaurantMenusApi(unwrapRestaurantMenuList(data));
 }
 
-export async function fetchRestaurantMenuByIdClient(id: RestaurantMenuId): Promise<RestaurantMenu> {
+export async function fetchRestaurantMenuByIdClient(id: string): Promise<RestaurantMenu> {
   const res = await clientApi.get<unknown>(`/menu/menus/${encodeURIComponent(id)}`);
   const data = unwrapBffData<RestaurantMenuApi | RestaurantMenu>(res);
   if (data && typeof data === 'object' && 'menuType' in data) {
@@ -61,7 +59,7 @@ export async function fetchRestaurantMenuByIdClient(id: RestaurantMenuId): Promi
   return mapRestaurantMenuApi(data as RestaurantMenuApi);
 }
 
-export async function fetchRestaurantMenuTreeClient(menuId: RestaurantMenuId): Promise<MenuTree> {
+export async function fetchRestaurantMenuTreeClient(menuId: string): Promise<MenuTree> {
   const res = await clientApi.get<unknown>(`/menu/menus/${encodeURIComponent(menuId)}/tree`);
   const data = unwrapBffData<MenuTreeApi | MenuTree>(res);
   if (data && typeof data === 'object' && 'menuId' in data) {
@@ -71,7 +69,7 @@ export async function fetchRestaurantMenuTreeClient(menuId: RestaurantMenuId): P
 }
 
 export async function fetchMenuCategoryAssignmentsClient(
-  menuId: RestaurantMenuId,
+  menuId: string,
   categories: readonly MenuCategory[],
 ): Promise<MenuCategoryAssignment[]> {
   const res = await clientApi.get<unknown>(
@@ -106,7 +104,7 @@ export async function createRestaurantMenuClient(
 }
 
 export async function updateRestaurantMenuClient(
-  menuId: RestaurantMenuId,
+  menuId: string,
   updates: Partial<CreateRestaurantMenuInput> & {
     status?: RestaurantMenu['status'];
     displayOrder?: number;
@@ -121,9 +119,7 @@ export async function updateRestaurantMenuClient(
   return mapRestaurantMenuApi(data as RestaurantMenuApi);
 }
 
-export async function activateRestaurantMenuClient(
-  menuId: RestaurantMenuId,
-): Promise<RestaurantMenu> {
+export async function activateRestaurantMenuClient(menuId: string): Promise<RestaurantMenu> {
   const res = await clientApi.post<unknown>(
     `/menu/menus/${encodeURIComponent(menuId)}/activate`,
     {},
@@ -135,9 +131,7 @@ export async function activateRestaurantMenuClient(
   return mapRestaurantMenuApi(data as RestaurantMenuApi);
 }
 
-export async function deactivateRestaurantMenuClient(
-  menuId: RestaurantMenuId,
-): Promise<RestaurantMenu> {
+export async function deactivateRestaurantMenuClient(menuId: string): Promise<RestaurantMenu> {
   const res = await clientApi.post<unknown>(
     `/menu/menus/${encodeURIComponent(menuId)}/deactivate`,
     {},
@@ -150,7 +144,7 @@ export async function deactivateRestaurantMenuClient(
 }
 
 export async function assignMenuCategoryClient(
-  menuId: RestaurantMenuId,
+  menuId: string,
   input: { categoryId: string; displayOrder?: number },
   categories: readonly MenuCategory[],
 ): Promise<MenuCategoryAssignment> {
@@ -167,8 +161,8 @@ export async function assignMenuCategoryClient(
 }
 
 export async function removeMenuCategoryAssignmentClient(
-  menuId: RestaurantMenuId,
-  assignmentId: MenuCategoryAssignmentId,
+  menuId: string,
+  assignmentId: string,
 ): Promise<void> {
   await clientApi.delete(
     `/menu/menus/${encodeURIComponent(menuId)}/category-assignments/${encodeURIComponent(assignmentId)}`,

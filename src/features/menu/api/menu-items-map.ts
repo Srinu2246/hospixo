@@ -1,4 +1,11 @@
-import type { CreateMenuItemInput, DietaryType, MenuItem, MenuItemTag } from '../types/menu';
+import type {
+  CreateMenuItemInput,
+  DietaryType,
+  MenuItem,
+  MenuItemModifierGroup,
+  MenuItemPreparationStation,
+  MenuItemTag,
+} from '../types/menu';
 import type {
   CreateMenuItemApiRequest,
   MenuItemApi,
@@ -7,7 +14,6 @@ import type {
   MenuItemPreparationStationApi,
   UpdateMenuItemApiRequest,
 } from '../types/menu-item-api';
-import type { MenuItemModifierGroup, MenuItemPreparationStation } from '../types/menu';
 import { resolveFavoriteAndComboFlags, resolveTagIds } from './menu-item-tags-map';
 import { resolveMenuScopePayload } from '../lib/menu-scope';
 import { formatGstPercent, toMenuItemTaxesFromGst } from './menu-gst-map';
@@ -21,7 +27,7 @@ export function fromApiDietaryType(dietary?: string | null): DietaryType {
   return 'Veg';
 }
 
-export function toApiDietaryType(dietary?: DietaryType | string | null): MenuItemDietaryTypeApi {
+export function toApiDietaryType(dietary?: string | null): MenuItemDietaryTypeApi {
   if (!dietary) return 'veg';
   const norm = dietary.trim().toLowerCase().replace(/[-_ ]/g, '');
   if (norm === 'nonveg') return 'non_veg';
@@ -238,6 +244,33 @@ export function toCreateMenuItemPayload(
 
 type Writable<T> = { -readonly [P in keyof T]: T[P] };
 
+function applyOrderTypeUpdates(
+  payload: Writable<UpdateMenuItemApiRequest>,
+  updates: Partial<CreateMenuItemInput>,
+) {
+  if (updates.orderTypes !== undefined) {
+    payload.allow_dine_in = updates.orderTypes.includes('Dine In');
+    payload.allow_takeaway = updates.orderTypes.includes('Take Away');
+    payload.allow_delivery = updates.orderTypes.includes('Delivery');
+  }
+  if (updates.exposeIn !== undefined) {
+    payload.expose_captain_app = updates.exposeIn.includes('Captain App');
+  }
+}
+
+function applyTagUpdates(
+  payload: Writable<UpdateMenuItemApiRequest>,
+  updates: Partial<CreateMenuItemInput>,
+  tagDefinitions: readonly MenuItemTag[],
+) {
+  if (updates.tags === undefined && updates.tagIds === undefined) return;
+  const tagIds = resolveTagIds(updates.tagIds ?? []);
+  const flags = resolveFavoriteAndComboFlags(updates.tagIds ?? [], tagDefinitions);
+  payload.tag_ids = tagIds;
+  payload.is_favorite = flags.isFavorite || Boolean(updates.tags?.includes('Set As Favorite'));
+  payload.is_combo = flags.isCombo || Boolean(updates.tags?.includes('Set As Combo'));
+}
+
 export function toUpdateMenuItemPayload(
   updates: Partial<CreateMenuItemInput>,
   tagDefinitions: readonly MenuItemTag[] = [],
@@ -259,21 +292,8 @@ export function toUpdateMenuItemPayload(
   if (updates.description !== undefined) {
     payload.description = updates.description.trim() || undefined;
   }
-  if (updates.orderTypes !== undefined) {
-    payload.allow_dine_in = updates.orderTypes.includes('Dine In');
-    payload.allow_takeaway = updates.orderTypes.includes('Take Away');
-    payload.allow_delivery = updates.orderTypes.includes('Delivery');
-  }
-  if (updates.exposeIn !== undefined) {
-    payload.expose_captain_app = updates.exposeIn.includes('Captain App');
-  }
-  if (updates.tags !== undefined || updates.tagIds !== undefined) {
-    const tagIds = resolveTagIds(updates.tagIds ?? []);
-    const flags = resolveFavoriteAndComboFlags(updates.tagIds ?? [], tagDefinitions);
-    payload.tag_ids = tagIds;
-    payload.is_favorite = flags.isFavorite || updates.tags?.includes('Set As Favorite') || false;
-    payload.is_combo = flags.isCombo || updates.tags?.includes('Set As Combo') || false;
-  }
+  applyOrderTypeUpdates(payload, updates);
+  applyTagUpdates(payload, updates, tagDefinitions);
   if (updates.preparationStations !== undefined) {
     payload.preparation_stations = toMenuItemPreparationStationsApi(updates.preparationStations);
   }
@@ -295,9 +315,7 @@ export function toUpdateMenuItemPayload(
   return payload;
 }
 
-export function unwrapMenuItemList(
-  data: MenuItemApi[] | { items: MenuItemApi[] } | unknown,
-): MenuItemApi[] {
+export function unwrapMenuItemList(data: unknown): MenuItemApi[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
   if (typeof data === 'object' && 'items' in (data as Record<string, unknown>)) {

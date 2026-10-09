@@ -21,12 +21,14 @@ import {
 } from '../api/branch-menu-items-client';
 import type {
   BranchMenuItemModifierOptionUpdateRequest,
-  BranchMenuItemUpdateRequest,
   BranchMenuItemVariantUpdateRequest,
   ListBranchMenuItemModifiersApiQuery,
   ListBranchMenuItemsApiQuery,
   ListBranchMenuItemVariantsApiQuery,
+  UpdateBranchMenuItemOverrideApiRequest,
 } from '../types/branch-menu-item-api';
+
+export type NullableId = string | number | null | undefined;
 
 // -----------------------------------------------------------------------------
 // Query Keys
@@ -139,8 +141,8 @@ export const branchMenuItemModifierQueryKey = (
 // -----------------------------------------------------------------------------
 
 export function useBranchMenuItemsQuery(
-  branchId: string | number | null | undefined,
-  assignmentId: string | number | null | undefined,
+  branchId: NullableId,
+  assignmentId: NullableId,
   query?: ListBranchMenuItemsApiQuery,
   enabled = true,
 ) {
@@ -155,9 +157,9 @@ export function useBranchMenuItemsQuery(
 }
 
 export function useBranchMenuItemQuery(
-  branchId: string | number | null | undefined,
-  assignmentId: string | number | null | undefined,
-  itemOverrideId: string | number | null | undefined,
+  branchId: NullableId,
+  assignmentId: NullableId,
+  itemOverrideId: NullableId,
   enabled = true,
 ) {
   return useQuery({
@@ -179,14 +181,12 @@ export function useUpdateBranchMenuItemMutation(
 ) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: BranchMenuItemUpdateRequest) =>
+    mutationFn: (body: UpdateBranchMenuItemOverrideApiRequest) =>
       updateBranchMenuItemClient(branchId, assignmentId, itemOverrideId, body),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['menu', 'branches', String(branchId), 'menus', String(assignmentId), 'items'],
-        }),
-      ]);
+      await queryClient.invalidateQueries({
+        queryKey: ['menu', 'branches', String(branchId), 'menus', String(assignmentId), 'items'],
+      });
     },
   });
 }
@@ -228,9 +228,9 @@ export function useDeactivateBranchMenuItemMutation(
 // -----------------------------------------------------------------------------
 
 export function useBranchMenuItemVariantsQuery(
-  branchId: string | number | null | undefined,
-  assignmentId: string | number | null | undefined,
-  itemOverrideId: string | number | null | undefined,
+  branchId: NullableId,
+  assignmentId: NullableId,
+  itemOverrideId: NullableId,
   query?: ListBranchMenuItemVariantsApiQuery,
   enabled = true,
 ) {
@@ -252,10 +252,10 @@ export function useBranchMenuItemVariantsQuery(
 }
 
 export function useBranchMenuItemVariantQuery(
-  branchId: string | number | null | undefined,
-  assignmentId: string | number | null | undefined,
-  itemOverrideId: string | number | null | undefined,
-  variantOverrideId: string | number | null | undefined,
+  branchId: NullableId,
+  assignmentId: NullableId,
+  itemOverrideId: NullableId,
+  variantOverrideId: NullableId,
   enabled = true,
 ) {
   return useQuery({
@@ -384,9 +384,9 @@ export function useDeactivateBranchMenuItemVariantMutation(
 // -----------------------------------------------------------------------------
 
 export function useBranchMenuItemModifiersQuery(
-  branchId: string | number | null | undefined,
-  assignmentId: string | number | null | undefined,
-  itemOverrideId: string | number | null | undefined,
+  branchId: NullableId,
+  assignmentId: NullableId,
+  itemOverrideId: NullableId,
   query?: ListBranchMenuItemModifiersApiQuery,
   enabled = true,
 ) {
@@ -408,10 +408,10 @@ export function useBranchMenuItemModifiersQuery(
 }
 
 export function useBranchMenuItemModifierQuery(
-  branchId: string | number | null | undefined,
-  assignmentId: string | number | null | undefined,
-  itemOverrideId: string | number | null | undefined,
-  modifierOverrideId: string | number | null | undefined,
+  branchId: NullableId,
+  assignmentId: NullableId,
+  itemOverrideId: NullableId,
+  modifierOverrideId: NullableId,
   enabled = true,
 ) {
   return useQuery({

@@ -1,15 +1,9 @@
 import { mapMenuTreeApi, mapMenuTypeFromApi } from '@/features/menu/api/restaurant-menus-map';
 
 import type { BranchMenuAssignment, BranchMenuTree } from '../types/branch-menu';
-import type {
-  BranchMenuAssignmentApi,
-  BranchMenuAssignmentStatus,
-  BranchMenuTreeApi,
-} from '../types/branch-menu-api';
+import type { BranchMenuAssignmentApi, BranchMenuTreeApi } from '../types/branch-menu-api';
 
-function mapAssignmentStatus(
-  status: BranchMenuAssignmentStatus | string | undefined,
-): BranchMenuAssignment['status'] {
+function mapAssignmentStatus(status: string | undefined): BranchMenuAssignment['status'] {
   return String(status ?? '').toLowerCase() === 'active' ? 'Active' : 'Inactive';
 }
 
@@ -39,13 +33,7 @@ export function mapBranchMenuAssignmentsApi(
     .sort((left, right) => left.displayOrder - right.displayOrder);
 }
 
-export function unwrapBranchMenuAssignmentList(
-  data:
-    | BranchMenuAssignmentApi[]
-    | { items?: BranchMenuAssignmentApi[] }
-    | { data?: BranchMenuAssignmentApi[] | { items?: BranchMenuAssignmentApi[] } }
-    | unknown,
-): BranchMenuAssignmentApi[] {
+export function unwrapBranchMenuAssignmentList(data: unknown): BranchMenuAssignmentApi[] {
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== 'object') return [];
   const obj = data as Record<string, unknown>;

@@ -8,13 +8,13 @@ import {
 import type {
   BranchMenuItemModifierOptionResponse,
   BranchMenuItemModifierOptionUpdateRequest,
-  BranchMenuItemResponse,
-  BranchMenuItemUpdateRequest,
+  BranchMenuItemOverrideApi,
   BranchMenuItemVariantResponse,
   BranchMenuItemVariantUpdateRequest,
   ListBranchMenuItemModifiersApiQuery,
   ListBranchMenuItemsApiQuery,
   ListBranchMenuItemVariantsApiQuery,
+  UpdateBranchMenuItemOverrideApiRequest,
 } from '../types/branch-menu-item-api';
 
 function buildQueryString(query?: { status?: string; page?: number; page_size?: number }): string {
@@ -47,7 +47,7 @@ export async function fetchBranchMenuItemsClient(
   branchId: string | number,
   assignmentId: string | number,
   query?: ListBranchMenuItemsApiQuery,
-): Promise<BranchMenuItemResponse[]> {
+): Promise<BranchMenuItemOverrideApi[]> {
   const res = await clientApi.get<unknown>(
     `${itemsBasePath(branchId, assignmentId)}${buildQueryString(query)}`,
   );
@@ -59,46 +59,46 @@ export async function fetchBranchMenuItemClient(
   branchId: string | number,
   assignmentId: string | number,
   itemOverrideId: string | number,
-): Promise<BranchMenuItemResponse> {
+): Promise<BranchMenuItemOverrideApi> {
   const res = await clientApi.get<unknown>(itemPath(branchId, assignmentId, itemOverrideId));
-  return unwrapBffData<BranchMenuItemResponse>(res);
+  return unwrapBffData<BranchMenuItemOverrideApi>(res);
 }
 
 export async function updateBranchMenuItemClient(
   branchId: string | number,
   assignmentId: string | number,
   itemOverrideId: string | number,
-  body: BranchMenuItemUpdateRequest,
-): Promise<BranchMenuItemResponse> {
+  body: UpdateBranchMenuItemOverrideApiRequest,
+): Promise<BranchMenuItemOverrideApi> {
   const res = await clientApi.patch<unknown>(
     itemPath(branchId, assignmentId, itemOverrideId),
     body,
   );
-  return unwrapBffData<BranchMenuItemResponse>(res);
+  return unwrapBffData<BranchMenuItemOverrideApi>(res);
 }
 
 export async function activateBranchMenuItemClient(
   branchId: string | number,
   assignmentId: string | number,
   itemOverrideId: string | number,
-): Promise<BranchMenuItemResponse> {
+): Promise<BranchMenuItemOverrideApi> {
   const res = await clientApi.post<unknown>(
     `${itemPath(branchId, assignmentId, itemOverrideId)}/activate`,
     {},
   );
-  return unwrapBffData<BranchMenuItemResponse>(res);
+  return unwrapBffData<BranchMenuItemOverrideApi>(res);
 }
 
 export async function deactivateBranchMenuItemClient(
   branchId: string | number,
   assignmentId: string | number,
   itemOverrideId: string | number,
-): Promise<BranchMenuItemResponse> {
+): Promise<BranchMenuItemOverrideApi> {
   const res = await clientApi.post<unknown>(
     `${itemPath(branchId, assignmentId, itemOverrideId)}/deactivate`,
     {},
   );
-  return unwrapBffData<BranchMenuItemResponse>(res);
+  return unwrapBffData<BranchMenuItemOverrideApi>(res);
 }
 
 // -----------------------------------------------------------------------------

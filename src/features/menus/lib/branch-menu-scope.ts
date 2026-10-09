@@ -2,9 +2,11 @@ import type { RestaurantMenu } from '@/features/menu/types/restaurant-menu';
 
 import type { MenuSession } from '../types/menus';
 
+export type BranchScopeId = string | number | null | undefined;
+
 export function restaurantMenuBelongsToBranch(
   menu: Pick<RestaurantMenu, 'scope' | 'assignBranchId'>,
-  branchId: string | number | null | undefined,
+  branchId: BranchScopeId,
 ): boolean {
   if (!branchId) return true;
   if (menu.scope === 'branch') {
@@ -18,7 +20,7 @@ export function restaurantMenuBelongsToBranch(
 
 export function filterRestaurantMenusForBranchScope(
   menus: readonly RestaurantMenu[],
-  branchId: string | number | null | undefined,
+  branchId: BranchScopeId,
 ): RestaurantMenu[] {
   return menus.filter((menu) => restaurantMenuBelongsToBranch(menu, branchId));
 }
@@ -26,7 +28,7 @@ export function filterRestaurantMenusForBranchScope(
 export function filterSessionsForBranchScope(
   sessions: readonly MenuSession[],
   menusById: Readonly<Record<string, RestaurantMenu>>,
-  branchId: string | number | null | undefined,
+  branchId: BranchScopeId,
 ): MenuSession[] {
   return sessions.filter((session) => {
     const menu = menusById[session.id];

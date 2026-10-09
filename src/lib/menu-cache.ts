@@ -40,6 +40,7 @@ import type {
   ItemVariant,
   MenuCategory,
   MenuItem,
+  MenuItemStatus,
   MenuItemTag,
 } from '@/features/menu/types/menu';
 import type { MenuItemApi, MenuItemId } from '@/features/menu/types/menu-item-api';
@@ -77,21 +78,27 @@ type MenuApiResponse<T> = {
   data?: T;
 };
 
+const SAFE_UNWRAP_KEYS = [
+  'items',
+  'categories',
+  'menus',
+  'tags',
+  'variants',
+  'images',
+  'stations',
+  'groups',
+  'rates',
+] as const;
+
 function safeUnwrapArray<T>(payload: unknown): T[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload as T[];
   if (typeof payload === 'object') {
     const obj = payload as Record<string, unknown>;
-    if (Array.isArray(obj.items)) return obj.items as T[];
+    for (const key of SAFE_UNWRAP_KEYS) {
+      if (Array.isArray(obj[key])) return obj[key] as T[];
+    }
     if (Array.isArray(obj.data)) return safeUnwrapArray<T>(obj.data);
-    if (Array.isArray(obj.categories)) return obj.categories as T[];
-    if (Array.isArray(obj.menus)) return obj.menus as T[];
-    if (Array.isArray(obj.tags)) return obj.tags as T[];
-    if (Array.isArray(obj.variants)) return obj.variants as T[];
-    if (Array.isArray(obj.images)) return obj.images as T[];
-    if (Array.isArray(obj.stations)) return obj.stations as T[];
-    if (Array.isArray(obj.groups)) return obj.groups as T[];
-    if (Array.isArray(obj.rates)) return obj.rates as T[];
   }
   return [];
 }
@@ -318,10 +325,7 @@ export async function fetchBranchMenuAssignmentsForBranch(
       const raw = res.data ?? (res as unknown as BranchMenuAssignment[]);
       const list = unwrapBranchMenuAssignmentList(raw);
       let assignments: BranchMenuAssignment[];
-      if (
-        list.length > 0 &&
-        typeof (list[0] as Record<string, unknown>).branch_id !== 'undefined'
-      ) {
+      if (list.length > 0 && (list[0] as Record<string, unknown>).branch_id !== undefined) {
         assignments = mapBranchMenuAssignmentsApi(list as BranchMenuAssignmentApi[]);
       } else {
         assignments = Array.isArray(raw)
@@ -379,6 +383,182 @@ export async function syncBranchMenuAssignment(
   );
 }
 
+function toSafeTrimmedStr(val: unknown): string {
+  if (typeof val === 'string') return val.trim();
+  if (typeof val === 'number') return String(val).trim();
+  return '';
+}
+
+function matchOverrideRow(
+  row: BranchMenuItemOverrideApi,
+  targetId: string,
+  targetCode: string,
+  targetName: string,
+  existingItemId: string,
+): boolean {
+  const rowMenuItemId = toSafeTrimmedStr(row.menu_item_id);
+  const rowId = toSafeTrimmedStr(row.id);
+  const rawRow = row as Record<string, unknown>;
+  const nestedItem =
+    rawRow.menu_item && typeof rawRow.menu_item === 'object'
+      ? (rawRow.menu_item as Record<string, unknown>)
+      : null;
+  const nestedItemId = nestedItem ? toSafeTrimmedStr(nestedItem.id) : '';
+
+  if (targetId && (rowMenuItemId === targetId || rowId === targetId || nestedItemId === targetId)) {
+    return true;
+  }
+  if (
+    existingItemId &&
+    (rowMenuItemId === existingItemId ||
+      rowId === existingItemId ||
+      nestedItemId === existingItemId)
+  ) {
+    return true;
+  }
+  const rowCode = (
+    toSafeTrimmedStr(rawRow.code) || (nestedItem ? toSafeTrimmedStr(nestedItem.code) : '')
+  ).toLowerCase();
+  if (targetCode && rowCode && targetCode === rowCode) {
+    return true;
+  }
+  const rowName = (
+    toSafeTrimmedStr(rawRow.name) || (nestedItem ? toSafeTrimmedStr(nestedItem.name) : '')
+  ).toLowerCase();
+  if (targetName && rowName && targetName === rowName) {
+    return true;
+  }
+  return false;
+}
+
+function searchTreeCategoryForOverride(
+  cat: { items?: Array<Record<string, unknown>> } | undefined,
+  targetId: string,
+  targetCode: string,
+  targetName: string,
+  existingItemId: string,
+): string | null {
+  for (const item of cat?.items ?? []) {
+    const mId = toSafeTrimmedStr(item.menu_item_id ?? item.id ?? item.item_id);
+    const oId = toSafeTrimmedStr(item.item_override_id ?? item.override_id);
+    const itemName = toSafeTrimmedStr(item.name ?? item.item_name).toLowerCase();
+    const itemCode = toSafeTrimmedStr(item.code ?? item.item_code).toLowerCase();
+    const idMatched =
+      Boolean(targetId && (mId === targetId || oId === targetId)) ||
+      Boolean(existingItemId && (mId === existingItemId || oId === existingItemId));
+    const codeMatched = Boolean(targetCode && itemCode && targetCode === itemCode);
+    const nameMatched = Boolean(targetName && itemName && targetName === itemName);
+    if (idMatched || codeMatched || nameMatched) {
+      const resolvedOverrideId = oId || mId || toSafeTrimmedStr(item.id);
+      if (resolvedOverrideId) {
+        return resolvedOverrideId;
+      }
+    }
+  }
+  return null;
+}
+
+async function findOverrideInAssignment(
+  branchId: string,
+  assignmentId: string,
+  matchFn: (row: BranchMenuItemOverrideApi) => boolean,
+  targetId: string,
+  targetCode: string,
+  targetName: string,
+  existingItemId: string,
+): Promise<string | null> {
+  try {
+    const overrides = await listBranchMenuItemOverridesForAssignment(branchId, assignmentId);
+    const match = overrides.find(matchFn);
+    if (match?.id) return String(match.id);
+  } catch {
+    // Continue
+  }
+
+  try {
+    const treeRes = await clientApi.get<unknown>(
+      `/menu/branches/${encodeURIComponent(branchId)}/menus/${encodeURIComponent(assignmentId)}/tree`,
+    );
+    const treeData = unwrapBffData<{
+      categories?: Array<{ items?: Array<Record<string, unknown>> }>;
+    }>(treeRes);
+    for (const cat of treeData?.categories ?? []) {
+      const found = searchTreeCategoryForOverride(
+        cat,
+        targetId,
+        targetCode,
+        targetName,
+        existingItemId,
+      );
+      if (found) return found;
+    }
+  } catch {
+    // Continue
+  }
+  return null;
+}
+
+async function resyncAndFindOverride(
+  branchId: string,
+  candidateAssignments: BranchMenuAssignment[],
+  matchFn: (row: BranchMenuItemOverrideApi) => boolean,
+): Promise<{ assignmentId: string; itemOverrideId: string } | null> {
+  for (const assignment of candidateAssignments) {
+    const assignmentId = String(assignment.id);
+    try {
+      await syncBranchMenuAssignment(branchId, assignmentId);
+      const overrides = await listBranchMenuItemOverridesForAssignment(branchId, assignmentId);
+      const match = overrides.find(matchFn);
+      if (match?.id) {
+        return { assignmentId, itemOverrideId: String(match.id) };
+      }
+    } catch {
+      // Continue
+    }
+  }
+  return null;
+}
+
+async function assignCategoryAndFindOverride(
+  branchId: string,
+  candidateAssignments: BranchMenuAssignment[],
+  categoryId: string,
+  matchFn: (row: BranchMenuItemOverrideApi) => boolean,
+): Promise<{ assignmentId: string; itemOverrideId: string } | null> {
+  for (const assignment of candidateAssignments) {
+    if (!assignment.menuId) continue;
+    try {
+      await clientApi.post(
+        `/menu/menus/${encodeURIComponent(String(assignment.menuId))}/category-assignments`,
+        { categoryId },
+      );
+      await syncBranchMenuAssignment(branchId, String(assignment.id));
+      const overrides = await listBranchMenuItemOverridesForAssignment(
+        branchId,
+        String(assignment.id),
+      );
+      const match = overrides.find(matchFn);
+      if (match?.id) {
+        return { assignmentId: String(assignment.id), itemOverrideId: String(match.id) };
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return null;
+}
+
+function resolveAssignBranchId(
+  updatesVal: unknown,
+  existingVal?: string,
+  mergedVal?: string,
+): string | undefined {
+  if (updatesVal !== undefined) {
+    return updatesVal != null ? String(updatesVal) : undefined;
+  }
+  return mergedVal ?? existingVal ?? undefined;
+}
+
 export async function resolveBranchMenuItemOverrideRoute(
   branchUserBranchId: string,
   menuItemId: MenuItemId,
@@ -422,151 +602,47 @@ export async function resolveBranchMenuItemOverrideRoute(
 
   const targetId = String(menuItemId).trim();
   const existingItem = options.existingItem;
-  const targetCode = existingItem?.code?.trim().toLowerCase();
-  const targetName = existingItem?.name?.trim().toLowerCase();
+  const targetCode = existingItem?.code?.trim().toLowerCase() ?? '';
+  const targetName = existingItem?.name?.trim().toLowerCase() ?? '';
+  const existingItemId = existingItem?.id ? String(existingItem.id).trim() : '';
 
-  const matchRow = (row: BranchMenuItemOverrideApi): boolean => {
-    const rowMenuItemId = String(row.menu_item_id ?? '').trim();
-    const rowId = String(row.id ?? '').trim();
-    const rawRow = row as Record<string, unknown>;
-    const nestedItem =
-      rawRow.menu_item && typeof rawRow.menu_item === 'object'
-        ? (rawRow.menu_item as Record<string, unknown>)
-        : null;
-    const nestedItemId = nestedItem ? String(nestedItem.id ?? '').trim() : '';
-
-    if (
-      targetId &&
-      (rowMenuItemId === targetId || rowId === targetId || nestedItemId === targetId)
-    ) {
-      return true;
-    }
-    if (
-      existingItem?.id &&
-      (rowMenuItemId === String(existingItem.id) ||
-        rowId === String(existingItem.id) ||
-        nestedItemId === String(existingItem.id))
-    ) {
-      return true;
-    }
-    const rowCode = String(rawRow.code ?? nestedItem?.code ?? '')
-      .trim()
-      .toLowerCase();
-    if (targetCode && rowCode && targetCode === rowCode) {
-      return true;
-    }
-    const rowName = String(rawRow.name ?? nestedItem?.name ?? '')
-      .trim()
-      .toLowerCase();
-    if (targetName && rowName && targetName === rowName) {
-      return true;
-    }
-    return false;
-  };
+  const matchFn = (row: BranchMenuItemOverrideApi) =>
+    matchOverrideRow(row, targetId, targetCode, targetName, existingItemId);
 
   // Phase 1: Search overrides and tree across all assignments
   for (const assignment of allAssignmentsToTry) {
     const assignmentId = String(assignment.id);
-    try {
-      const overrides = await listBranchMenuItemOverridesForAssignment(branchId, assignmentId);
-      const match = overrides.find(matchRow);
-      if (match?.id) {
-        return {
-          ok: true,
-          context: { branchId, assignmentId, itemOverrideId: String(match.id) },
-        };
-      }
-    } catch {
-      // Continue
-    }
-
-    try {
-      const treeRes = await clientApi.get<unknown>(
-        `/menu/branches/${encodeURIComponent(branchId)}/menus/${encodeURIComponent(assignmentId)}/tree`,
-      );
-      const treeData = unwrapBffData<{
-        categories?: Array<{ items?: Array<Record<string, unknown>> }>;
-      }>(treeRes);
-      for (const cat of treeData?.categories ?? []) {
-        for (const item of cat?.items ?? []) {
-          const mId = String(item.menu_item_id ?? item.id ?? item.item_id ?? '').trim();
-          const oId = String(item.item_override_id ?? item.override_id ?? '').trim();
-          const itemName = String(item.name ?? item.item_name ?? '')
-            .trim()
-            .toLowerCase();
-          const itemCode = String(item.code ?? item.item_code ?? '')
-            .trim()
-            .toLowerCase();
-          const idMatched =
-            (targetId && (mId === targetId || oId === targetId)) ||
-            (existingItem?.id &&
-              (mId === String(existingItem.id) || oId === String(existingItem.id)));
-          const codeMatched = Boolean(targetCode && itemCode && targetCode === itemCode);
-          const nameMatched = Boolean(targetName && itemName && targetName === itemName);
-          if (idMatched || codeMatched || nameMatched) {
-            const resolvedOverrideId = oId || mId || String(item.id ?? '');
-            if (resolvedOverrideId) {
-              return {
-                ok: true,
-                context: { branchId, assignmentId, itemOverrideId: resolvedOverrideId },
-              };
-            }
-          }
-        }
-      }
-    } catch {
-      // Continue
+    const foundId = await findOverrideInAssignment(
+      branchId,
+      assignmentId,
+      matchFn,
+      targetId,
+      targetCode,
+      targetName,
+      existingItemId,
+    );
+    if (foundId) {
+      return { ok: true, context: { branchId, assignmentId, itemOverrideId: foundId } };
     }
   }
 
   // Phase 2: If not found, resync candidate assignments
   if (options.resyncIfMissing !== false) {
-    for (const assignment of candidateAssignments) {
-      const assignmentId = String(assignment.id);
-      try {
-        await syncBranchMenuAssignment(branchId, assignmentId);
-        const overrides = await listBranchMenuItemOverridesForAssignment(branchId, assignmentId);
-        const match = overrides.find(matchRow);
-        if (match?.id) {
-          return {
-            ok: true,
-            context: { branchId, assignmentId, itemOverrideId: String(match.id) },
-          };
-        }
-      } catch {
-        // Continue
-      }
+    const resynced = await resyncAndFindOverride(branchId, candidateAssignments, matchFn);
+    if (resynced) {
+      return { ok: true, context: { branchId, ...resynced } };
     }
 
     // Phase 3: If existingItem has categoryId, ensure category is assigned to the company menu and re-sync
     if (existingItem?.categoryId) {
-      for (const assignment of candidateAssignments) {
-        if (assignment.menuId) {
-          try {
-            await clientApi.post(
-              `/menu/menus/${encodeURIComponent(String(assignment.menuId))}/category-assignments`,
-              { categoryId: existingItem.categoryId },
-            );
-            await syncBranchMenuAssignment(branchId, String(assignment.id));
-            const overrides = await listBranchMenuItemOverridesForAssignment(
-              branchId,
-              String(assignment.id),
-            );
-            const match = overrides.find(matchRow);
-            if (match?.id) {
-              return {
-                ok: true,
-                context: {
-                  branchId,
-                  assignmentId: String(assignment.id),
-                  itemOverrideId: String(match.id),
-                },
-              };
-            }
-          } catch {
-            // Ignore
-          }
-        }
+      const assigned = await assignCategoryAndFindOverride(
+        branchId,
+        candidateAssignments,
+        existingItem.categoryId,
+        matchFn,
+      );
+      if (assigned) {
+        return { ok: true, context: { branchId, ...assigned } };
       }
     }
   }
@@ -581,7 +657,7 @@ export async function resolveBranchMenuItemOverrideRoute(
 async function patchBranchInheritedMenuItemOverride(
   branchUserBranchId: string,
   menuItemId: MenuItemId,
-  updates: Partial<CreateMenuItemInput> & { status?: MenuItem['status'] },
+  updates: Partial<CreateMenuItemInput> & { status?: MenuItemStatus },
   existingItem: MenuItem,
 ): Promise<{ ok: true; data: MenuItem } | { ok: false; message: string }> {
   // Always save locally first so price changes, status, etc. are never lost:
@@ -604,12 +680,10 @@ async function patchBranchInheritedMenuItemOverride(
     existingItem,
   });
 
-  const resolvedAssignBranchId =
-    updates.assignBranchId !== undefined
-      ? updates.assignBranchId != null
-        ? String(updates.assignBranchId)
-        : undefined
-      : existingItem.assignBranchId;
+  const resolvedAssignBranchId = resolveAssignBranchId(
+    updates.assignBranchId,
+    existingItem.assignBranchId,
+  );
 
   const mergedFallbackItem: MenuItem = {
     ...existingItem,
@@ -647,12 +721,11 @@ async function patchBranchInheritedMenuItemOverride(
       ...updates,
       dietary: updates.dietary ?? existingItem.dietary,
       basePrice: updates.basePrice ?? merged.basePrice ?? existingItem.basePrice,
-      assignBranchId:
-        updates.assignBranchId !== undefined
-          ? updates.assignBranchId != null
-            ? String(updates.assignBranchId)
-            : undefined
-          : (merged.assignBranchId ?? existingItem.assignBranchId ?? undefined),
+      assignBranchId: resolveAssignBranchId(
+        updates.assignBranchId,
+        existingItem.assignBranchId,
+        merged.assignBranchId,
+      ),
       orderTypes: updates.orderTypes ?? merged.orderTypes ?? existingItem.orderTypes,
       onlineDisplayName:
         updates.onlineDisplayName?.trim() ||
@@ -1082,7 +1155,7 @@ export async function createMenuItemViaBff(
     }
 
     const itemApi = unwrapMenuItemApi(rawData) ?? (rawData as MenuItemApi);
-    if (!itemApi || !itemApi.id) {
+    if (!itemApi?.id) {
       return { ok: false, message: res.message ?? 'Failed to create menu item.' };
     }
 
@@ -1209,44 +1282,13 @@ export async function updateMenuItemViaBff(
   }
 }
 
-function mergeStatusToggledMenuItem(
-  rawData: unknown,
+function applyRawItemUpdates(
+  existingItem: MenuItem,
+  mapped: MenuItem,
+  rawItem: MenuItemApi,
   targetStatus: 'Available' | 'Hidden',
-  existingItem?: MenuItem,
-  options: Readonly<{
-    categoryName?: string;
-    tagDefinitions?: readonly MenuItemTag[];
-  }> = {},
-): MenuItem | null {
-  const rawItem = unwrapMenuItemApi(rawData);
-  const hasFullItem =
-    rawItem != null &&
-    rawItem.id != null &&
-    typeof rawItem.name === 'string' &&
-    rawItem.name.trim().length > 0;
-
-  if (!hasFullItem) {
-    return existingItem ? { ...existingItem, status: targetStatus } : null;
-  }
-
-  const tagDefinitionsById = buildTagDefinitionsById(options.tagDefinitions ?? []);
-  const branchNameById =
-    existingItem?.assignBranchId != null && existingItem.assignBranchName
-      ? { [String(existingItem.assignBranchId)]: existingItem.assignBranchName }
-      : {};
-  const resolvedCategoryName = options.categoryName || existingItem?.categoryName || '';
-  const mapped = mapMenuItemApi(
-    rawItem,
-    resolvedCategoryName,
-    tagDefinitionsById,
-    branchNameById,
-    {},
-  );
-
-  if (!existingItem) {
-    return { ...mapped, status: targetStatus };
-  }
-
+  resolvedCategoryName: string,
+): MenuItem {
   return {
     ...existingItem,
     ...mapped,
@@ -1277,6 +1319,44 @@ function mergeStatusToggledMenuItem(
         : existingItem.orderTypes,
     exposeIn: rawItem.expose_captain_app !== undefined ? mapped.exposeIn : existingItem.exposeIn,
   };
+}
+
+function mergeStatusToggledMenuItem(
+  rawData: unknown,
+  targetStatus: 'Available' | 'Hidden',
+  existingItem?: MenuItem,
+  options: Readonly<{
+    categoryName?: string;
+    tagDefinitions?: readonly MenuItemTag[];
+  }> = {},
+): MenuItem | null {
+  const rawItem = unwrapMenuItemApi(rawData);
+  const hasFullItem =
+    rawItem?.id != null && typeof rawItem.name === 'string' && rawItem.name.trim().length > 0;
+
+  if (!hasFullItem) {
+    return existingItem ? { ...existingItem, status: targetStatus } : null;
+  }
+
+  const tagDefinitionsById = buildTagDefinitionsById(options.tagDefinitions ?? []);
+  const branchNameById =
+    existingItem?.assignBranchId != null && existingItem.assignBranchName
+      ? { [String(existingItem.assignBranchId)]: existingItem.assignBranchName }
+      : {};
+  const resolvedCategoryName = options.categoryName || existingItem?.categoryName || '';
+  const mapped = mapMenuItemApi(
+    rawItem,
+    resolvedCategoryName,
+    tagDefinitionsById,
+    branchNameById,
+    {},
+  );
+
+  if (!existingItem) {
+    return { ...mapped, status: targetStatus };
+  }
+
+  return applyRawItemUpdates(existingItem, mapped, rawItem, targetStatus, resolvedCategoryName);
 }
 
 export async function activateMenuItemViaBff(

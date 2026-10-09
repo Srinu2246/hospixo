@@ -23,12 +23,12 @@ function normalizeListPayload<T>(payload: unknown): { items: T[]; total: number 
   if (payload && typeof payload === 'object') {
     const record = payload as Record<string, unknown>;
     if (Array.isArray(record.items)) {
-      const total =
-        typeof record.total === 'number'
-          ? record.total
-          : typeof record.count === 'number'
-            ? record.count
-            : record.items.length;
+      let total = record.items.length;
+      if (typeof record.total === 'number') {
+        total = record.total;
+      } else if (typeof record.count === 'number') {
+        total = record.count;
+      }
       return { items: record.items as T[], total };
     }
     if (Array.isArray(record.data)) {
@@ -45,6 +45,81 @@ type BranchMenuAssignment = Readonly<{
 }>;
 
 export type BranchMenuItemOverride = Readonly<Record<string, unknown>>;
+
+function toSafeString(val: unknown): string {
+  if (typeof val === 'string' || typeof val === 'number') {
+    return String(val).trim();
+  }
+  return '';
+}
+
+function addDeduplicated(
+  item: BranchMenuItemOverride,
+  allOverrides: BranchMenuItemOverride[],
+  seenIds: Set<string>,
+  seenNames: Set<string>,
+  id: string,
+  name: string,
+): void {
+  if ((id && !seenIds.has(id)) || (name && !seenNames.has(name))) {
+    if (id) seenIds.add(id);
+    if (name) seenNames.add(name);
+    allOverrides.push(item);
+  }
+}
+
+async function fetchAssignmentItems(
+  token: string,
+  branchId: number,
+  assignmentId: number | string,
+): Promise<BranchMenuItemOverride[]> {
+  try {
+    const itemsPath = restaurantBranchMenuItemsListPath(branchId, assignmentId, {
+      page_size: 100,
+    });
+    const itemsPayload = await apiFetch<unknown>(itemsPath, {
+      ...withAuth(token),
+      method: 'GET',
+    });
+    return normalizeListPayload<BranchMenuItemOverride>(itemsPayload).items;
+  } catch {
+    return [];
+  }
+}
+
+async function fetchAssignmentTreeItems(
+  token: string,
+  branchId: number,
+  assignmentId: number | string,
+): Promise<BranchMenuItemOverride[]> {
+  try {
+    const treePath = restaurantBranchMenuTreePath(branchId, assignmentId);
+    const treePayload = await apiFetch<unknown>(treePath, { ...withAuth(token), method: 'GET' });
+    const tree =
+      (
+        treePayload as {
+          data?: {
+            categories?: Array<{ name?: string; items?: Array<Record<string, unknown>> }>;
+          };
+        }
+      )?.data ??
+      (treePayload as {
+        categories?: Array<{ name?: string; items?: Array<Record<string, unknown>> }>;
+      });
+    const extracted: BranchMenuItemOverride[] = [];
+    for (const cat of tree?.categories ?? []) {
+      for (const treeItem of cat?.items ?? []) {
+        extracted.push({
+          ...treeItem,
+          category_name: treeItem.category_name ?? cat.name,
+        });
+      }
+    }
+    return extracted;
+  } catch {
+    return [];
+  }
+}
 
 /** Active menu assignment for a branch, if any. */
 export async function getActiveBranchMenuAssignmentId(
@@ -83,78 +158,39 @@ export async function listBranchMenuItems(
   const seenIds = new Set<string>();
   const seenNames = new Set<string>();
 
-  // 1. Fetch overrides and trees across all assignments
-  for (const assignment of targetAssignments) {
-    try {
-      const itemsPath = restaurantBranchMenuItemsListPath(branchId, assignment.id, {
-        page_size: 100,
-      });
-      const itemsPayload = await apiFetch<unknown>(itemsPath, {
-        ...withAuth(token),
-        method: 'GET',
-      });
-      const { items } = normalizeListPayload<BranchMenuItemOverride>(itemsPayload);
-      for (const item of items) {
-        const record = item as Record<string, unknown>;
-        const id = String(record.id ?? record.menu_item_id ?? record.item_override_id ?? '').trim();
-        const nestedItem =
-          record.menu_item && typeof record.menu_item === 'object'
-            ? (record.menu_item as Record<string, unknown>)
-            : null;
-        const name = String(
-          record.display_name ?? record.name ?? record.item_name ?? nestedItem?.name ?? '',
-        )
-          .trim()
-          .toLowerCase();
+  // 1. Fetch overrides and trees across all assignments in parallel
+  const assignmentData = await Promise.all(
+    targetAssignments.map(async (assignment) => {
+      const [items, treeItems] = await Promise.all([
+        fetchAssignmentItems(token, branchId, assignment.id),
+        fetchAssignmentTreeItems(token, branchId, assignment.id),
+      ]);
+      return { items, treeItems };
+    }),
+  );
 
-        if ((id && !seenIds.has(id)) || (name && !seenNames.has(name))) {
-          if (id) seenIds.add(id);
-          if (name) seenNames.add(name);
-          allOverrides.push(item);
-        }
-      }
-    } catch {
-      // Continue to next assignment
+  for (const { items, treeItems } of assignmentData) {
+    for (const item of items) {
+      const record = item as Record<string, unknown>;
+      const id = toSafeString(record.id ?? record.menu_item_id ?? record.item_override_id);
+      const nestedItem =
+        record.menu_item && typeof record.menu_item === 'object'
+          ? (record.menu_item as Record<string, unknown>)
+          : null;
+      const name = toSafeString(
+        record.display_name ?? record.name ?? record.item_name ?? nestedItem?.name,
+      ).toLowerCase();
+      addDeduplicated(item, allOverrides, seenIds, seenNames, id, name);
     }
 
-    try {
-      const treePath = restaurantBranchMenuTreePath(branchId, assignment.id);
-      const treePayload = await apiFetch<unknown>(treePath, { ...withAuth(token), method: 'GET' });
-      const tree =
-        (
-          treePayload as {
-            data?: {
-              categories?: Array<{ name?: string; items?: Array<Record<string, unknown>> }>;
-            };
-          }
-        )?.data ??
-        (treePayload as {
-          categories?: Array<{ name?: string; items?: Array<Record<string, unknown>> }>;
-        });
-      for (const cat of tree?.categories ?? []) {
-        for (const treeItem of cat?.items ?? []) {
-          const id = String(
-            treeItem.id ?? treeItem.menu_item_id ?? treeItem.item_override_id ?? '',
-          ).trim();
-          const name = String(treeItem.name ?? treeItem.item_name ?? '')
-            .trim()
-            .toLowerCase();
-          if ((id && !seenIds.has(id)) || (name && !seenNames.has(name))) {
-            if (id) seenIds.add(id);
-            if (name) seenNames.add(name);
-            allOverrides.push({
-              ...treeItem,
-              category_name: treeItem.category_name ?? cat.name,
-            });
-          }
-        }
-      }
-    } catch {
-      // Continue
+    for (const treeItem of treeItems) {
+      const id = toSafeString(treeItem.id ?? treeItem.menu_item_id ?? treeItem.item_override_id);
+      const name = toSafeString(treeItem.name ?? treeItem.item_name).toLowerCase();
+      addDeduplicated(treeItem, allOverrides, seenIds, seenNames, id, name);
     }
   }
 
-  // 2. Fetch master restaurant catalog items (/restaurant/items) to ensure catalog items like Mojito are in Dine-In
+  // 2. Fetch master restaurant catalog items (/restaurant/menu/items) to ensure catalog items like Mojito are in Dine-In
   try {
     const catalogPayload = await apiFetch<unknown>(apiPaths.restaurant.menuItems, {
       ...withAuth(token),
@@ -169,12 +205,10 @@ export async function listBranchMenuItems(
       ) {
         continue;
       }
-      const id = String(master.id ?? '').trim();
-      const name = String(master.name ?? '')
-        .trim()
-        .toLowerCase();
+      const id = toSafeString(master.id);
+      const name = toSafeString(master.name).toLowerCase();
       if (id && !seenIds.has(id) && (!name || !seenNames.has(name))) {
-        if (id) seenIds.add(id);
+        seenIds.add(id);
         if (name) seenNames.add(name);
         allOverrides.push(master);
       }

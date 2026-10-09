@@ -33,8 +33,8 @@ export type {
 export * from './hooks/use-branch-menu-item-queries';
 export * from './api/branch-menu-items-client';
 export type {
-  BranchMenuItemResponse,
-  BranchMenuItemUpdateRequest,
+  BranchMenuItemOverrideApi,
+  UpdateBranchMenuItemOverrideApiRequest,
   BranchMenuItemVariantResponse,
   BranchMenuItemVariantUpdateRequest,
   BranchMenuItemVariantSummary,

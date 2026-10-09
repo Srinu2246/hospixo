@@ -1,6 +1,6 @@
 import type { MenuScope } from './menu-store';
 import type { MenuPageConfig } from '../config/menu-page-config';
-import type { DietaryType, MenuItem, OrderType } from '../types/menu';
+import type { DietaryType, MenuItem, MenuItemStatus, OrderType } from '../types/menu';
 
 export type MenuScopeSelection = Readonly<{
   scope: MenuScope;
@@ -113,7 +113,7 @@ const BRANCH_ITEM_OVERRIDES_KEY_PREFIX = 'hospixo_branch_item_overrides_';
 
 export type LocalBranchItemOverride = {
   basePrice?: number;
-  status?: MenuItem['status'] | 'Hidden' | '86d' | 'available' | 'hidden';
+  status?: MenuItemStatus | '86d' | 'available' | 'hidden';
   isAvailable?: boolean;
   orderTypes?: OrderType[];
   dietary?: DietaryType;
@@ -144,7 +144,7 @@ export function saveBranchItemOverride(
   try {
     const current = getBranchItemOverrides(branchId);
     current[String(itemId)] = {
-      ...(current[String(itemId)] ?? {}),
+      ...current[String(itemId)],
       ...override,
     };
     window.localStorage.setItem(

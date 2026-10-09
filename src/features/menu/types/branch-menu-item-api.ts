@@ -1,7 +1,5 @@
 import type { MenuItemApi } from '@/features/menu/types/menu-item-api';
 
-export type BranchMenuItemOverrideId = string;
-
 export type BranchMenuItemOverrideStatus = 'active' | 'inactive';
 
 export type BranchMenuItemOverrideMenuItemApi = Pick<
@@ -19,7 +17,7 @@ export type BranchMenuItemOverrideApi = Readonly<{
   allow_takeaway?: boolean;
   allow_delivery?: boolean;
   display_order?: number;
-  status?: BranchMenuItemOverrideStatus | string;
+  status?: string;
   is_active?: boolean;
   menu_item?: BranchMenuItemOverrideMenuItemApi;
   created_at?: string;
@@ -42,9 +40,6 @@ export type UpdateBranchMenuItemOverrideApiRequest = Readonly<{
   status?: BranchMenuItemOverrideStatus | null;
 }>;
 
-export type BranchMenuItemResponse = BranchMenuItemOverrideApi;
-export type BranchMenuItemUpdateRequest = UpdateBranchMenuItemOverrideApiRequest;
-
 export type PagedItemsResponse<T> = Readonly<{
   items: T[];
   total?: number;
@@ -61,7 +56,7 @@ export type BranchMenuItemVariantSummary = Readonly<{
   sku?: string | null;
   price_adjustment: string;
   is_default: boolean;
-  status: BranchMenuItemOverrideStatus | string;
+  status: string;
 }>;
 
 export type BranchMenuItemVariantResponse = Readonly<{
@@ -77,7 +72,7 @@ export type BranchMenuItemVariantResponse = Readonly<{
   effective_final_price?: string;
   is_available: boolean;
   display_order: number;
-  status: BranchMenuItemOverrideStatus | string;
+  status: string;
   variant?: BranchMenuItemVariantSummary;
   created_at?: string | null;
   updated_at?: string | null;
@@ -103,9 +98,9 @@ export type BranchMenuItemModifierOptionSummary = Readonly<{
   name: string;
   modifier_group_id: number;
   price_delta: number;
-  status: BranchMenuItemOverrideStatus | string;
+  status: string;
   group_name?: string | null;
-  group_status?: BranchMenuItemOverrideStatus | string | null;
+  group_status?: string | null;
 }>;
 
 export type BranchMenuItemModifierOptionResponse = Readonly<{
@@ -119,7 +114,7 @@ export type BranchMenuItemModifierOptionResponse = Readonly<{
   effective_price_delta?: number;
   is_available: boolean;
   display_order: number;
-  status: BranchMenuItemOverrideStatus | string;
+  status: string;
   option?: BranchMenuItemModifierOptionSummary;
   created_at?: string | null;
   updated_at?: string | null;

@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 
 import { flowPaths } from '@/config/shell/flow-paths';
-import { routes } from '@/config/routes';
 
 const branch = flowPaths.branch;
 

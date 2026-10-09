@@ -55,12 +55,10 @@ export async function loadCompanyGstRatesForToken(token: string): Promise<GstRat
     .filter((rate): rate is GstRateApi => rate != null);
 }
 
-/** Build a backend-safe create payload using live category + GST catalog data. */
-export async function buildCreateMenuItemApiPayload(
+async function validateCategoryAndCode(
   token: string,
   input: CreateMenuItemInput,
-  tagDefinitions: readonly MenuItemTag[] = [],
-): Promise<CreateMenuItemApiRequest> {
+): Promise<{ categoryId: number; code: string }> {
   const categoryId = Number(input.categoryId);
   if (!Number.isFinite(categoryId) || categoryId <= 0) {
     throw new MenuItemCreateValidationError('Select a valid category before saving.');
@@ -79,7 +77,13 @@ export async function buildCreateMenuItemApiPayload(
       404,
     );
   }
+  return { categoryId, code };
+}
 
+async function resolveAndValidateGstRate(
+  token: string,
+  input: CreateMenuItemInput,
+): Promise<number> {
   const gstRates = await loadCompanyGstRatesForToken(token);
   const gstRateIdFromInput = coerceGstRateId(input.gstRateId);
   const gstRateId =
@@ -99,6 +103,17 @@ export async function buildCreateMenuItemApiPayload(
       'Selected GST rate is not active. Refresh the page and choose a GST rate again.',
     );
   }
+  return resolvedRateId;
+}
+
+/** Build a backend-safe create payload using live category + GST catalog data. */
+export async function buildCreateMenuItemApiPayload(
+  token: string,
+  input: CreateMenuItemInput,
+  tagDefinitions: readonly MenuItemTag[] = [],
+): Promise<CreateMenuItemApiRequest> {
+  const { categoryId, code } = await validateCategoryAndCode(token, input);
+  const resolvedRateId = await resolveAndValidateGstRate(token, input);
 
   const basePrice = Number(input.basePrice);
   if (!Number.isFinite(basePrice) || basePrice < 0) {

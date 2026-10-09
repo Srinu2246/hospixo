@@ -23,9 +23,7 @@ function unwrapBranchMenuItemOverrideApi(
   return raw as BranchMenuItemOverrideApi;
 }
 
-export function unwrapBranchMenuItemOverrideList(
-  data: BranchMenuItemOverrideApi[] | { items: BranchMenuItemOverrideApi[] } | unknown,
-): BranchMenuItemOverrideApi[] {
+export function unwrapBranchMenuItemOverrideList(data: unknown): BranchMenuItemOverrideApi[] {
   if (Array.isArray(data)) return data;
   if (data && typeof data === 'object' && Array.isArray((data as { items: unknown[] }).items)) {
     return (data as { items: BranchMenuItemOverrideApi[] }).items;
@@ -33,9 +31,7 @@ export function unwrapBranchMenuItemOverrideList(
   return [];
 }
 
-export function unwrapBranchMenuItemVariantList(
-  data: BranchMenuItemVariantResponse[] | { items: BranchMenuItemVariantResponse[] } | unknown,
-): BranchMenuItemVariantResponse[] {
+export function unwrapBranchMenuItemVariantList(data: unknown): BranchMenuItemVariantResponse[] {
   if (Array.isArray(data)) return data;
   if (data && typeof data === 'object' && Array.isArray((data as { items: unknown[] }).items)) {
     return (data as { items: BranchMenuItemVariantResponse[] }).items;
@@ -44,10 +40,7 @@ export function unwrapBranchMenuItemVariantList(
 }
 
 export function unwrapBranchMenuItemModifierList(
-  data:
-    | BranchMenuItemModifierOptionResponse[]
-    | { items: BranchMenuItemModifierOptionResponse[] }
-    | unknown,
+  data: unknown,
 ): BranchMenuItemModifierOptionResponse[] {
   if (Array.isArray(data)) return data;
   if (data && typeof data === 'object' && Array.isArray((data as { items: unknown[] }).items)) {
@@ -81,7 +74,7 @@ export function mapAllowFlagsToOrderTypes(
 
 export function toUpdateBranchMenuItemOverridePayload(
   updates: Partial<CreateMenuItemInput> & {
-    status?: MenuItem['status'] | string;
+    status?: string;
     is_available?: boolean;
     selling_price?: number;
     sellingPrice?: number;

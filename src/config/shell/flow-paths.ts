@@ -38,7 +38,6 @@ export const flowPaths = {
     menuAvailability: `${branch}/menu-availability`,
     menuManagement: `${branch}/menu-management`,
     menu: `${branch}/menu`,
-    menuFields: `${branch}/menu-fields`,
     floorTableSetup: `${branch}/floor-table-setup`,
     cashShift: `${branch}/cash-shift`,
     duePayments: `${branch}/due-payments`,

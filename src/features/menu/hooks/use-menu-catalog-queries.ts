@@ -11,7 +11,7 @@ import {
   fetchMenuItems,
 } from '@/lib/menu-cache';
 import type { MenuPageConfig } from '../config/menu-page-config';
-import type { MenuItem } from '../types/menu';
+import type { MenuCategory, MenuItem } from '../types/menu';
 import { tenancyContent } from '@/config/auth/tenancy';
 import type { CompanyMenuCreationInitialData } from '../context/menu-context';
 import { enrichMenuItemsWithCatalog } from '../lib/enrich-menu-catalog-items';
@@ -20,6 +20,7 @@ import {
   getBranchItemOverrides,
   matchesBranchScopeFilter,
   requiresBranchMenuItemOverride,
+  type LocalBranchItemOverride,
 } from '../lib/menu-scope';
 import {
   menuCategoriesQueryKey,
@@ -45,6 +46,92 @@ type UseMenuCatalogQueriesOptions = Readonly<{
 function sanitizeBootstrapError(err: string | null | undefined): string | null {
   if (!err || err === tenancyContent.branchRequiredForFloors) return null;
   return err;
+}
+
+function toSafeStr(val: unknown): string {
+  if (typeof val === 'string' || typeof val === 'number') {
+    return String(val).trim();
+  }
+  return '';
+}
+
+function filterBranchCategories(list: readonly MenuCategory[], branchId: string): MenuCategory[] {
+  const branchDeactivated = getBranchDeactivatedCategoryIds(branchId);
+  return list
+    .filter((category) => matchesBranchScopeFilter(category, branchId))
+    .map((category) => {
+      if (branchDeactivated.has(category.id)) {
+        return { ...category, status: 'Inactive' as const };
+      }
+      return category;
+    });
+}
+
+function resolveEffectiveStatus(local: LocalBranchItemOverride): MenuItem['status'] | undefined {
+  if (local.isAvailable !== undefined) {
+    return local.isAvailable ? 'Available' : 'Out of Stock';
+  }
+  if (!local.status) return undefined;
+  const s = String(local.status).toLowerCase();
+  if (s === 'available') return 'Available';
+  if (s === 'out of stock' || s === '86d' || s === 'hidden') return 'Out of Stock';
+  return undefined;
+}
+
+function matchesBranchOverride(item: MenuItem, ov: unknown): boolean {
+  if (!ov || typeof ov !== 'object') return false;
+  const rawOv = ov as Record<string, unknown>;
+  const ovMenuItemId = toSafeStr(rawOv.menu_item_id);
+  const ovId = toSafeStr(rawOv.id);
+  const nested =
+    rawOv.menu_item && typeof rawOv.menu_item === 'object'
+      ? (rawOv.menu_item as Record<string, unknown>)
+      : null;
+  const nestedId = nested ? toSafeStr(nested.id) : '';
+  const targetId = String(item.id).trim();
+
+  if (targetId && (ovMenuItemId === targetId || ovId === targetId || nestedId === targetId)) {
+    return true;
+  }
+
+  const ovName = toSafeStr(rawOv.name ?? nested?.name).toLowerCase();
+  const ovCode = toSafeStr(rawOv.code ?? nested?.code).toLowerCase();
+  if (item.code && ovCode && ovCode === item.code.trim().toLowerCase()) return true;
+  if (item.name && ovName && ovName === item.name.trim().toLowerCase()) return true;
+  return false;
+}
+
+function applyLocalAndRemoteOverrides(
+  item: MenuItem,
+  branchId: string,
+  overrides: readonly unknown[],
+  localOverrides: Record<string, LocalBranchItemOverride>,
+): MenuItem {
+  const local =
+    localOverrides[String(item.id)] ?? (item.code ? localOverrides[String(item.code)] : undefined);
+  let currentItem = item;
+
+  if (requiresBranchMenuItemOverride(item, branchId)) {
+    const match = overrides.find((ov) => matchesBranchOverride(item, ov));
+    if (match) {
+      currentItem = applyBranchMenuItemOverrideToMenuItem(
+        item,
+        match as Parameters<typeof applyBranchMenuItemOverrideToMenuItem>[1],
+      );
+    }
+  }
+
+  if (local) {
+    const resolvedStatus = resolveEffectiveStatus(local);
+    return {
+      ...currentItem,
+      ...(local.basePrice !== undefined ? { basePrice: local.basePrice } : {}),
+      ...(resolvedStatus !== undefined ? { status: resolvedStatus } : {}),
+      ...(local.orderTypes !== undefined ? { orderTypes: local.orderTypes } : {}),
+      ...(local.dietary !== undefined ? { dietary: local.dietary } : {}),
+    };
+  }
+  return currentItem;
 }
 
 export function useMenuCatalogQueries(options: UseMenuCatalogQueriesOptions) {
@@ -121,15 +208,7 @@ export function useMenuCatalogQueries(options: UseMenuCatalogQueriesOptions) {
   const categories = useMemo(() => {
     const list = categoriesQuery.data ?? [];
     if (scope === 'branch' && branchIdForScope) {
-      const branchDeactivated = getBranchDeactivatedCategoryIds(branchIdForScope);
-      return list
-        .filter((category) => matchesBranchScopeFilter(category, branchIdForScope))
-        .map((category) => {
-          if (branchDeactivated.has(category.id)) {
-            return { ...category, status: 'Inactive' as const };
-          }
-          return category;
-        });
+      return filterBranchCategories(list, branchIdForScope);
     }
     return [...list];
   }, [branchIdForScope, categoriesQuery.data, scope]);
@@ -144,62 +223,9 @@ export function useMenuCatalogQueries(options: UseMenuCatalogQueriesOptions) {
       );
       const overrides = branchOverridesQuery.data ?? [];
       const localOverrides = getBranchItemOverrides(branchIdForScope);
-      return scopedItems.map((item) => {
-        const local =
-          localOverrides[String(item.id)] ??
-          (item.code ? localOverrides[String(item.code)] : undefined);
-        let currentItem = item;
-        if (requiresBranchMenuItemOverride(item, branchIdForScope)) {
-          const match = overrides.find((ov) => {
-            const rawOv = ov as Record<string, unknown>;
-            const ovMenuItemId = String(ov.menu_item_id ?? '').trim();
-            const ovId = String(ov.id ?? '').trim();
-            const nestedId =
-              rawOv.menu_item && typeof rawOv.menu_item === 'object'
-                ? String((rawOv.menu_item as { id?: unknown }).id ?? '').trim()
-                : '';
-            const targetId = String(item.id).trim();
-            if (ovMenuItemId === targetId || ovId === targetId || nestedId === targetId)
-              return true;
-            const ovName = String(rawOv.name ?? (rawOv.menu_item as { name?: string })?.name ?? '')
-              .trim()
-              .toLowerCase();
-            const ovCode = String(rawOv.code ?? (rawOv.menu_item as { code?: string })?.code ?? '')
-              .trim()
-              .toLowerCase();
-            if (item.code && ovCode && ovCode === item.code.trim().toLowerCase()) return true;
-            if (item.name && ovName && ovName === item.name.trim().toLowerCase()) return true;
-            return false;
-          });
-          if (match) {
-            currentItem = applyBranchMenuItemOverrideToMenuItem(item, match);
-          }
-        }
-        if (local) {
-          const resolvedStatus: MenuItem['status'] | undefined =
-            local.isAvailable !== undefined
-              ? local.isAvailable
-                ? 'Available'
-                : 'Out of Stock'
-              : local.status === 'Available' || local.status === 'available'
-                ? 'Available'
-                : local.status === 'Out of Stock' ||
-                    local.status === '86d' ||
-                    local.status === 'Hidden' ||
-                    local.status === 'hidden'
-                  ? 'Out of Stock'
-                  : undefined;
-
-          return {
-            ...currentItem,
-            ...(local.basePrice !== undefined ? { basePrice: local.basePrice } : {}),
-            ...(resolvedStatus !== undefined ? { status: resolvedStatus } : {}),
-            ...(local.orderTypes !== undefined ? { orderTypes: local.orderTypes } : {}),
-            ...(local.dietary !== undefined ? { dietary: local.dietary } : {}),
-          };
-        }
-        return currentItem;
-      });
+      return scopedItems.map((item) =>
+        applyLocalAndRemoteOverrides(item, branchIdForScope, overrides, localOverrides),
+      );
     }
     return enriched;
   }, [

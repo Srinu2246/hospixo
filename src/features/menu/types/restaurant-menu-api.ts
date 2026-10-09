@@ -1,5 +1,3 @@
-export type RestaurantMenuId = string;
-
 export type RestaurantMenuApiStatus = 'active' | 'inactive';
 
 export type RestaurantMenuTypeApi = 'all' | 'dine_in' | 'takeaway' | 'delivery' | 'online';
@@ -45,8 +43,6 @@ export type ListRestaurantMenusApiQuery = Readonly<{
   status?: RestaurantMenuApiStatus;
   menu_type?: RestaurantMenuTypeApi;
 }>;
-
-export type MenuCategoryAssignmentId = string;
 
 export type MenuCategoryAssignmentApiStatus = 'active' | 'inactive';
 

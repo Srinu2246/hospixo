@@ -21,7 +21,7 @@ async function fetchBranchMenus(branchId: string | number): Promise<BranchMenuAs
   );
   const raw = unwrapBffData<unknown>(res);
   const list = unwrapBranchMenuAssignmentList(raw);
-  if (list.length > 0 && typeof (list[0] as Record<string, unknown>).branch_id !== 'undefined') {
+  if (list.length > 0 && (list[0] as Record<string, unknown>).branch_id !== undefined) {
     return mapBranchMenuAssignmentsApi(list as BranchMenuAssignmentApi[]);
   }
   return Array.isArray(raw)

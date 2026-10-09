@@ -114,10 +114,10 @@ function assignedCategoryIds(tree: MenuTree | null): Set<string> {
 export function MenusProvider({
   children,
   initialData,
-}: {
+}: Readonly<{
   children: ReactNode;
   initialData?: CompanyMenusPageData;
-}) {
+}>) {
   const queryClient = useQueryClient();
   const { scope: menusScope } = useMenusRoutes();
   const { user } = useAuth();

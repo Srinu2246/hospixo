@@ -24,7 +24,12 @@ function pickCompanyDineInRestaurantMenu(menus: readonly RestaurantMenu[]): Rest
   const companyScoped = active.filter(
     (menu) => menu.scope === 'company' || menu.scope === 'both' || menu.scope == null,
   );
-  const pool = companyScoped.length > 0 ? companyScoped : active.length > 0 ? active : menus;
+  let pool = menus;
+  if (companyScoped.length > 0) {
+    pool = companyScoped;
+  } else if (active.length > 0) {
+    pool = active;
+  }
 
   const dineIn = pool.filter((menu) => {
     const type = normalizeMenuType(menu.menuType);

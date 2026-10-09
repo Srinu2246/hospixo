@@ -8,11 +8,13 @@ import {
   type UpdateMenuItemAvailabilityPayload,
 } from '../api/branch-menu-availability-api';
 
-export const branchMenuAvailabilityQueryKey = (branchId: string | number | null | undefined) =>
+export type BranchAvailabilityScopeId = string | number | null | undefined;
+
+export const branchMenuAvailabilityQueryKey = (branchId: BranchAvailabilityScopeId) =>
   ['branch-menu-availability', String(branchId ?? 'unknown')] as const;
 
 export function useBranchMenuAvailabilityQuery(
-  branchId: string | number | null | undefined,
+  branchId: BranchAvailabilityScopeId,
   enabled = true,
 ) {
   return useQuery({
@@ -25,9 +27,7 @@ export function useBranchMenuAvailabilityQuery(
   });
 }
 
-export function useUpdateBranchMenuItemAvailabilityMutation(
-  branchId: string | number | null | undefined,
-) {
+export function useUpdateBranchMenuItemAvailabilityMutation(branchId: BranchAvailabilityScopeId) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -50,8 +50,8 @@ export function useUpdateBranchMenuItemAvailabilityMutation(
 }
 
 export function useBatchUpdateBranchMenuAvailabilityMutation(
-  branchId: string | number | null | undefined,
-  assignmentId: string | number | null | undefined,
+  branchId: BranchAvailabilityScopeId,
+  assignmentId: BranchAvailabilityScopeId,
 ) {
   const queryClient = useQueryClient();
 

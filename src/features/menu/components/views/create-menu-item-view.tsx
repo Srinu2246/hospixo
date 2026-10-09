@@ -79,6 +79,85 @@ const dietaryOptions: {
 const orderTypeOptions: OrderType[] = ['Delivery', 'Take Away', 'Dine In'];
 const exposeChannelOptions: ExposeChannel[] = ['Captain App', 'Online order', 'Kiosk', 'Other'];
 
+function resolveInitialGstRate(
+  ratesList: readonly GstRate[],
+  editingGst?: string,
+): { rateId: string; gst: string } | null {
+  if (ratesList.length === 0 || !editingGst) return null;
+  const cleanGst = editingGst.replace('%', '').trim();
+  const match = ratesList.find(
+    (rate) => resolveGstDisplayValue(rate).replace('%', '').trim() === cleanGst,
+  );
+  if (match) {
+    return { rateId: match.id, gst: resolveGstDisplayValue(match) };
+  }
+  return null;
+}
+
+function validateImageFile(
+  file: File,
+  currentTotal: number,
+): { valid: boolean; error?: string; uploadError?: { fileName: string; fileSizeMb: string } } {
+  if (currentTotal >= 3) {
+    return { valid: false, error: 'You can upload up to 3 images.' };
+  }
+  const maxBytes = 10 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    const mbSize = (file.size / (1024 * 1024)).toFixed(1);
+    return { valid: false, uploadError: { fileName: file.name, fileSizeMb: mbSize } };
+  }
+  return { valid: true };
+}
+
+function buildSubmitItemPayload(params: {
+  effectiveCategoryId: string;
+  scope?: 'company' | 'branch';
+  assignBranchId: string | null;
+  name: string;
+  onlineDisplayName: string;
+  submitCode: string;
+  basePrice: string;
+  profitMargin: string;
+  gst: string;
+  gstRateId?: string;
+  description: string;
+  dietary: DietaryType;
+  orderTypes: OrderType[];
+  exposeIn: ExposeChannel[];
+  selectedTagIds: string[];
+  selectedTags: string[];
+  selectedPreparationStations: MenuItemPreparationStation[];
+  selectedModifierGroups: MenuItemModifierGroup[];
+  modifiers: ItemModifier[];
+  images: ItemImage[];
+  isCompanyScope: boolean;
+}) {
+  return {
+    categoryId: params.effectiveCategoryId,
+    scope: (params.isCompanyScope ? params.scope : 'branch') as 'company' | 'branch' | undefined,
+    assignBranchId:
+      params.isCompanyScope && params.scope === 'branch' ? params.assignBranchId : null,
+    name: params.name.trim(),
+    onlineDisplayName: params.onlineDisplayName.trim() || params.name.trim(),
+    code: params.submitCode,
+    basePrice: Number(params.basePrice),
+    profitMargin: params.profitMargin,
+    gst: params.gst,
+    gstRateId: params.isCompanyScope ? params.gstRateId : undefined,
+    description: params.description.trim() || undefined,
+    dietary: params.dietary,
+    orderTypes: params.orderTypes,
+    exposeIn: params.exposeIn,
+    tagIds: params.selectedTagIds,
+    tags: params.selectedTags,
+    preparationStations: params.selectedPreparationStations,
+    modifierGroups: params.isCompanyScope ? params.selectedModifierGroups : undefined,
+    modifiers: params.isCompanyScope ? undefined : params.modifiers,
+    image: getPrimaryMenuItemImageUrl(params.images),
+    images: params.images,
+  };
+}
+
 export function CreateMenuItemView() {
   const {
     pageConfig,
@@ -229,17 +308,10 @@ export function CreateMenuItemView() {
         setGstRates(ratesList);
         if (ratesList.length === 0) return;
 
-        const matchByPercent = editingItem?.gst
-          ? ratesList.find(
-              (rate) =>
-                resolveGstDisplayValue(rate).replace('%', '') ===
-                editingItem.gst?.replace('%', '').trim(),
-            )
-          : null;
-
-        if (matchByPercent) {
-          setGstRateId(matchByPercent.id);
-          setGst(resolveGstDisplayValue(matchByPercent));
+        const match = resolveInitialGstRate(ratesList, editingItem?.gst);
+        if (match) {
+          setGstRateId(match.rateId);
+          setGst(match.gst);
           return;
         }
 
@@ -559,22 +631,18 @@ export function CreateMenuItemView() {
   async function handleFilesSelected(files: FileList | File[]) {
     if (!files || files.length === 0) return;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    const fileArray = Array.from(files);
+    let currentCount = images.length;
+    const toUpload: Array<{ file: File; localId: string; optimisticImage: ItemImage }> = [];
+
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
       if (!file) continue;
 
-      if (images.length >= 3) {
-        setImagesError('You can upload up to 3 images.');
-        return;
-      }
-
-      const maxBytes = 10 * 1024 * 1024;
-      if (file.size > maxBytes) {
-        const mbSize = (file.size / (1024 * 1024)).toFixed(1);
-        setUploadError({
-          fileName: file.name,
-          fileSizeMb: mbSize,
-        });
+      const check = validateImageFile(file, currentCount);
+      if (!check.valid) {
+        if (check.error) setImagesError(check.error);
+        if (check.uploadError) setUploadError(check.uploadError);
         return;
       }
 
@@ -588,37 +656,50 @@ export function CreateMenuItemView() {
         url: previewUrl,
         previewUrl,
         mimeType: file.type,
-        isPrimary: images.length === 0 && i === 0,
+        isPrimary: currentCount === 0,
         status: 'Active',
       };
 
-      if (editingItem && isPersistedMenuItemId(editingItem.id)) {
-        setImages((prev) => [...prev, optimisticImage]);
-        // NOSONAR: sequential upload to preserve file order and track per-file progress
-        const result = await uploadMenuItemImage(editingItem.id, file, {
-          sortOrder: images.length + i,
-          isPrimary: images.length === 0 && i === 0,
-        });
-        if (result.ok && result.data) {
-          setImages((prev) => prev.map((img) => (img.id === localId ? result.data! : img)));
-          if (result.message) {
-            setImagesError(result.message);
-          }
-        } else {
-          setImagesError(result.message ?? 'Failed to upload image.');
-        }
-        continue;
-      }
-
-      setPendingImageFiles((prev) => ({ ...prev, [localId]: file }));
-      setImages((prev) => [
-        ...prev,
-        {
-          ...optimisticImage,
-          isPrimary: prev.length === 0,
-        },
-      ]);
+      currentCount++;
+      toUpload.push({ file, localId, optimisticImage });
     }
+
+    if (editingItem && isPersistedMenuItemId(editingItem.id)) {
+      setImages((prev) => [...prev, ...toUpload.map((u) => u.optimisticImage)]);
+      const initialSort = images.length;
+      await Promise.all(
+        toUpload.map(async ({ file, localId }, idx) => {
+          const result = await uploadMenuItemImage(editingItem.id, file, {
+            sortOrder: initialSort + idx,
+            isPrimary: initialSort === 0 && idx === 0,
+          });
+          if (result.ok && result.data) {
+            setImages((prev) => prev.map((img) => (img.id === localId ? result.data! : img)));
+            if (result.message) {
+              setImagesError(result.message);
+            }
+          } else {
+            setImagesError(result.message ?? 'Failed to upload image.');
+          }
+        }),
+      );
+      return;
+    }
+
+    setPendingImageFiles((prev) => {
+      const next = { ...prev };
+      for (const { localId, file } of toUpload) {
+        next[localId] = file;
+      }
+      return next;
+    });
+    setImages((prev) => [
+      ...prev,
+      ...toUpload.map((u, idx) => ({
+        ...u.optimisticImage,
+        isPrimary: prev.length === 0 && idx === 0,
+      })),
+    ]);
   }
 
   function onFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -772,39 +853,34 @@ export function CreateMenuItemView() {
       .map((id) => availableTags.find((tag) => tag.id === id)?.name ?? id)
       .filter(Boolean);
 
-    const selectedGstRate =
-      pageConfig?.scope === 'company' ? gstRates.find((rate) => rate.id === gstRateId) : undefined;
-    let resolvedGst = gst;
-    if (pageConfig?.scope === 'company' && selectedGstRate) {
-      resolvedGst = resolveGstDisplayValue(selectedGstRate);
-    }
+    const isCompany = pageConfig?.scope === 'company';
+    const selectedGstRate = isCompany ? gstRates.find((rate) => rate.id === gstRateId) : undefined;
+    const resolvedGst =
+      isCompany && selectedGstRate ? resolveGstDisplayValue(selectedGstRate) : gst;
 
-    const itemPayload = {
-      categoryId: effectiveCategoryId,
-      scope: pageConfig?.scope === 'company' ? scopeSelection.scope : 'branch',
-      assignBranchId:
-        pageConfig?.scope === 'company' && scopeSelection.scope === 'branch'
-          ? scopeSelection.assignBranchId
-          : null,
-      name: name.trim(),
-      onlineDisplayName: onlineDisplayName.trim() || name.trim(),
-      code: submitCode,
-      basePrice: Number(basePrice),
+    const itemPayload = buildSubmitItemPayload({
+      effectiveCategoryId,
+      scope: scopeSelection.scope,
+      assignBranchId: scopeSelection.assignBranchId,
+      name,
+      onlineDisplayName,
+      submitCode,
+      basePrice,
       profitMargin,
       gst: resolvedGst,
-      gstRateId: pageConfig?.scope === 'company' ? gstRateId : undefined,
-      description: description.trim() || undefined,
+      gstRateId,
+      description,
       dietary,
       orderTypes,
       exposeIn,
-      tagIds: selectedTagIds,
-      tags: selectedTags,
-      preparationStations: selectedPreparationStations,
-      modifierGroups: pageConfig?.scope === 'company' ? selectedModifierGroups : undefined,
-      modifiers: pageConfig?.scope === 'company' ? undefined : modifiers,
-      image: getPrimaryMenuItemImageUrl(images),
+      selectedTagIds,
+      selectedTags,
+      selectedPreparationStations,
+      selectedModifierGroups,
+      modifiers,
       images,
-    };
+      isCompanyScope: isCompany,
+    });
 
     setIsSubmitting(true);
     try {
