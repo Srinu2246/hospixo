@@ -33,6 +33,42 @@ import type { ExposeChannel, OrderType } from '../../types/menu';
 const allOrderTypes: OrderType[] = ['Delivery', 'Take Away', 'Dine In'];
 const allExposeChannels: ExposeChannel[] = ['Captain App', 'Online order', 'Kiosk', 'Other'];
 
+function getDietaryChipProps(dietary: string | undefined) {
+  if (dietary === 'Veg') {
+    return {
+      label: '● Veg',
+      bgcolor: 'rgba(46, 125, 50, 0.08)',
+      color: 'success.main',
+    };
+  }
+  if (dietary === 'Non-Veg') {
+    return {
+      label: '● Non-Veg',
+      bgcolor: 'rgba(211, 47, 47, 0.08)',
+      color: 'error.main',
+    };
+  }
+  if (dietary === 'Egg') {
+    return {
+      label: '● Egg',
+      bgcolor: 'rgba(237, 108, 2, 0.08)',
+      color: 'warning.main',
+    };
+  }
+  if (dietary === 'Vegan') {
+    return {
+      label: '● Vegan',
+      bgcolor: 'rgba(46, 125, 50, 0.08)',
+      color: 'success.main',
+    };
+  }
+  return {
+    label: `● ${dietary ?? 'Veg'}`,
+    bgcolor: 'rgba(46, 125, 50, 0.08)',
+    color: 'success.main',
+  };
+}
+
 export function ViewItemDetail() {
   const {
     pageConfig,
@@ -234,15 +270,12 @@ export function ViewItemDetail() {
             }}
           />
           <Chip
-            label={selectedItem.dietary === 'Veg' ? '● Veg' : '● Non-Veg'}
+            label={getDietaryChipProps(selectedItem.dietary).label}
             size="small"
             sx={{
               fontWeight: 600,
-              bgcolor:
-                selectedItem.dietary === 'Veg'
-                  ? 'rgba(46, 125, 50, 0.08)'
-                  : 'rgba(211, 47, 47, 0.08)',
-              color: selectedItem.dietary === 'Veg' ? 'success.main' : 'error.main',
+              bgcolor: getDietaryChipProps(selectedItem.dietary).bgcolor,
+              color: getDietaryChipProps(selectedItem.dietary).color,
             }}
           />
         </Box>
@@ -466,15 +499,12 @@ export function ViewItemDetail() {
               Dietary Type
             </Typography>
             <Chip
-              label={selectedItem.dietary === 'Veg' ? '● Veg' : '● Non-Veg'}
+              label={getDietaryChipProps(selectedItem.dietary).label}
               size="small"
               sx={{
                 fontWeight: 600,
-                bgcolor:
-                  selectedItem.dietary === 'Veg'
-                    ? 'rgba(46, 125, 50, 0.08)'
-                    : 'rgba(211, 47, 47, 0.08)',
-                color: selectedItem.dietary === 'Veg' ? 'success.main' : 'error.main',
+                bgcolor: getDietaryChipProps(selectedItem.dietary).bgcolor,
+                color: getDietaryChipProps(selectedItem.dietary).color,
               }}
             />
           </Box>

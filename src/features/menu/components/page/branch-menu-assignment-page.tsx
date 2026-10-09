@@ -90,6 +90,8 @@ export function BranchMenuAssignmentPage() {
       ? syncMutation.error.message
       : null);
 
+  const menuCreationHref = flowPaths.company.menuCreation;
+
   return (
     <Box sx={{ width: '100%' }}>
       <Breadcrumbs separator={<ChevronRight size={14} />} sx={{ mb: 2 }} aria-label="Breadcrumb">
@@ -128,7 +130,7 @@ export function BranchMenuAssignmentPage() {
         </Box>
         <Button
           component={Link}
-          href={flowPaths.company.menuCreation}
+          href={menuCreationHref}
           variant="outlined"
           startIcon={<Store size={16} />}
           sx={{ textTransform: 'none' }}

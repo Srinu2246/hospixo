@@ -12,21 +12,21 @@ import { resolveFavoriteAndComboFlags, resolveTagIds } from './menu-item-tags-ma
 import { resolveMenuScopePayload } from '../lib/menu-scope';
 import { formatGstPercent, toMenuItemTaxesFromGst } from './menu-gst-map';
 
-const DIETARY_TO_API: Record<DietaryType, MenuItemDietaryTypeApi> = {
-  Veg: 'veg',
-  'Non-Veg': 'non_veg',
-  Egg: 'egg',
-  Vegan: 'veg',
-};
+export function fromApiDietaryType(dietary?: string | null): DietaryType {
+  if (!dietary) return 'Veg';
+  const norm = dietary.trim().toLowerCase().replace(/[-_ ]/g, '');
+  if (norm === 'nonveg') return 'Non-Veg';
+  if (norm === 'egg') return 'Egg';
+  if (norm === 'vegan') return 'Vegan';
+  return 'Veg';
+}
 
-const DIETARY_FROM_API: Record<MenuItemDietaryTypeApi, DietaryType> = {
-  veg: 'Veg',
-  non_veg: 'Non-Veg',
-  egg: 'Egg',
-};
-
-export function toApiDietaryType(dietary: DietaryType): MenuItemDietaryTypeApi {
-  return DIETARY_TO_API[dietary];
+export function toApiDietaryType(dietary?: DietaryType | string | null): MenuItemDietaryTypeApi {
+  if (!dietary) return 'veg';
+  const norm = dietary.trim().toLowerCase().replace(/[-_ ]/g, '');
+  if (norm === 'nonveg') return 'non_veg';
+  if (norm === 'egg') return 'egg';
+  return 'veg';
 }
 
 const GST_PERCENT_BY_RATE_ID: Readonly<Record<number, number>> = {
@@ -151,7 +151,7 @@ export function mapMenuItemApi(
     code: item.code,
     basePrice: item.base_price,
     profitMargin: `${item.profit_margin_percent ?? 10}%`,
-    dietary: DIETARY_FROM_API[item.dietary_type] ?? 'Veg',
+    dietary: fromApiDietaryType(item.dietary_type),
     orderTypes,
     exposeIn,
     tagIds,
@@ -321,6 +321,7 @@ export function enrichMenuItemFromInput(
     ...item,
     categoryName,
     onlineDisplayName: input.onlineDisplayName?.trim() || input.name.trim(),
+    dietary: input.dietary ? fromApiDietaryType(input.dietary) : item.dietary,
     profitMargin: input.profitMargin?.trim() || item.profitMargin,
     gst: input.gst?.trim(),
     tags: input.tags,

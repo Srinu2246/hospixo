@@ -26,7 +26,7 @@ export function getTableLabel(
   if (explicitLabel?.trim()) return explicitLabel;
   const table =
     tables.find((entry) => normalizeTableId(entry.id) === normalizeTableId(tableId)) ?? null;
-  if (!table) return tableId ? `Table ${table.label}` : '—';
+  if (!table) return tableId ? `Table ${tableId}` : '—';
   const number = table.label.replace(/^T-?/i, '').padStart(2, '0');
   return `Table ${number}`;
 }

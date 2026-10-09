@@ -54,6 +54,8 @@ export interface DineInMenuItem {
   sizes?: MenuSizeOption[];
   addOns?: MenuAddOn[];
   cookingPreferences?: string[];
+  isAvailable?: boolean;
+  status?: string;
 }
 
 export interface DineInOrderLine {

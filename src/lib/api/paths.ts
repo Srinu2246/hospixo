@@ -564,6 +564,8 @@ export function restaurantBranchMenuDeactivatePath(
 
 export type RestaurantBranchMenuItemsListQuery = Readonly<{
   status?: 'active' | 'inactive';
+  page?: number;
+  page_size?: number;
 }>;
 
 /** `GET /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items` */
@@ -580,8 +582,15 @@ export function restaurantBranchMenuItemsListPath(
   query?: RestaurantBranchMenuItemsListQuery,
 ): string {
   const base = restaurantBranchMenuItemsPath(branchId, assignmentId);
-  if (!query?.status) return base;
-  return `${base}?status=${encodeURIComponent(query.status)}`;
+  if (!query) return base;
+
+  const params = new URLSearchParams();
+  if (query.status) params.set('status', query.status);
+  if (query.page != null) params.set('page', String(query.page));
+  if (query.page_size != null) params.set('page_size', String(query.page_size));
+
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 /** `GET|PATCH /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items/{item_override_id}` */
@@ -609,6 +618,136 @@ export function restaurantBranchMenuItemDeactivatePath(
   itemOverrideId: string | number,
 ): string {
   return `${restaurantBranchMenuItemOverridePath(branchId, assignmentId, itemOverrideId)}/deactivate`;
+}
+
+// Branch menu item variants ----------------------------------------------------
+
+export type RestaurantBranchMenuItemVariantsListQuery = Readonly<{
+  status?: 'active' | 'inactive';
+  page?: number;
+  page_size?: number;
+}>;
+
+/** `GET /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items/{item_override_id}/variants` */
+export function restaurantBranchMenuItemVariantsPath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+): string {
+  return `${restaurantBranchMenuItemOverridePath(branchId, assignmentId, itemOverrideId)}/variants`;
+}
+
+export function restaurantBranchMenuItemVariantsListPath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+  query?: RestaurantBranchMenuItemVariantsListQuery,
+): string {
+  const base = restaurantBranchMenuItemVariantsPath(branchId, assignmentId, itemOverrideId);
+  if (!query) return base;
+
+  const params = new URLSearchParams();
+  if (query.status) params.set('status', query.status);
+  if (query.page != null) params.set('page', String(query.page));
+  if (query.page_size != null) params.set('page_size', String(query.page_size));
+
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
+/** `GET|PATCH /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items/{item_override_id}/variants/{variant_override_id}` */
+export function restaurantBranchMenuItemVariantPath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+  variantOverrideId: string | number,
+): string {
+  return `${restaurantBranchMenuItemVariantsPath(branchId, assignmentId, itemOverrideId)}/${encodeURIComponent(String(variantOverrideId))}`;
+}
+
+/** `POST /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items/{item_override_id}/variants/{variant_override_id}/activate` */
+export function restaurantBranchMenuItemVariantActivatePath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+  variantOverrideId: string | number,
+): string {
+  return `${restaurantBranchMenuItemVariantPath(branchId, assignmentId, itemOverrideId, variantOverrideId)}/activate`;
+}
+
+/** `POST /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items/{item_override_id}/variants/{variant_override_id}/deactivate` */
+export function restaurantBranchMenuItemVariantDeactivatePath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+  variantOverrideId: string | number,
+): string {
+  return `${restaurantBranchMenuItemVariantPath(branchId, assignmentId, itemOverrideId, variantOverrideId)}/deactivate`;
+}
+
+// Branch menu item modifiers ---------------------------------------------------
+
+export type RestaurantBranchMenuItemModifiersListQuery = Readonly<{
+  status?: 'active' | 'inactive';
+  page?: number;
+  page_size?: number;
+}>;
+
+/** `GET /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items/{item_override_id}/modifiers` */
+export function restaurantBranchMenuItemModifiersPath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+): string {
+  return `${restaurantBranchMenuItemOverridePath(branchId, assignmentId, itemOverrideId)}/modifiers`;
+}
+
+export function restaurantBranchMenuItemModifiersListPath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+  query?: RestaurantBranchMenuItemModifiersListQuery,
+): string {
+  const base = restaurantBranchMenuItemModifiersPath(branchId, assignmentId, itemOverrideId);
+  if (!query) return base;
+
+  const params = new URLSearchParams();
+  if (query.status) params.set('status', query.status);
+  if (query.page != null) params.set('page', String(query.page));
+  if (query.page_size != null) params.set('page_size', String(query.page_size));
+
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
+/** `GET|PATCH /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items/{item_override_id}/modifiers/{modifier_override_id}` */
+export function restaurantBranchMenuItemModifierPath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+  modifierOverrideId: string | number,
+): string {
+  return `${restaurantBranchMenuItemModifiersPath(branchId, assignmentId, itemOverrideId)}/${encodeURIComponent(String(modifierOverrideId))}`;
+}
+
+/** `POST /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items/{item_override_id}/modifiers/{modifier_override_id}/activate` */
+export function restaurantBranchMenuItemModifierActivatePath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+  modifierOverrideId: string | number,
+): string {
+  return `${restaurantBranchMenuItemModifierPath(branchId, assignmentId, itemOverrideId, modifierOverrideId)}/activate`;
+}
+
+/** `POST /api/v1/restaurant/branches/{branch_id}/menus/{assignment_id}/items/{item_override_id}/modifiers/{modifier_override_id}/deactivate` */
+export function restaurantBranchMenuItemModifierDeactivatePath(
+  branchId: string | number,
+  assignmentId: string | number,
+  itemOverrideId: string | number,
+  modifierOverrideId: string | number,
+): string {
+  return `${restaurantBranchMenuItemModifierPath(branchId, assignmentId, itemOverrideId, modifierOverrideId)}/deactivate`;
 }
 
 // Branch floors, sections, and dining tables ----------------------------------

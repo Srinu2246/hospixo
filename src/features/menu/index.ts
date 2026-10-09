@@ -10,7 +10,10 @@ export {
 export { useMenuCatalogQueries } from './hooks/use-menu-catalog-queries';
 export { RestaurantMenusProvider, useRestaurantMenus } from './context/restaurant-menus-context';
 export { companyMenuPageConfig, branchMenuPageConfig } from './config/menu-page-config';
-export { companyMenuBuilderPageConfig } from './config/menu-builder-page-config';
+export {
+  branchMenuBuilderPageConfig,
+  companyMenuBuilderPageConfig,
+} from './config/menu-builder-page-config';
 export type { MenuPageConfig } from './config/menu-page-config';
 export type {
   MenuItem,
@@ -26,3 +29,19 @@ export type {
   MenuItemPreparationStation,
   MenuItemModifierGroup,
 } from './types/menu';
+
+export * from './hooks/use-branch-menu-item-queries';
+export * from './api/branch-menu-items-client';
+export type {
+  BranchMenuItemResponse,
+  BranchMenuItemUpdateRequest,
+  BranchMenuItemVariantResponse,
+  BranchMenuItemVariantUpdateRequest,
+  BranchMenuItemVariantSummary,
+  BranchMenuItemModifierOptionResponse,
+  BranchMenuItemModifierOptionUpdateRequest,
+  BranchMenuItemModifierOptionSummary,
+  ListBranchMenuItemsApiQuery,
+  ListBranchMenuItemVariantsApiQuery,
+  ListBranchMenuItemModifiersApiQuery,
+} from './types/branch-menu-item-api';

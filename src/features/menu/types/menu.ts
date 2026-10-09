@@ -73,6 +73,7 @@ export type MenuItem = {
   basePrice: number;
   profitMargin?: string;
   gst?: string;
+  gstRateId?: string;
   dietary: DietaryType;
   orderTypes: OrderType[];
   exposeIn?: ExposeChannel[];

@@ -42,6 +42,13 @@ export const workspaceDedicatedPaths = new Set<string>([
   '/company/gst-rates',
   '/company/modifier-groups',
   '/company/preparation-stations',
+  '/branch/menu-creation',
+  '/branch/menus',
+  '/branch/gst-rates',
+  '/branch/modifier-groups',
+  '/branch/preparation-stations',
+  '/branch/menu-availability',
+  '/captain/menu-availability',
 ]);
 
 function collectNavItems(): Map<string, WorkspaceNavPageDef> {

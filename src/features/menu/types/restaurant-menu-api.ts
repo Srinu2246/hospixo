@@ -4,6 +4,8 @@ export type RestaurantMenuApiStatus = 'active' | 'inactive';
 
 export type RestaurantMenuTypeApi = 'all' | 'dine_in' | 'takeaway' | 'delivery' | 'online';
 
+export type RestaurantMenuCreateScope = 'company' | 'branch' | 'both';
+
 export type RestaurantMenuApi = Readonly<{
   id: number;
   organization_id: number;
@@ -14,11 +16,11 @@ export type RestaurantMenuApi = Readonly<{
   menu_type: RestaurantMenuTypeApi;
   display_order: number;
   status: RestaurantMenuApiStatus;
+  scope?: RestaurantMenuCreateScope;
+  assign_branch_id?: number | null;
   created_at: string;
   updated_at: string;
 }>;
-
-export type RestaurantMenuCreateScope = 'company' | 'branch' | 'both';
 
 export type CreateRestaurantMenuApiRequest = Readonly<{
   name: string;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Box from '@mui/material/Box';
 
 import { MenuAvailabilityFooter } from '@/features/pos/menu-availability/components/footer';
 import { MenuAvailabilityHeader } from '@/features/pos/menu-availability/components/header';
@@ -25,25 +26,54 @@ import type {
   MenuCategory,
   MenuChannelId,
   MenuItem,
+  MenuItemStatus,
   MenuStatusFilter,
   MenuSurfaceTab,
 } from '@/features/pos/types/menu-availability';
 
-import styles from './menu-availability.module.css';
+export type ChangedMenuItem = {
+  id: string;
+  overrideId?: string;
+  status: MenuItemStatus;
+  available: boolean;
+};
 
-type MenuAvailabilityProps = Readonly<{
+export type MenuAvailabilityProps = Readonly<{
   categories: readonly MenuCategory[];
   items: readonly MenuItem[];
+  onSave?: (changed: ChangedMenuItem[]) => Promise<void> | void;
+  isSaving?: boolean;
 }>;
 
-export function MenuAvailability({ categories, items: initialItems }: MenuAvailabilityProps) {
+export function MenuAvailability({
+  categories,
+  items: initialItems,
+  onSave,
+  isSaving = false,
+}: MenuAvailabilityProps) {
   const [items, setItems] = useState(() => [...initialItems]);
-  const [baseline] = useState(() => new Map(initialItems.map((item) => [item.id, item.status])));
+  const [baseline, setBaseline] = useState(
+    () => new Map(initialItems.map((item) => [item.id, item.status])),
+  );
+  const [prevInitialItems, setPrevInitialItems] = useState(initialItems);
+  if (prevInitialItems !== initialItems) {
+    setPrevInitialItems(initialItems);
+    setItems([...initialItems]);
+    setBaseline(new Map(initialItems.map((item) => [item.id, item.status])));
+  }
+
   const [surface, setSurface] = useState<MenuSurfaceTab>('all');
   const [channelId, setChannelId] = useState<MenuChannelId>('all');
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
     () => categories[0]?.id ?? null,
   );
+  const [prevCategories, setPrevCategories] = useState(categories);
+  if (prevCategories !== categories) {
+    setPrevCategories(categories);
+    if (!activeCategoryId || !categories.some((c) => c.id === activeCategoryId)) {
+      setActiveCategoryId(categories[0]?.id ?? null);
+    }
+  }
   const [statusFilter, setStatusFilter] = useState<MenuStatusFilter>('total');
   const [query, setQuery] = useState('');
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
@@ -144,10 +174,11 @@ export function MenuAvailability({ categories, items: initialItems }: MenuAvaila
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
-        if (available) {
-          return { ...item, status: item.visibility === 'Hidden' ? 'hidden' : 'available' };
-        }
-        return { ...item, status: '86d' };
+        return {
+          ...item,
+          status: available ? 'available' : '86d',
+          visibility: available ? 'All' : item.visibility,
+        };
       }),
     );
   }
@@ -156,10 +187,10 @@ export function MenuAvailability({ categories, items: initialItems }: MenuAvaila
     setItems((prev) =>
       prev.map((item) => {
         if (item.categoryId !== categoryId) return item;
-        if (!enabled) return { ...item, status: '86d' };
         return {
           ...item,
-          status: item.visibility === 'Hidden' ? 'hidden' : 'available',
+          status: enabled ? 'available' : '86d',
+          visibility: enabled ? 'All' : item.visibility,
         };
       }),
     );
@@ -167,14 +198,44 @@ export function MenuAvailability({ categories, items: initialItems }: MenuAvaila
     setStatusFilter('total');
   }
 
-  function handleUpdate() {
-    setUpdateMessage(
-      `Queued ${changedCount} change${changedCount === 1 ? '' : 's'} for sync when the POS API is available.`,
-    );
+  async function handleUpdate() {
+    const currentChangedCount = changedCount;
+    const changed: ChangedMenuItem[] = items
+      .filter((item) => baseline.get(item.id) !== item.status)
+      .map((item) => ({
+        id: item.id,
+        overrideId: item.overrideId,
+        status: item.status,
+        available: item.status === 'available',
+      }));
+
+    if (onSave && changed.length > 0) {
+      try {
+        await onSave(changed);
+        setBaseline(new Map(items.map((item) => [item.id, item.status])));
+        setStatusFilter('total');
+        setUpdateMessage(
+          `Updated ${currentChangedCount} item${currentChangedCount === 1 ? '' : 's'} availability successfully.`,
+        );
+      } catch (err) {
+        setUpdateMessage(err instanceof Error ? err.message : 'Failed to update availability.');
+      }
+    } else {
+      setUpdateMessage('All item availability is up to date.');
+    }
   }
 
   return (
-    <div className={styles.page}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        minHeight: '100%',
+        py: { xs: 3, md: 5 },
+        px: { xs: 2, md: 4 },
+      }}
+    >
       <MenuAvailabilityHeader />
       <MenuSurfaceTabs value={surface} onChange={handleSurfaceChange} />
 
@@ -187,7 +248,14 @@ export function MenuAvailability({ categories, items: initialItems }: MenuAvaila
       />
       <MenuToolbar query={query} onQueryChange={setQuery} />
 
-      <div className={styles.body}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: 'flex-start',
+          gap: 2,
+        }}
+      >
         <MenuCategories
           categories={categories}
           activeCategoryId={activeCategoryId}
@@ -197,15 +265,33 @@ export function MenuAvailability({ categories, items: initialItems }: MenuAvaila
           onToggle={handleToggleCategory}
         />
         <MenuItemsTable items={visibleItems} onToggleItem={handleToggleItem} />
-      </div>
+      </Box>
 
-      {updateMessage ? <output className={styles.updateMessage}>{updateMessage}</output> : null}
+      {updateMessage ? (
+        <Box
+          component="output"
+          role="status"
+          sx={{
+            m: 0,
+            p: '0.65rem 0.85rem',
+            borderRadius: 1.5,
+            bgcolor: 'action.hover',
+            border: '1px solid',
+            borderColor: 'divider',
+            color: 'text.primary',
+            fontSize: '0.875rem',
+          }}
+        >
+          {updateMessage}
+        </Box>
+      ) : null}
 
       <MenuAvailabilityFooter
         changedCount={changedCount}
         eightySixedCount={eightySixedCount}
         onUpdate={handleUpdate}
+        isSaving={isSaving}
       />
-    </div>
+    </Box>
   );
 }

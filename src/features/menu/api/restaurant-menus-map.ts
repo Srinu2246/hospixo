@@ -16,7 +16,6 @@ import type {
   MenuTreeCategoryApi,
   MenuTreeItemApi,
   RestaurantMenuApi,
-  RestaurantMenuApiStatus,
   RestaurantMenuTypeApi,
   UpdateMenuCategoryAssignmentApiRequest,
   UpdateRestaurantMenuApiRequest,
@@ -39,8 +38,9 @@ const MENU_TYPE_FROM_API: Record<string, RestaurantMenuType> = {
   online: 'Online',
 };
 
-function mapMenuStatus(status: RestaurantMenuApiStatus): RestaurantMenu['status'] {
-  return status === 'active' ? 'Active' : 'Inactive';
+function mapMenuStatus(status?: string): RestaurantMenu['status'] {
+  if (!status) return 'Active';
+  return status.trim().toLowerCase() === 'active' ? 'Active' : 'Inactive';
 }
 
 function mapAssignmentStatus(
@@ -54,21 +54,50 @@ export function mapMenuTypeToApi(menuType: RestaurantMenuType): RestaurantMenuTy
   return MENU_TYPE_TO_API[menuType] ?? 'all';
 }
 
-export function mapMenuTypeFromApi(menuType: RestaurantMenuTypeApi): RestaurantMenuType {
-  return MENU_TYPE_FROM_API[menuType] ?? 'All';
+export function mapMenuTypeFromApi(menuType?: string): RestaurantMenuType {
+  if (!menuType) return 'All';
+  const norm = menuType.trim().toLowerCase().replace(/[- ]/g, '_');
+  return MENU_TYPE_FROM_API[norm] ?? 'All';
 }
 
-export function mapRestaurantMenuApi(menu: RestaurantMenuApi): RestaurantMenu {
+export function mapRestaurantMenuApi(
+  menu: RestaurantMenuApi | Record<string, unknown>,
+): RestaurantMenu {
+  const m = menu as Record<string, unknown>;
+  const rawId = m.id ?? m.menu_id ?? m.menuId ?? '';
+  const rawName = (m.name as string) ?? (m.title as string) ?? '';
+  const rawCode = (m.code as string) ?? '';
+  const rawDesc = (m.description as string) ?? undefined;
+  const rawType = (m.menu_type as string) ?? (m.menuType as string) ?? 'all';
+  const rawDisplayOrder =
+    typeof m.display_order === 'number'
+      ? m.display_order
+      : typeof m.displayOrder === 'number'
+        ? m.displayOrder
+        : 0;
+  const rawStatus = (m.status as string) ?? 'active';
+  const rawScope = (m.scope as RestaurantMenu['scope']) ?? undefined;
+  const rawAssignBranchId =
+    m.assign_branch_id != null
+      ? String(m.assign_branch_id)
+      : m.assignBranchId != null
+        ? String(m.assignBranchId)
+        : undefined;
+  const rawCreatedAt = (m.created_at as string) ?? (m.createdAt as string) ?? undefined;
+  const rawUpdatedAt = (m.updated_at as string) ?? (m.updatedAt as string) ?? undefined;
+
   return {
-    id: String(menu.id),
-    name: menu.name,
-    code: menu.code,
-    description: menu.description ?? undefined,
-    menuType: mapMenuTypeFromApi(menu.menu_type),
-    displayOrder: menu.display_order,
-    status: mapMenuStatus(menu.status),
-    createdAt: menu.created_at,
-    updatedAt: menu.updated_at,
+    id: String(rawId),
+    name: rawName,
+    code: rawCode,
+    description: rawDesc,
+    menuType: mapMenuTypeFromApi(rawType),
+    displayOrder: rawDisplayOrder,
+    status: mapMenuStatus(rawStatus),
+    scope: rawScope,
+    assignBranchId: rawAssignBranchId,
+    createdAt: rawCreatedAt,
+    updatedAt: rawUpdatedAt,
   };
 }
 
@@ -79,8 +108,17 @@ export function mapRestaurantMenusApi(menus: readonly RestaurantMenuApi[]): Rest
 export function unwrapRestaurantMenuList(data: unknown): RestaurantMenuApi[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
-  if (typeof data === 'object' && 'items' in (data as Record<string, unknown>)) {
-    return (data as { items: RestaurantMenuApi[] }).items;
+  if (typeof data === 'object') {
+    const record = data as Record<string, unknown>;
+    if (Array.isArray(record.items)) return record.items as RestaurantMenuApi[];
+    if (Array.isArray(record.menus)) return record.menus as RestaurantMenuApi[];
+    if (Array.isArray(record.branch_menus)) return record.branch_menus as RestaurantMenuApi[];
+    if (Array.isArray(record.data)) return unwrapRestaurantMenuList(record.data);
+    if (record.data && typeof record.data === 'object') {
+      return unwrapRestaurantMenuList(record.data);
+    }
+    if (Array.isArray(record.results)) return record.results as RestaurantMenuApi[];
+    if (Array.isArray(record.records)) return record.records as RestaurantMenuApi[];
   }
   return [];
 }
@@ -185,9 +223,11 @@ function mapTreeItemOrderTypes(item: MenuTreeItemApi): string[] | undefined {
 
 function mapMenuTreeItemApi(item: MenuTreeItemApi): MenuTreeItem {
   const imageUrl = item.image_url || item.primary_image_url || item.thumbnail_url || undefined;
+  const raw = item as unknown as Record<string, unknown>;
+  const resolvedId = item.id ?? raw.menu_item_id ?? raw.item_id ?? raw.menuItemId ?? '';
   return {
-    id: String(item.id),
-    name: item.name,
+    id: resolvedId != null && String(resolvedId) !== 'undefined' ? String(resolvedId) : '',
+    name: item.name ?? (raw.item_name as string) ?? (raw.title as string) ?? '',
     code: item.code,
     basePrice: item.base_price,
     status: item.status,
@@ -199,13 +239,19 @@ function mapMenuTreeItemApi(item: MenuTreeItemApi): MenuTreeItem {
 }
 
 function mapMenuTreeCategoryApi(category: MenuTreeCategoryApi): MenuTreeCategory {
-  const categoryId = category.category_id ?? category.category?.id;
-  const categoryItems = category.items ?? category.category?.items ?? [];
+  const rawCat = category as unknown as Record<string, unknown>;
+  const categoryId =
+    category.category_id ?? category.category?.id ?? rawCat.id ?? rawCat.categoryId ?? '';
+  const categoryItems =
+    category.items ??
+    category.category?.items ??
+    (rawCat.category_items as readonly MenuTreeItemApi[]) ??
+    [];
 
   return {
     assignmentId: category.assignment_id != null ? String(category.assignment_id) : undefined,
-    categoryId: categoryId != null ? String(categoryId) : '',
-    name: category.name ?? category.category?.name ?? '',
+    categoryId: categoryId != null && String(categoryId) !== 'undefined' ? String(categoryId) : '',
+    name: category.name ?? category.category?.name ?? (rawCat.title as string) ?? '',
     displayOrder: category.display_order,
     status: category.status,
     items: categoryItems.map(mapMenuTreeItemApi),

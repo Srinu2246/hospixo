@@ -5,9 +5,7 @@ import { Box, Typography } from '@mui/material';
 import { ChevronRight } from 'lucide-react';
 
 import { menusCopy } from '../config/copy';
-import { menusRoutes } from '../config/paths';
-import { routes } from '@/config/routes';
-
+import { useMenusRoutes } from '../context/menus-routes-context';
 type MenusBreadcrumbProps = Readonly<{
   current: string;
   homeHref?: string;
@@ -24,11 +22,9 @@ function Separator() {
   );
 }
 
-export function MenusBreadcrumb({
-  current,
-  homeHref = routes.dashboard.company,
-  showMenusLink = true,
-}: MenusBreadcrumbProps) {
+export function MenusBreadcrumb({ current, homeHref, showMenusLink = true }: MenusBreadcrumbProps) {
+  const menusRoutes = useMenusRoutes();
+  const resolvedHomeHref = homeHref ?? menusRoutes.homeHref;
   const showMenusCrumb = showMenusLink && current !== menusCopy.crumbMenus;
 
   return (
@@ -66,7 +62,7 @@ export function MenusBreadcrumb({
         <Box component="li">
           <Typography
             component={Link}
-            href={homeHref}
+            href={resolvedHomeHref}
             sx={{
               fontSize: '0.8125rem',
               fontWeight: 500,

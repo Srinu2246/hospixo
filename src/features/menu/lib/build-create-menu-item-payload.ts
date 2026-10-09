@@ -154,9 +154,11 @@ export async function buildCreateMenuItemApiPayload(
     payload.modifier_groups = modifierGroups;
   }
 
-  if (scopePayload.scope === 'branch' && scopePayload.assign_branch_id) {
-    payload.scope = scopePayload.scope;
-    payload.assign_branch_id = scopePayload.assign_branch_id;
+  if (scopePayload.scope === 'branch') {
+    payload.scope = 'branch';
+    if (scopePayload.assign_branch_id != null) {
+      payload.assign_branch_id = scopePayload.assign_branch_id;
+    }
   }
 
   return finalizeMenuItemApiPayloadForBackend(payload as CreateMenuItemApiRequest);

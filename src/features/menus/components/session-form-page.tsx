@@ -18,7 +18,7 @@ import {
 import { ArrowLeft, Check } from 'lucide-react';
 
 import { menusCopy, menuTypeOptions } from '../config/copy';
-import { menusRoutes } from '../config/paths';
+import { useMenusRoutes } from '../context/menus-routes-context';
 import { useMenus } from '../context/menus-context';
 import { validateMenuSessionForm } from '../lib/validate-session';
 import type { MenuSession, MenuSessionForm, MenuSessionType } from '../types/menus';
@@ -32,6 +32,7 @@ type SessionFormPageProps = Readonly<{
 
 export function SessionFormPage({ mode, session }: SessionFormPageProps) {
   const router = useRouter();
+  const menusRoutes = useMenusRoutes();
   const { sessions, createSession, updateSession } = useMenus();
   const [form, setForm] = useState<MenuSessionForm>({
     name: session?.name ?? '',

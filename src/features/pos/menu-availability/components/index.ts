@@ -1,4 +1,6 @@
 export { MenuAvailability } from './menu-availability';
+export type { ChangedMenuItem, MenuAvailabilityProps } from './menu-availability';
+export { BranchMenuAvailabilityScreen } from './branch-menu-availability-screen';
 export { MenuAvailabilityHeader } from './header';
 export { MenuSurfaceTabs } from './tabs';
 export { MenuChannels } from './channels';

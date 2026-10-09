@@ -34,7 +34,7 @@ import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 
 import { BranchScopeSelector } from '../shared/branch-scope-selector';
-import type { MenuScopeSelection } from '../../lib/menu-scope';
+import { usesPersistedMenuItemApi, type MenuScopeSelection } from '../../lib/menu-scope';
 import { useMenu } from '../../context/menu-context';
 import { MenuItemTagsSkeleton } from '../skeleton/menu-item-tags-skeleton';
 import { getPrimaryMenuItemImageUrl } from '../../api/menu-item-images-map';
@@ -73,6 +73,7 @@ const dietaryOptions: {
   { type: 'Veg', label: 'Veg', paletteColor: 'success' },
   { type: 'Non-Veg', label: 'Non-Veg', paletteColor: 'error' },
   { type: 'Egg', label: 'Egg', paletteColor: 'warning' },
+  { type: 'Vegan', label: 'Vegan', paletteColor: 'success' },
 ];
 
 const orderTypeOptions: OrderType[] = ['Delivery', 'Take Away', 'Dine In'];
@@ -217,7 +218,7 @@ export function CreateMenuItemView() {
   }, [gstRates]);
 
   useEffect(() => {
-    if (pageConfig?.scope !== 'company') return;
+    if (!usesPersistedMenuItemApi(pageConfig?.scope)) return;
 
     let cancelled = false;
 
@@ -267,8 +268,8 @@ export function CreateMenuItemView() {
   // Load media if editing an existing item
   useEffect(() => {
     if (
-      pageConfig?.scope !== 'company' ||
       !editingItem ||
+      !usesPersistedMenuItemApi(pageConfig?.scope) ||
       !isPersistedMenuItemId(editingItem.id) ||
       hasLoadedMenuItemMedia(editingItem)
     ) {

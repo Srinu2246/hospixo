@@ -1,10 +1,9 @@
 'use client';
 
+import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
 import { menuAvailabilityCopy } from '@/features/pos/menu-availability/config';
-import { cn } from '@/lib/utils';
 import type { MenuSurfaceTab } from '@/features/pos/types/menu-availability';
-
-import styles from './tabs.module.css';
 
 type MenuSurfaceTabsProps = Readonly<{
   value: MenuSurfaceTab;
@@ -15,19 +14,46 @@ const TABS: MenuSurfaceTab[] = ['all', 'online', 'dinein_qr'];
 
 export function MenuSurfaceTabs({ value, onChange }: MenuSurfaceTabsProps) {
   return (
-    <div className={styles.tabs} role="tablist" aria-label="Menu surfaces">
-      {TABS.map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          role="tab"
-          aria-selected={value === tab}
-          className={cn(styles.tab, value === tab && styles.tabActive)}
-          onClick={() => onChange(tab)}
-        >
-          {menuAvailabilityCopy.tabs[tab]}
-        </button>
-      ))}
-    </div>
+    <Box
+      role="tablist"
+      aria-label="Menu surfaces"
+      sx={{
+        display: 'flex',
+        gap: 0.5,
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+      }}
+    >
+      {TABS.map((tab) => {
+        const active = value === tab;
+        return (
+          <ButtonBase
+            key={tab}
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab)}
+            sx={{
+              border: 'none',
+              bgcolor: 'transparent',
+              color: active ? 'primary.main' : 'text.secondary',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              px: 1.75,
+              py: 1.25,
+              borderBottom: '2px solid',
+              borderBottomColor: active ? 'primary.main' : 'transparent',
+              mb: '-1px',
+              cursor: 'pointer',
+              transition: (theme) => theme.transitions.create(['color', 'border-color']),
+              '&:hover': {
+                color: 'text.primary',
+              },
+            }}
+          >
+            {menuAvailabilityCopy.tabs[tab]}
+          </ButtonBase>
+        );
+      })}
+    </Box>
   );
 }

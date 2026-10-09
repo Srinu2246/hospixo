@@ -1,7 +1,6 @@
 import {
   Banknote,
   ChefHat,
-  CircleDollarSign,
   ClipboardList,
   Globe,
   LayoutGrid,
@@ -82,13 +81,6 @@ export const branchLandingContent = {
       description: '86 items and channel stock',
       href: branch.menuAvailability,
       icon: Package,
-    },
-    {
-      id: 'menu-pricing-setup',
-      label: 'Menu Pricing Setup',
-      description: 'Floor and section price overrides',
-      href: branch.menuPricingSetup,
-      icon: CircleDollarSign,
     },
     {
       id: 'cash-shift',

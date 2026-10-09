@@ -18,7 +18,7 @@ import { CrudFormActions } from '@/components/ui/crud-form-actions';
 import { StickyBreadcrumbBar } from '@/components/ui/sticky-breadcrumb-bar';
 import { useModifierGroups } from '../../context/modifier-groups-context';
 import type { ModifierGroupStatus } from '../../types/modifier-group-api';
-import { ModifierOptionsPanel } from '../shared/modifier-options-panel';
+import { ModifierOptionsPanel } from '../options/modifier-options-panel';
 
 export function ModifierGroupForm({ mode }: { readonly mode: 'create' | 'edit' }) {
   const { selectedGroup, createGroup, updateGroup, backToList } = useModifierGroups();
