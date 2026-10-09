@@ -1,5 +1,9 @@
 'use client';
 
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+
 import { onlineOrdersPageMeta } from '@/features/pos/config/online-orders';
 import {
   PosCompactBody,
@@ -14,7 +18,6 @@ import { OnlineOrdersFooter } from '@/features/pos/screens/online-orders/online-
 import { OnlineOrdersHeader } from '@/features/pos/screens/online-orders/online-orders-header';
 
 import type { OnlineOrdersPageViewModel } from './use-online-orders-page';
-import styles from './compact-online-orders-content.module.css';
 
 interface CompactOnlineOrdersContentProps extends OnlineOrdersPageViewModel {
   layout: 'mobile' | 'tablet';
@@ -24,14 +27,23 @@ export function CompactOnlineOrdersContent({
   layout,
   activeChannel,
   setActiveChannel,
+  orders,
+  pendingCount,
   visibleOrders,
   handleAccept,
   handleReject,
   handleMarkReady,
+  isLoading,
+  isError,
+  loadError,
+  isMutating,
+  mutationError,
+  mutationSucceeded,
+  pendingAcceptOrder,
 }: Readonly<CompactOnlineOrdersContentProps>) {
   return (
     <PosMobileShell activeNavId="orders" withPageBg>
-      <PosCompactPage className={layout === 'tablet' ? styles.tablet : undefined}>
+      <PosCompactPage>
         <PosCompactHeader>
           <PosMobileHeader
             title={onlineOrdersPageMeta.title}
@@ -40,16 +52,44 @@ export function CompactOnlineOrdersContent({
           <OnlineOrdersHeader
             activeChannel={activeChannel}
             onChannelChange={setActiveChannel}
+            totalOrdersCount={orders.length}
+            pendingCount={pendingCount}
             hideTitle
           />
         </PosCompactHeader>
 
-        <PosCompactBody className={styles.body}>
-          <OnlineOrdersAlert />
+        <PosCompactBody>
+          <OnlineOrdersAlert highlightOrder={pendingAcceptOrder} />
 
-          <section
-            className={`${styles.grid} ${layout === 'tablet' ? styles.gridTablet : ''}`}
+          {mutationError ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {mutationError}
+            </Alert>
+          ) : null}
+          {mutationSucceeded ? (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              Order updated successfully.
+            </Alert>
+          ) : null}
+          {isError || loadError ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {loadError ?? 'Unable to load online orders.'}
+            </Alert>
+          ) : null}
+          {isLoading ? (
+            <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center', fontSize: 14 }}>
+              Loading online orders…
+            </Typography>
+          ) : null}
+
+          <Box
+            component="section"
             aria-label="Online order cards"
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: layout === 'tablet' ? 'repeat(2, minmax(0, 1fr))' : '1fr',
+              gap: 1.5,
+            }}
           >
             {visibleOrders.map((order) => (
               <OnlineOrderCard
@@ -58,12 +98,15 @@ export function CompactOnlineOrdersContent({
                 onAccept={handleAccept}
                 onReject={handleReject}
                 onMarkReady={handleMarkReady}
+                isMutating={isMutating}
               />
             ))}
-          </section>
+          </Box>
 
-          {visibleOrders.length === 0 ? (
-            <p className={styles.empty}>No orders for this channel.</p>
+          {!isLoading && !isError && visibleOrders.length === 0 ? (
+            <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center', fontSize: 14 }}>
+              No orders for this channel.
+            </Typography>
           ) : null}
 
           <OnlineOrdersFooter />

@@ -42,13 +42,15 @@ export function resolveCompanyPickerHref(companyId: string): string {
 export function resolveCurrentBranchName(
   outlets: readonly DashboardOutlet[],
   outletId: string,
-  user: AuthUser | null,
+  user: Pick<AuthUser, 'branch_id'> | null,
+  assignedBranchOnly = false,
 ): string {
   if (user?.branch_id != null) {
     const match = outlets.find((outlet) => outlet.id === String(user.branch_id));
     if (match) return match.name;
     return dashboardLoadCopy.assignedOutlet;
   }
+  if (assignedBranchOnly) return dashboardLoadCopy.assignedOutlet;
 
   const selected = outlets.find((outlet) => outlet.id === outletId);
   if (selected && selected.id !== 'all') return selected.name;

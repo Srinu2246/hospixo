@@ -11,6 +11,8 @@ import styles from './desktop-content.module.css';
 
 export function OrderDetailsDesktopContent({
   order,
+  isLoading,
+  loadError,
   lines,
   subtotal,
   tax,
@@ -27,7 +29,9 @@ export function OrderDetailsDesktopContent({
       <PosOperationsShell withPageBg>
         <div className={styles.centerWrap}>
           <div className={styles.emptyPage}>
-            <p className={styles.emptyTitle}>Order not found</p>
+            <p className={styles.emptyTitle}>
+              {isLoading ? 'Loading order…' : (loadError ?? 'Order not found')}
+            </p>
             <button type="button" className={styles.emptyBtn} onClick={goBack}>
               Back to Open Orders
             </button>

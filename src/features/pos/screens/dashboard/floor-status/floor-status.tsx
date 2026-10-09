@@ -1,13 +1,21 @@
+'use client';
+
+import Box from '@mui/material/Box';
+import Grid from '@mui/material/Grid';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+
 import type { FloorTable, FloorTableStatus } from '@/features/pos/config/dashboard';
 import { getFloorStatusLabel } from '@/features/pos/config/dashboard';
+import { DashboardPanel } from '@/features/pos/screens/dashboard/dashboard-panel';
 
-import styles from './floor-status.module.css';
-
-const statusDot: Record<FloorTableStatus, string> = {
-  occupied: styles.dotOccupied,
-  vacant: styles.dotVacant,
-  reserved: styles.dotReserved,
-  cleaning: styles.dotCleaning,
+const statusDotColor: Record<FloorTableStatus, string> = {
+  occupied: 'var(--pos-primary)',
+  vacant: 'var(--pos-success)',
+  reserved: 'var(--pos-warning)',
+  cleaning: 'var(--pos-text-muted)',
 };
 
 interface FloorStatusProps {
@@ -17,33 +25,88 @@ interface FloorStatusProps {
 
 export function FloorStatus({ tables, legend }: Readonly<FloorStatusProps>) {
   return (
-    <section className={styles.panel} aria-labelledby="floor-status-title">
-      <header className={styles.header}>
-        <h2 id="floor-status-title" className={styles.title}>
-          Restaurant Floor Status
-        </h2>
-      </header>
+    <DashboardPanel title="Restaurant Floor Status" titleId="floor-status-title">
+      {tables.length === 0 ? (
+        <Typography color="text.secondary" variant="body2" sx={{ py: 3, textAlign: 'center' }}>
+          No tables configured for this outlet.
+        </Typography>
+      ) : (
+        <Grid container spacing={1}>
+          {tables.map((table) => (
+            <Grid key={table.id} size={{ xs: 4, sm: 4 }}>
+              <Tooltip title={`${table.label} — ${getFloorStatusLabel(table.status)}`} arrow>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1.5,
+                    textAlign: 'center',
+                    borderColor: 'var(--pos-border)',
+                    bgcolor: 'var(--pos-surface-muted, var(--pos-surface))',
+                  }}
+                >
+                  <Typography fontWeight={700}>{table.label}</Typography>
+                  <Stack
+                    direction="row"
+                    spacing={0.75}
+                    sx={{ mt: 0.75, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Box
+                      aria-hidden
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: statusDotColor[table.status],
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {getFloorStatusLabel(table.status)}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              </Tooltip>
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
-      <div className={styles.grid}>
-        {tables.map((table) => (
-          <article key={table.id} className={styles.tableCard}>
-            <p className={styles.tableLabel}>{table.label}</p>
-            <p className={styles.tableStatus}>
-              <span className={`${styles.dot} ${statusDot[table.status]}`} aria-hidden />
-              {getFloorStatusLabel(table.status)}
-            </p>
-          </article>
-        ))}
-      </div>
-
-      <ul className={styles.legend} aria-label="Table status legend">
+      <Stack
+        component="ul"
+        direction="row"
+        useFlexGap
+        sx={{
+          mt: 2,
+          p: 0,
+          listStyle: 'none',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
+          gap: 1.5,
+        }}
+        aria-label="Table status legend"
+      >
         {legend.map((item) => (
-          <li key={item.status}>
-            <span className={`${styles.dot} ${statusDot[item.status]}`} aria-hidden />
-            {item.label}
-          </li>
+          <Stack
+            key={item.status}
+            component="li"
+            direction="row"
+            spacing={0.75}
+            sx={{ alignItems: 'center' }}
+          >
+            <Box
+              aria-hidden
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: statusDotColor[item.status],
+              }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {item.label}
+            </Typography>
+          </Stack>
         ))}
-      </ul>
-    </section>
+      </Stack>
+    </DashboardPanel>
   );
 }

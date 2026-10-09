@@ -39,7 +39,7 @@
 .amount {
   margin: 0;
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.2;
   color: var(--pos-text);
 }

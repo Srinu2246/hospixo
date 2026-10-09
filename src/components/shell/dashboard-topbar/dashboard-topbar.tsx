@@ -8,6 +8,7 @@ import type { Theme } from '@mui/material/styles';
 import { Bell, Bot, ChevronDown, LayoutGrid, MapPin, Settings } from 'lucide-react';
 
 import { headerChrome, showsWorkspaceHeaderActions } from '@/config/shell/header-chrome';
+import { isCaptainFlowPath } from '@/config/shell/flow-paths';
 import { routes } from '@/config/routes';
 import { useAuth } from '@/context/auth';
 import { useDashboardData } from '@/context/dashboard-data';
@@ -127,6 +128,7 @@ export function DashboardTopbar({
   const { outletId, setOutletId } = useDashboardFilter();
   const { data, companies = [] } = useDashboardData();
   const branchScope = isBranchScopePath(pathname);
+  const captainScope = isCaptainFlowPath(pathname);
   const branchPicker = isBranchPickerPath(pathname);
   const organisationDashboard = isOrganisationPath(pathname);
   const showWorkspaceActions = showsWorkspaceHeaderActions(pathname);
@@ -167,16 +169,23 @@ export function DashboardTopbar({
         ? fetchedCompanyOutlets
         : [allBranchesOption]
       : defaultOutlets);
-  const currentBranchName = resolveCurrentBranchName(outlets, effectiveOutletId, user);
+  const currentBranchName = resolveCurrentBranchName(
+    outlets,
+    effectiveOutletId,
+    user,
+    captainScope,
+  );
   const settingsHref = resolveWorkspaceSettingsHref(pathname);
 
-  const outletLabel = showWorkspaceActions
-    ? 'Outlets'
-    : branchScope
-      ? 'Branch'
-      : branchPicker
-        ? 'Branches'
-        : 'Outlets';
+  const outletLabel = captainScope
+    ? 'Branch'
+    : showWorkspaceActions
+      ? 'Outlets'
+      : branchScope
+        ? 'Branch'
+        : branchPicker
+          ? 'Branches'
+          : 'Outlets';
 
   const initials =
     [user?.first_name?.[0], user?.last_name?.[0]].filter(Boolean).join('').toUpperCase() || 'AK';
@@ -245,7 +254,7 @@ export function DashboardTopbar({
                   ? `Company: ${selectedCompany.name}`
                   : outletLabel}
             </Typography>
-            {branchScope && !canSwitchBranch(user) ? (
+            {captainScope || (branchScope && !canSwitchBranch(user)) ? (
               <Box
                 sx={{
                   display: 'inline-flex',

@@ -14,6 +14,17 @@ export interface ReadyOrder {
   tab: ReadyListTab;
 }
 
+export const readyListPageMeta = {
+  title: 'Ready to Serve',
+  mobileSubtitle: 'Kitchen updates live',
+  searchPlaceholder: 'Search orders, tokens, table numbers...',
+  onlineStatusLabel: 'Live Store Ops Online',
+  emptyTitle: 'No orders found',
+  emptyDescription: 'Orders matching this view will appear here.',
+  loadingLabel: 'Loading ready orders…',
+  loadErrorFallback: 'Unable to load ready orders.',
+} as const;
+
 export const readyListTabs: { id: ReadyListTab; label: string; count?: number }[] = [
   { id: 'active', label: 'Active', count: 6 },
   { id: 'pending', label: 'Pending', count: 12 },

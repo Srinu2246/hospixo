@@ -13,7 +13,7 @@ describe('ReadyOrderCard', () => {
     const onServe = vi.fn();
     const order = readyOrders[0];
 
-    render(<ReadyOrderCard order={order} onServe={onServe} />);
+    render(<ReadyOrderCard order={order} onServe={onServe} isMutating={false} />);
 
     expect(screen.getByRole('heading', { name: order.table })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Serve' }));

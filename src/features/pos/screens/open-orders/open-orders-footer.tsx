@@ -1,38 +1,80 @@
-import {
-  getOpenOrdersSummaryText,
-  openOrdersFooterSummary,
-  openOrdersPageMeta,
-} from '@/features/pos/config/open-orders';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+'use client';
 
-import styles from './open-orders-footer.module.css';
+import Button from '@mui/material/Button';
+import Pagination from '@mui/material/Pagination';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 
-export function OpenOrdersFooter() {
+import { openOrdersPageMeta } from '@/features/pos/config/open-orders';
+
+export interface OpenOrdersFooterProps {
+  summaryText: string;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
+export function OpenOrdersFooter({
+  summaryText,
+  page,
+  totalPages,
+  onPageChange,
+}: Readonly<OpenOrdersFooterProps>) {
   return (
-    <footer className={styles.footer}>
-      <p className={styles.summary}>{getOpenOrdersSummaryText()}</p>
+    <Stack
+      component="footer"
+      direction={{ xs: 'column', md: 'row' }}
+      spacing={2}
+      sx={{
+        alignItems: { xs: 'stretch', md: 'center' },
+        justifyContent: 'space-between',
+        mt: 3,
+        pt: 2,
+        borderTop: 1,
+        borderColor: 'var(--pos-border)',
+      }}
+    >
+      <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
+        {summaryText}
+      </Typography>
 
-      <div className={styles.right}>
-        <button type="button" className={styles.downloadBtn}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <Button
+          type="button"
+          variant="outlined"
+          size="small"
+          sx={{
+            minHeight: 36,
+            borderColor: 'var(--pos-border-strong)',
+            borderRadius: 'var(--pos-radius-sm)',
+            color: 'text.primary',
+            fontSize: 13,
+            fontWeight: 600,
+            textTransform: 'none',
+          }}
+        >
           {openOrdersPageMeta.downloadReportLabel}
-        </button>
+        </Button>
 
-        <nav className={styles.pagination} aria-label="Orders pagination">
-          <button type="button" className={styles.pageBtn} aria-label="Previous page">
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            type="button"
-            className={`${styles.pageBtn} ${styles.pageBtnActive}`}
-            aria-current="page"
-          >
-            {openOrdersFooterSummary.currentPage}
-          </button>
-          <button type="button" className={styles.pageBtn} aria-label="Next page">
-            <ChevronRight size={16} />
-          </button>
-        </nav>
-      </div>
-    </footer>
+        <Pagination
+          count={totalPages}
+          page={page}
+          onChange={(_event, nextPage) => onPageChange(nextPage)}
+          size="small"
+          siblingCount={0}
+          boundaryCount={1}
+          aria-label="Orders pagination"
+          sx={{
+            '& .MuiPaginationItem-root': {
+              minWidth: 36,
+              height: 36,
+              borderRadius: 'var(--pos-radius-sm)',
+              fontSize: 13,
+              fontWeight: 600,
+            },
+          }}
+        />
+      </Stack>
+    </Stack>
   );
 }

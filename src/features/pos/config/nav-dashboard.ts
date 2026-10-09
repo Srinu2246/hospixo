@@ -10,6 +10,7 @@ export const posDashboardNavSections: PosOperationsNavSection[] = [
     id: 'operations',
     title: 'POS',
     items: [
+      { href: pos.dashboard, label: 'Dashboard', icon: 'dashboard' },
       { href: pos.tables, label: 'Tables', icon: 'tables' },
       { href: pos.dineIn, label: 'Dine-In', icon: 'dineIn' },
       { href: pos.readyList, label: 'Ready List', icon: 'readyList' },

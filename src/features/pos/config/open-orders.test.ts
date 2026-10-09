@@ -5,6 +5,7 @@ import {
   formatOpenOrderTime,
   getKitchenStatusLabel,
   getOpenOrderTypeLabel,
+  buildOpenOrdersSummary,
   getOpenOrdersSummaryText,
   getPaymentStatusLabel,
   openOrders,
@@ -41,9 +42,10 @@ describe('open orders helpers', () => {
     expect(getPaymentStatusLabel('unpaid')).toBe('Unpaid');
   });
 
-  it('builds the footer summary text', () => {
-    expect(getOpenOrdersSummaryText()).toBe(
-      'Showing 6 running orders • 2 awaiting kitchen, 2 ready to settle',
+  it('builds the footer summary text from order rows', () => {
+    expect(buildOpenOrdersSummary(openOrders)).toBe(
+      'Showing 6 running orders • 3 awaiting kitchen, 3 ready to settle',
     );
+    expect(getOpenOrdersSummaryText()).toBe(buildOpenOrdersSummary(openOrders));
   });
 });

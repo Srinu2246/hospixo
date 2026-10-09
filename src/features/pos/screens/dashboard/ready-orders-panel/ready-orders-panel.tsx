@@ -1,12 +1,17 @@
+'use client';
+
+import Chip from '@mui/material/Chip';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+
 import type { ReadyOrderItem, ReadyOrderStatus } from '@/features/pos/config/dashboard';
 import { getReadyOrderStatusLabel } from '@/features/pos/config/dashboard';
+import { DashboardPanel } from '@/features/pos/screens/dashboard/dashboard-panel';
 
-import styles from './ready-orders-panel.module.css';
-
-const statusClass: Record<ReadyOrderStatus, string> = {
-  readyToServe: styles.readyToServe,
-  waitingPickup: styles.waitingPickup,
-  waitingDriver: styles.waitingDriver,
+const statusChipColor: Record<ReadyOrderStatus, 'success' | 'info' | 'warning'> = {
+  readyToServe: 'success',
+  waitingPickup: 'info',
+  waitingDriver: 'warning',
 };
 
 interface ReadyOrdersPanelProps {
@@ -15,23 +20,33 @@ interface ReadyOrdersPanelProps {
 
 export function ReadyOrdersPanel({ orders }: Readonly<ReadyOrdersPanelProps>) {
   return (
-    <section className={styles.panel} aria-labelledby="ready-orders-title">
-      <header className={styles.header}>
-        <h2 id="ready-orders-title" className={styles.title}>
-          Ready Orders
-        </h2>
-      </header>
-
-      <ul className={styles.list}>
-        {orders.map((order) => (
-          <li key={order.id} className={styles.row}>
-            <span className={styles.label}>{order.label}</span>
-            <span className={`${styles.badge} ${statusClass[order.status]}`}>
-              {getReadyOrderStatusLabel(order.status)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <DashboardPanel title="Ready Orders" titleId="ready-orders-title">
+      {orders.length === 0 ? (
+        <Typography color="text.secondary" variant="body2" sx={{ py: 3, textAlign: 'center' }}>
+          No ready orders right now.
+        </Typography>
+      ) : (
+        <Stack component="ul" spacing={1.25} sx={{ listStyle: 'none', p: 0, m: 0 }}>
+          {orders.map((order) => (
+            <Stack
+              key={order.id}
+              component="li"
+              direction="row"
+              sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
+            >
+              <Typography variant="body2" fontWeight={500}>
+                {order.label}
+              </Typography>
+              <Chip
+                size="small"
+                label={getReadyOrderStatusLabel(order.status)}
+                color={statusChipColor[order.status]}
+                variant="outlined"
+              />
+            </Stack>
+          ))}
+        </Stack>
+      )}
+    </DashboardPanel>
   );
 }
