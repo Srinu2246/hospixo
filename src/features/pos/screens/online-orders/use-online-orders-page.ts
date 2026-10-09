@@ -3,7 +3,10 @@
 import { useMemo, useState } from 'react';
 
 import type { OnlineOrder, OnlineOrderChannel } from '@/features/pos/config/online-orders';
-import { onlineOrders } from '@/features/pos/config/online-orders';
+import {
+  useOnlineOrdersQuery,
+  usePatchBranchOrderMutation,
+} from '@/features/pos/hooks/use-branch-orders';
 
 export interface OnlineOrdersPageViewModel {
   activeChannel: OnlineOrderChannel;
@@ -13,11 +16,18 @@ export interface OnlineOrdersPageViewModel {
   handleAccept: (orderId: string) => void;
   handleReject: (orderId: string) => void;
   handleMarkReady: (orderId: string) => void;
+  isLoading: boolean;
+  isError: boolean;
+  loadError: string | null;
+  isMutating: boolean;
 }
 
 export function useOnlineOrdersPage(): OnlineOrdersPageViewModel {
   const [activeChannel, setActiveChannel] = useState<OnlineOrderChannel>('all');
-  const [orders, setOrders] = useState<OnlineOrder[]>(onlineOrders);
+  const { data, isPending, isError, error } = useOnlineOrdersQuery();
+  const patchOrder = usePatchBranchOrderMutation();
+
+  const orders = data?.orders ?? [];
 
   const visibleOrders = useMemo(() => {
     if (activeChannel === 'all') return orders;
@@ -25,27 +35,24 @@ export function useOnlineOrdersPage(): OnlineOrdersPageViewModel {
   }, [activeChannel, orders]);
 
   function handleAccept(orderId: string) {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? { ...order, priority: 'normal', actionState: 'readyForPickup' }
-          : order,
-      ),
-    );
+    patchOrder.mutate({
+      orderId,
+      body: { status: 'accepted', kitchen_status: 'preparing' },
+    });
   }
 
   function handleReject(orderId: string) {
-    setOrders((prev) => prev.filter((order) => order.id !== orderId));
+    patchOrder.mutate({
+      orderId,
+      body: { status: 'cancelled' },
+    });
   }
 
   function handleMarkReady(orderId: string) {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? { ...order, priority: 'ready', actionState: 'readyForPickupDone' }
-          : order,
-      ),
-    );
+    patchOrder.mutate({
+      orderId,
+      body: { kitchen_status: 'ready' },
+    });
   }
 
   return {
@@ -56,5 +63,9 @@ export function useOnlineOrdersPage(): OnlineOrdersPageViewModel {
     handleAccept,
     handleReject,
     handleMarkReady,
+    isLoading: isPending,
+    isError,
+    loadError: error instanceof Error ? error.message : (data?.loadError ?? null),
+    isMutating: patchOrder.isPending,
   };
 }

@@ -9,10 +9,7 @@ import { type UserRole } from '@/features/user-roles/config/users';
 import { AddUserWizardStepper } from '@/features/user-roles/components/add-user/add-user-wizard-stepper';
 import { FooterActions } from '@/features/user-roles/components/shared/footer-actions';
 import { useUsersRolesNav } from '@/features/user-roles/hooks/use-users-roles-nav';
-import {
-  toBranchSelectOptions,
-  toRoleSelectOptions,
-} from '@/features/user-roles/lib/backend-options';
+import { toBranchSelectOptions } from '@/features/user-roles/lib/backend-options';
 import { fetchCompanyBranches } from '@/lib/branches-cache';
 import { fetchRolesList } from '@/lib/roles';
 import { validateUserInvitation } from '@/lib/validation/user-invitation';
@@ -54,8 +51,11 @@ export function CreateUserPage({
   const [branchId, setBranchId] = useState<number | null>(initialBranches[0]?.id ?? null);
   const [branches, setBranches] = useState(() => initialBranches);
   const [roleId, setRoleId] = useState<string | null>(null);
+  const [roleCode, setRoleCode] = useState<string | null>(null);
   const [branchOptions, setBranchOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [roleOptions, setRoleOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [roleOptions, setRoleOptions] = useState<
+    Array<{ value: string; label: string; code: string }>
+  >([]);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -99,16 +99,25 @@ export function CreateUserPage({
             : level === 'company'
               ? ['company', 'branch']
               : ['organisation', 'company', 'branch'];
-        const nextRoles = toRoleSelectOptions(rolesRes.items).filter((option) => {
-          const roleRecord = rolesRes.items.find((item) => String(item.id) === option.value);
-          return roleRecord ? allowedScopes.includes(roleRecord.scope) : true;
-        });
+        const nextRoles = rolesRes.items
+          .filter((roleRecord) => allowedScopes.includes(roleRecord.scope))
+          .map((roleRecord) => ({
+            value: String(roleRecord.id ?? ''),
+            label: roleRecord.display_name,
+            code: roleRecord.code,
+          }))
+          .filter((option) => option.value && option.label && option.code);
         setRoleOptions(nextRoles);
         if (nextRoles.length > 0) {
           const selectedRole = nextRoles.find((option) => option.label === role) ?? nextRoles[0];
-          if (role !== selectedRole.label || roleId !== selectedRole.value) {
+          if (
+            role !== selectedRole.label ||
+            roleId !== selectedRole.value ||
+            roleCode !== selectedRole.code
+          ) {
             setRole(selectedRole.label as UserRole);
             setRoleId(selectedRole.value);
+            setRoleCode(selectedRole.code);
           }
         }
       } catch {
@@ -140,9 +149,12 @@ export function CreateUserPage({
     });
 
     const selectedBranchId = branchOptions.find((option) => option.label === branch)?.value ?? null;
-    const selectedRoleId = roleOptions.find((option) => option.label === role)?.value ?? null;
+    const selectedRoleOption = roleOptions.find((option) => option.label === role);
     if (selectedBranchId) setBranchId(Number(selectedBranchId));
-    if (selectedRoleId) setRoleId(selectedRoleId);
+    if (selectedRoleOption) {
+      setRoleId(selectedRoleOption.value);
+      setRoleCode(selectedRoleOption.code);
+    }
 
     if (typeof validation === 'string') {
       setValidationError(validation);
@@ -162,7 +174,7 @@ export function CreateUserPage({
     setValidationError(null);
 
     startTransition(async () => {
-      const roleCode = toApiRoleCode(role);
+      const resolvedRoleCode = roleCode ?? toApiRoleCode(role);
       const result = await createUserAction({
         email: emailValue,
         username: usernameValue,
@@ -170,7 +182,7 @@ export function CreateUserPage({
         first_name: firstNameValue,
         last_name: lastNameValue || null,
         phone: phoneValue || null,
-        role_code: roleCode,
+        role_code: resolvedRoleCode,
         company_id: scope === 'organisation' ? null : companyId,
         branch_id: scope === 'branch' ? branchId : null,
       });

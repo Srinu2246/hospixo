@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 
 import { AccessShell } from '@/components/shell/access-shell';
-import '@/features/pos/config/tokens.module.css';
+import '@/features/pos/config/pos-tokens.css';
 import { usePosCompactChrome } from '@/features/pos/hooks/use-pos-compact-chrome';
 import type { DashboardBootstrap } from '@/features/dashboard/types/dashboard-bootstrap';
 import type { AccessLevel } from '@/lib/auth/access-level';

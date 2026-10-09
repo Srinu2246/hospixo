@@ -31,7 +31,9 @@ export function AddUserDetailsStep({
   const { level, employeesHref, addUser } = useUsersRolesNav();
   const [validationError, setValidationError] = useState<string | null>(null);
   const [branchOptions, setBranchOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [roleOptions, setRoleOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [roleOptions, setRoleOptions] = useState<
+    Array<{ value: string; label: string; code: string }>
+  >([]);
 
   useEffect(() => {
     void (async () => {
@@ -63,16 +65,29 @@ export function AddUserDetailsStep({
               : ['organisation', 'company', 'branch'];
         const nextRoles = rolesRes.items
           .filter((role) => allowedScopes.includes(role.scope))
-          .map((role) => ({ value: String(role.id ?? ''), label: role.display_name }))
-          .filter((role) => role.value && role.label);
+          .map((role) => ({
+            value: String(role.id ?? ''),
+            label: role.display_name,
+            code: role.code,
+          }))
+          .filter((role) => role.value && role.label && role.code);
         setRoleOptions(nextRoles);
 
         if (nextRoles.length > 0) {
           const selectedRole =
-            nextRoles.find((option) => option.label === roleName) ?? nextRoles[0];
-          if (roleName !== selectedRole.label || user.roleId !== selectedRole.value) {
+            nextRoles.find(
+              (option) =>
+                option.label === roleName ||
+                (user.roleCode && option.code === user.roleCode) ||
+                (user.roleId && option.value === user.roleId),
+            ) ?? nextRoles[0];
+          if (
+            roleName !== selectedRole.label ||
+            user.roleId !== selectedRole.value ||
+            user.roleCode !== selectedRole.code
+          ) {
             setRoleName(selectedRole.label);
-            setUser({ roleId: selectedRole.value });
+            setUser({ roleId: selectedRole.value, roleCode: selectedRole.code });
           }
         }
       } catch {
@@ -80,7 +95,7 @@ export function AddUserDetailsStep({
         setRoleOptions([]);
       }
     })();
-  }, [level, roleName, setRoleName, setUser, user.branch]);
+  }, [level, roleName, setRoleName, setUser, user.branch, user.roleCode, user.roleId]);
 
   const template = getTemplateById(selectedTemplateId);
   const scope = template?.scope ?? user.scope ?? 'branch';
@@ -406,7 +421,10 @@ export function AddUserDetailsStep({
                         const nextValue = event.target.value;
                         const selected = roleOptions.find((option) => option.label === nextValue);
                         setRoleName(nextValue);
-                        setUser({ roleId: selected ? selected.value : null });
+                        setUser({
+                          roleId: selected ? selected.value : null,
+                          roleCode: selected ? selected.code : null,
+                        });
                       }}
                     >
                       {roleOptions.length === 0 ? (

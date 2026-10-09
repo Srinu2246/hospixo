@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import '@/features/pos/config/tokens.module.css';
+import '@/features/pos/config/pos-tokens.css';
 
 import { PosOperationsSidebar } from '@/features/pos/screens/layout/pos-operations-sidebar';
 import { DayCloseMobileHeader } from './day-close-mobile-header';

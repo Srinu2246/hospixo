@@ -47,8 +47,9 @@ export function AddUserReviewStep() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const template = getTemplateById(selectedTemplateId);
-  const scope = template?.scope ?? user.scope ?? 'branch';
+  const configTemplate = getTemplateById(selectedTemplateId);
+  const templateLabel = configTemplate?.title ?? (roleName || 'Branch Manager');
+  const scope = configTemplate?.scope ?? user.scope ?? 'branch';
 
   const permissionsHref = withRoleScope(addUser.permissions, level);
   const detailsHref = withRoleScope(addUser.details, level);
@@ -99,7 +100,7 @@ export function AddUserReviewStep() {
       const searchObj: Record<string, string> = {
         email: user.email,
         name: fullName,
-        role: roleName || template?.title || 'Branch Manager',
+        role: roleName || templateLabel,
         branch:
           scope === 'branch'
             ? user.branch || 'Downtown Branch'
@@ -168,7 +169,7 @@ export function AddUserReviewStep() {
             <div className={styles.summaryItem}>
               <p className={styles.summaryLabel}>Template</p>
 
-              <p className={styles.summaryValue}>{template?.title ?? 'Branch Manager'}</p>
+              <p className={styles.summaryValue}>{templateLabel}</p>
             </div>
           </div>
         </section>
@@ -255,10 +256,7 @@ export function AddUserReviewStep() {
             <div className={styles.summaryItem}>
               <p className={styles.summaryLabel}>Role</p>
 
-              <p className={styles.summaryValue}>
-                {roleName || 'Branch Manager'}
-                {roleName || template?.title || 'Branch Manager'}
-              </p>
+              <p className={styles.summaryValue}>{roleName || templateLabel}</p>
             </div>
           </div>
         </section>
