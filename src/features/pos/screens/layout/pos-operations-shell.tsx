@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import '@/features/pos/config/tokens.module.css';
+import '@/features/pos/config/pos-tokens.css';
 
 import { usePosChromeMode } from '@/context/pos-chrome';
 import { usePosBreakpoint } from '@/features/pos/hooks/use-pos-breakpoint';

@@ -6,6 +6,7 @@ import {
   canCreateRoleTemplate,
   getDefaultRoleTemplateId,
   getTemplateById,
+  roleTemplates,
   type PermissionGroup,
   type RoleTemplateId,
 } from '@/features/user-roles/config/roles';
@@ -31,19 +32,28 @@ export interface AddUserDetails {
   branchId: number | null;
   /** Real role id from the backend roles list, kept for the final submit payload. */
   roleId: string | null;
+  /** Backend role_code for the role chosen in Assign Role (or template step). */
+  roleCode: string | null;
   sendInvite: boolean;
   message: string;
 }
 
+/** Figma/config template id, or live org role code from GET /api/roles/templates. */
+export type AddUserTemplateSelection = RoleTemplateId | string;
+
+function isConfigRoleTemplateId(id: string): id is RoleTemplateId {
+  return roleTemplates.some((template) => template.id === id);
+}
+
 interface AddUserState {
-  selectedTemplateId: RoleTemplateId | null;
+  selectedTemplateId: AddUserTemplateSelection | null;
   roleName: string;
   description: string;
   /** Full selectable catalog from GET /permissions/grouped (auth + unavailable excluded). */
   permissionCatalog: PermissionGroup[];
   permissionGroups: PermissionGroup[];
   user: AddUserDetails;
-  setSelectedTemplateId: (id: RoleTemplateId | null) => void;
+  setSelectedTemplateId: (id: AddUserTemplateSelection | null) => void;
   setRoleName: (value: string) => void;
   setDescription: (value: string) => void;
   setPermissionEnabled: (groupId: string, permissionId: string, enabled: boolean) => void;
@@ -77,6 +87,7 @@ const DEFAULT_USER: AddUserDetails = {
   branch: '',
   branchId: null,
   roleId: null,
+  roleCode: null,
   sendInvite: false,
   message: '',
 };
@@ -112,7 +123,8 @@ function applyTemplateDefaults(id: RoleTemplateId | null): {
 
 export function AddUserProvider({ children }: { children: React.ReactNode }) {
   const level = useRoleManagementLevel();
-  const [selectedTemplateId, setSelectedTemplateIdState] = useState<RoleTemplateId | null>(null);
+  const [selectedTemplateId, setSelectedTemplateIdState] =
+    useState<AddUserTemplateSelection | null>(null);
   const [roleName, setRoleName] = useState('');
   const [description, setDescription] = useState('');
   const [permissionCatalog, setPermissionCatalogState] = useState<PermissionGroup[]>([]);
@@ -122,11 +134,14 @@ export function AddUserProvider({ children }: { children: React.ReactNode }) {
   const [invitationId, setInvitationId] = useState<string | null>(null);
   const [invitationStatus, setInvitationStatus] = useState<string | null>(null);
 
-  const effectiveTemplateId = useMemo(() => {
-    if (selectedTemplateId && canCreateRoleTemplate(level, selectedTemplateId)) {
-      return selectedTemplateId;
+  const effectiveTemplateId = useMemo((): AddUserTemplateSelection | null => {
+    if (!selectedTemplateId) return getDefaultRoleTemplateId(level);
+    if (isConfigRoleTemplateId(selectedTemplateId)) {
+      return canCreateRoleTemplate(level, selectedTemplateId)
+        ? selectedTemplateId
+        : getDefaultRoleTemplateId(level);
     }
-    return getDefaultRoleTemplateId(level);
+    return selectedTemplateId;
   }, [selectedTemplateId, level]);
 
   useEffect(() => {
@@ -154,6 +169,7 @@ export function AddUserProvider({ children }: { children: React.ReactNode }) {
           delete hydratedUser.branch;
           delete hydratedUser.branchId;
           delete hydratedUser.roleId;
+          delete hydratedUser.roleCode;
 
           setUserState({ ...DEFAULT_USER, ...hydratedUser });
         }
@@ -213,9 +229,10 @@ export function AddUserProvider({ children }: { children: React.ReactNode }) {
     invitationStatus,
   ]);
 
-  const selectTemplate = useCallback((id: RoleTemplateId | null) => {
+  const selectTemplate = useCallback((id: AddUserTemplateSelection | null) => {
     setSelectedTemplateIdState(id);
-    const defaults = applyTemplateDefaults(id);
+    const configId = id && isConfigRoleTemplateId(id) ? id : null;
+    const defaults = applyTemplateDefaults(configId);
     setRoleName(defaults.roleName);
     setDescription(defaults.description);
   }, []);

@@ -16,12 +16,23 @@ export function OnlineOrdersDesktopContent({
   handleAccept,
   handleReject,
   handleMarkReady,
+  isLoading,
+  isError,
+  loadError,
 }: Readonly<OnlineOrdersPageViewModel>) {
   return (
     <PosOperationsShell withPageBg>
       <div className={styles.page}>
         <OnlineOrdersHeader activeChannel={activeChannel} onChannelChange={setActiveChannel} />
         <OnlineOrdersAlert />
+
+        {isError || loadError ? (
+          <p role="alert" className={styles.empty}>
+            {loadError ?? 'Unable to load online orders.'}
+          </p>
+        ) : null}
+
+        {isLoading ? <p className={styles.empty}>Loading online orders…</p> : null}
 
         <section className={styles.grid} aria-label="Online order cards">
           {visibleOrders.map((order) => (

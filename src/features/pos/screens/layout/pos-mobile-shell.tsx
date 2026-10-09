@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 
-import '@/features/pos/config/tokens.module.css';
+import '@/features/pos/config/pos-tokens.css';
 
 import type { PosDashboardMobileNavId } from '@/features/pos/config/nav-dashboard-mobile';
 import type { PosMobileNavId } from '@/features/pos/config/nav-mobile';

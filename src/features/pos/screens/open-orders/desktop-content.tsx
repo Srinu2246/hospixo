@@ -18,6 +18,9 @@ export function OpenOrdersDesktopContent({
   visibleOrders,
   handleAddItems,
   handleSettleBill,
+  isLoading,
+  isError,
+  loadError,
 }: Readonly<OpenOrdersPageViewModel>) {
   function handleTypeChange(type: OpenOrderType) {
     setActiveType(type);
@@ -34,6 +37,14 @@ export function OpenOrdersDesktopContent({
         />
 
         <OpenOrdersFilters activeType={activeType} onChange={handleTypeChange} />
+
+        {isError || loadError ? (
+          <p role="alert" className={styles.empty}>
+            {loadError ?? 'Unable to load orders.'}
+          </p>
+        ) : null}
+
+        {isLoading ? <p className={styles.empty}>Loading orders…</p> : null}
 
         <OpenOrdersTable
           orders={visibleOrders}

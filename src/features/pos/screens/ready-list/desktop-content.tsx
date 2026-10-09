@@ -17,6 +17,9 @@ export function ReadyListDesktopContent({
   handleServe,
   activeCount,
   tabs,
+  isLoading,
+  isError,
+  loadError,
 }: Readonly<ReadyListPageViewModel>) {
   return (
     <PosOperationsShell withPageBg>
@@ -58,6 +61,14 @@ export function ReadyListDesktopContent({
             })}
           </div>
         </header>
+
+        {isError || loadError ? (
+          <p role="alert" className={styles.empty}>
+            {loadError ?? 'Unable to load ready orders.'}
+          </p>
+        ) : null}
+
+        {isLoading ? <p className={styles.empty}>Loading ready orders…</p> : null}
 
         {visibleOrders.length > 0 ? (
           <section className={styles.grid} aria-label={`${activeTab} ready orders`}>
