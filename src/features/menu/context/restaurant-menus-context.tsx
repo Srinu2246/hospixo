@@ -38,7 +38,11 @@ import type {
   MenusViewMode,
   RestaurantMenu,
 } from '../types/restaurant-menu';
-import type { ListRestaurantMenusApiQuery } from '../types/restaurant-menu-api';
+import type {
+  ListRestaurantMenusApiQuery,
+  RestaurantMenuApiStatus,
+  RestaurantMenuTypeApi,
+} from '../types/restaurant-menu-api';
 
 type RestaurantMenusContextType = {
   pageConfig: MenuBuilderPageConfig;
@@ -49,7 +53,7 @@ type RestaurantMenusContextType = {
   categoryAssignments: MenuCategoryAssignment[];
   menuTree: MenuTree | null;
   viewMode: MenusViewMode;
-  statusFilter: ListRestaurantMenusApiQuery['status'] | 'all';
+  statusFilter: RestaurantMenuApiStatus | 'all';
   menuTypeFilter: string;
   isHydrated: boolean;
   menusLoading: boolean;
@@ -59,7 +63,7 @@ type RestaurantMenusContextType = {
   serverDetailHydrated: boolean;
   detailError: string | null;
 
-  setStatusFilter: (status: ListRestaurantMenusApiQuery['status'] | 'all') => void;
+  setStatusFilter: (status: RestaurantMenuApiStatus | 'all') => void;
   setMenuTypeFilter: (menuType: string) => void;
   openCreateMenuPage: () => void;
   openEditMenuPage: (menu: RestaurantMenu) => void;
@@ -108,9 +112,7 @@ export function RestaurantMenusProvider({
   const [selectedMenu, setSelectedMenu] = useState<RestaurantMenu | null>(null);
   const [editingMenu, setEditingMenu] = useState<RestaurantMenu | null>(null);
   const [viewMode, setViewMode] = useState<MenusViewMode>('list');
-  const [statusFilter, setStatusFilter] = useState<ListRestaurantMenusApiQuery['status'] | 'all'>(
-    'all',
-  );
+  const [statusFilter, setStatusFilter] = useState<RestaurantMenuApiStatus | 'all'>('all');
   const [menuTypeFilter, setMenuTypeFilter] = useState('all');
   const [detailError, setDetailError] = useState<string | null>(null);
   const [serverDetailHydrated, setServerDetailHydrated] = useState(false);
@@ -118,12 +120,11 @@ export function RestaurantMenusProvider({
 
   const listQuery = useMemo((): ListRestaurantMenusApiQuery | undefined => {
     const query: {
-      status?: ListRestaurantMenusApiQuery['status'];
-      menu_type?: ListRestaurantMenusApiQuery['menu_type'];
+      status?: RestaurantMenuApiStatus;
+      menu_type?: RestaurantMenuTypeApi;
     } = {};
     if (statusFilter !== 'all') query.status = statusFilter;
-    if (menuTypeFilter !== 'all')
-      query.menu_type = menuTypeFilter as ListRestaurantMenusApiQuery['menu_type'];
+    if (menuTypeFilter !== 'all') query.menu_type = menuTypeFilter as RestaurantMenuTypeApi;
     return Object.keys(query).length > 0 ? query : undefined;
   }, [menuTypeFilter, statusFilter]);
 

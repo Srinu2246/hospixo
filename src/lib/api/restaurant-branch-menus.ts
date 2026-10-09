@@ -134,6 +134,71 @@ export async function getActiveBranchMenuAssignmentId(
   return active?.id ?? null;
 }
 
+function mergeAssignmentItems(
+  assignmentData: ReadonlyArray<{
+    items: readonly BranchMenuItemOverride[];
+    treeItems: readonly BranchMenuItemOverride[];
+  }>,
+  allOverrides: BranchMenuItemOverride[],
+  seenIds: Set<string>,
+  seenNames: Set<string>,
+): void {
+  for (const { items, treeItems } of assignmentData) {
+    for (const item of items) {
+      const record = item as Record<string, unknown>;
+      const id = toSafeString(record.id ?? record.menu_item_id ?? record.item_override_id);
+      const nestedItem =
+        record.menu_item && typeof record.menu_item === 'object'
+          ? (record.menu_item as Record<string, unknown>)
+          : null;
+      const name = toSafeString(
+        record.display_name ?? record.name ?? record.item_name ?? nestedItem?.name,
+      ).toLowerCase();
+      addDeduplicated(item, allOverrides, seenIds, seenNames, id, name);
+    }
+
+    for (const treeItem of treeItems) {
+      const id = toSafeString(treeItem.id ?? treeItem.menu_item_id ?? treeItem.item_override_id);
+      const name = toSafeString(treeItem.name ?? treeItem.item_name).toLowerCase();
+      addDeduplicated(treeItem, allOverrides, seenIds, seenNames, id, name);
+    }
+  }
+}
+
+async function mergeCatalogMasterItems(
+  token: string,
+  branchId: number,
+  allOverrides: BranchMenuItemOverride[],
+  seenIds: Set<string>,
+  seenNames: Set<string>,
+): Promise<void> {
+  try {
+    const catalogPayload = await apiFetch<unknown>(apiPaths.restaurant.menuItems, {
+      ...withAuth(token),
+      method: 'GET',
+    });
+    const { items: masterItems } = normalizeListPayload<Record<string, unknown>>(catalogPayload);
+    for (const master of masterItems) {
+      if (
+        master.scope === 'branch' &&
+        master.assign_branch_id != null &&
+        Number(master.assign_branch_id) !== branchId
+      ) {
+        continue;
+      }
+      const id = toSafeString(master.id);
+      const name = toSafeString(master.name).toLowerCase();
+      if (id && !seenIds.has(id) && (!name || !seenNames.has(name))) {
+        seenIds.add(id);
+        if (name) seenNames.add(name);
+        allOverrides.push(master);
+      }
+    }
+  } catch {
+    // Continue
+  }
+}
+
 /** Menu item overrides for branch POS dine-in across all branch assignments and catalog. */
 export async function listBranchMenuItems(
   token: string,
@@ -169,53 +234,8 @@ export async function listBranchMenuItems(
     }),
   );
 
-  for (const { items, treeItems } of assignmentData) {
-    for (const item of items) {
-      const record = item as Record<string, unknown>;
-      const id = toSafeString(record.id ?? record.menu_item_id ?? record.item_override_id);
-      const nestedItem =
-        record.menu_item && typeof record.menu_item === 'object'
-          ? (record.menu_item as Record<string, unknown>)
-          : null;
-      const name = toSafeString(
-        record.display_name ?? record.name ?? record.item_name ?? nestedItem?.name,
-      ).toLowerCase();
-      addDeduplicated(item, allOverrides, seenIds, seenNames, id, name);
-    }
-
-    for (const treeItem of treeItems) {
-      const id = toSafeString(treeItem.id ?? treeItem.menu_item_id ?? treeItem.item_override_id);
-      const name = toSafeString(treeItem.name ?? treeItem.item_name).toLowerCase();
-      addDeduplicated(treeItem, allOverrides, seenIds, seenNames, id, name);
-    }
-  }
-
-  // 2. Fetch master restaurant catalog items (/restaurant/menu/items) to ensure catalog items like Mojito are in Dine-In
-  try {
-    const catalogPayload = await apiFetch<unknown>(apiPaths.restaurant.menuItems, {
-      ...withAuth(token),
-      method: 'GET',
-    });
-    const { items: masterItems } = normalizeListPayload<Record<string, unknown>>(catalogPayload);
-    for (const master of masterItems) {
-      if (
-        master.scope === 'branch' &&
-        master.assign_branch_id != null &&
-        Number(master.assign_branch_id) !== branchId
-      ) {
-        continue;
-      }
-      const id = toSafeString(master.id);
-      const name = toSafeString(master.name).toLowerCase();
-      if (id && !seenIds.has(id) && (!name || !seenNames.has(name))) {
-        seenIds.add(id);
-        if (name) seenNames.add(name);
-        allOverrides.push(master);
-      }
-    }
-  } catch {
-    // Continue
-  }
+  mergeAssignmentItems(assignmentData, allOverrides, seenIds, seenNames);
+  await mergeCatalogMasterItems(token, branchId, allOverrides, seenIds, seenNames);
 
   return allOverrides;
 }

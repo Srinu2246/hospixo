@@ -1,6 +1,6 @@
 import type { MenuScope } from './menu-store';
 import type { MenuPageConfig } from '../config/menu-page-config';
-import type { DietaryType, MenuItem, MenuItemStatus, OrderType } from '../types/menu';
+import type { DietaryType, MenuItemStatus, OrderType } from '../types/menu';
 
 export type MenuScopeSelection = Readonly<{
   scope: MenuScope;

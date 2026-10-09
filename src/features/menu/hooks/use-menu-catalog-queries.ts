@@ -11,7 +11,8 @@ import {
   fetchMenuItems,
 } from '@/lib/menu-cache';
 import type { MenuPageConfig } from '../config/menu-page-config';
-import type { MenuCategory, MenuItem } from '../types/menu';
+import type { MenuCategory, MenuItem, MenuItemTag } from '../types/menu';
+import type { BranchMenuItemOverrideApi } from '../types/branch-menu-item-api';
 import { tenancyContent } from '@/config/auth/tenancy';
 import type { CompanyMenuCreationInitialData } from '../context/menu-context';
 import { enrichMenuItemsWithCatalog } from '../lib/enrich-menu-catalog-items';
@@ -134,6 +135,46 @@ function applyLocalAndRemoteOverrides(
   return currentItem;
 }
 
+function buildCatalogItems(
+  rawItems: readonly MenuItem[],
+  categories: MenuCategory[],
+  tagDefinitions: MenuItemTag[],
+  scope?: string,
+  branchIdForScope?: string | null,
+  branchOverrides?: readonly BranchMenuItemOverrideApi[],
+): MenuItem[] {
+  const enriched = enrichMenuItemsWithCatalog(rawItems, categories, tagDefinitions);
+  if (scope !== 'branch' || !branchIdForScope) {
+    return enriched;
+  }
+  const scopedItems = enriched.filter((item) => matchesBranchScopeFilter(item, branchIdForScope));
+  const overrides = branchOverrides ?? [];
+  const localOverrides = getBranchItemOverrides(branchIdForScope);
+  return scopedItems.map((item) =>
+    applyLocalAndRemoteOverrides(item, branchIdForScope, overrides, localOverrides),
+  );
+}
+
+function computeIsHydrated(params: {
+  queryEnabled: boolean;
+  categoriesFetched: boolean;
+  hasInitialCategories: boolean;
+  itemsFetched: boolean;
+  hasInitialItems: boolean;
+  scope?: string;
+  tagsFetched: boolean;
+  hasInitialTags: boolean;
+}): boolean {
+  if (!params.queryEnabled) return true;
+  const categoriesReady = params.categoriesFetched || params.hasInitialCategories;
+  const itemsReady = params.itemsFetched || params.hasInitialItems;
+  if (!categoriesReady || !itemsReady) return false;
+
+  const requiresTags = params.scope === 'company' || params.scope === 'branch';
+  if (!requiresTags) return true;
+  return params.tagsFetched || params.hasInitialTags;
+}
+
 export function useMenuCatalogQueries(options: UseMenuCatalogQueriesOptions) {
   const { scope, enabled, branchFilterId, userBranchId, initialData } = options;
 
@@ -216,18 +257,14 @@ export function useMenuCatalogQueries(options: UseMenuCatalogQueriesOptions) {
   const tagDefinitions = useMemo(() => [...(tagsQuery.data ?? [])], [tagsQuery.data]);
 
   const items = useMemo(() => {
-    const enriched = enrichMenuItemsWithCatalog(itemsQuery.data ?? [], categories, tagDefinitions);
-    if (scope === 'branch' && branchIdForScope) {
-      const scopedItems = enriched.filter((item) =>
-        matchesBranchScopeFilter(item, branchIdForScope),
-      );
-      const overrides = branchOverridesQuery.data ?? [];
-      const localOverrides = getBranchItemOverrides(branchIdForScope);
-      return scopedItems.map((item) =>
-        applyLocalAndRemoteOverrides(item, branchIdForScope, overrides, localOverrides),
-      );
-    }
-    return enriched;
+    return buildCatalogItems(
+      itemsQuery.data ?? [],
+      categories,
+      tagDefinitions,
+      scope,
+      branchIdForScope,
+      branchOverridesQuery.data,
+    );
   }, [
     branchIdForScope,
     branchOverridesQuery.data,
@@ -248,13 +285,16 @@ export function useMenuCatalogQueries(options: UseMenuCatalogQueriesOptions) {
   const tagsError =
     initialData?.tagsError ?? (tagsQuery.error instanceof Error ? tagsQuery.error.message : null);
 
-  const isHydrated =
-    !queryEnabled ||
-    ((categoriesQuery.isFetched || Boolean(initialData?.categories?.length)) &&
-      (itemsQuery.isFetched || Boolean(initialData?.items?.length)) &&
-      (scope !== 'company' && scope !== 'branch'
-        ? true
-        : tagsQuery.isFetched || Boolean(initialData?.tags?.length)));
+  const isHydrated = computeIsHydrated({
+    queryEnabled,
+    categoriesFetched: categoriesQuery.isFetched,
+    hasInitialCategories: Boolean(initialData?.categories?.length),
+    itemsFetched: itemsQuery.isFetched,
+    hasInitialItems: Boolean(initialData?.items?.length),
+    scope,
+    tagsFetched: tagsQuery.isFetched,
+    hasInitialTags: Boolean(initialData?.tags?.length),
+  });
 
   const branchDataLoading =
     scope === 'branch' &&

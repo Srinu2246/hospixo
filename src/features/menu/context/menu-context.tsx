@@ -532,6 +532,158 @@ function deactivateCategoryLocally(
   }
 }
 
+function resolveActiveCatalogState(
+  usesApiCatalog: boolean,
+  catalog: ReturnType<typeof useMenuCatalogQueries>,
+  legacy: {
+    categories: MenuCategory[];
+    items: MenuItem[];
+    tagDefinitions: MenuItemTag[];
+    preparationStations: PreparationStation[];
+    modifierGroups: ModifierGroup[];
+    isHydrated: boolean;
+  },
+) {
+  if (usesApiCatalog) {
+    return {
+      categories: catalog.categories,
+      items: catalog.items,
+      tagDefinitions: catalog.tagDefinitions,
+      preparationStations: catalog.preparationStations,
+      modifierGroups: catalog.modifierGroups,
+      categoriesLoading: catalog.categoriesLoading,
+      categoriesError: catalog.categoriesError,
+      itemsLoading: catalog.itemsLoading,
+      itemsError: catalog.itemsError,
+      tagsLoading: catalog.tagsLoading,
+      tagsError: catalog.tagsError,
+      catalogsLoading: catalog.catalogsLoading,
+      isHydrated: catalog.isHydrated,
+    };
+  }
+  return {
+    categories: legacy.categories,
+    items: legacy.items,
+    tagDefinitions: legacy.tagDefinitions,
+    preparationStations: legacy.preparationStations,
+    modifierGroups: legacy.modifierGroups,
+    categoriesLoading: false,
+    categoriesError: null,
+    itemsLoading: false,
+    itemsError: null,
+    tagsLoading: false,
+    tagsError: null,
+    catalogsLoading: false,
+    isHydrated: legacy.isHydrated,
+  };
+}
+
+async function executeCreateMenuItemApiFlow(params: {
+  input: CreateMenuItemInput;
+  matchedCatName: string;
+  tagDefinitions: readonly MenuItemTag[];
+  scope?: string;
+  userBranchId: string | null;
+  refreshMenuCatalog: () => Promise<void>;
+}): Promise<{ ok: true; data: MenuItem } | { ok: false; message?: string }> {
+  const { input, matchedCatName, tagDefinitions, scope, userBranchId, refreshMenuCatalog } = params;
+  const scopedInput: CreateMenuItemInput =
+    scope === 'branch' && userBranchId
+      ? {
+          ...input,
+          scope: 'branch',
+          assignBranchId: input.assignBranchId ?? userBranchId,
+        }
+      : input;
+  const result = await createMenuItemViaBff(scopedInput, {
+    categoryName: matchedCatName,
+    tagDefinitions,
+  });
+  if (!result.ok) {
+    return { ok: false, message: result.message };
+  }
+
+  let savedItem = result.data;
+  const createdVariants = await persistCreatedItemVariants(savedItem.id, input.variants ?? []);
+  savedItem = {
+    ...savedItem,
+    variants: createdVariants,
+    scope: input.scope ?? 'company',
+    assignBranchId: input.assignBranchId ?? undefined,
+    images: input.images ?? savedItem.images,
+    image: input.image ?? savedItem.image,
+  };
+
+  if (input.scope === 'branch' && input.assignBranchId) {
+    void syncBranchMenuForOutlet(input.assignBranchId).catch(() => {});
+  }
+
+  const uploadedImages = await persistCreatedItemImages(savedItem.id, input.imageFiles ?? []);
+  if (uploadedImages.length > 0) {
+    savedItem = {
+      ...savedItem,
+      images: uploadedImages,
+      image: uploadedImages[0]?.url ?? savedItem.image,
+    };
+  }
+
+  await refreshMenuCatalog();
+  return { ok: true, data: savedItem };
+}
+
+async function executePersistUpdatedMenuItemBffFlow(params: {
+  id: string;
+  updates: Partial<MenuItem>;
+  existingItem: MenuItem;
+  optimisticUpdatedItem: MenuItem;
+  categoryName: string;
+  tagDefinitions: readonly MenuItemTag[];
+  normalizeBranchItemUpdates: (u: Partial<CreateMenuItemInput>) => Partial<CreateMenuItemInput>;
+  persistedMenuItemBffOptions: Record<string, unknown>;
+  refreshMenuCatalog: () => Promise<void>;
+}): Promise<{ ok: true; mergedItem: MenuItem } | { ok: false; message?: string }> {
+  const {
+    id,
+    updates,
+    existingItem,
+    optimisticUpdatedItem,
+    categoryName,
+    tagDefinitions,
+    normalizeBranchItemUpdates,
+    persistedMenuItemBffOptions,
+    refreshMenuCatalog,
+  } = params;
+
+  const patchInput = buildUpdateMenuItemPatchInput(updates, normalizeBranchItemUpdates);
+  const result = await updateMenuItemViaBff(id, patchInput, existingItem, {
+    categoryName,
+    tagDefinitions,
+    ...persistedMenuItemBffOptions,
+  });
+
+  if (!result.ok) {
+    return { ok: false, message: result.message };
+  }
+
+  if (
+    updates.scope === 'branch' &&
+    updates.assignBranchId &&
+    (existingItem.scope !== 'branch' || existingItem.assignBranchId !== updates.assignBranchId)
+  ) {
+    void syncBranchMenuForOutlet(updates.assignBranchId).catch(() => {});
+  }
+
+  const mergedUpdatedItem = mergeUpdatedMenuItem(
+    optimisticUpdatedItem,
+    result.data,
+    existingItem,
+    updates,
+  );
+
+  await refreshMenuCatalog();
+  return { ok: true, mergedItem: mergedUpdatedItem };
+}
+
 export function MenuProvider({
   children,
   pageConfig,
@@ -614,22 +766,30 @@ export function MenuProvider({
     hasServerBootstrap ? (initialData?.modifierGroups ?? []) : [],
   );
   const [legacyHydrated, setLegacyHydrated] = useState(!usesApiCatalog);
+  const activeCatalog = resolveActiveCatalogState(usesApiCatalog, catalog, {
+    categories: legacyCategories,
+    items: legacyItems,
+    tagDefinitions: legacyTagDefinitions,
+    preparationStations: legacyPreparationStations,
+    modifierGroups: legacyModifierGroups,
+    isHydrated: legacyHydrated,
+  });
 
-  const categories = usesApiCatalog ? catalog.categories : legacyCategories;
-  const items = usesApiCatalog ? catalog.items : legacyItems;
-  const tagDefinitions = usesApiCatalog ? catalog.tagDefinitions : legacyTagDefinitions;
-  const preparationStations = usesApiCatalog
-    ? catalog.preparationStations
-    : legacyPreparationStations;
-  const modifierGroups = usesApiCatalog ? catalog.modifierGroups : legacyModifierGroups;
-  const categoriesLoading = usesApiCatalog ? catalog.categoriesLoading : false;
-  const categoriesError = usesApiCatalog ? catalog.categoriesError : null;
-  const itemsLoading = usesApiCatalog ? catalog.itemsLoading : false;
-  const itemsError = usesApiCatalog ? catalog.itemsError : null;
-  const tagsLoading = usesApiCatalog ? catalog.tagsLoading : false;
-  const tagsError = usesApiCatalog ? catalog.tagsError : null;
-  const catalogsLoading = usesApiCatalog ? catalog.catalogsLoading : false;
-  const isHydrated = usesApiCatalog ? catalog.isHydrated : legacyHydrated;
+  const {
+    categories,
+    items,
+    tagDefinitions,
+    preparationStations,
+    modifierGroups,
+    categoriesLoading,
+    categoriesError,
+    itemsLoading,
+    itemsError,
+    tagsLoading,
+    tagsError,
+    catalogsLoading,
+    isHydrated,
+  } = activeCatalog;
 
   const itemsRef = useRef(items);
   useEffect(() => {
@@ -915,59 +1075,24 @@ export function MenuProvider({
 
       if (usesApiCatalog) {
         try {
-          const scopedInput: CreateMenuItemInput =
-            pageConfig?.scope === 'branch' && userBranchId
-              ? {
-                  ...input,
-                  scope: 'branch',
-                  assignBranchId: input.assignBranchId ?? userBranchId,
-                }
-              : input;
-          const result = await createMenuItemViaBff(scopedInput, {
-            categoryName: matchedCat?.name ?? 'General',
+          const res = await executeCreateMenuItemApiFlow({
+            input,
+            matchedCatName: matchedCat?.name ?? 'General',
             tagDefinitions,
+            scope: pageConfig?.scope,
+            userBranchId,
+            refreshMenuCatalog,
           });
-          if (!result.ok) {
+          if (!res.ok) {
             removeMenuItemFromCatalogCache(tempId);
-            return { ok: false, message: result.message };
+            return { ok: false, message: res.message };
           }
 
-          let savedItem = result.data;
-          const createdVariants = await persistCreatedItemVariants(
-            savedItem.id,
-            input.variants ?? [],
-          );
-          savedItem = {
-            ...savedItem,
-            variants: createdVariants,
-            scope: input.scope ?? 'company',
-            assignBranchId: input.assignBranchId ?? undefined,
-            images: input.images ?? savedItem.images,
-            image: input.image ?? savedItem.image,
-          };
-
-          if (input.scope === 'branch' && input.assignBranchId) {
-            void syncBranchMenuForOutlet(input.assignBranchId).catch(() => {});
-          }
-
-          const uploadedImages = await persistCreatedItemImages(
-            savedItem.id,
-            input.imageFiles ?? [],
-          );
-          if (uploadedImages.length > 0) {
-            savedItem = {
-              ...savedItem,
-              images: uploadedImages,
-              image: uploadedImages[0]?.url ?? savedItem.image,
-            };
-          }
-
-          patchMenuItemInCatalogCache(tempId, () => savedItem);
-          await refreshMenuCatalog();
+          patchMenuItemInCatalogCache(tempId, () => res.data);
           if (usesPageFlow) {
             setViewMode('list');
           }
-          return { ok: true, data: savedItem };
+          return { ok: true, data: res.data };
         } catch (error) {
           removeMenuItemFromCatalogCache(tempId);
           const message = error instanceof Error ? error.message : 'Failed to create menu item.';
@@ -1039,10 +1164,11 @@ export function MenuProvider({
         closeModals();
       }
 
-      if (
+      const requiresBffUpdate =
         pageConfig?.scope === 'company' ||
-        (pageConfig?.scope === 'branch' && isPersistedMenuItemId(id))
-      ) {
+        (pageConfig?.scope === 'branch' && isPersistedMenuItemId(id));
+
+      if (requiresBffUpdate) {
         const rollback = () => {
           patchMenuItemInCatalogCache(id, () => existingItem);
           if (selectedItem?.id === id) {
@@ -1051,39 +1177,27 @@ export function MenuProvider({
         };
 
         try {
-          const patchInput = buildUpdateMenuItemPatchInput(updates, normalizeBranchItemUpdates);
-          const result = await updateMenuItemViaBff(id, patchInput, existingItem, {
+          const res = await executePersistUpdatedMenuItemBffFlow({
+            id,
+            updates,
+            existingItem,
+            optimisticUpdatedItem,
             categoryName: updatedCat?.name ?? existingItem.categoryName,
             tagDefinitions,
-            ...persistedMenuItemBffOptions,
+            normalizeBranchItemUpdates,
+            persistedMenuItemBffOptions,
+            refreshMenuCatalog,
           });
 
-          if (!result.ok) {
+          if (!res.ok) {
             rollback();
-            return { ok: false, message: result.message };
+            return { ok: false, message: res.message };
           }
 
-          if (
-            updates.scope === 'branch' &&
-            updates.assignBranchId &&
-            (existingItem.scope !== 'branch' ||
-              existingItem.assignBranchId !== updates.assignBranchId)
-          ) {
-            void syncBranchMenuForOutlet(updates.assignBranchId).catch(() => {});
-          }
-
-          const mergedUpdatedItem = mergeUpdatedMenuItem(
-            optimisticUpdatedItem,
-            result.data,
-            existingItem,
-            updates,
-          );
-
-          patchMenuItemInCatalogCache(id, () => mergedUpdatedItem);
+          patchMenuItemInCatalogCache(id, () => res.mergedItem);
           if (selectedItem?.id === id) {
-            setSelectedItem(mergedUpdatedItem);
+            setSelectedItem(res.mergedItem);
           }
-          await refreshMenuCatalog();
           if (usesPageFlow) {
             setViewMode('list');
           }

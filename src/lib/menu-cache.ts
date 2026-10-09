@@ -554,7 +554,10 @@ function resolveAssignBranchId(
   mergedVal?: string,
 ): string | undefined {
   if (updatesVal !== undefined) {
-    return updatesVal != null ? String(updatesVal) : undefined;
+    if (typeof updatesVal === 'string' || typeof updatesVal === 'number') {
+      return String(updatesVal);
+    }
+    return undefined;
   }
   return mergedVal ?? existingVal ?? undefined;
 }

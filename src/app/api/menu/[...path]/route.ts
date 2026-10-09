@@ -420,70 +420,115 @@ async function handleGetStations(token: string, path: string[], searchParams: UR
   return null;
 }
 
-async function handleGetBranchMenus(token: string, path: string[], searchParams: URLSearchParams) {
-  const branchId = path[1];
-  if (path.length === 3 && path[2] === 'menus') {
-    const status = searchParams.get('status') as ActiveInactiveFilter | null;
-    const data = await listBackendBranchMenusByBranchId(token, branchId, {
-      status: status ?? undefined,
+function parsePagination(searchParams: URLSearchParams): {
+  page?: number;
+  pageSize?: number;
+} {
+  const pageRaw = searchParams.get('page');
+  const sizeRaw = searchParams.get('page_size');
+  return {
+    page: pageRaw && Number.isFinite(Number(pageRaw)) ? Number(pageRaw) : undefined,
+    pageSize: sizeRaw && Number.isFinite(Number(sizeRaw)) ? Number(sizeRaw) : undefined,
+  };
+}
+
+async function handleGetBranchMenuItems(
+  token: string,
+  branchId: string,
+  path: string[],
+  searchParams: URLSearchParams,
+) {
+  const status = (searchParams.get('status') as ActiveInactiveFilter | null) ?? undefined;
+  const { page, pageSize } = parsePagination(searchParams);
+  const assignmentId = path[3];
+
+  if (path.length === 5) {
+    const data = await listBackendBranchMenuItemOverrides(token, branchId, assignmentId, {
+      status,
+      page,
+      page_size: pageSize,
     });
     return jsonOk(data);
   }
-  if (path.length === 4 && path[2] === 'menus') {
+  if (path.length === 6) {
+    const data = await getBackendBranchMenuItemOverride(token, branchId, assignmentId, path[5]);
+    return jsonOk(data);
+  }
+
+  const itemOverrideId = path[5];
+  const subResource = path[6];
+
+  if (subResource === 'variants') {
+    if (path.length === 7) {
+      const data = await listBackendBranchMenuItemVariants(
+        token,
+        branchId,
+        assignmentId,
+        itemOverrideId,
+        { status, page, page_size: pageSize },
+      );
+      return jsonOk(data);
+    }
+    if (path.length === 8) {
+      const data = await getBackendBranchMenuItemVariant(
+        token,
+        branchId,
+        assignmentId,
+        itemOverrideId,
+        path[7],
+      );
+      return jsonOk(data);
+    }
+  }
+
+  if (subResource === 'modifiers') {
+    if (path.length === 7) {
+      const data = await listBackendBranchMenuItemModifiers(
+        token,
+        branchId,
+        assignmentId,
+        itemOverrideId,
+        { status, page, page_size: pageSize },
+      );
+      return jsonOk(data);
+    }
+    if (path.length === 8) {
+      const data = await getBackendBranchMenuItemModifier(
+        token,
+        branchId,
+        assignmentId,
+        itemOverrideId,
+        path[7],
+      );
+      return jsonOk(data);
+    }
+  }
+
+  return null;
+}
+
+async function handleGetBranchMenus(token: string, path: string[], searchParams: URLSearchParams) {
+  if (path.length < 3 || path[2] !== 'menus') return null;
+  const branchId = path[1];
+
+  if (path.length === 3) {
+    const status = (searchParams.get('status') as ActiveInactiveFilter | null) ?? undefined;
+    const data = await listBackendBranchMenusByBranchId(token, branchId, { status });
+    return jsonOk(data);
+  }
+  if (path.length === 4) {
     const data = await getBackendBranchMenuAssignment(token, branchId, path[3]);
     return jsonOk(data);
   }
-  if (path.length === 5 && path[2] === 'menus' && path[4] === 'tree') {
+  if (path.length === 5 && path[4] === 'tree') {
     const categoryIdRaw = searchParams.get('category_id');
     const category_id =
       categoryIdRaw && Number.isFinite(Number(categoryIdRaw)) ? Number(categoryIdRaw) : undefined;
     const data = await getBackendBranchMenuTree(token, branchId, path[3], { category_id });
     return jsonOk(data);
   }
-  if (path.length === 5 && path[2] === 'menus' && path[4] === 'items') {
-    const status = searchParams.get('status') as ActiveInactiveFilter | null;
-    const page = searchParams.get('page');
-    const pageSize = searchParams.get('page_size');
-    const data = await listBackendBranchMenuItemOverrides(token, branchId, path[3], {
-      status: status ?? undefined,
-      page: page && Number.isFinite(Number(page)) ? Number(page) : undefined,
-      page_size: pageSize && Number.isFinite(Number(pageSize)) ? Number(pageSize) : undefined,
-    });
-    return jsonOk(data);
-  }
-  if (path.length === 6 && path[2] === 'menus' && path[4] === 'items') {
-    const data = await getBackendBranchMenuItemOverride(token, branchId, path[3], path[5]);
-    return jsonOk(data);
-  }
-  if (path.length === 7 && path[2] === 'menus' && path[4] === 'items' && path[6] === 'variants') {
-    const status = searchParams.get('status') as ActiveInactiveFilter | null;
-    const page = searchParams.get('page');
-    const pageSize = searchParams.get('page_size');
-    const data = await listBackendBranchMenuItemVariants(token, branchId, path[3], path[5], {
-      status: status ?? undefined,
-      page: page && Number.isFinite(Number(page)) ? Number(page) : undefined,
-      page_size: pageSize && Number.isFinite(Number(pageSize)) ? Number(pageSize) : undefined,
-    });
-    return jsonOk(data);
-  }
-  if (path.length === 8 && path[2] === 'menus' && path[4] === 'items' && path[6] === 'variants') {
-    const data = await getBackendBranchMenuItemVariant(token, branchId, path[3], path[5], path[7]);
-    return jsonOk(data);
-  }
-  if (path.length === 7 && path[2] === 'menus' && path[4] === 'items' && path[6] === 'modifiers') {
-    const status = searchParams.get('status') as ActiveInactiveFilter | null;
-    const page = searchParams.get('page');
-    const pageSize = searchParams.get('page_size');
-    const data = await listBackendBranchMenuItemModifiers(token, branchId, path[3], path[5], {
-      status: status ?? undefined,
-      page: page && Number.isFinite(Number(page)) ? Number(page) : undefined,
-      page_size: pageSize && Number.isFinite(Number(pageSize)) ? Number(pageSize) : undefined,
-    });
-    return jsonOk(data);
-  }
-  if (path.length === 8 && path[2] === 'menus' && path[4] === 'items' && path[6] === 'modifiers') {
-    const data = await getBackendBranchMenuItemModifier(token, branchId, path[3], path[5], path[7]);
-    return jsonOk(data);
+  if (path[4] === 'items') {
+    return handleGetBranchMenuItems(token, branchId, path, searchParams);
   }
   return null;
 }
@@ -585,46 +630,62 @@ async function createMenuItemWithActivation(token: string, body: unknown) {
   return jsonOk(data, { status: 201 });
 }
 
+async function handlePostItemVariants(
+  token: string,
+  itemId: string,
+  path: string[],
+  body: unknown,
+) {
+  if (path.length === 3) {
+    const data = await createBackendMenuItemVariant(token, itemId, body);
+    return jsonOk(data, { status: 201 });
+  }
+  if (path.length === 5) {
+    const fn =
+      path[4] === 'activate' ? activateBackendMenuItemVariant : deactivateBackendMenuItemVariant;
+    const data = await fn(token, itemId, path[3]);
+    return jsonOk(data);
+  }
+  return null;
+}
+
+async function handlePostItemImages(token: string, itemId: string, path: string[], body: unknown) {
+  if (path.length === 4 && path[3] === 'upload-url') {
+    const data = await createBackendMenuItemImageUploadUrl(token, itemId, body);
+    return jsonOk(data);
+  }
+  if (path.length === 3) {
+    const data = await createBackendMenuItemImage(token, itemId, body);
+    return jsonOk(data, { status: 201 });
+  }
+  if (path.length === 5) {
+    const fn =
+      path[4] === 'activate' ? activateBackendMenuItemImage : deactivateBackendMenuItemImage;
+    const data = await fn(token, itemId, path[3]);
+    return jsonOk(data);
+  }
+  return null;
+}
+
 async function handlePostItems(token: string, path: string[], body: unknown) {
   if (path[0] !== 'items') return null;
   if (path.length === 1) {
     return createMenuItemWithActivation(token, body);
   }
+  const itemId = path[1];
   if (path.length === 3 && path[2] === 'activate') {
-    const data = await activateBackendMenuItem(token, path[1]);
+    const data = await activateBackendMenuItem(token, itemId);
     return jsonOk(data);
   }
   if (path.length === 3 && path[2] === 'deactivate') {
-    const data = await deactivateBackendMenuItem(token, path[1]);
+    const data = await deactivateBackendMenuItem(token, itemId);
     return jsonOk(data);
   }
-  if (path.length === 3 && path[2] === 'variants') {
-    const data = await createBackendMenuItemVariant(token, path[1], body);
-    return jsonOk(data, { status: 201 });
+  if (path[2] === 'variants') {
+    return handlePostItemVariants(token, itemId, path, body);
   }
-  if (path.length === 5 && path[2] === 'variants' && path[4] === 'activate') {
-    const data = await activateBackendMenuItemVariant(token, path[1], path[3]);
-    return jsonOk(data);
-  }
-  if (path.length === 5 && path[2] === 'variants' && path[4] === 'deactivate') {
-    const data = await deactivateBackendMenuItemVariant(token, path[1], path[3]);
-    return jsonOk(data);
-  }
-  if (path.length === 4 && path[2] === 'images' && path[3] === 'upload-url') {
-    const data = await createBackendMenuItemImageUploadUrl(token, path[1], body);
-    return jsonOk(data);
-  }
-  if (path.length === 3 && path[2] === 'images') {
-    const data = await createBackendMenuItemImage(token, path[1], body);
-    return jsonOk(data, { status: 201 });
-  }
-  if (path.length === 5 && path[2] === 'images' && path[4] === 'activate') {
-    const data = await activateBackendMenuItemImage(token, path[1], path[3]);
-    return jsonOk(data);
-  }
-  if (path.length === 5 && path[2] === 'images' && path[4] === 'deactivate') {
-    const data = await deactivateBackendMenuItemImage(token, path[1], path[3]);
-    return jsonOk(data);
+  if (path[2] === 'images') {
+    return handlePostItemImages(token, itemId, path, body);
   }
   return null;
 }
@@ -697,6 +758,84 @@ async function handlePostConfigs(token: string, path: string[], body: unknown) {
   return null;
 }
 
+async function handlePostBranchMenuActions(
+  token: string,
+  branchId: string,
+  path: string[],
+  body: Record<string, unknown>,
+) {
+  if (path.length === 3) {
+    const data = await assignBackendBranchMenuByBranchId(
+      token,
+      branchId,
+      body as AssignBranchMenuApiRequest,
+    );
+    return jsonOk(data, { status: 201 });
+  }
+  if (path.length === 5) {
+    const assignmentId = path[3];
+    const action = path[4];
+    if (action === 'sync') {
+      const data = await syncBackendBranchMenuAssignment(token, branchId, assignmentId);
+      return jsonOk(data);
+    }
+    if (action === 'sync-variants') {
+      const data = await syncBackendBranchMenuVariants(token, branchId, assignmentId);
+      return jsonOk(data);
+    }
+    if (action === 'activate') {
+      const data = await activateBackendBranchMenuAssignment(token, branchId, assignmentId);
+      return jsonOk(data);
+    }
+    if (action === 'deactivate') {
+      const data = await deactivateBackendBranchMenuAssignment(token, branchId, assignmentId);
+      return jsonOk(data);
+    }
+  }
+  return null;
+}
+
+async function handlePostBranchItemActions(token: string, branchId: string, path: string[]) {
+  if (path[4] !== 'items') return null;
+  const assignmentId = path[3];
+  const itemOverrideId = path[5];
+
+  if (path.length === 7) {
+    const fn =
+      path[6] === 'activate'
+        ? activateBackendBranchMenuItemOverride
+        : deactivateBackendBranchMenuItemOverride;
+    const data = await fn(token, branchId, assignmentId, itemOverrideId);
+    return jsonOk(data);
+  }
+
+  if (path.length === 9) {
+    const subResource = path[6];
+    const subOverrideId = path[7];
+    const action = path[8];
+
+    if (subResource === 'variants') {
+      const fn =
+        action === 'activate'
+          ? activateBackendBranchMenuItemVariant
+          : deactivateBackendBranchMenuItemVariant;
+      const data = await fn(token, branchId, assignmentId, itemOverrideId, subOverrideId);
+      return jsonOk(data);
+    }
+
+    if (subResource === 'modifiers') {
+      const fn =
+        action === 'activate'
+          ? activateBackendBranchMenuItemModifier
+          : deactivateBackendBranchMenuItemModifier;
+      const data = await fn(token, branchId, assignmentId, itemOverrideId, subOverrideId);
+      return jsonOk(data);
+    }
+  }
+
+  return null;
+}
+
 async function handlePostBranches(token: string, path: string[], body: Record<string, unknown>) {
   if (path[0] === 'branch-assignments') {
     const branchId = Number(body.branchId);
@@ -704,124 +843,21 @@ async function handlePostBranches(token: string, path: string[], body: Record<st
     const data = await assignBackendMenuToBranch(token, branchId, menuId);
     return jsonOk(data);
   }
-  if (path[0] === 'branches' && path.length >= 3) {
-    const branchId = path[1];
+  if (path[0] !== 'branches' || path.length < 3) return null;
+  const branchId = path[1];
 
-    if (path.length === 3 && path[2] === 'sync') {
-      const assignmentId = Number(body.assignmentId ?? 0);
-      const data = await syncBackendBranchMenu(token, Number(branchId), assignmentId);
-      return jsonOk(data);
-    }
-    if (path.length === 3 && path[2] === 'menus') {
-      const data = await assignBackendBranchMenuByBranchId(
-        token,
-        branchId,
-        body as AssignBranchMenuApiRequest,
-      );
-      return jsonOk(data, { status: 201 });
-    }
-    if (path.length === 5 && path[2] === 'menus') {
-      const assignmentId = path[3];
-      const action = path[4];
-      if (action === 'sync') {
-        const data = await syncBackendBranchMenuAssignment(token, branchId, assignmentId);
-        return jsonOk(data);
-      }
-      if (action === 'sync-variants') {
-        const data = await syncBackendBranchMenuVariants(token, branchId, assignmentId);
-        return jsonOk(data);
-      }
-      if (action === 'activate') {
-        const data = await activateBackendBranchMenuAssignment(token, branchId, assignmentId);
-        return jsonOk(data);
-      }
-      if (action === 'deactivate') {
-        const data = await deactivateBackendBranchMenuAssignment(token, branchId, assignmentId);
-        return jsonOk(data);
-      }
-    }
-    if (path.length === 7 && path[2] === 'menus' && path[4] === 'items') {
-      const assignmentId = path[3];
-      const itemOverrideId = path[5];
-      const action = path[6];
-      if (action === 'activate') {
-        const data = await activateBackendBranchMenuItemOverride(
-          token,
-          branchId,
-          assignmentId,
-          itemOverrideId,
-        );
-        return jsonOk(data);
-      }
-      if (action === 'deactivate') {
-        const data = await deactivateBackendBranchMenuItemOverride(
-          token,
-          branchId,
-          assignmentId,
-          itemOverrideId,
-        );
-        return jsonOk(data);
-      }
-    }
-    if (path.length === 9 && path[2] === 'menus' && path[4] === 'items' && path[6] === 'variants') {
-      const assignmentId = path[3];
-      const itemOverrideId = path[5];
-      const variantOverrideId = path[7];
-      const action = path[8];
-      if (action === 'activate') {
-        const data = await activateBackendBranchMenuItemVariant(
-          token,
-          branchId,
-          assignmentId,
-          itemOverrideId,
-          variantOverrideId,
-        );
-        return jsonOk(data);
-      }
-      if (action === 'deactivate') {
-        const data = await deactivateBackendBranchMenuItemVariant(
-          token,
-          branchId,
-          assignmentId,
-          itemOverrideId,
-          variantOverrideId,
-        );
-        return jsonOk(data);
-      }
-    }
-    if (
-      path.length === 9 &&
-      path[2] === 'menus' &&
-      path[4] === 'items' &&
-      path[6] === 'modifiers'
-    ) {
-      const assignmentId = path[3];
-      const itemOverrideId = path[5];
-      const modifierOverrideId = path[7];
-      const action = path[8];
-      if (action === 'activate') {
-        const data = await activateBackendBranchMenuItemModifier(
-          token,
-          branchId,
-          assignmentId,
-          itemOverrideId,
-          modifierOverrideId,
-        );
-        return jsonOk(data);
-      }
-      if (action === 'deactivate') {
-        const data = await deactivateBackendBranchMenuItemModifier(
-          token,
-          branchId,
-          assignmentId,
-          itemOverrideId,
-          modifierOverrideId,
-        );
-        return jsonOk(data);
-      }
-    }
+  if (path.length === 3 && path[2] === 'sync') {
+    const assignmentId = Number(body.assignmentId ?? 0);
+    const data = await syncBackendBranchMenu(token, Number(branchId), assignmentId);
+    return jsonOk(data);
   }
-  return null;
+
+  if (path[2] !== 'menus') return null;
+
+  if (path.length <= 5) {
+    return handlePostBranchMenuActions(token, branchId, path, body);
+  }
+  return handlePostBranchItemActions(token, branchId, path);
 }
 
 // -----------------------------------------------------------------------------

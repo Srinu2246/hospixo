@@ -158,6 +158,56 @@ function buildSubmitItemPayload(params: {
   };
 }
 
+function applyLoadedGstRates(
+  ratesList: readonly GstRate[],
+  editingGst: string | undefined,
+  isEditing: boolean,
+  setGstRateId: (cb: (prev: string) => string) => void,
+  setGst: (val: string) => void,
+): void {
+  if (ratesList.length === 0) return;
+  const match = resolveInitialGstRate(ratesList, editingGst);
+  if (match) {
+    setGstRateId(() => match.rateId);
+    setGst(match.gst);
+    return;
+  }
+  if (!isEditing) {
+    setGstRateId((prev) => {
+      if (!prev.trim()) {
+        const first = ratesList[0]!;
+        setGst(resolveGstDisplayValue(first));
+        return first.id;
+      }
+      return prev;
+    });
+  }
+}
+
+function toggleOrderedStation(
+  prev: readonly MenuItemPreparationStation[],
+  stationId: string,
+): MenuItemPreparationStation[] {
+  if (prev.some((station) => station.stationId === stationId)) {
+    return prev
+      .filter((station) => station.stationId !== stationId)
+      .map((station, index) => ({ ...station, defaultOrder: index + 1 }));
+  }
+  return [...prev, { stationId, defaultOrder: prev.length + 1 }];
+}
+
+function toggleOrderedModifierGroup(
+  prev: readonly MenuItemModifierGroup[],
+  groupId: string,
+): MenuItemModifierGroup[] {
+  if (prev.some((group) => group.groupId === groupId)) {
+    return prev
+      .filter((group) => group.groupId !== groupId)
+      .map((group, index) => ({ ...group, displayOrder: index + 1 }));
+  }
+  return [...prev, { groupId, displayOrder: prev.length + 1 }];
+}
+
 export function CreateMenuItemView() {
   const {
     pageConfig,
@@ -306,25 +356,13 @@ export function CreateMenuItemView() {
         if (cancelled) return;
         const ratesList = Array.isArray(data) ? [...data] : [];
         setGstRates(ratesList);
-        if (ratesList.length === 0) return;
-
-        const match = resolveInitialGstRate(ratesList, editingItem?.gst);
-        if (match) {
-          setGstRateId(match.rateId);
-          setGst(match.gst);
-          return;
-        }
-
-        if (!editingItem) {
-          setGstRateId((prev) => {
-            if (!prev.trim()) {
-              const first = ratesList[0]!;
-              setGst(resolveGstDisplayValue(first));
-              return first.id;
-            }
-            return prev;
-          });
-        }
+        applyLoadedGstRates(
+          ratesList,
+          editingItem?.gst,
+          Boolean(editingItem),
+          setGstRateId,
+          setGst,
+        );
       })
       .catch(() => {
         if (!cancelled) {
@@ -381,25 +419,11 @@ export function CreateMenuItemView() {
   }
 
   function togglePreparationStation(stationId: string) {
-    setSelectedPreparationStations((prev) => {
-      if (prev.some((station) => station.stationId === stationId)) {
-        return prev
-          .filter((station) => station.stationId !== stationId)
-          .map((station, index) => ({ ...station, defaultOrder: index + 1 }));
-      }
-      return [...prev, { stationId, defaultOrder: prev.length + 1 }];
-    });
+    setSelectedPreparationStations((prev) => toggleOrderedStation(prev, stationId));
   }
 
   function toggleModifierGroup(groupId: string) {
-    setSelectedModifierGroups((prev) => {
-      if (prev.some((group) => group.groupId === groupId)) {
-        return prev
-          .filter((group) => group.groupId !== groupId)
-          .map((group, index) => ({ ...group, displayOrder: index + 1 }));
-      }
-      return [...prev, { groupId, displayOrder: prev.length + 1 }];
-    });
+    setSelectedModifierGroups((prev) => toggleOrderedModifierGroup(prev, groupId));
   }
 
   async function handleCreateTag(input: { name: string; code: string }) {

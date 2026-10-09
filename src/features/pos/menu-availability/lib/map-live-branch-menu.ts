@@ -106,33 +106,42 @@ type OverrideIndexes = {
   byCode: Map<string, BranchMenuItemOverrideApi>;
 };
 
+function indexSingleOverride(
+  o: BranchMenuItemOverrideApi,
+  byItemId: Map<string, BranchMenuItemOverrideApi>,
+  byName: Map<string, BranchMenuItemOverrideApi>,
+  byCode: Map<string, BranchMenuItemOverrideApi>,
+): void {
+  const raw = o as unknown as Record<string, unknown>;
+  const nested =
+    raw.menu_item && typeof raw.menu_item === 'object'
+      ? (raw.menu_item as Record<string, unknown>)
+      : null;
+  const menuItemId = resolveEntityId(o.menu_item_id ?? raw.menuItemId ?? raw.item_id);
+  const overrideId = resolveEntityId(o.id ?? raw.item_override_id ?? raw.override_id);
+  const nestedItemId = nested ? resolveEntityId(nested.id) : '';
+
+  if (menuItemId) byItemId.set(menuItemId, o);
+  if (overrideId) byItemId.set(overrideId, o);
+  if (nestedItemId) byItemId.set(nestedItemId, o);
+
+  const name = toSafeString(raw.name ?? nested?.name)
+    .trim()
+    .toLowerCase();
+  const code = toSafeString(raw.code ?? nested?.code)
+    .trim()
+    .toLowerCase();
+  if (name) byName.set(name, o);
+  if (code) byCode.set(code, o);
+}
+
 function buildOverrideIndexes(overrides: readonly BranchMenuItemOverrideApi[]): OverrideIndexes {
   const byItemId = new Map<string, BranchMenuItemOverrideApi>();
   const byName = new Map<string, BranchMenuItemOverrideApi>();
   const byCode = new Map<string, BranchMenuItemOverrideApi>();
 
   for (const o of overrides) {
-    const raw = o as unknown as Record<string, unknown>;
-    const nested =
-      raw.menu_item && typeof raw.menu_item === 'object'
-        ? (raw.menu_item as Record<string, unknown>)
-        : null;
-    const menuItemId = resolveEntityId(o.menu_item_id ?? raw.menuItemId ?? raw.item_id);
-    const overrideId = resolveEntityId(o.id ?? raw.item_override_id ?? raw.override_id);
-    const nestedItemId = nested ? resolveEntityId(nested.id) : '';
-
-    if (menuItemId) byItemId.set(menuItemId, o);
-    if (overrideId) byItemId.set(overrideId, o);
-    if (nestedItemId) byItemId.set(nestedItemId, o);
-
-    const name = toSafeString(raw.name ?? nested?.name)
-      .trim()
-      .toLowerCase();
-    const code = toSafeString(raw.code ?? nested?.code)
-      .trim()
-      .toLowerCase();
-    if (name) byName.set(name, o);
-    if (code) byCode.set(code, o);
+    indexSingleOverride(o, byItemId, byName, byCode);
   }
 
   return { byItemId, byName, byCode };
@@ -167,87 +176,145 @@ type ProcessingContext = {
   itemSeq: { current: number };
 };
 
+function ensureTreeCategory(c: MenuTreeCategory, catIdx: number, ctx: ProcessingContext): string {
+  const resolvedCatId = resolveEntityId(c.categoryId, `cat-${catIdx + 1}`);
+  const resolvedLabel =
+    c.name || ctx.catalogNameById.get(resolvedCatId) || `Category ${catIdx + 1}`;
+
+  if (!ctx.categoryMap.has(resolvedCatId)) {
+    ctx.categoryMap.set(resolvedCatId, {
+      id: resolvedCatId,
+      label: resolvedLabel,
+      enabled: c.status?.toLowerCase() !== 'inactive',
+    });
+  }
+  return resolvedCatId;
+}
+
+function processTreeCategoryItem(
+  treeItem: NonNullable<MenuTreeCategory['items']>[number],
+  resolvedCatId: string,
+  ctx: ProcessingContext,
+): void {
+  ctx.itemSeq.current += 1;
+  const rawItem = treeItem as unknown as Record<string, unknown>;
+  const rawItemId = resolveEntityId(
+    treeItem.id ?? rawItem.menu_item_id ?? rawItem.item_id,
+    `item-${ctx.itemSeq.current}`,
+  );
+  const itemName = (treeItem.name || (rawItem.item_name as string) || '').trim();
+
+  if (rawItemId && ctx.seenItemIds.has(rawItemId)) return;
+  if (itemName && ctx.seenNames.has(itemName.toLowerCase())) return;
+
+  const treeOverrideId = resolveEntityId(
+    rawItem.item_override_id ??
+      rawItem.itemOverrideId ??
+      (treeItem as { item_override_id?: unknown }).item_override_id,
+  );
+  const override = lookupOverride(
+    ctx.overrideIndexes,
+    rawItemId,
+    treeOverrideId,
+    treeItem.code,
+    itemName,
+  );
+
+  const rawOverride = override as unknown as Record<string, unknown> | undefined;
+  const overrideId =
+    resolveEntityId(override?.id ?? rawOverride?.item_override_id ?? rawOverride?.override_id) ||
+    treeOverrideId;
+
+  const effectiveId = overrideId || rawItemId || `item-${resolvedCatId}-${ctx.itemSeq.current}`;
+
+  const local =
+    ctx.localOverrides[rawItemId] ?? (overrideId ? ctx.localOverrides[overrideId] : undefined);
+  const effectiveStatus = determineEffectiveStatus(local, override, treeItem.status);
+
+  if (rawItemId) ctx.seenItemIds.add(rawItemId);
+  if (overrideId) ctx.seenItemIds.add(overrideId);
+  if (itemName) ctx.seenNames.add(itemName.toLowerCase());
+
+  ctx.items.push({
+    id: effectiveId,
+    overrideId: overrideId || undefined,
+    menuItemId: rawItemId,
+    name: itemName || `Item #${ctx.itemSeq.current}`,
+    categoryId: resolvedCatId,
+    tags: treeItem.code ? [treeItem.code] : [],
+    diet: inferDiet(itemName, treeItem.code, treeItem.dietary ?? override?.menu_item?.dietary_type),
+    status: effectiveStatus,
+    visibility: effectiveStatus === 'hidden' ? 'Hidden' : 'All',
+    channels: ['all'],
+    surfaces: ['all', 'online', 'dinein_qr'],
+  });
+}
+
 function processTreeItems(trees: readonly MenuTree[], ctx: ProcessingContext): void {
   for (const t of trees) {
     if (!t || !Array.isArray(t.categories)) continue;
     const allCategories = collectCategoryNodes(t.categories);
     for (let catIdx = 0; catIdx < allCategories.length; catIdx++) {
       const c = allCategories[catIdx];
-      const resolvedCatId = resolveEntityId(c.categoryId, `cat-${catIdx + 1}`);
-      const resolvedLabel =
-        c.name || ctx.catalogNameById.get(resolvedCatId) || `Category ${catIdx + 1}`;
-
-      if (!ctx.categoryMap.has(resolvedCatId)) {
-        ctx.categoryMap.set(resolvedCatId, {
-          id: resolvedCatId,
-          label: resolvedLabel,
-          enabled: c.status?.toLowerCase() !== 'inactive',
-        });
-      }
-
+      const resolvedCatId = ensureTreeCategory(c, catIdx, ctx);
       for (const treeItem of c.items ?? []) {
-        ctx.itemSeq.current += 1;
-        const rawItem = treeItem as unknown as Record<string, unknown>;
-        const rawItemId = resolveEntityId(
-          treeItem.id ?? rawItem.menu_item_id ?? rawItem.item_id,
-          `item-${ctx.itemSeq.current}`,
-        );
-        const itemName = (treeItem.name || (rawItem.item_name as string) || '').trim();
-
-        if (rawItemId && ctx.seenItemIds.has(rawItemId)) continue;
-        if (itemName && ctx.seenNames.has(itemName.toLowerCase())) continue;
-
-        const treeOverrideId = resolveEntityId(
-          rawItem.item_override_id ??
-            rawItem.itemOverrideId ??
-            (treeItem as { item_override_id?: unknown }).item_override_id,
-        );
-        const override = lookupOverride(
-          ctx.overrideIndexes,
-          rawItemId,
-          treeOverrideId,
-          treeItem.code,
-          itemName,
-        );
-
-        const rawOverride = override as unknown as Record<string, unknown> | undefined;
-        const overrideId =
-          resolveEntityId(
-            override?.id ?? rawOverride?.item_override_id ?? rawOverride?.override_id,
-          ) || treeOverrideId;
-
-        const effectiveId =
-          overrideId || rawItemId || `item-${resolvedCatId}-${ctx.itemSeq.current}`;
-
-        const local =
-          ctx.localOverrides[rawItemId] ??
-          (overrideId ? ctx.localOverrides[overrideId] : undefined);
-        const effectiveStatus = determineEffectiveStatus(local, override, treeItem.status);
-
-        if (rawItemId) ctx.seenItemIds.add(rawItemId);
-        if (overrideId) ctx.seenItemIds.add(overrideId);
-        if (itemName) ctx.seenNames.add(itemName.toLowerCase());
-
-        ctx.items.push({
-          id: effectiveId,
-          overrideId: overrideId || undefined,
-          menuItemId: rawItemId,
-          name: itemName || `Item #${ctx.itemSeq.current}`,
-          categoryId: resolvedCatId,
-          tags: treeItem.code ? [treeItem.code] : [],
-          diet: inferDiet(
-            itemName,
-            treeItem.code,
-            treeItem.dietary ?? override?.menu_item?.dietary_type,
-          ),
-          status: effectiveStatus,
-          visibility: effectiveStatus === 'hidden' ? 'Hidden' : 'All',
-          channels: ['all'],
-          surfaces: ['all', 'online', 'dinein_qr'],
-        });
+        processTreeCategoryItem(treeItem, resolvedCatId, ctx);
       }
     }
   }
+}
+
+function processSingleOverride(o: BranchMenuItemOverrideApi, ctx: ProcessingContext): void {
+  const raw = o as unknown as Record<string, unknown>;
+  const nested =
+    raw.menu_item && typeof raw.menu_item === 'object'
+      ? (raw.menu_item as Record<string, unknown>)
+      : null;
+  const menuItemId = resolveEntityId(o.menu_item_id ?? raw.menuItemId ?? raw.item_id);
+  const overrideId = resolveEntityId(o.id ?? raw.item_override_id ?? raw.override_id);
+  const name = toSafeString(o.menu_item?.name ?? nested?.name ?? raw.name ?? raw.item_name).trim();
+
+  if (menuItemId && ctx.seenItemIds.has(menuItemId)) return;
+  if (overrideId && ctx.seenItemIds.has(overrideId)) return;
+  if (name && ctx.seenNames.has(name.toLowerCase())) return;
+
+  ctx.itemSeq.current += 1;
+  const code = toSafeString(o.menu_item?.code ?? nested?.code ?? raw.code ?? raw.item_code).trim();
+  const catId = resolveEntityId(
+    o.menu_item?.category_id ?? nested?.category_id ?? raw.category_id ?? raw.categoryId,
+    'general',
+  );
+  if (!ctx.categoryMap.has(catId)) {
+    const catName = ctx.catalogNameById.get(catId) || `Category ${catId}`;
+    ctx.categoryMap.set(catId, { id: catId, label: catName, enabled: true });
+  }
+
+  const local =
+    ctx.localOverrides[menuItemId] ?? (overrideId ? ctx.localOverrides[overrideId] : undefined);
+  const status = determineEffectiveStatus(local, o);
+
+  const effectiveId = overrideId || menuItemId || `item-${catId}-${ctx.itemSeq.current}`;
+  if (menuItemId) ctx.seenItemIds.add(menuItemId);
+  if (overrideId) ctx.seenItemIds.add(overrideId);
+  if (name) ctx.seenNames.add(name.toLowerCase());
+
+  ctx.items.push({
+    id: effectiveId,
+    overrideId: overrideId || undefined,
+    menuItemId: menuItemId || undefined,
+    name: name || `Item #${ctx.itemSeq.current}`,
+    categoryId: catId,
+    tags: code ? [code] : [],
+    diet: inferDiet(
+      name,
+      code,
+      o.menu_item?.dietary_type ?? toSafeString(nested?.dietary_type ?? raw.dietary_type),
+    ),
+    status,
+    visibility: status === 'hidden' ? 'Hidden' : 'All',
+    channels: ['all'],
+    surfaces: ['all', 'online', 'dinein_qr'],
+  });
 }
 
 function processRemainingOverrides(
@@ -255,61 +322,81 @@ function processRemainingOverrides(
   ctx: ProcessingContext,
 ): void {
   for (const o of overrides) {
-    const raw = o as unknown as Record<string, unknown>;
-    const nested =
-      raw.menu_item && typeof raw.menu_item === 'object'
-        ? (raw.menu_item as Record<string, unknown>)
-        : null;
-    const menuItemId = resolveEntityId(o.menu_item_id ?? raw.menuItemId ?? raw.item_id);
-    const overrideId = resolveEntityId(o.id ?? raw.item_override_id ?? raw.override_id);
-    const name = toSafeString(
-      o.menu_item?.name ?? nested?.name ?? raw.name ?? raw.item_name,
-    ).trim();
-
-    if (menuItemId && ctx.seenItemIds.has(menuItemId)) continue;
-    if (overrideId && ctx.seenItemIds.has(overrideId)) continue;
-    if (name && ctx.seenNames.has(name.toLowerCase())) continue;
-
-    ctx.itemSeq.current += 1;
-    const code = toSafeString(
-      o.menu_item?.code ?? nested?.code ?? raw.code ?? raw.item_code,
-    ).trim();
-    const catId = resolveEntityId(
-      o.menu_item?.category_id ?? nested?.category_id ?? raw.category_id ?? raw.categoryId,
-      'general',
-    );
-    if (!ctx.categoryMap.has(catId)) {
-      const catName = ctx.catalogNameById.get(catId) || `Category ${catId}`;
-      ctx.categoryMap.set(catId, { id: catId, label: catName, enabled: true });
-    }
-
-    const local =
-      ctx.localOverrides[menuItemId] ?? (overrideId ? ctx.localOverrides[overrideId] : undefined);
-    const status = determineEffectiveStatus(local, o);
-
-    const effectiveId = overrideId || menuItemId || `item-${catId}-${ctx.itemSeq.current}`;
-    if (menuItemId) ctx.seenItemIds.add(menuItemId);
-    if (overrideId) ctx.seenItemIds.add(overrideId);
-    if (name) ctx.seenNames.add(name.toLowerCase());
-
-    ctx.items.push({
-      id: effectiveId,
-      overrideId: overrideId || undefined,
-      menuItemId: menuItemId || undefined,
-      name: name || `Item #${ctx.itemSeq.current}`,
-      categoryId: catId,
-      tags: code ? [code] : [],
-      diet: inferDiet(
-        name,
-        code,
-        o.menu_item?.dietary_type ?? toSafeString(nested?.dietary_type ?? raw.dietary_type),
-      ),
-      status,
-      visibility: status === 'hidden' ? 'Hidden' : 'All',
-      channels: ['all'],
-      surfaces: ['all', 'online', 'dinein_qr'],
-    });
+    processSingleOverride(o, ctx);
   }
+}
+
+function processSingleMasterItem(
+  master: Record<string, unknown>,
+  branchId: string | null,
+  ctx: ProcessingContext,
+): void {
+  const masterScope = toSafeString(master.scope);
+  const masterBranchId = toSafeString(master.assignBranchId ?? master.assign_branch_id);
+  if (branchId && masterScope === 'branch' && masterBranchId !== branchId) {
+    return;
+  }
+
+  const masterId = resolveEntityId(master.id);
+  const masterName = toSafeString(master.name).trim();
+  const masterCode = toSafeString(master.code).trim();
+
+  if (masterId && ctx.seenItemIds.has(masterId)) return;
+  if (masterName && ctx.seenNames.has(masterName.toLowerCase())) return;
+
+  ctx.itemSeq.current += 1;
+  const override = lookupOverride(ctx.overrideIndexes, masterId, undefined, masterCode, masterName);
+
+  const rawOverride = override as unknown as Record<string, unknown> | undefined;
+  const overrideId = resolveEntityId(
+    override?.id ?? rawOverride?.item_override_id ?? rawOverride?.override_id,
+  );
+  const effectiveId = overrideId || masterId || `item-catalog-${ctx.itemSeq.current}`;
+
+  const local =
+    (masterId ? ctx.localOverrides[masterId] : undefined) ??
+    (overrideId ? ctx.localOverrides[overrideId] : undefined) ??
+    (masterCode ? ctx.localOverrides[masterCode] : undefined);
+
+  const effectiveStatus = determineEffectiveStatus(
+    local,
+    override,
+    toSafeString(master.status, 'active'),
+  );
+
+  const catId = resolveEntityId(
+    override?.menu_item?.category_id ?? master.categoryId ?? master.category_id,
+    'beverages',
+  );
+  if (!ctx.categoryMap.has(catId)) {
+    const catLabel =
+      ctx.catalogNameById.get(catId) ||
+      toSafeString(master.categoryName ?? master.category_name) ||
+      (catId === 'beverages' ? 'Beverages' : `Category ${catId}`);
+    ctx.categoryMap.set(catId, { id: catId, label: catLabel, enabled: true });
+  }
+
+  if (masterId) ctx.seenItemIds.add(masterId);
+  if (overrideId) ctx.seenItemIds.add(overrideId);
+  if (masterName) ctx.seenNames.add(masterName.toLowerCase());
+
+  ctx.items.push({
+    id: effectiveId,
+    overrideId: overrideId || undefined,
+    menuItemId: masterId || undefined,
+    name: masterName || `Item #${ctx.itemSeq.current}`,
+    categoryId: catId,
+    tags: masterCode ? [masterCode] : [],
+    diet: inferDiet(
+      masterName,
+      masterCode,
+      toSafeString(master.dietary ?? master.dietary_type) || override?.menu_item?.dietary_type,
+    ),
+    status: effectiveStatus,
+    visibility: effectiveStatus === 'hidden' ? 'Hidden' : 'All',
+    channels: ['all'],
+    surfaces: ['all', 'online', 'dinein_qr'],
+  });
 }
 
 function processMasterItems(
@@ -318,78 +405,7 @@ function processMasterItems(
   ctx: ProcessingContext,
 ): void {
   for (const master of masterItems) {
-    const masterScope = toSafeString(master.scope);
-    const masterBranchId = toSafeString(master.assignBranchId ?? master.assign_branch_id);
-    if (branchId && masterScope === 'branch' && masterBranchId !== branchId) {
-      continue;
-    }
-
-    const masterId = resolveEntityId(master.id);
-    const masterName = toSafeString(master.name).trim();
-    const masterCode = toSafeString(master.code).trim();
-
-    if (masterId && ctx.seenItemIds.has(masterId)) continue;
-    if (masterName && ctx.seenNames.has(masterName.toLowerCase())) continue;
-
-    ctx.itemSeq.current += 1;
-    const override = lookupOverride(
-      ctx.overrideIndexes,
-      masterId,
-      undefined,
-      masterCode,
-      masterName,
-    );
-
-    const rawOverride = override as unknown as Record<string, unknown> | undefined;
-    const overrideId = resolveEntityId(
-      override?.id ?? rawOverride?.item_override_id ?? rawOverride?.override_id,
-    );
-    const effectiveId = overrideId || masterId || `item-catalog-${ctx.itemSeq.current}`;
-
-    const local =
-      (masterId ? ctx.localOverrides[masterId] : undefined) ??
-      (overrideId ? ctx.localOverrides[overrideId] : undefined) ??
-      (masterCode ? ctx.localOverrides[masterCode] : undefined);
-
-    const effectiveStatus = determineEffectiveStatus(
-      local,
-      override,
-      toSafeString(master.status, 'active'),
-    );
-
-    const catId = resolveEntityId(
-      override?.menu_item?.category_id ?? master.categoryId ?? master.category_id,
-      'beverages',
-    );
-    if (!ctx.categoryMap.has(catId)) {
-      const catLabel =
-        ctx.catalogNameById.get(catId) ||
-        toSafeString(master.categoryName ?? master.category_name) ||
-        (catId === 'beverages' ? 'Beverages' : `Category ${catId}`);
-      ctx.categoryMap.set(catId, { id: catId, label: catLabel, enabled: true });
-    }
-
-    if (masterId) ctx.seenItemIds.add(masterId);
-    if (overrideId) ctx.seenItemIds.add(overrideId);
-    if (masterName) ctx.seenNames.add(masterName.toLowerCase());
-
-    ctx.items.push({
-      id: effectiveId,
-      overrideId: overrideId || undefined,
-      menuItemId: masterId || undefined,
-      name: masterName || `Item #${ctx.itemSeq.current}`,
-      categoryId: catId,
-      tags: masterCode ? [masterCode] : [],
-      diet: inferDiet(
-        masterName,
-        masterCode,
-        toSafeString(master.dietary ?? master.dietary_type) || override?.menu_item?.dietary_type,
-      ),
-      status: effectiveStatus,
-      visibility: effectiveStatus === 'hidden' ? 'Hidden' : 'All',
-      channels: ['all'],
-      surfaces: ['all', 'online', 'dinein_qr'],
-    });
+    processSingleMasterItem(master, branchId, ctx);
   }
 }
 
