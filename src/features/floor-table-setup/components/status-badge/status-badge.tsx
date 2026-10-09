@@ -7,8 +7,6 @@ import styles from './status-badge.module.css';
 const statusClass: Record<SetupStatus, string> = {
   active: styles.active,
   draft: styles.draft,
-  archived: styles.archived,
-  maintenance: styles.draft,
   inactive: styles.archived,
 };
 

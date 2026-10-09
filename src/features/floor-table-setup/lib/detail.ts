@@ -27,6 +27,14 @@ export function parseFloorDetailTab(value: string | null): FloorDetailTabId {
   return isFloorDetailTab(value) ? value : 'overview';
 }
 
+export function resolveLifecycleFieldError(
+  fieldErrors: Readonly<Record<string, string>>,
+  message: string | null,
+): string | null {
+  const fieldMessage = fieldErrors.status ?? fieldErrors.is_active;
+  return fieldMessage ?? message;
+}
+
 export function floorToDraftForm(floor: Floor): FloorDraftForm {
   return {
     name: floor.name,
@@ -190,7 +198,7 @@ export function paginate<T>(
 }
 
 export function isTableConfigStatus(value: string): value is TableConfigStatus {
-  return value === 'active' || value === 'inactive' || value === 'maintenance';
+  return value === 'active' || value === 'inactive';
 }
 
 export function isTableShape(value: string): value is FloorTableItem['shape'] {

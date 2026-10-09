@@ -1,17 +1,16 @@
 'use client';
 
 import { useId, useState, type FormEvent } from 'react';
+import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
 import { CalendarDays, X } from 'lucide-react';
 
 import dialogStyles from '@/features/floor-table-setup/components/add-floor/add-floor.module.css';
-import { StatusToggle } from '@/features/floor-table-setup/components/status-toggle';
-import {
-  detailCopy,
-  tableCapacityOptions,
-  tableConfigStatusOptions,
-  tableShapeOptions,
-} from '@/features/floor-table-setup/config';
-import { isTableConfigStatus, isTableShape } from '@/features/floor-table-setup/lib';
+import { floorSetupFieldSx } from '@/features/floor-table-setup/components/shared/mui-field-styles';
+import { FloorSetupSelectField } from '@/features/floor-table-setup/components/shared/floor-setup-select-field';
+import { TableConfigStatusSelectField } from '@/features/floor-table-setup/components/shared/table-config-status-select-field';
+import { detailCopy, tableCapacityOptions } from '@/features/floor-table-setup/config';
 import type {
   FloorTableItem,
   TableConfigStatus,
@@ -43,7 +42,8 @@ type EditTableModalProps = Readonly<{
   areas: readonly string[];
   onClose: () => void;
   onSave: (value: TableEditValue) => boolean | Promise<boolean>;
-  error?: string | null;
+  statusError?: string | null;
+  saving?: boolean;
 }>;
 
 function tableEditInitial(table: FloorTableItem): TableEditValue {
@@ -63,7 +63,8 @@ export function EditTableModal({
   areas,
   onClose,
   onSave,
-  error = null,
+  statusError = null,
+  saving = false,
 }: EditTableModalProps) {
   if (!open || !table) return null;
 
@@ -74,7 +75,8 @@ export function EditTableModal({
       areas={areas}
       onClose={onClose}
       onSave={onSave}
-      error={error}
+      statusError={statusError}
+      saving={saving}
     />
   );
 }
@@ -84,17 +86,26 @@ function EditTableModalForm({
   areas,
   onClose,
   onSave,
-  error,
+  statusError,
+  saving = false,
 }: Readonly<{
   table: FloorTableItem;
   areas: readonly string[];
   onClose: () => void;
   onSave: (value: TableEditValue) => boolean | Promise<boolean>;
-  error?: string | null;
+  statusError?: string | null;
+  saving?: boolean;
 }>) {
   const titleId = useId();
   const [value, setValue] = useState(() => tableEditInitial(table));
   const [busy, setBusy] = useState(false);
+  const pending = busy || saving;
+
+  const areaOptions = areas.map((area) => ({ value: area, label: area }));
+  const capacityOptions = tableCapacityOptions.map((option) => ({
+    value: option,
+    label: `${option} Seats`,
+  }));
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -131,86 +142,47 @@ function EditTableModalForm({
             <X size={16} />
           </button>
         </div>
-        {error ? <p className={dialogStyles.error}>{error}</p> : null}
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{detailCopy.tableNumber}</span>
-          <input
-            className={dialogStyles.input}
+        <Stack spacing={2} sx={{ py: 0.5 }}>
+          <TextField
+            fullWidth
+            required
+            label={detailCopy.tableNumber}
             value={value.number}
             onChange={(event) => setValue({ ...value, number: event.target.value })}
+            sx={floorSetupFieldSx}
           />
-        </label>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{detailCopy.area}</span>
-          <select
-            className={dialogStyles.select}
+          <FloorSetupSelectField
+            label={detailCopy.area}
             value={value.area}
-            onChange={(event) => setValue({ ...value, area: event.target.value })}
-          >
-            {areas.map((area) => (
-              <option key={area} value={area}>
-                {area}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{detailCopy.capacity}</span>
-          <select
-            className={dialogStyles.select}
+            onChange={(area) => setValue({ ...value, area })}
+            options={areaOptions}
+          />
+          <FloorSetupSelectField
+            label={detailCopy.capacity}
             value={value.capacity}
-            onChange={(event) => setValue({ ...value, capacity: Number(event.target.value) })}
-          >
-            {tableCapacityOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{detailCopy.shape}</span>
-          <select
-            className={dialogStyles.select}
-            value={value.shape}
-            onChange={(event) => {
-              if (!isTableShape(event.target.value)) return;
-              setValue({ ...value, shape: event.target.value });
-            }}
-          >
-            {tableShapeOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{detailCopy.status}</span>
-          <select
-            className={dialogStyles.select}
+            onChange={(next) => setValue({ ...value, capacity: Number(next) })}
+            options={capacityOptions}
+          />
+          <TableConfigStatusSelectField
             value={value.configStatus}
-            onChange={(event) => {
-              if (!isTableConfigStatus(event.target.value)) return;
-              setValue({ ...value, configStatus: event.target.value });
-            }}
-          >
-            {tableConfigStatusOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={(configStatus) => setValue({ ...value, configStatus })}
+            error={statusError}
+          />
+        </Stack>
         <ReservationsField
           checked={value.reservations}
           onChange={(reservations) => setValue({ ...value, reservations })}
         />
         <div className={dialogStyles.footer}>
-          <button type="button" className={dialogStyles.cancel} onClick={onClose} disabled={busy}>
+          <button
+            type="button"
+            className={dialogStyles.cancel}
+            onClick={onClose}
+            disabled={pending}
+          >
             {detailCopy.cancel}
           </button>
-          <button type="submit" className={dialogStyles.submit} disabled={busy}>
+          <button type="submit" className={dialogStyles.submit} disabled={pending}>
             {detailCopy.saveChanges}
           </button>
         </div>
@@ -224,7 +196,7 @@ type BulkEditModalProps = Readonly<{
   defaults: BulkEditValue;
   onClose: () => void;
   onApply: (value: BulkEditValue) => boolean | Promise<boolean>;
-  error?: string | null;
+  statusError?: string | null;
 }>;
 
 export function BulkEditModal({
@@ -232,7 +204,7 @@ export function BulkEditModal({
   defaults,
   onClose,
   onApply,
-  error = null,
+  statusError = null,
 }: BulkEditModalProps) {
   if (!open) return null;
 
@@ -242,7 +214,7 @@ export function BulkEditModal({
       defaults={defaults}
       onClose={onClose}
       onApply={onApply}
-      error={error}
+      statusError={statusError}
     />
   );
 }
@@ -251,16 +223,21 @@ function BulkEditModalForm({
   defaults,
   onClose,
   onApply,
-  error,
+  statusError,
 }: Readonly<{
   defaults: BulkEditValue;
   onClose: () => void;
   onApply: (value: BulkEditValue) => boolean | Promise<boolean>;
-  error?: string | null;
+  statusError?: string | null;
 }>) {
   const titleId = useId();
   const [value, setValue] = useState(defaults);
   const [busy, setBusy] = useState(false);
+
+  const capacityOptions = tableCapacityOptions.map((option) => ({
+    value: option,
+    label: `${option} Seats`,
+  }));
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -299,54 +276,33 @@ function BulkEditModalForm({
             <X size={16} />
           </button>
         </div>
-        {error ? <p className={dialogStyles.error}>{error}</p> : null}
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{detailCopy.startNumber}</span>
-          <input
-            className={dialogStyles.input}
+        <Stack spacing={2} sx={{ py: 0.5 }}>
+          <TextField
+            fullWidth
+            label={detailCopy.startNumber}
             value={value.startNumber}
             onChange={(event) => setValue({ ...value, startNumber: event.target.value })}
+            sx={floorSetupFieldSx}
           />
-        </label>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{detailCopy.endNumber}</span>
-          <input
-            className={dialogStyles.input}
+          <TextField
+            fullWidth
+            label={detailCopy.endNumber}
             value={value.endNumber}
             onChange={(event) => setValue({ ...value, endNumber: event.target.value })}
+            sx={floorSetupFieldSx}
           />
-        </label>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{detailCopy.capacity}</span>
-          <select
-            className={dialogStyles.select}
+          <FloorSetupSelectField
+            label={detailCopy.capacity}
             value={value.capacity}
-            onChange={(event) => setValue({ ...value, capacity: Number(event.target.value) })}
-          >
-            {tableCapacityOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{detailCopy.status}</span>
-          <select
-            className={dialogStyles.select}
+            onChange={(next) => setValue({ ...value, capacity: Number(next) })}
+            options={capacityOptions}
+          />
+          <TableConfigStatusSelectField
             value={value.configStatus}
-            onChange={(event) => {
-              if (!isTableConfigStatus(event.target.value)) return;
-              setValue({ ...value, configStatus: event.target.value });
-            }}
-          >
-            {tableConfigStatusOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={(configStatus) => setValue({ ...value, configStatus })}
+            error={statusError}
+          />
+        </Stack>
         <ReservationsField
           checked={value.reservations}
           onChange={(reservations) => setValue({ ...value, reservations })}
@@ -380,7 +336,11 @@ function ReservationsField({
           <p className={wizardStyles.listSubtitle}>{detailCopy.reservationsHint}</p>
         </div>
       </div>
-      <StatusToggle label={detailCopy.reservations} hint="" checked={checked} onChange={onChange} />
+      <Switch
+        checked={checked}
+        onChange={(_, next) => onChange(next)}
+        slotProps={{ input: { 'aria-label': detailCopy.reservations } }}
+      />
     </div>
   );
 }

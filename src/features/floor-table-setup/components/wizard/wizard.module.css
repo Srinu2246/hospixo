@@ -277,7 +277,9 @@
 
 .iconActions {
   display: flex;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  align-items: center;
   gap: 0.25rem;
 }
 

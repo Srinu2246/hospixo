@@ -17,8 +17,8 @@ export interface AddUserDetails {
   firstName: string;
   lastName: string;
   email: string;
+  username: string;
   phone: string;
-  /** Unused in invite flow — invitee sets password on accept. */
   password: string;
   scope: AddUserScope;
   company: string;
@@ -68,6 +68,7 @@ const DEFAULT_USER: AddUserDetails = {
   firstName: '',
   lastName: '',
   email: '',
+  username: '',
   phone: '',
   password: '',
   scope: 'branch',
@@ -76,8 +77,8 @@ const DEFAULT_USER: AddUserDetails = {
   branch: '',
   branchId: null,
   roleId: null,
-  sendInvite: true,
-  message: 'Welcome to the team! Here is your access to Hospixo.',
+  sendInvite: false,
+  message: '',
 };
 
 const AddUserContext = createContext<AddUserState | null>(null);

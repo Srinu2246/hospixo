@@ -73,7 +73,7 @@ export const floorTableSetupCopy = {
     totalTables: 'Total Tables',
     totalSeats: 'Total Seats',
     activeTables: 'Active Tables',
-    maintenance: 'Maintenance',
+    inactiveTables: 'Inactive Tables',
   },
 } as const;
 
@@ -93,16 +93,14 @@ export const floorTypeSelectLabels: Record<FloorType, string> = {
 
 export const floorStatusLabels: Record<FloorStatus, string> = {
   active: 'Active',
+  inactive: 'Inactive',
   draft: 'Draft',
-  archived: 'Archived',
 };
 
 export const setupStatusLabels: Record<SetupStatus, string> = {
   active: 'Active',
-  draft: 'Draft',
-  archived: 'Archived',
-  maintenance: 'Maintenance',
   inactive: 'Inactive',
+  draft: 'Draft',
 };
 
 export const floorSortOptions: ReadonlyArray<{
@@ -121,7 +119,7 @@ export const floorStatusFilterOptions: ReadonlyArray<{
   { id: 'all', label: 'Status' },
   { id: 'active', label: 'Active' },
   { id: 'draft', label: 'Draft' },
-  { id: 'archived', label: 'Archived' },
+  { id: 'inactive', label: 'Inactive' },
 ];
 
 export const floorDetailTabs: ReadonlyArray<{

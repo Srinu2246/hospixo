@@ -1,5 +1,8 @@
+'use client';
+
 import { Plus, Search } from 'lucide-react';
 
+import { FloorSetupToolbarSelect } from '@/features/floor-table-setup/components/shared/floor-setup-toolbar-select';
 import {
   floorSortOptions,
   floorStatusFilterOptions,
@@ -33,6 +36,16 @@ export function FloorToolbar({
   onCreate,
   showStatus = true,
 }: FloorToolbarProps) {
+  const sortOptions = floorSortOptions.map((option) => ({
+    value: option.id,
+    label: option.label,
+  }));
+
+  const statusOptions = floorStatusFilterOptions.map((option) => ({
+    value: option.id,
+    label: option.label,
+  }));
+
   return (
     <div className={styles.toolbar}>
       <label className={styles.search}>
@@ -46,34 +59,22 @@ export function FloorToolbar({
         />
       </label>
       <div className={styles.filters}>
-        <label className={styles.sort}>
+        <div className={styles.sort}>
           <span className={styles.sortLabel}>{floorTableSetupCopy.sortLabel}</span>
-          <select
-            className={styles.select}
+          <FloorSetupToolbarSelect
             value={sort}
             aria-label={floorTableSetupCopy.sortLabel}
-            onChange={(event) => onSortChange(event.target.value as FloorSortId)}
-          >
-            {floorSortOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={(value) => onSortChange(value as FloorSortId)}
+            options={sortOptions}
+          />
+        </div>
         {showStatus ? (
-          <select
-            className={styles.select}
+          <FloorSetupToolbarSelect
             value={status}
             aria-label={floorTableSetupCopy.statusLabel}
-            onChange={(event) => onStatusChange(event.target.value as FloorStatusFilter)}
-          >
-            {floorStatusFilterOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => onStatusChange(value as FloorStatusFilter)}
+            options={statusOptions}
+          />
         ) : null}
         <button type="button" className={styles.create} onClick={onCreate}>
           <Plus className={styles.createIcon} aria-hidden="true" />

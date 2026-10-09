@@ -92,14 +92,12 @@ export const detailCopy = {
 
 export const sectionStatusLabels: Record<SectionStatus, string> = {
   active: 'Active',
-  maintenance: 'Maintenance',
   inactive: 'Inactive',
 };
 
 export const tableConfigStatusLabels: Record<TableConfigStatus, string> = {
   active: 'Active',
   inactive: 'Inactive',
-  maintenance: 'Maintenance',
 };
 
 export const tableShapeLabels: Record<TableShape, string> = {
@@ -126,7 +124,6 @@ export const tableColumnKeys = [
   { id: 'number', label: 'Number' },
   { id: 'area', label: 'Area' },
   { id: 'capacity', label: 'Capacity' },
-  { id: 'shape', label: 'Shape / Type' },
   { id: 'status', label: 'Status' },
 ] as const;
 

@@ -325,6 +325,23 @@
   box-shadow: 0 0 0 1px var(--auth-accent);
 }
 
+.tileFooter {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.tileFooterActions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .viewToggle {
   display: inline-flex;
   border: 1px solid var(--border);

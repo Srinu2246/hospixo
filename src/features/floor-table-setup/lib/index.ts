@@ -31,6 +31,7 @@ export {
   isTableShape,
   paginate,
   parseFloorDetailTab,
+  resolveLifecycleFieldError,
   sectionToDraft,
   sectionStatsFromTables,
   tableDraftToFloorTableItem,

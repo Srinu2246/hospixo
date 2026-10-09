@@ -15,7 +15,7 @@ const MONTH = 30 * DAY;
 export function floorTableStatusToSetup(status: FloorTableStatus): SetupStatus {
   if (status === 'available') return 'active';
   if (status === 'occupied') return 'inactive';
-  return 'maintenance';
+  return 'inactive';
 }
 
 export function formatFloorStats(tableCount: number, seatCount: number) {
