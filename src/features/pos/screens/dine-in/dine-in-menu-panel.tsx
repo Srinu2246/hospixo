@@ -148,10 +148,18 @@ export function DineInMenuPanel({
                         <button
                           type="button"
                           className={styles.addBtn}
-                          aria-label={`Add ${item.name}`}
+                          aria-label={
+                            item.isAvailable === false ? `${item.name} is 86'd` : `Add ${item.name}`
+                          }
+                          disabled={item.isAvailable === false}
                           onClick={() => handleIncrease(item)}
+                          style={
+                            item.isAvailable === false
+                              ? { opacity: 0.5, cursor: 'not-allowed', backgroundColor: '#94a3b8' }
+                              : undefined
+                          }
                         >
-                          Add
+                          {item.isAvailable === false ? "86'd" : 'Add'}
                         </button>
                       )}
                     </div>

@@ -55,6 +55,10 @@ export function DashboardFilterProvider({ children }: Readonly<{ children: React
   );
 }
 
+export function useOptionalDashboardFilter(): DashboardFilterContextValue | null {
+  return useContext(DashboardFilterContext);
+}
+
 export function useDashboardFilter(): DashboardFilterContextValue {
   const context = useContext(DashboardFilterContext);
 

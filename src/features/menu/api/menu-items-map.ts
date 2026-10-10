@@ -1,4 +1,11 @@
-import type { CreateMenuItemInput, DietaryType, MenuItem, MenuItemTag } from '../types/menu';
+import type {
+  CreateMenuItemInput,
+  DietaryType,
+  MenuItem,
+  MenuItemModifierGroup,
+  MenuItemPreparationStation,
+  MenuItemTag,
+} from '../types/menu';
 import type {
   CreateMenuItemApiRequest,
   MenuItemApi,
@@ -7,26 +14,25 @@ import type {
   MenuItemPreparationStationApi,
   UpdateMenuItemApiRequest,
 } from '../types/menu-item-api';
-import type { MenuItemModifierGroup, MenuItemPreparationStation } from '../types/menu';
 import { resolveFavoriteAndComboFlags, resolveTagIds } from './menu-item-tags-map';
 import { resolveMenuScopePayload } from '../lib/menu-scope';
 import { formatGstPercent, toMenuItemTaxesFromGst } from './menu-gst-map';
 
-const DIETARY_TO_API: Record<DietaryType, MenuItemDietaryTypeApi> = {
-  Veg: 'veg',
-  'Non-Veg': 'non_veg',
-  Egg: 'egg',
-  Vegan: 'veg',
-};
+export function fromApiDietaryType(dietary?: string | null): DietaryType {
+  if (!dietary) return 'Veg';
+  const norm = dietary.trim().toLowerCase().replace(/[-_ ]/g, '');
+  if (norm === 'nonveg') return 'Non-Veg';
+  if (norm === 'egg') return 'Egg';
+  if (norm === 'vegan') return 'Vegan';
+  return 'Veg';
+}
 
-const DIETARY_FROM_API: Record<MenuItemDietaryTypeApi, DietaryType> = {
-  veg: 'Veg',
-  non_veg: 'Non-Veg',
-  egg: 'Egg',
-};
-
-export function toApiDietaryType(dietary: DietaryType): MenuItemDietaryTypeApi {
-  return DIETARY_TO_API[dietary];
+export function toApiDietaryType(dietary?: string | null): MenuItemDietaryTypeApi {
+  if (!dietary) return 'veg';
+  const norm = dietary.trim().toLowerCase().replace(/[-_ ]/g, '');
+  if (norm === 'nonveg') return 'non_veg';
+  if (norm === 'egg') return 'egg';
+  return 'veg';
 }
 
 const GST_PERCENT_BY_RATE_ID: Readonly<Record<number, number>> = {
@@ -151,7 +157,7 @@ export function mapMenuItemApi(
     code: item.code,
     basePrice: item.base_price,
     profitMargin: `${item.profit_margin_percent ?? 10}%`,
-    dietary: DIETARY_FROM_API[item.dietary_type] ?? 'Veg',
+    dietary: fromApiDietaryType(item.dietary_type),
     orderTypes,
     exposeIn,
     tagIds,
@@ -238,6 +244,33 @@ export function toCreateMenuItemPayload(
 
 type Writable<T> = { -readonly [P in keyof T]: T[P] };
 
+function applyOrderTypeUpdates(
+  payload: Writable<UpdateMenuItemApiRequest>,
+  updates: Partial<CreateMenuItemInput>,
+) {
+  if (updates.orderTypes !== undefined) {
+    payload.allow_dine_in = updates.orderTypes.includes('Dine In');
+    payload.allow_takeaway = updates.orderTypes.includes('Take Away');
+    payload.allow_delivery = updates.orderTypes.includes('Delivery');
+  }
+  if (updates.exposeIn !== undefined) {
+    payload.expose_captain_app = updates.exposeIn.includes('Captain App');
+  }
+}
+
+function applyTagUpdates(
+  payload: Writable<UpdateMenuItemApiRequest>,
+  updates: Partial<CreateMenuItemInput>,
+  tagDefinitions: readonly MenuItemTag[],
+) {
+  if (updates.tags === undefined && updates.tagIds === undefined) return;
+  const tagIds = resolveTagIds(updates.tagIds ?? []);
+  const flags = resolveFavoriteAndComboFlags(updates.tagIds ?? [], tagDefinitions);
+  payload.tag_ids = tagIds;
+  payload.is_favorite = flags.isFavorite || Boolean(updates.tags?.includes('Set As Favorite'));
+  payload.is_combo = flags.isCombo || Boolean(updates.tags?.includes('Set As Combo'));
+}
+
 export function toUpdateMenuItemPayload(
   updates: Partial<CreateMenuItemInput>,
   tagDefinitions: readonly MenuItemTag[] = [],
@@ -259,21 +292,8 @@ export function toUpdateMenuItemPayload(
   if (updates.description !== undefined) {
     payload.description = updates.description.trim() || undefined;
   }
-  if (updates.orderTypes !== undefined) {
-    payload.allow_dine_in = updates.orderTypes.includes('Dine In');
-    payload.allow_takeaway = updates.orderTypes.includes('Take Away');
-    payload.allow_delivery = updates.orderTypes.includes('Delivery');
-  }
-  if (updates.exposeIn !== undefined) {
-    payload.expose_captain_app = updates.exposeIn.includes('Captain App');
-  }
-  if (updates.tags !== undefined || updates.tagIds !== undefined) {
-    const tagIds = resolveTagIds(updates.tagIds ?? []);
-    const flags = resolveFavoriteAndComboFlags(updates.tagIds ?? [], tagDefinitions);
-    payload.tag_ids = tagIds;
-    payload.is_favorite = flags.isFavorite || updates.tags?.includes('Set As Favorite') || false;
-    payload.is_combo = flags.isCombo || updates.tags?.includes('Set As Combo') || false;
-  }
+  applyOrderTypeUpdates(payload, updates);
+  applyTagUpdates(payload, updates, tagDefinitions);
   if (updates.preparationStations !== undefined) {
     payload.preparation_stations = toMenuItemPreparationStationsApi(updates.preparationStations);
   }
@@ -295,9 +315,7 @@ export function toUpdateMenuItemPayload(
   return payload;
 }
 
-export function unwrapMenuItemList(
-  data: MenuItemApi[] | { items: MenuItemApi[] } | unknown,
-): MenuItemApi[] {
+export function unwrapMenuItemList(data: unknown): MenuItemApi[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
   if (typeof data === 'object' && 'items' in (data as Record<string, unknown>)) {
@@ -321,6 +339,7 @@ export function enrichMenuItemFromInput(
     ...item,
     categoryName,
     onlineDisplayName: input.onlineDisplayName?.trim() || input.name.trim(),
+    dietary: input.dietary ? fromApiDietaryType(input.dietary) : item.dietary,
     profitMargin: input.profitMargin?.trim() || item.profitMargin,
     gst: input.gst?.trim(),
     tags: input.tags,

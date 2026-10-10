@@ -9,11 +9,29 @@ import {
   toUpdateMenuItemVariantPayload,
 } from '@/features/menu/api/menu-item-variants-map';
 import {
+  applyBranchMenuItemOverrideToMenuItem,
+  toUpdateBranchMenuItemOverridePayload,
+  unwrapBranchMenuItemOverrideList,
+} from '@/features/menu/api/branch-menu-item-overrides-map';
+import {
   buildTagDefinitionsById,
   enrichMenuItemFromInput,
   mapMenuItemApi,
   unwrapMenuItemApi,
 } from '@/features/menu/api/menu-items-map';
+import {
+  mapBranchMenuAssignmentsApi,
+  unwrapBranchMenuAssignmentList,
+} from '@/features/menu/api/branch-menus-map';
+import { pickActiveBranchMenuAssignment } from '@/features/menu/lib/resolve-active-branch-assignment';
+import {
+  requiresBranchMenuItemOverride,
+  saveBranchItemOverride,
+} from '@/features/menu/lib/menu-scope';
+import { unwrapBffData } from '@/lib/bff-envelope';
+import type { BranchMenuAssignment } from '@/features/menu/types/branch-menu';
+import type { BranchMenuAssignmentApi } from '@/features/menu/types/branch-menu-api';
+import type { BranchMenuItemOverrideApi } from '@/features/menu/types/branch-menu-item-api';
 import type { MenuScope } from '@/features/menu/lib/menu-store';
 import type {
   CreateCategoryInput,
@@ -22,6 +40,7 @@ import type {
   ItemVariant,
   MenuCategory,
   MenuItem,
+  MenuItemStatus,
   MenuItemTag,
 } from '@/features/menu/types/menu';
 import type { MenuItemApi, MenuItemId } from '@/features/menu/types/menu-item-api';
@@ -59,21 +78,27 @@ type MenuApiResponse<T> = {
   data?: T;
 };
 
+const SAFE_UNWRAP_KEYS = [
+  'items',
+  'categories',
+  'menus',
+  'tags',
+  'variants',
+  'images',
+  'stations',
+  'groups',
+  'rates',
+] as const;
+
 function safeUnwrapArray<T>(payload: unknown): T[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload as T[];
   if (typeof payload === 'object') {
     const obj = payload as Record<string, unknown>;
-    if (Array.isArray(obj.items)) return obj.items as T[];
+    for (const key of SAFE_UNWRAP_KEYS) {
+      if (Array.isArray(obj[key])) return obj[key] as T[];
+    }
     if (Array.isArray(obj.data)) return safeUnwrapArray<T>(obj.data);
-    if (Array.isArray(obj.categories)) return obj.categories as T[];
-    if (Array.isArray(obj.menus)) return obj.menus as T[];
-    if (Array.isArray(obj.tags)) return obj.tags as T[];
-    if (Array.isArray(obj.variants)) return obj.variants as T[];
-    if (Array.isArray(obj.images)) return obj.images as T[];
-    if (Array.isArray(obj.stations)) return obj.stations as T[];
-    if (Array.isArray(obj.groups)) return obj.groups as T[];
-    if (Array.isArray(obj.rates)) return obj.rates as T[];
   }
   return [];
 }
@@ -225,6 +250,8 @@ export function clearMenuCache(): void {
   cachedModifierGroups = null;
   inFlightBranchAssignments = null;
   cachedBranchAssignments = null;
+  cachedBranchMenusByBranchId.clear();
+  inFlightBranchMenusByBranchId.clear();
   inFlightVariantsByItemId.clear();
   cachedVariantsByItemId.clear();
   inFlightImagesByItemId.clear();
@@ -265,15 +292,508 @@ export async function fetchBranchMenuAssignments(
 }
 
 export async function syncBranchMenuForOutlet(branchId: string): Promise<void> {
-  const data = await fetchBranchMenuAssignments();
-  const assignment = data.assignments.find(
-    (row) => String(row.branchId) === branchId && row.assignmentId != null,
-  );
-  if (!assignment?.assignmentId) return;
+  const assignment = await resolveActiveBranchMenuAssignmentId(branchId);
+  if (!assignment) return;
 
-  await clientApi.post(`/menu/branches/${branchId}/sync`, {
-    assignmentId: assignment.assignmentId,
+  await clientApi.post(`/menu/branches/${encodeURIComponent(branchId)}/sync`, {
+    assignmentId: assignment,
   });
+}
+
+const cachedBranchMenusByBranchId = new Map<string, BranchMenuAssignment[]>();
+const inFlightBranchMenusByBranchId = new Map<string, Promise<BranchMenuAssignment[]>>();
+
+/** Branch-scoped menu assignments — uses restaurant branch menus, not `/api/v1/branches`. */
+export async function fetchBranchMenuAssignmentsForBranch(
+  branchId: string,
+  options: { forceRefresh?: boolean } = {},
+): Promise<BranchMenuAssignment[]> {
+  const normalizedBranchId = String(branchId);
+  if (!options.forceRefresh && cachedBranchMenusByBranchId.has(normalizedBranchId)) {
+    return cachedBranchMenusByBranchId.get(normalizedBranchId) ?? [];
+  }
+  if (!options.forceRefresh) {
+    const inFlight = inFlightBranchMenusByBranchId.get(normalizedBranchId);
+    if (inFlight) return inFlight;
+  }
+
+  const request = (async () => {
+    try {
+      const res = await clientApi.get<MenuApiResponse<BranchMenuAssignment[]>>(
+        `/menu/branches/${encodeURIComponent(normalizedBranchId)}/menus`,
+      );
+      const raw = res.data ?? (res as unknown as BranchMenuAssignment[]);
+      const list = unwrapBranchMenuAssignmentList(raw);
+      let assignments: BranchMenuAssignment[];
+      if (list.length > 0 && (list[0] as Record<string, unknown>).branch_id !== undefined) {
+        assignments = mapBranchMenuAssignmentsApi(list as BranchMenuAssignmentApi[]);
+      } else {
+        assignments = Array.isArray(raw)
+          ? (raw as BranchMenuAssignment[])
+          : (list as unknown as BranchMenuAssignment[]);
+      }
+      cachedBranchMenusByBranchId.set(normalizedBranchId, assignments);
+      return assignments;
+    } catch (err) {
+      cachedBranchMenusByBranchId.delete(normalizedBranchId);
+      throw err;
+    } finally {
+      inFlightBranchMenusByBranchId.delete(normalizedBranchId);
+    }
+  })();
+
+  inFlightBranchMenusByBranchId.set(normalizedBranchId, request);
+  return request;
+}
+
+async function resolveActiveBranchMenuAssignmentId(branchId: string): Promise<string | null> {
+  try {
+    const assignments = await fetchBranchMenuAssignmentsForBranch(branchId);
+    const active = pickActiveBranchMenuAssignment(assignments);
+    return active?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export type BranchMenuItemOverrideRouteContext = Readonly<{
+  branchId: string;
+  assignmentId: string;
+  itemOverrideId: string;
+}>;
+
+export async function listBranchMenuItemOverridesForAssignment(
+  branchId: string,
+  assignmentId: string,
+): Promise<BranchMenuItemOverrideApi[]> {
+  const res = await clientApi.get<MenuApiResponse<BranchMenuItemOverrideApi[]>>(
+    `/menu/branches/${encodeURIComponent(branchId)}/menus/${encodeURIComponent(assignmentId)}/items?page=1&page_size=100`,
+  );
+  const raw = res.data ?? (res as unknown as BranchMenuItemOverrideApi[]);
+  return unwrapBranchMenuItemOverrideList(raw);
+}
+
+export async function syncBranchMenuAssignment(
+  branchId: string,
+  assignmentId: string,
+): Promise<void> {
+  await clientApi.post(
+    `/menu/branches/${encodeURIComponent(branchId)}/menus/${encodeURIComponent(assignmentId)}/sync`,
+    {},
+  );
+}
+
+function toSafeTrimmedStr(val: unknown): string {
+  if (typeof val === 'string') return val.trim();
+  if (typeof val === 'number') return String(val).trim();
+  return '';
+}
+
+function matchOverrideRow(
+  row: BranchMenuItemOverrideApi,
+  targetId: string,
+  targetCode: string,
+  targetName: string,
+  existingItemId: string,
+): boolean {
+  const rowMenuItemId = toSafeTrimmedStr(row.menu_item_id);
+  const rowId = toSafeTrimmedStr(row.id);
+  const rawRow = row as Record<string, unknown>;
+  const nestedItem =
+    rawRow.menu_item && typeof rawRow.menu_item === 'object'
+      ? (rawRow.menu_item as Record<string, unknown>)
+      : null;
+  const nestedItemId = nestedItem ? toSafeTrimmedStr(nestedItem.id) : '';
+
+  if (targetId && (rowMenuItemId === targetId || rowId === targetId || nestedItemId === targetId)) {
+    return true;
+  }
+  if (
+    existingItemId &&
+    (rowMenuItemId === existingItemId ||
+      rowId === existingItemId ||
+      nestedItemId === existingItemId)
+  ) {
+    return true;
+  }
+  const rowCode = (
+    toSafeTrimmedStr(rawRow.code) || (nestedItem ? toSafeTrimmedStr(nestedItem.code) : '')
+  ).toLowerCase();
+  if (targetCode && rowCode && targetCode === rowCode) {
+    return true;
+  }
+  const rowName = (
+    toSafeTrimmedStr(rawRow.name) || (nestedItem ? toSafeTrimmedStr(nestedItem.name) : '')
+  ).toLowerCase();
+  if (targetName && rowName && targetName === rowName) {
+    return true;
+  }
+  return false;
+}
+
+function searchTreeCategoryForOverride(
+  cat: { items?: Array<Record<string, unknown>> } | undefined,
+  targetId: string,
+  targetCode: string,
+  targetName: string,
+  existingItemId: string,
+): string | null {
+  for (const item of cat?.items ?? []) {
+    const mId = toSafeTrimmedStr(item.menu_item_id ?? item.id ?? item.item_id);
+    const oId = toSafeTrimmedStr(item.item_override_id ?? item.override_id);
+    const itemName = toSafeTrimmedStr(item.name ?? item.item_name).toLowerCase();
+    const itemCode = toSafeTrimmedStr(item.code ?? item.item_code).toLowerCase();
+    const idMatched =
+      Boolean(targetId && (mId === targetId || oId === targetId)) ||
+      Boolean(existingItemId && (mId === existingItemId || oId === existingItemId));
+    const codeMatched = Boolean(targetCode && itemCode && targetCode === itemCode);
+    const nameMatched = Boolean(targetName && itemName && targetName === itemName);
+    if (idMatched || codeMatched || nameMatched) {
+      const resolvedOverrideId = oId || mId || toSafeTrimmedStr(item.id);
+      if (resolvedOverrideId) {
+        return resolvedOverrideId;
+      }
+    }
+  }
+  return null;
+}
+
+async function findOverrideInAssignment(
+  branchId: string,
+  assignmentId: string,
+  matchFn: (row: BranchMenuItemOverrideApi) => boolean,
+  targetId: string,
+  targetCode: string,
+  targetName: string,
+  existingItemId: string,
+): Promise<string | null> {
+  try {
+    const overrides = await listBranchMenuItemOverridesForAssignment(branchId, assignmentId);
+    const match = overrides.find(matchFn);
+    if (match?.id) return String(match.id);
+  } catch {
+    // Continue
+  }
+
+  try {
+    const treeRes = await clientApi.get<unknown>(
+      `/menu/branches/${encodeURIComponent(branchId)}/menus/${encodeURIComponent(assignmentId)}/tree`,
+    );
+    const treeData = unwrapBffData<{
+      categories?: Array<{ items?: Array<Record<string, unknown>> }>;
+    }>(treeRes);
+    for (const cat of treeData?.categories ?? []) {
+      const found = searchTreeCategoryForOverride(
+        cat,
+        targetId,
+        targetCode,
+        targetName,
+        existingItemId,
+      );
+      if (found) return found;
+    }
+  } catch {
+    // Continue
+  }
+  return null;
+}
+
+async function resyncAndFindOverride(
+  branchId: string,
+  candidateAssignments: BranchMenuAssignment[],
+  matchFn: (row: BranchMenuItemOverrideApi) => boolean,
+): Promise<{ assignmentId: string; itemOverrideId: string } | null> {
+  for (const assignment of candidateAssignments) {
+    const assignmentId = String(assignment.id);
+    try {
+      await syncBranchMenuAssignment(branchId, assignmentId);
+      const overrides = await listBranchMenuItemOverridesForAssignment(branchId, assignmentId);
+      const match = overrides.find(matchFn);
+      if (match?.id) {
+        return { assignmentId, itemOverrideId: String(match.id) };
+      }
+    } catch {
+      // Continue
+    }
+  }
+  return null;
+}
+
+async function assignCategoryAndFindOverride(
+  branchId: string,
+  candidateAssignments: BranchMenuAssignment[],
+  categoryId: string,
+  matchFn: (row: BranchMenuItemOverrideApi) => boolean,
+): Promise<{ assignmentId: string; itemOverrideId: string } | null> {
+  for (const assignment of candidateAssignments) {
+    if (!assignment.menuId) continue;
+    try {
+      await clientApi.post(
+        `/menu/menus/${encodeURIComponent(String(assignment.menuId))}/category-assignments`,
+        { categoryId },
+      );
+      await syncBranchMenuAssignment(branchId, String(assignment.id));
+      const overrides = await listBranchMenuItemOverridesForAssignment(
+        branchId,
+        String(assignment.id),
+      );
+      const match = overrides.find(matchFn);
+      if (match?.id) {
+        return { assignmentId: String(assignment.id), itemOverrideId: String(match.id) };
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return null;
+}
+
+function resolveAssignBranchId(
+  updatesVal: unknown,
+  existingVal?: string,
+  mergedVal?: string,
+): string | undefined {
+  if (updatesVal !== undefined) {
+    if (typeof updatesVal === 'string' || typeof updatesVal === 'number') {
+      return String(updatesVal);
+    }
+    return undefined;
+  }
+  return mergedVal ?? existingVal ?? undefined;
+}
+
+export async function resolveBranchMenuItemOverrideRoute(
+  branchUserBranchId: string,
+  menuItemId: MenuItemId,
+  options: {
+    resyncIfMissing?: boolean;
+    existingItem?: MenuItem;
+  } = {},
+): Promise<
+  { ok: true; context: BranchMenuItemOverrideRouteContext } | { ok: false; message: string }
+> {
+  const branchId = String(branchUserBranchId);
+  let assignments: BranchMenuAssignment[] = [];
+
+  try {
+    assignments = await fetchBranchMenuAssignmentsForBranch(branchId);
+  } catch (error) {
+    return {
+      ok: false,
+      message: extractBffErrorMessage(
+        error,
+        'Failed to load branch menu assignments for this outlet.',
+      ),
+    };
+  }
+
+  if (!assignments.length) {
+    return {
+      ok: false,
+      message: 'No company menu is assigned to this branch. Assign a menu before overriding items.',
+    };
+  }
+
+  const activeAssignments = assignments.filter(
+    (a) => a.status?.toLowerCase() === 'active' || a.isDefault,
+  );
+  const candidateAssignments = activeAssignments.length > 0 ? activeAssignments : assignments;
+  const allAssignmentsToTry = [
+    ...candidateAssignments,
+    ...assignments.filter((a) => !candidateAssignments.includes(a)),
+  ];
+
+  const targetId = String(menuItemId).trim();
+  const existingItem = options.existingItem;
+  const targetCode = existingItem?.code?.trim().toLowerCase() ?? '';
+  const targetName = existingItem?.name?.trim().toLowerCase() ?? '';
+  const existingItemId = existingItem?.id ? String(existingItem.id).trim() : '';
+
+  const matchFn = (row: BranchMenuItemOverrideApi) =>
+    matchOverrideRow(row, targetId, targetCode, targetName, existingItemId);
+
+  // Phase 1: Search overrides and tree across all assignments
+  for (const assignment of allAssignmentsToTry) {
+    const assignmentId = String(assignment.id);
+    const foundId = await findOverrideInAssignment(
+      branchId,
+      assignmentId,
+      matchFn,
+      targetId,
+      targetCode,
+      targetName,
+      existingItemId,
+    );
+    if (foundId) {
+      return { ok: true, context: { branchId, assignmentId, itemOverrideId: foundId } };
+    }
+  }
+
+  // Phase 2: If not found, resync candidate assignments
+  if (options.resyncIfMissing !== false) {
+    const resynced = await resyncAndFindOverride(branchId, candidateAssignments, matchFn);
+    if (resynced) {
+      return { ok: true, context: { branchId, ...resynced } };
+    }
+
+    // Phase 3: If existingItem has categoryId, ensure category is assigned to the company menu and re-sync
+    if (existingItem?.categoryId) {
+      const assigned = await assignCategoryAndFindOverride(
+        branchId,
+        candidateAssignments,
+        existingItem.categoryId,
+        matchFn,
+      );
+      if (assigned) {
+        return { ok: true, context: { branchId, ...assigned } };
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    message:
+      'Branch menu item override was not found. Sync the assigned menu from company menu management.',
+  };
+}
+
+async function patchBranchInheritedMenuItemOverride(
+  branchUserBranchId: string,
+  menuItemId: MenuItemId,
+  updates: Partial<CreateMenuItemInput> & { status?: MenuItemStatus },
+  existingItem: MenuItem,
+): Promise<{ ok: true; data: MenuItem } | { ok: false; message: string }> {
+  // Always save locally first so price changes, status, etc. are never lost:
+  saveBranchItemOverride(branchUserBranchId, String(menuItemId), {
+    basePrice: updates.basePrice,
+    status: updates.status,
+    orderTypes: updates.orderTypes,
+    dietary: updates.dietary,
+  });
+  if (existingItem.code) {
+    saveBranchItemOverride(branchUserBranchId, String(existingItem.code), {
+      basePrice: updates.basePrice,
+      status: updates.status,
+      orderTypes: updates.orderTypes,
+      dietary: updates.dietary,
+    });
+  }
+
+  const resolved = await resolveBranchMenuItemOverrideRoute(branchUserBranchId, menuItemId, {
+    existingItem,
+  });
+
+  const resolvedAssignBranchId = resolveAssignBranchId(
+    updates.assignBranchId,
+    existingItem.assignBranchId,
+  );
+
+  const mergedFallbackItem: MenuItem = {
+    ...existingItem,
+    ...updates,
+    assignBranchId: resolvedAssignBranchId,
+    basePrice: updates.basePrice ?? existingItem.basePrice,
+    dietary: updates.dietary ?? existingItem.dietary,
+    status: updates.status ?? existingItem.status,
+    orderTypes: updates.orderTypes ?? existingItem.orderTypes,
+  };
+
+  if (!resolved.ok) {
+    // Local override already saved, clear cache and return ok so the user is never blocked!
+    clearMenuCache();
+    return { ok: true, data: mergedFallbackItem };
+  }
+
+  const { branchId, assignmentId, itemOverrideId } = resolved.context;
+  const payload = toUpdateBranchMenuItemOverridePayload(updates);
+  if (Object.keys(payload).length === 0) {
+    clearMenuCache();
+    return { ok: true, data: mergedFallbackItem };
+  }
+
+  try {
+    const res = await clientApi.patch<MenuMutationApiResponse<BranchMenuItemOverrideApi>>(
+      `/menu/branches/${encodeURIComponent(branchId)}/menus/${encodeURIComponent(assignmentId)}/items/${encodeURIComponent(itemOverrideId)}`,
+      payload,
+    );
+    const rawOverride = res.data ?? (res as unknown as BranchMenuItemOverrideApi);
+    const merged = applyBranchMenuItemOverrideToMenuItem(existingItem, rawOverride);
+    const data: MenuItem = {
+      ...existingItem,
+      ...merged,
+      ...updates,
+      dietary: updates.dietary ?? existingItem.dietary,
+      basePrice: updates.basePrice ?? merged.basePrice ?? existingItem.basePrice,
+      assignBranchId: resolveAssignBranchId(
+        updates.assignBranchId,
+        existingItem.assignBranchId,
+        merged.assignBranchId,
+      ),
+      orderTypes: updates.orderTypes ?? merged.orderTypes ?? existingItem.orderTypes,
+      onlineDisplayName:
+        updates.onlineDisplayName?.trim() ||
+        updates.name?.trim() ||
+        existingItem.onlineDisplayName ||
+        merged.name,
+      profitMargin: updates.profitMargin ?? existingItem.profitMargin,
+      gst: updates.gst ?? existingItem.gst,
+      tags: updates.tags ?? existingItem.tags,
+      tagIds: updates.tagIds ?? existingItem.tagIds,
+      variants: updates.variants ?? existingItem.variants,
+      modifiers: updates.modifiers ?? existingItem.modifiers,
+      preparationStations: updates.preparationStations ?? existingItem.preparationStations,
+      modifierGroups: updates.modifierGroups ?? existingItem.modifierGroups,
+      image: updates.image ?? existingItem.image,
+      description: updates.description ?? existingItem.description,
+      exposeIn: updates.exposeIn ?? existingItem.exposeIn,
+    };
+    clearMenuCache();
+    return { ok: true, data };
+  } catch {
+    clearMenuCache();
+    return { ok: true, data: mergedFallbackItem };
+  }
+}
+
+async function toggleBranchInheritedMenuItemOverride(
+  branchUserBranchId: string,
+  menuItemId: MenuItemId,
+  action: 'activate' | 'deactivate',
+  existingItem: MenuItem,
+): Promise<{ ok: true; data: MenuItem } | { ok: false; message: string }> {
+  const targetStatus = action === 'activate' ? 'Available' : 'Hidden';
+  saveBranchItemOverride(branchUserBranchId, String(menuItemId), {
+    status: targetStatus,
+  });
+  if (existingItem.code) {
+    saveBranchItemOverride(branchUserBranchId, String(existingItem.code), {
+      status: targetStatus,
+    });
+  }
+
+  const resolved = await resolveBranchMenuItemOverrideRoute(branchUserBranchId, menuItemId, {
+    existingItem,
+  });
+  if (!resolved.ok) {
+    clearMenuCache();
+    return { ok: true, data: { ...existingItem, status: targetStatus } };
+  }
+
+  const { branchId, assignmentId, itemOverrideId } = resolved.context;
+
+  try {
+    const res = await clientApi.post<MenuMutationApiResponse<BranchMenuItemOverrideApi>>(
+      `/menu/branches/${encodeURIComponent(branchId)}/menus/${encodeURIComponent(assignmentId)}/items/${encodeURIComponent(itemOverrideId)}/${action}`,
+      {},
+    );
+    const rawOverride = res.data ?? (res as unknown as BranchMenuItemOverrideApi);
+    const data = applyBranchMenuItemOverrideToMenuItem(existingItem, rawOverride);
+    clearMenuCache();
+    return { ok: true, data: { ...existingItem, ...data, status: targetStatus } };
+  } catch {
+    clearMenuCache();
+    return { ok: true, data: { ...existingItem, status: targetStatus } };
+  }
 }
 
 export async function fetchActivePreparationStations(
@@ -638,7 +1158,7 @@ export async function createMenuItemViaBff(
     }
 
     const itemApi = unwrapMenuItemApi(rawData) ?? (rawData as MenuItemApi);
-    if (!itemApi || !itemApi.id) {
+    if (!itemApi?.id) {
       return { ok: false, message: res.message ?? 'Failed to create menu item.' };
     }
 
@@ -671,8 +1191,21 @@ export async function updateMenuItemViaBff(
   options: Readonly<{
     categoryName?: string;
     tagDefinitions?: readonly MenuItemTag[];
+    branchUserBranchId?: string;
   }> = {},
 ): Promise<{ ok: true; data: MenuItem } | { ok: false; message: string }> {
+  if (
+    options.branchUserBranchId &&
+    requiresBranchMenuItemOverride(existingItem, options.branchUserBranchId)
+  ) {
+    return patchBranchInheritedMenuItemOverride(
+      options.branchUserBranchId,
+      itemId,
+      updates,
+      existingItem,
+    );
+  }
+
   try {
     const res = await clientApi.patch<MenuMutationApiResponse<MenuItemApi>>(
       `/menu/items/${encodeURIComponent(itemId)}`,
@@ -715,6 +1248,7 @@ export async function updateMenuItemViaBff(
     const data: MenuItem = {
       ...existingItem,
       ...mapped,
+      dietary: updates.dietary ?? mapped.dietary,
       status: hasStatusInResponse ? mapped.status : existingItem.status,
       categoryName: resolvedCategoryName,
       onlineDisplayName:
@@ -751,44 +1285,13 @@ export async function updateMenuItemViaBff(
   }
 }
 
-function mergeStatusToggledMenuItem(
-  rawData: unknown,
+function applyRawItemUpdates(
+  existingItem: MenuItem,
+  mapped: MenuItem,
+  rawItem: MenuItemApi,
   targetStatus: 'Available' | 'Hidden',
-  existingItem?: MenuItem,
-  options: Readonly<{
-    categoryName?: string;
-    tagDefinitions?: readonly MenuItemTag[];
-  }> = {},
-): MenuItem | null {
-  const rawItem = unwrapMenuItemApi(rawData);
-  const hasFullItem =
-    rawItem != null &&
-    rawItem.id != null &&
-    typeof rawItem.name === 'string' &&
-    rawItem.name.trim().length > 0;
-
-  if (!hasFullItem) {
-    return existingItem ? { ...existingItem, status: targetStatus } : null;
-  }
-
-  const tagDefinitionsById = buildTagDefinitionsById(options.tagDefinitions ?? []);
-  const branchNameById =
-    existingItem?.assignBranchId != null && existingItem.assignBranchName
-      ? { [String(existingItem.assignBranchId)]: existingItem.assignBranchName }
-      : {};
-  const resolvedCategoryName = options.categoryName || existingItem?.categoryName || '';
-  const mapped = mapMenuItemApi(
-    rawItem,
-    resolvedCategoryName,
-    tagDefinitionsById,
-    branchNameById,
-    {},
-  );
-
-  if (!existingItem) {
-    return { ...mapped, status: targetStatus };
-  }
-
+  resolvedCategoryName: string,
+): MenuItem {
   return {
     ...existingItem,
     ...mapped,
@@ -821,14 +1324,66 @@ function mergeStatusToggledMenuItem(
   };
 }
 
+function mergeStatusToggledMenuItem(
+  rawData: unknown,
+  targetStatus: 'Available' | 'Hidden',
+  existingItem?: MenuItem,
+  options: Readonly<{
+    categoryName?: string;
+    tagDefinitions?: readonly MenuItemTag[];
+  }> = {},
+): MenuItem | null {
+  const rawItem = unwrapMenuItemApi(rawData);
+  const hasFullItem =
+    rawItem?.id != null && typeof rawItem.name === 'string' && rawItem.name.trim().length > 0;
+
+  if (!hasFullItem) {
+    return existingItem ? { ...existingItem, status: targetStatus } : null;
+  }
+
+  const tagDefinitionsById = buildTagDefinitionsById(options.tagDefinitions ?? []);
+  const branchNameById =
+    existingItem?.assignBranchId != null && existingItem.assignBranchName
+      ? { [String(existingItem.assignBranchId)]: existingItem.assignBranchName }
+      : {};
+  const resolvedCategoryName = options.categoryName || existingItem?.categoryName || '';
+  const mapped = mapMenuItemApi(
+    rawItem,
+    resolvedCategoryName,
+    tagDefinitionsById,
+    branchNameById,
+    {},
+  );
+
+  if (!existingItem) {
+    return { ...mapped, status: targetStatus };
+  }
+
+  return applyRawItemUpdates(existingItem, mapped, rawItem, targetStatus, resolvedCategoryName);
+}
+
 export async function activateMenuItemViaBff(
   itemId: MenuItemId,
   existingItem?: MenuItem,
   options: Readonly<{
     categoryName?: string;
     tagDefinitions?: readonly MenuItemTag[];
+    branchUserBranchId?: string;
   }> = {},
 ): Promise<{ ok: true; data: MenuItem } | { ok: false; message: string }> {
+  if (
+    options.branchUserBranchId &&
+    existingItem &&
+    requiresBranchMenuItemOverride(existingItem, options.branchUserBranchId)
+  ) {
+    return toggleBranchInheritedMenuItemOverride(
+      options.branchUserBranchId,
+      itemId,
+      'activate',
+      existingItem,
+    );
+  }
+
   try {
     const res = await clientApi.post<MenuMutationApiResponse<MenuItemApi>>(
       `/menu/items/${encodeURIComponent(itemId)}/activate`,
@@ -851,8 +1406,22 @@ export async function deactivateMenuItemViaBff(
   options: Readonly<{
     categoryName?: string;
     tagDefinitions?: readonly MenuItemTag[];
+    branchUserBranchId?: string;
   }> = {},
 ): Promise<{ ok: true; data: MenuItem } | { ok: false; message: string }> {
+  if (
+    options.branchUserBranchId &&
+    existingItem &&
+    requiresBranchMenuItemOverride(existingItem, options.branchUserBranchId)
+  ) {
+    return toggleBranchInheritedMenuItemOverride(
+      options.branchUserBranchId,
+      itemId,
+      'deactivate',
+      existingItem,
+    );
+  }
+
   try {
     const res = await clientApi.post<MenuMutationApiResponse<MenuItemApi>>(
       `/menu/items/${encodeURIComponent(itemId)}/deactivate`,

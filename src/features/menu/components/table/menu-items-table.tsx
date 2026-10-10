@@ -100,6 +100,40 @@ export function MenuItemsTable() {
         />
       );
     }
+    if (dietary === 'Egg') {
+      return (
+        <Chip
+          label="Egg"
+          size="small"
+          sx={{
+            height: 22,
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            bgcolor: 'rgba(237, 108, 2, 0.08)',
+            color: 'warning.main',
+            border: '1px solid',
+            borderColor: 'warning.light',
+          }}
+        />
+      );
+    }
+    if (dietary === 'Vegan') {
+      return (
+        <Chip
+          label="Vegan"
+          size="small"
+          sx={{
+            height: 22,
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            bgcolor: 'rgba(46, 125, 50, 0.08)',
+            color: 'success.main',
+            border: '1px solid',
+            borderColor: 'success.light',
+          }}
+        />
+      );
+    }
     return (
       <Chip
         label={dietary}

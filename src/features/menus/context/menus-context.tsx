@@ -12,17 +12,23 @@ import {
 } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/context/auth';
+import { useDashboardFilter } from '@/context/dashboard-filter';
 import { clientApi } from '@/lib/client-api';
 import {
   companyMenuSessionsQueryKey,
+  fetchRestaurantMenus,
   useCompanyMenuSessionsQuery,
 } from '../hooks/use-company-menus-sessions';
+import { filterRestaurantMenusForBranchScope } from '../lib/branch-menu-scope';
+import { useMenusRoutes } from './menus-routes-context';
 import { fetchMenuItemImagesByItemId } from '@/lib/menu-cache';
 import {
   useMenuSessionCategoriesQuery,
   useMenuSessionItemsQuery,
 } from '../hooks/use-menu-session-catalog';
 import type {
+  CreateRestaurantMenuInput,
   MenuTree,
   MenuTreeCategory,
   RestaurantMenu,
@@ -108,11 +114,18 @@ function assignedCategoryIds(tree: MenuTree | null): Set<string> {
 export function MenusProvider({
   children,
   initialData,
-}: {
+}: Readonly<{
   children: ReactNode;
   initialData?: CompanyMenusPageData;
-}) {
+}>) {
   const queryClient = useQueryClient();
+  const { scope: menusScope } = useMenusRoutes();
+  const { user } = useAuth();
+  const dashboardFilter = useDashboardFilter();
+  const branchId =
+    (user?.branch_id != null ? String(user.branch_id) : null) ??
+    dashboardFilter?.activeBranchId ??
+    null;
   const sessionsQuery = useCompanyMenuSessionsQuery(!initialData);
   const categoriesQuery = useMenuSessionCategoriesQuery(true);
   const itemsQuery = useMenuSessionItemsQuery(true);
@@ -156,14 +169,35 @@ export function MenusProvider({
     [apiItems, imageByItemId, tree],
   );
 
+  const visibleRestaurantMenus = useMemo(() => {
+    const menus = sessionsQuery.data ?? [];
+    if (menusScope === 'branch') {
+      return filterRestaurantMenusForBranchScope(menus, branchId);
+    }
+    return menus;
+  }, [branchId, menusScope, sessionsQuery.data]);
+
   useEffect(() => {
     if (initialData || !sessionsQuery.data) return;
     queueMicrotask(() => {
-      setSessions(sessionsQuery.data);
+      setSessions(visibleRestaurantMenus.map(restaurantMenuToSession));
       setReady(true);
       setError(null);
     });
-  }, [initialData, sessionsQuery.data]);
+  }, [initialData, sessionsQuery.data, visibleRestaurantMenus]);
+
+  useEffect(() => {
+    if (sessionsQuery.isError) {
+      queueMicrotask(() => {
+        setError(
+          sessionsQuery.error instanceof Error
+            ? sessionsQuery.error.message
+            : 'Failed to load menus',
+        );
+        setReady(true);
+      });
+    }
+  }, [sessionsQuery.error, sessionsQuery.isError]);
 
   const ensureSessions = useCallback(async () => {
     if (sessionsRef.current.length > 0) {
@@ -174,19 +208,13 @@ export function MenusProvider({
 
     const promise = (async () => {
       try {
-        const data = await queryClient.fetchQuery({
+        const menus = await queryClient.fetchQuery({
           queryKey: companyMenuSessionsQueryKey,
-          queryFn: async () => {
-            const response = await clientApi.get<{ success?: boolean; data?: RestaurantMenu[] }>(
-              '/menu/menus',
-            );
-            const list = Array.isArray(response)
-              ? (response as RestaurantMenu[])
-              : (response?.data ?? []);
-            return list.map(restaurantMenuToSession);
-          },
+          queryFn: fetchRestaurantMenus,
         });
-        setSessions(data);
+        const visible =
+          menusScope === 'branch' ? filterRestaurantMenusForBranchScope(menus, branchId) : menus;
+        setSessions(visible.map(restaurantMenuToSession));
         setError(null);
       } catch (err) {
         setSessions([]);
@@ -200,7 +228,17 @@ export function MenusProvider({
 
     inFlightSessionsRequestRef.current = promise;
     return promise;
-  }, [queryClient]);
+  }, [branchId, menusScope, queryClient]);
+
+  const menuScopeOptions = useMemo((): Pick<
+    CreateRestaurantMenuInput,
+    'scope' | 'assignBranchId'
+  > => {
+    if (menusScope === 'branch' && branchId != null) {
+      return { scope: 'branch', assignBranchId: branchId };
+    }
+    return { scope: 'company', assignBranchId: null };
+  }, [branchId, menusScope]);
 
   useEffect(() => {
     if (initialData) return;
@@ -326,34 +364,62 @@ export function MenusProvider({
     return promise;
   }, []);
 
-  const createSession = useCallback(async (form: MenuSessionForm) => {
-    try {
-      const response = await clientApi.post<{ success?: boolean; data?: RestaurantMenu }>(
-        '/menu/menus',
-        sessionFormToCreateInput(form),
-      );
-      const data = (
-        response && typeof response === 'object' && 'data' in response && response.data
-          ? response.data
-          : response
-      ) as RestaurantMenu;
-      const session = restaurantMenuToSession(data);
-      setSessions((current) => [session, ...current]);
-      return { ok: true as const, data: session };
-    } catch (err) {
-      return {
-        ok: false as const,
-        message: err instanceof Error ? err.message : 'Failed to create menu',
-      };
-    }
-  }, []);
+  const createSession = useCallback(
+    async (form: MenuSessionForm) => {
+      try {
+        const response = await clientApi.post<{ success?: boolean; data?: RestaurantMenu }>(
+          '/menu/menus',
+          sessionFormToCreateInput(form, menuScopeOptions),
+        );
+        const data = (
+          response && typeof response === 'object' && 'data' in response && response.data
+            ? response.data
+            : response
+        ) as RestaurantMenu;
+        const session = restaurantMenuToSession(data);
+        setSessions((current) => [session, ...current]);
+        await queryClient.invalidateQueries({ queryKey: companyMenuSessionsQueryKey });
+        return { ok: true as const, data: session };
+      } catch (err) {
+        return {
+          ok: false as const,
+          message: err instanceof Error ? err.message : 'Failed to create menu',
+        };
+      }
+    },
+    [menuScopeOptions, queryClient],
+  );
 
-  const updateSession = useCallback(async (id: string, form: MenuSessionForm) => {
+  const updateSession = useCallback(
+    async (id: string, form: MenuSessionForm) => {
+      try {
+        const response = await clientApi.patch<{ success?: boolean; data?: RestaurantMenu }>(
+          `/menu/menus/${id}`,
+          sessionFormToCreateInput(form, menuScopeOptions),
+        );
+        const data = (
+          response && typeof response === 'object' && 'data' in response && response.data
+            ? response.data
+            : response
+        ) as RestaurantMenu;
+        const session = restaurantMenuToSession(data);
+        setSessions((current) => current.map((item) => (item.id === id ? session : item)));
+        return { ok: true as const, data: session };
+      } catch (err) {
+        return {
+          ok: false as const,
+          message: err instanceof Error ? err.message : 'Failed to update menu',
+        };
+      }
+    },
+    [menuScopeOptions],
+  );
+
+  const setStatus = useCallback(async (id: string, status: MenuSessionStatus) => {
     try {
-      const response = await clientApi.patch<{ success?: boolean; data?: RestaurantMenu }>(
-        `/menu/menus/${id}`,
-        sessionFormToCreateInput(form),
-      );
+      const path =
+        status === 'active' ? `/menu/menus/${id}/activate` : `/menu/menus/${id}/deactivate`;
+      const response = await clientApi.post<{ success?: boolean; data?: RestaurantMenu }>(path, {});
       const data = (
         response && typeof response === 'object' && 'data' in response && response.data
           ? response.data
@@ -361,32 +427,8 @@ export function MenusProvider({
       ) as RestaurantMenu;
       const session = restaurantMenuToSession(data);
       setSessions((current) => current.map((item) => (item.id === id ? session : item)));
-      return { ok: true as const, data: session };
-    } catch (err) {
-      return {
-        ok: false as const,
-        message: err instanceof Error ? err.message : 'Failed to update menu',
-      };
-    }
-  }, []);
-
-  const setStatus = useCallback(async (id: string, status: MenuSessionStatus) => {
-    const prevSessions = sessionsRef.current;
-    setSessions((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item,
-      ),
-    );
-    try {
-      const action = status === 'active' ? 'activate' : 'deactivate';
-      try {
-        await clientApi.post(`/menu/menus/${id}/${action}`, {});
-      } catch {
-        await clientApi.patch(`/menu/menus/${id}`, { status });
-      }
       return { ok: true as const, data: undefined };
     } catch (err) {
-      setSessions(prevSessions);
       return {
         ok: false as const,
         message: err instanceof Error ? err.message : 'Failed to update status',

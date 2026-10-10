@@ -26,6 +26,8 @@ export type MenuItem = {
   visibility: 'Online' | 'Dinein QR' | 'All' | 'Hidden';
   channels: MenuChannelId[];
   surfaces: MenuSurfaceTab[];
+  overrideId?: string;
+  menuItemId?: string;
 };
 
 export type MenuChannel = {

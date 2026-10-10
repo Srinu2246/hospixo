@@ -1,5 +1,7 @@
 export type RestaurantMenuType = 'All' | 'Dine In' | 'Takeaway' | 'Delivery' | 'Online';
 
+export type RestaurantMenuScope = 'company' | 'branch' | 'both';
+
 export type RestaurantMenu = {
   id: string;
   name: string;
@@ -8,6 +10,8 @@ export type RestaurantMenu = {
   menuType: RestaurantMenuType;
   displayOrder: number;
   status: 'Active' | 'Inactive';
+  scope?: RestaurantMenuScope;
+  assignBranchId?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -18,6 +22,8 @@ export type CreateRestaurantMenuInput = {
   description?: string;
   menuType: RestaurantMenuType;
   displayOrder?: number;
+  scope?: RestaurantMenuScope;
+  assignBranchId?: string | number | null;
 };
 
 export type MenuCategoryAssignment = {

@@ -11,7 +11,7 @@ import { CrudDetailCard, type CrudDetailCardField } from '@/components/ui/crud-d
 import { CrudDetailHeader } from '@/components/ui/crud-detail-header';
 import { StickyBreadcrumbBar } from '@/components/ui/sticky-breadcrumb-bar';
 import { useModifierGroups } from '../../context/modifier-groups-context';
-import { ModifierOptionsPanel } from '../shared/modifier-options-panel';
+import { ModifierOptionsPanel } from '../options/modifier-options-panel';
 
 export function ModifierGroupDetailView() {
   const {

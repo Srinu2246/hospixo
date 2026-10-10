@@ -40,8 +40,8 @@ import type {
 } from '../types/restaurant-menu';
 import type {
   ListRestaurantMenusApiQuery,
-  MenuCategoryAssignmentId,
-  RestaurantMenuId,
+  RestaurantMenuApiStatus,
+  RestaurantMenuTypeApi,
 } from '../types/restaurant-menu-api';
 
 type RestaurantMenusContextType = {
@@ -53,7 +53,7 @@ type RestaurantMenusContextType = {
   categoryAssignments: MenuCategoryAssignment[];
   menuTree: MenuTree | null;
   viewMode: MenusViewMode;
-  statusFilter: ListRestaurantMenusApiQuery['status'] | 'all';
+  statusFilter: RestaurantMenuApiStatus | 'all';
   menuTypeFilter: string;
   isHydrated: boolean;
   menusLoading: boolean;
@@ -63,7 +63,7 @@ type RestaurantMenusContextType = {
   serverDetailHydrated: boolean;
   detailError: string | null;
 
-  setStatusFilter: (status: ListRestaurantMenusApiQuery['status'] | 'all') => void;
+  setStatusFilter: (status: RestaurantMenuApiStatus | 'all') => void;
   setMenuTypeFilter: (menuType: string) => void;
   openCreateMenuPage: () => void;
   openEditMenuPage: (menu: RestaurantMenu) => void;
@@ -72,24 +72,24 @@ type RestaurantMenusContextType = {
 
   createMenu: (input: CreateRestaurantMenuInput) => Promise<{ ok: boolean; message?: string }>;
   updateMenu: (
-    menuId: RestaurantMenuId,
+    menuId: string,
     updates: Partial<CreateRestaurantMenuInput> & {
       status?: RestaurantMenu['status'];
       displayOrder?: number;
     },
   ) => Promise<{ ok: boolean; message?: string }>;
-  activateMenu: (menuId: RestaurantMenuId) => Promise<{ ok: boolean; message?: string }>;
-  deactivateMenu: (menuId: RestaurantMenuId) => Promise<{ ok: boolean; message?: string }>;
+  activateMenu: (menuId: string) => Promise<{ ok: boolean; message?: string }>;
+  deactivateMenu: (menuId: string) => Promise<{ ok: boolean; message?: string }>;
 
-  loadMenuDetail: (menuId: RestaurantMenuId) => Promise<{ ok: boolean; message?: string }>;
+  loadMenuDetail: (menuId: string) => Promise<{ ok: boolean; message?: string }>;
   assignCategory: (
-    menuId: RestaurantMenuId,
+    menuId: string,
     categoryId: string,
     displayOrder?: number,
   ) => Promise<{ ok: boolean; message?: string }>;
   removeCategoryAssignment: (
-    menuId: RestaurantMenuId,
-    assignmentId: MenuCategoryAssignmentId,
+    menuId: string,
+    assignmentId: string,
   ) => Promise<{ ok: boolean; message?: string }>;
 
   availableCategoriesForAssignment: MenuCategory[];
@@ -112,9 +112,7 @@ export function RestaurantMenusProvider({
   const [selectedMenu, setSelectedMenu] = useState<RestaurantMenu | null>(null);
   const [editingMenu, setEditingMenu] = useState<RestaurantMenu | null>(null);
   const [viewMode, setViewMode] = useState<MenusViewMode>('list');
-  const [statusFilter, setStatusFilter] = useState<ListRestaurantMenusApiQuery['status'] | 'all'>(
-    'all',
-  );
+  const [statusFilter, setStatusFilter] = useState<RestaurantMenuApiStatus | 'all'>('all');
   const [menuTypeFilter, setMenuTypeFilter] = useState('all');
   const [detailError, setDetailError] = useState<string | null>(null);
   const [serverDetailHydrated, setServerDetailHydrated] = useState(false);
@@ -122,12 +120,11 @@ export function RestaurantMenusProvider({
 
   const listQuery = useMemo((): ListRestaurantMenusApiQuery | undefined => {
     const query: {
-      status?: ListRestaurantMenusApiQuery['status'];
-      menu_type?: ListRestaurantMenusApiQuery['menu_type'];
+      status?: RestaurantMenuApiStatus;
+      menu_type?: RestaurantMenuTypeApi;
     } = {};
     if (statusFilter !== 'all') query.status = statusFilter;
-    if (menuTypeFilter !== 'all')
-      query.menu_type = menuTypeFilter as ListRestaurantMenusApiQuery['menu_type'];
+    if (menuTypeFilter !== 'all') query.menu_type = menuTypeFilter as RestaurantMenuTypeApi;
     return Object.keys(query).length > 0 ? query : undefined;
   }, [menuTypeFilter, statusFilter]);
 
@@ -211,7 +208,7 @@ export function RestaurantMenusProvider({
       menuId,
       updates,
     }: {
-      menuId: RestaurantMenuId;
+      menuId: string;
       updates: Parameters<typeof updateRestaurantMenuClient>[1];
     }) => updateRestaurantMenuClient(menuId, updates),
     onSuccess: async (data) => {
@@ -243,7 +240,7 @@ export function RestaurantMenusProvider({
       categoryId,
       displayOrder,
     }: {
-      menuId: RestaurantMenuId;
+      menuId: string;
       categoryId: string;
       displayOrder?: number;
     }) => assignMenuCategoryClient(menuId, { categoryId, displayOrder }, categories),
@@ -258,13 +255,8 @@ export function RestaurantMenusProvider({
   });
 
   const removeAssignmentMutation = useMutation({
-    mutationFn: ({
-      menuId,
-      assignmentId,
-    }: {
-      menuId: RestaurantMenuId;
-      assignmentId: MenuCategoryAssignmentId;
-    }) => removeMenuCategoryAssignmentClient(menuId, assignmentId),
+    mutationFn: ({ menuId, assignmentId }: { menuId: string; assignmentId: string }) =>
+      removeMenuCategoryAssignmentClient(menuId, assignmentId),
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({
         queryKey: restaurantMenuAssignmentsQueryKey(variables.menuId),
@@ -276,7 +268,7 @@ export function RestaurantMenusProvider({
   });
 
   const loadMenuDetail = useCallback(
-    async (menuId: RestaurantMenuId) => {
+    async (menuId: string) => {
       setActiveDetailMenuId(menuId);
       setDetailError(null);
       try {
@@ -345,7 +337,7 @@ export function RestaurantMenusProvider({
 
   const updateMenu = useCallback(
     async (
-      menuId: RestaurantMenuId,
+      menuId: string,
       updates: Partial<CreateRestaurantMenuInput> & {
         status?: RestaurantMenu['status'];
         displayOrder?: number;
@@ -365,7 +357,7 @@ export function RestaurantMenusProvider({
   );
 
   const activateMenu = useCallback(
-    async (menuId: RestaurantMenuId) => {
+    async (menuId: string) => {
       try {
         await activateMenuMutation.mutateAsync(menuId);
         return { ok: true };
@@ -380,7 +372,7 @@ export function RestaurantMenusProvider({
   );
 
   const deactivateMenu = useCallback(
-    async (menuId: RestaurantMenuId) => {
+    async (menuId: string) => {
       try {
         await deactivateMenuMutation.mutateAsync(menuId);
         return { ok: true };
@@ -395,7 +387,7 @@ export function RestaurantMenusProvider({
   );
 
   const assignCategory = useCallback(
-    async (menuId: RestaurantMenuId, categoryId: string, displayOrder?: number) => {
+    async (menuId: string, categoryId: string, displayOrder?: number) => {
       try {
         await assignCategoryMutation.mutateAsync({
           menuId,
@@ -414,7 +406,7 @@ export function RestaurantMenusProvider({
   );
 
   const removeCategoryAssignment = useCallback(
-    async (menuId: RestaurantMenuId, assignmentId: MenuCategoryAssignmentId) => {
+    async (menuId: string, assignmentId: string) => {
       try {
         await removeAssignmentMutation.mutateAsync({ menuId, assignmentId });
         return { ok: true };

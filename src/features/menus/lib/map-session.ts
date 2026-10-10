@@ -27,21 +27,23 @@ export function toApiMenuType(menuType: MenuSessionType): RestaurantMenuType {
   return UI_TO_API_MENU_TYPE[menuType] ?? menuType;
 }
 
-export function fromApiMenuType(menuType: RestaurantMenuType): MenuSessionType {
-  if (menuType === 'Dine In') return 'Dine-In';
-  if (menuType === 'All' || menuType === 'Takeaway' || menuType === 'Delivery')
-    return menuType as MenuSessionType;
+export function fromApiMenuType(menuType?: string): MenuSessionType {
+  const norm = (menuType || '').toLowerCase().replace(/[-_ ]/g, '');
+  if (norm === 'dinein') return 'Dine-In';
+  if (norm === 'takeaway') return 'Takeaway';
+  if (norm === 'delivery') return 'Delivery';
   return 'All';
 }
 
 export function restaurantMenuToSession(menu: RestaurantMenu): MenuSession {
+  const isAct = String(menu.status || '').toLowerCase() === 'active';
   return {
-    id: menu.id,
-    name: menu.name,
-    code: menu.code,
+    id: String(menu.id || ''),
+    name: menu.name || 'Untitled Menu',
+    code: menu.code || '',
     menuType: fromApiMenuType(menu.menuType),
     description: menu.description ?? '',
-    status: menu.status === 'Active' ? 'active' : 'inactive',
+    status: isAct ? 'active' : 'inactive',
     startTime: '',
     endTime: '',
     daysLabel: '',
@@ -50,12 +52,19 @@ export function restaurantMenuToSession(menu: RestaurantMenu): MenuSession {
   };
 }
 
-export function sessionFormToCreateInput(form: MenuSessionForm): CreateRestaurantMenuInput {
+export function sessionFormToCreateInput(
+  form: MenuSessionForm,
+  scopeOptions?: Pick<CreateRestaurantMenuInput, 'scope' | 'assignBranchId'>,
+): CreateRestaurantMenuInput {
   return {
     name: form.name.trim(),
     code: form.code.trim().toUpperCase(),
     description: form.description.trim() || undefined,
     menuType: toApiMenuType(form.menuType || 'All'),
+    ...(scopeOptions?.scope ? { scope: scopeOptions.scope } : {}),
+    ...(scopeOptions?.assignBranchId !== undefined
+      ? { assignBranchId: scopeOptions.assignBranchId }
+      : {}),
   };
 }
 

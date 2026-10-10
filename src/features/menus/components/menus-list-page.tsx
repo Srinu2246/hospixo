@@ -17,8 +17,8 @@ import {
 import { Plus, Search } from 'lucide-react';
 
 import { menusCopy } from '../config/copy';
-import { menusRoutes } from '../config/paths';
 import { useMenus } from '../context/menus-context';
+import { useMenusRoutes } from '../context/menus-routes-context';
 import { formatUpdatedAt } from '../lib/format';
 import type { MenuSessionStatus } from '../types/menus';
 import { MenusBreadcrumb } from './menus-breadcrumb';
@@ -26,6 +26,7 @@ import { MenusListSkeleton } from './skeleton/menus-skeletons';
 
 export function MenusListPage() {
   const { ready, sessions, setStatus, ensureSessions, loadDetail, error } = useMenus();
+  const menusRoutes = useMenusRoutes();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | MenuSessionStatus>('all');
 

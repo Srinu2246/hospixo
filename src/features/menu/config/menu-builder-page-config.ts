@@ -11,3 +11,10 @@ export const companyMenuBuilderPageConfig: MenuBuilderPageConfig = {
   pageTitle: 'Menu Builder',
   pageSubtitle: 'Create and manage restaurant menus, category assignments, and menu trees.',
 };
+
+export const branchMenuBuilderPageConfig: MenuBuilderPageConfig = {
+  homeHref: routes.dashboard.branch,
+  pageTitle: 'Menu Builder',
+  pageSubtitle:
+    'Build dine-in menus for this outlet. Company catalog items and settings are inherited automatically.',
+};

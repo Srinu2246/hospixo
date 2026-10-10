@@ -5,27 +5,26 @@ import { useQuery } from '@tanstack/react-query';
 import { clientApi } from '@/lib/client-api';
 import { unwrapBffData } from '@/lib/bff-envelope';
 import type { RestaurantMenu } from '@/features/menu/types/restaurant-menu';
-import { restaurantMenuToSession } from '../lib/map-session';
-import type { MenuSession } from '../types/menus';
 
-export const companyMenuSessionsQueryKey = ['menus', 'company-sessions'] as const;
+export const companyMenuSessionsQueryKey = ['menus', 'restaurant-menus'] as const;
 
-async function fetchCompanyMenuSessions(): Promise<MenuSession[]> {
+export async function fetchRestaurantMenus(): Promise<RestaurantMenu[]> {
   const response = await clientApi.get<unknown>('/menu/menus');
-  const list = unwrapBffData<RestaurantMenu[] | RestaurantMenu>(response);
-  let menus: RestaurantMenu[] = [];
-  if (Array.isArray(list)) {
-    menus = list;
-  } else if (list) {
-    menus = [list];
+  const unwrapped = unwrapBffData<unknown>(response);
+  if (Array.isArray(unwrapped)) return unwrapped as RestaurantMenu[];
+  if (unwrapped && typeof unwrapped === 'object') {
+    const obj = unwrapped as Record<string, unknown>;
+    if (Array.isArray(obj.items)) return obj.items as RestaurantMenu[];
+    if (Array.isArray(obj.menus)) return obj.menus as RestaurantMenu[];
+    if (Array.isArray(obj.data)) return obj.data as RestaurantMenu[];
   }
-  return menus.map(restaurantMenuToSession);
+  return [];
 }
 
 export function useCompanyMenuSessionsQuery(enabled = true) {
   return useQuery({
     queryKey: companyMenuSessionsQueryKey,
-    queryFn: fetchCompanyMenuSessions,
+    queryFn: fetchRestaurantMenus,
     enabled,
   });
 }

@@ -14,10 +14,14 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '@/context/auth';
+import { useOptionalDashboardFilter } from '@/context/dashboard-filter';
+import { isMockDashboardOutletId } from '@/lib/api/branch-tenancy';
 import type { MenuPageConfig } from '../config/menu-page-config';
 import { useInvalidateMenuManagementQueries } from '../hooks/use-invalidate-menu-queries';
 import {
+  menuCategoriesQueryKey,
   menuItemImagesQueryKey,
+  menuItemTagsQueryKey,
   menuItemVariantsQueryKey,
   menuItemsQueryKey,
 } from '../hooks/menu-management-query-keys';
@@ -40,6 +44,7 @@ import {
   activateMenuItemImageViaBff,
   activateMenuItemVariantViaBff,
   activateMenuItemViaBff,
+  clearMenuCache,
   createMenuCategoryViaBff,
   createMenuItemTagViaBff,
   createMenuItemVariantViaBff,
@@ -56,15 +61,22 @@ import {
 } from '@/lib/menu-cache';
 import type { ModifierGroup } from '@/features/modifier-groups/types/modifier-group';
 import type { PreparationStation } from '@/features/preparation-stations/types/preparation-station';
-import { matchesBranchScopeFilter } from '../lib/menu-scope';
+import {
+  isBranchOwnedCategory,
+  matchesBranchScopeFilter,
+  saveBranchDeactivatedCategory,
+  usesPersistedMenuItemApi,
+} from '../lib/menu-scope';
 import { saveMenuCategories, saveMenuItems } from '../lib/menu-store';
 import type {
   CreateCategoryInput,
   CreateMenuItemInput,
   ItemImage,
+  ItemModifier,
   ItemVariant,
   MenuCategory,
   MenuItem,
+  MenuItemStatus,
   MenuItemTag,
   MenuViewMode,
 } from '../types/menu';
@@ -87,14 +99,6 @@ export type CompanyMenuCreationInitialData = Readonly<{
 
 function withItemImages(item: MenuItem, images: ItemImage[]): MenuItem {
   return syncMenuItemPrimaryImage({ ...item, images });
-}
-
-function patchItemInList(
-  items: MenuItem[],
-  itemId: string,
-  patch: (item: MenuItem) => MenuItem,
-): MenuItem[] {
-  return items.map((item) => (item.id === itemId ? patch(item) : item));
 }
 
 function mergePersistedMenuItem(existing: MenuItem | undefined, next: MenuItem): MenuItem {
@@ -300,6 +304,386 @@ function resolveCategoryAssignBranchId(
   return null;
 }
 
+function resolveOutletFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const search = new URLSearchParams(window.location.search);
+    const outlet = search.get('outlet') ?? search.get('branch_id');
+    if (outlet && outlet !== 'all' && !isMockDashboardOutletId(outlet)) {
+      return outlet;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function resolveActiveBranchId(
+  userBranchId?: number | string | null,
+  activeDashboardBranchId?: string | null,
+  branchFilterId?: string | null,
+): string | null {
+  if (userBranchId != null) return String(userBranchId);
+  if (activeDashboardBranchId) return activeDashboardBranchId;
+  if (branchFilterId) return branchFilterId;
+  return resolveOutletFromUrl();
+}
+
+function buildOptimisticVariants(
+  basePrice: number,
+  inputVariants?: ItemVariant[],
+  usesPageFlow?: boolean,
+): ItemVariant[] | undefined {
+  if (inputVariants && inputVariants.length > 0) return inputVariants;
+  if (usesPageFlow) {
+    return [
+      { id: 'v1', size: 'Mini', price: Math.round(basePrice * 0.7), status: 'Active' },
+      { id: 'v2', size: 'Single', price: basePrice, status: 'Active' },
+      { id: 'v3', size: 'Double', price: Math.round(basePrice * 1.6), status: 'Active' },
+      { id: 'v4', size: 'Family Pack', price: Math.round(basePrice * 2.4), status: 'Active' },
+    ];
+  }
+  return undefined;
+}
+
+function buildOptimisticModifiers(
+  inputModifiers?: ItemModifier[],
+  usesPageFlow?: boolean,
+): ItemModifier[] | undefined {
+  if (inputModifiers && inputModifiers.length > 0) return inputModifiers;
+  if (usesPageFlow) {
+    return [
+      { id: 'm1', name: 'Extra Roti', price: 10 },
+      { id: 'm2', name: 'Extra Gravy', price: 50 },
+    ];
+  }
+  return undefined;
+}
+
+function buildOptimisticMenuItem(
+  input: CreateMenuItemInput,
+  matchedCatName: string,
+  tempId: string,
+  usesPageFlow: boolean,
+): MenuItem {
+  return {
+    id: tempId,
+    name: input.name.trim(),
+    categoryId: input.categoryId,
+    categoryName: matchedCatName,
+    onlineDisplayName: input.onlineDisplayName?.trim() || input.name.trim(),
+    code: input.code?.trim() ?? '',
+    basePrice: input.basePrice,
+    profitMargin: input.profitMargin?.trim() || '10%',
+    gst: input.gst?.trim() ?? '',
+    dietary: input.dietary,
+    orderTypes:
+      input.orderTypes.length > 0 ? input.orderTypes : ['Delivery', 'Take Away', 'Dine In'],
+    exposeIn: input.exposeIn || ['Captain App'],
+    tags: input.tags || ['chef-special'],
+    tagIds: input.tagIds,
+    variants: buildOptimisticVariants(input.basePrice, input.variants, usesPageFlow),
+    modifiers: buildOptimisticModifiers(input.modifiers, usesPageFlow),
+    image: input.image || input.images?.[0]?.url || sampleFoodImages[0]?.url,
+    images: input.images,
+    description: input.description,
+    status: 'Available',
+    scope: input.scope ?? 'company',
+    assignBranchId: input.assignBranchId ?? undefined,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+async function persistCreatedItemVariants(
+  savedItemId: string,
+  pendingVariants: ItemVariant[],
+): Promise<ItemVariant[]> {
+  if (!pendingVariants.length || !isPersistedMenuItemId(savedItemId)) {
+    return pendingVariants;
+  }
+  const variantResults = await Promise.allSettled(
+    pendingVariants.map((variant, index) =>
+      createMenuItemVariantViaBff(
+        savedItemId,
+        {
+          size: variant.size,
+          price: variant.price,
+          displayOrder: index,
+          isDefault: index === 0,
+        },
+        `create-item-${savedItemId}-variant-${index}`,
+      ),
+    ),
+  );
+  const createdVariants: ItemVariant[] = [];
+  for (const r of variantResults) {
+    if (r.status === 'fulfilled' && r.value.ok) {
+      createdVariants.push(r.value.data);
+    }
+  }
+  return createdVariants.length > 0 ? createdVariants : pendingVariants;
+}
+
+async function persistCreatedItemImages(
+  savedItemId: string,
+  imageFiles: File[],
+): Promise<ItemImage[]> {
+  if (!imageFiles.length || !isPersistedMenuItemId(savedItemId)) {
+    return [];
+  }
+  const uploadPromises = imageFiles.map((file, index) =>
+    uploadMenuItemImageFlow(savedItemId, file, {
+      sortOrder: index,
+      isPrimary: index === 0,
+    }).catch(() => null),
+  );
+  return (await Promise.all(uploadPromises)).filter(Boolean) as ItemImage[];
+}
+
+function buildUpdateMenuItemPatchInput(
+  updates: Partial<MenuItem>,
+  normalizeFn: (inp: Partial<CreateMenuItemInput>) => Partial<CreateMenuItemInput>,
+): Partial<CreateMenuItemInput> & { status?: MenuItemStatus } {
+  return {
+    ...normalizeFn({
+      name: updates.name,
+      categoryId: updates.categoryId,
+      onlineDisplayName: updates.onlineDisplayName,
+      code: updates.code,
+      basePrice: updates.basePrice,
+      profitMargin: updates.profitMargin,
+      gst: updates.gst,
+      gstRateId: updates.gstRateId,
+      description: updates.description,
+      dietary: updates.dietary,
+      orderTypes: updates.orderTypes,
+      exposeIn: updates.exposeIn,
+      tags: updates.tags,
+      tagIds: updates.tagIds,
+      modifiers: updates.modifiers,
+      preparationStations: updates.preparationStations,
+      modifierGroups: updates.modifierGroups,
+      image: updates.image,
+      scope: updates.scope,
+      assignBranchId: updates.assignBranchId,
+    }),
+    ...(updates.status !== undefined ? { status: updates.status } : {}),
+  };
+}
+
+function mergeUpdatedMenuItem(
+  optimistic: MenuItem,
+  saved: MenuItem,
+  existing: MenuItem,
+  updates: Partial<MenuItem>,
+): MenuItem {
+  return {
+    ...optimistic,
+    ...saved,
+    status: updates.status ?? saved.status ?? existing.status,
+    images: updates.images ?? existing.images ?? saved.images,
+    image: updates.image ?? saved.image ?? existing.image,
+    variants: updates.variants ?? existing.variants ?? saved.variants,
+  };
+}
+
+function setItemStatusState(
+  itemId: string,
+  newStatus: MenuItemStatus,
+  patchCache: (id: string, updater: (item: MenuItem) => MenuItem) => void,
+  setSelectedItem: React.Dispatch<React.SetStateAction<MenuItem | null>>,
+  setEditingItem: React.Dispatch<React.SetStateAction<MenuItem | null>>,
+): void {
+  patchCache(itemId, (item) => ({ ...item, status: newStatus }));
+  setSelectedItem((prev) => (prev?.id === itemId ? { ...prev, status: newStatus } : prev));
+  setEditingItem((prev) => (prev?.id === itemId ? { ...prev, status: newStatus } : prev));
+}
+
+function revertItemStatusState(
+  itemId: string,
+  existingItem: MenuItem | undefined,
+  previousStatus: MenuItemStatus,
+  patchCache: (id: string, updater: (item: MenuItem) => MenuItem) => void,
+  setSelectedItem: React.Dispatch<React.SetStateAction<MenuItem | null>>,
+  setEditingItem: React.Dispatch<React.SetStateAction<MenuItem | null>>,
+): void {
+  patchCache(itemId, (item) => existingItem ?? { ...item, status: previousStatus });
+  setSelectedItem((prev) =>
+    prev?.id === itemId ? (existingItem ?? { ...prev, status: previousStatus }) : prev,
+  );
+  setEditingItem((prev) =>
+    prev?.id === itemId ? (existingItem ?? { ...prev, status: previousStatus }) : prev,
+  );
+}
+
+function deactivateCategoryLocally(
+  id: string,
+  resolvedBranchId: string | null,
+  patchCache: (id: string, updater: (cat: MenuCategory) => MenuCategory) => void,
+  setActiveCategoryId: (id: string | null) => void,
+  activeCategoryId: string | null,
+): void {
+  if (resolvedBranchId) {
+    saveBranchDeactivatedCategory(resolvedBranchId, id, true);
+  }
+  patchCache(id, (category) => ({ ...category, status: 'Inactive' }));
+  if (activeCategoryId === id) {
+    setActiveCategoryId(null);
+  }
+}
+
+function resolveActiveCatalogState(
+  usesApiCatalog: boolean,
+  catalog: ReturnType<typeof useMenuCatalogQueries>,
+  legacy: {
+    categories: MenuCategory[];
+    items: MenuItem[];
+    tagDefinitions: MenuItemTag[];
+    preparationStations: PreparationStation[];
+    modifierGroups: ModifierGroup[];
+    isHydrated: boolean;
+  },
+) {
+  if (usesApiCatalog) {
+    return {
+      categories: catalog.categories,
+      items: catalog.items,
+      tagDefinitions: catalog.tagDefinitions,
+      preparationStations: catalog.preparationStations,
+      modifierGroups: catalog.modifierGroups,
+      categoriesLoading: catalog.categoriesLoading,
+      categoriesError: catalog.categoriesError,
+      itemsLoading: catalog.itemsLoading,
+      itemsError: catalog.itemsError,
+      tagsLoading: catalog.tagsLoading,
+      tagsError: catalog.tagsError,
+      catalogsLoading: catalog.catalogsLoading,
+      isHydrated: catalog.isHydrated,
+    };
+  }
+  return {
+    categories: legacy.categories,
+    items: legacy.items,
+    tagDefinitions: legacy.tagDefinitions,
+    preparationStations: legacy.preparationStations,
+    modifierGroups: legacy.modifierGroups,
+    categoriesLoading: false,
+    categoriesError: null,
+    itemsLoading: false,
+    itemsError: null,
+    tagsLoading: false,
+    tagsError: null,
+    catalogsLoading: false,
+    isHydrated: legacy.isHydrated,
+  };
+}
+
+async function executeCreateMenuItemApiFlow(params: {
+  input: CreateMenuItemInput;
+  matchedCatName: string;
+  tagDefinitions: readonly MenuItemTag[];
+  scope?: string;
+  userBranchId: string | null;
+  refreshMenuCatalog: () => Promise<void>;
+}): Promise<{ ok: true; data: MenuItem } | { ok: false; message?: string }> {
+  const { input, matchedCatName, tagDefinitions, scope, userBranchId, refreshMenuCatalog } = params;
+  const scopedInput: CreateMenuItemInput =
+    scope === 'branch' && userBranchId
+      ? {
+          ...input,
+          scope: 'branch',
+          assignBranchId: input.assignBranchId ?? userBranchId,
+        }
+      : input;
+  const result = await createMenuItemViaBff(scopedInput, {
+    categoryName: matchedCatName,
+    tagDefinitions,
+  });
+  if (!result.ok) {
+    return { ok: false, message: result.message };
+  }
+
+  let savedItem = result.data;
+  const createdVariants = await persistCreatedItemVariants(savedItem.id, input.variants ?? []);
+  savedItem = {
+    ...savedItem,
+    variants: createdVariants,
+    scope: input.scope ?? 'company',
+    assignBranchId: input.assignBranchId ?? undefined,
+    images: input.images ?? savedItem.images,
+    image: input.image ?? savedItem.image,
+  };
+
+  if (input.scope === 'branch' && input.assignBranchId) {
+    void syncBranchMenuForOutlet(input.assignBranchId).catch(() => {});
+  }
+
+  const uploadedImages = await persistCreatedItemImages(savedItem.id, input.imageFiles ?? []);
+  if (uploadedImages.length > 0) {
+    savedItem = {
+      ...savedItem,
+      images: uploadedImages,
+      image: uploadedImages[0]?.url ?? savedItem.image,
+    };
+  }
+
+  await refreshMenuCatalog();
+  return { ok: true, data: savedItem };
+}
+
+async function executePersistUpdatedMenuItemBffFlow(params: {
+  id: string;
+  updates: Partial<MenuItem>;
+  existingItem: MenuItem;
+  optimisticUpdatedItem: MenuItem;
+  categoryName: string;
+  tagDefinitions: readonly MenuItemTag[];
+  normalizeBranchItemUpdates: (u: Partial<CreateMenuItemInput>) => Partial<CreateMenuItemInput>;
+  persistedMenuItemBffOptions: Record<string, unknown>;
+  refreshMenuCatalog: () => Promise<void>;
+}): Promise<{ ok: true; mergedItem: MenuItem } | { ok: false; message?: string }> {
+  const {
+    id,
+    updates,
+    existingItem,
+    optimisticUpdatedItem,
+    categoryName,
+    tagDefinitions,
+    normalizeBranchItemUpdates,
+    persistedMenuItemBffOptions,
+    refreshMenuCatalog,
+  } = params;
+
+  const patchInput = buildUpdateMenuItemPatchInput(updates, normalizeBranchItemUpdates);
+  const result = await updateMenuItemViaBff(id, patchInput, existingItem, {
+    categoryName,
+    tagDefinitions,
+    ...persistedMenuItemBffOptions,
+  });
+
+  if (!result.ok) {
+    return { ok: false, message: result.message };
+  }
+
+  if (
+    updates.scope === 'branch' &&
+    updates.assignBranchId &&
+    (existingItem.scope !== 'branch' || existingItem.assignBranchId !== updates.assignBranchId)
+  ) {
+    void syncBranchMenuForOutlet(updates.assignBranchId).catch(() => {});
+  }
+
+  const mergedUpdatedItem = mergeUpdatedMenuItem(
+    optimisticUpdatedItem,
+    result.data,
+    existingItem,
+    updates,
+  );
+
+  await refreshMenuCatalog();
+  return { ok: true, mergedItem: mergedUpdatedItem };
+}
+
 export function MenuProvider({
   children,
   pageConfig,
@@ -317,23 +701,47 @@ export function MenuProvider({
   const hasServerBootstrap = pageConfig != null && initialData !== undefined;
   const usesPageFlow = pageConfig != null;
   const usesApiCatalog = pageConfig?.scope === 'company' || pageConfig?.scope === 'branch';
-  const userBranchId = user?.branch_id != null ? String(user.branch_id) : null;
+  const dashboardFilter = useOptionalDashboardFilter();
+  const activeDashboardBranchId =
+    dashboardFilter?.activeBranchId && dashboardFilter.activeBranchId !== 'all'
+      ? String(dashboardFilter.activeBranchId)
+      : null;
+
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [branchFilterId, setBranchFilterId] = useState<string | null>(null);
+
+  const resolvedBranchId = useMemo(
+    () => resolveActiveBranchId(user?.branch_id, activeDashboardBranchId, branchFilterId),
+    [user?.branch_id, activeDashboardBranchId, branchFilterId],
+  );
+
+  const userBranchId = resolvedBranchId;
+
+  const persistedMenuItemBffOptions = useMemo(
+    () =>
+      pageConfig?.scope === 'branch' && resolvedBranchId
+        ? ({ branchUserBranchId: resolvedBranchId } as const)
+        : ({} as const),
+    [pageConfig?.scope, resolvedBranchId],
+  );
 
   const catalog = useMenuCatalogQueries({
     scope: pageConfig?.scope,
     enabled: usesApiCatalog,
     branchFilterId,
-    userBranchId,
+    userBranchId: resolvedBranchId,
     initialData,
     skipInitialFetch: hasServerBootstrap && pageConfig?.scope === 'company',
   });
 
   const refreshMenuCatalog = useCallback(
     async (itemId?: string) => {
+      clearMenuCache();
       await invalidateMenuManagementQueries();
+      await queryClient.invalidateQueries({ queryKey: ['menu', 'branches'] });
+      await queryClient.invalidateQueries({ queryKey: ['menu', 'branch-menus'] });
+      await queryClient.invalidateQueries({ queryKey: ['branch-menu-availability'] });
       if (itemId) {
         await queryClient.invalidateQueries({ queryKey: menuItemVariantsQueryKey(itemId) });
         await queryClient.invalidateQueries({ queryKey: menuItemImagesQueryKey(itemId) });
@@ -358,22 +766,30 @@ export function MenuProvider({
     hasServerBootstrap ? (initialData?.modifierGroups ?? []) : [],
   );
   const [legacyHydrated, setLegacyHydrated] = useState(!usesApiCatalog);
+  const activeCatalog = resolveActiveCatalogState(usesApiCatalog, catalog, {
+    categories: legacyCategories,
+    items: legacyItems,
+    tagDefinitions: legacyTagDefinitions,
+    preparationStations: legacyPreparationStations,
+    modifierGroups: legacyModifierGroups,
+    isHydrated: legacyHydrated,
+  });
 
-  const categories = usesApiCatalog ? catalog.categories : legacyCategories;
-  const items = usesApiCatalog ? catalog.items : legacyItems;
-  const tagDefinitions = usesApiCatalog ? catalog.tagDefinitions : legacyTagDefinitions;
-  const preparationStations = usesApiCatalog
-    ? catalog.preparationStations
-    : legacyPreparationStations;
-  const modifierGroups = usesApiCatalog ? catalog.modifierGroups : legacyModifierGroups;
-  const categoriesLoading = usesApiCatalog ? catalog.categoriesLoading : false;
-  const categoriesError = usesApiCatalog ? catalog.categoriesError : null;
-  const itemsLoading = usesApiCatalog ? catalog.itemsLoading : false;
-  const itemsError = usesApiCatalog ? catalog.itemsError : null;
-  const tagsLoading = usesApiCatalog ? catalog.tagsLoading : false;
-  const tagsError = usesApiCatalog ? catalog.tagsError : null;
-  const catalogsLoading = usesApiCatalog ? catalog.catalogsLoading : false;
-  const isHydrated = usesApiCatalog ? catalog.isHydrated : legacyHydrated;
+  const {
+    categories,
+    items,
+    tagDefinitions,
+    preparationStations,
+    modifierGroups,
+    categoriesLoading,
+    categoriesError,
+    itemsLoading,
+    itemsError,
+    tagsLoading,
+    tagsError,
+    catalogsLoading,
+    isHydrated,
+  } = activeCatalog;
 
   const itemsRef = useRef(items);
   useEffect(() => {
@@ -386,9 +802,97 @@ export function MenuProvider({
         queryClient.setQueryData<MenuItem[]>(menuItemsQueryKey, (prev) =>
           prev?.map((item) => (item.id === itemId ? patch(item) : item)),
         );
-        return;
       }
       setLegacyItems((prev) => prev.map((item) => (item.id === itemId ? patch(item) : item)));
+    },
+    [queryClient, usesApiCatalog],
+  );
+
+  const addMenuItemToCatalogCache = useCallback(
+    (newItem: MenuItem) => {
+      if (usesApiCatalog) {
+        queryClient.setQueryData<MenuItem[]>(menuItemsQueryKey, (prev) =>
+          prev ? [newItem, ...prev.filter((i) => i.id !== newItem.id)] : [newItem],
+        );
+      }
+      setLegacyItems((prev) => [newItem, ...prev.filter((i) => i.id !== newItem.id)]);
+    },
+    [queryClient, usesApiCatalog],
+  );
+
+  const removeMenuItemFromCatalogCache = useCallback(
+    (itemId: string) => {
+      if (usesApiCatalog) {
+        queryClient.setQueryData<MenuItem[]>(menuItemsQueryKey, (prev) =>
+          prev?.filter((item) => item.id !== itemId),
+        );
+      }
+      setLegacyItems((prev) => prev.filter((item) => item.id !== itemId));
+    },
+    [queryClient, usesApiCatalog],
+  );
+
+  const patchMenuCategoryInCatalogCache = useCallback(
+    (categoryId: string, patch: (cat: MenuCategory) => MenuCategory) => {
+      if (usesApiCatalog) {
+        queryClient.setQueryData<MenuCategory[]>(menuCategoriesQueryKey, (prev) =>
+          prev?.map((cat) => (cat.id === categoryId ? patch(cat) : cat)),
+        );
+      }
+      setLegacyCategories((prev) => prev.map((cat) => (cat.id === categoryId ? patch(cat) : cat)));
+    },
+    [queryClient, usesApiCatalog],
+  );
+
+  const addMenuCategoryToCatalogCache = useCallback(
+    (newCat: MenuCategory) => {
+      if (usesApiCatalog) {
+        queryClient.setQueryData<MenuCategory[]>(menuCategoriesQueryKey, (prev) =>
+          prev ? [...prev.filter((c) => c.id !== newCat.id), newCat] : [newCat],
+        );
+      }
+      setLegacyCategories((prev) => [...prev.filter((c) => c.id !== newCat.id), newCat]);
+    },
+    [queryClient, usesApiCatalog],
+  );
+
+  const removeMenuCategoryFromCatalogCache = useCallback(
+    (categoryId: string) => {
+      if (usesApiCatalog) {
+        queryClient.setQueryData<MenuCategory[]>(menuCategoriesQueryKey, (prev) =>
+          prev?.filter((c) => c.id !== categoryId),
+        );
+      }
+      setLegacyCategories((prev) => prev.filter((c) => c.id !== categoryId));
+    },
+    [queryClient, usesApiCatalog],
+  );
+
+  const addMenuItemTagToCatalogCache = useCallback(
+    (newTag: MenuItemTag) => {
+      if (usesApiCatalog) {
+        queryClient.setQueryData<MenuItemTag[]>(menuItemTagsQueryKey, (prev) => {
+          if (!prev) return [newTag];
+          const exists = prev.some((t) => t.id === newTag.id || t.code === newTag.code);
+          return exists ? prev : [...prev, newTag];
+        });
+      }
+      setLegacyTagDefinitions((prev) => {
+        const exists = prev.some((t) => t.id === newTag.id || t.code === newTag.code);
+        return exists ? prev : [...prev, newTag];
+      });
+    },
+    [queryClient, usesApiCatalog],
+  );
+
+  const patchMenuItemTagInCatalogCache = useCallback(
+    (tagId: string, patch: (tag: MenuItemTag) => MenuItemTag) => {
+      if (usesApiCatalog) {
+        queryClient.setQueryData<MenuItemTag[]>(menuItemTagsQueryKey, (prev) =>
+          prev?.map((tag) => (tag.id === tagId ? patch(tag) : tag)),
+        );
+      }
+      setLegacyTagDefinitions((prev) => prev.map((tag) => (tag.id === tagId ? patch(tag) : tag)));
     },
     [queryClient, usesApiCatalog],
   );
@@ -557,155 +1061,40 @@ export function MenuProvider({
     async (input: CreateMenuItemInput) => {
       const matchedCat = categories.find((c) => c.id === input.categoryId);
       const tempId = generateSecureTempId('temp_item');
+      const optimisticItem = buildOptimisticMenuItem(
+        input,
+        matchedCat ? matchedCat.name : 'General',
+        tempId,
+        usesPageFlow,
+      );
 
-      const optimisticItem: MenuItem = {
-        id: tempId,
-        name: input.name.trim(),
-        categoryId: input.categoryId,
-        categoryName: matchedCat ? matchedCat.name : 'General',
-        onlineDisplayName: input.onlineDisplayName?.trim() || input.name.trim(),
-        code: input.code?.trim() ?? '',
-        basePrice: input.basePrice,
-        profitMargin: input.profitMargin?.trim() || '10%',
-        gst: input.gst?.trim() ?? '',
-        dietary: input.dietary,
-        orderTypes:
-          input.orderTypes.length > 0 ? input.orderTypes : ['Delivery', 'Take Away', 'Dine In'],
-        exposeIn: input.exposeIn || ['Captain App'],
-        tags: input.tags || ['chef-special'],
-        tagIds: input.tagIds,
-        variants: (() => {
-          if (input.variants && input.variants.length > 0) return input.variants;
-          if (usesPageFlow) {
-            return [
-              {
-                id: 'v1',
-                size: 'Mini',
-                price: Math.round(input.basePrice * 0.7),
-                status: 'Active',
-              },
-              { id: 'v2', size: 'Single', price: input.basePrice, status: 'Active' },
-              {
-                id: 'v3',
-                size: 'Double',
-                price: Math.round(input.basePrice * 1.6),
-                status: 'Active',
-              },
-              {
-                id: 'v4',
-                size: 'Family Pack',
-                price: Math.round(input.basePrice * 2.4),
-                status: 'Active',
-              },
-            ];
-          }
-          return undefined;
-        })(),
-        modifiers: (() => {
-          if (input.modifiers && input.modifiers.length > 0) return input.modifiers;
-          if (usesPageFlow) {
-            return [
-              { id: 'm1', name: 'Extra Roti', price: 10 },
-              { id: 'm2', name: 'Extra Gravy', price: 50 },
-            ];
-          }
-          return undefined;
-        })(),
-        image: input.image || input.images?.[0]?.url || sampleFoodImages[0]?.url,
-        images: input.images,
-        description: input.description,
-        status: 'Available',
-        scope: input.scope ?? 'company',
-        assignBranchId: input.assignBranchId ?? undefined,
-        createdAt: new Date().toISOString(),
-      };
-
-      setLegacyItems((prev) => [optimisticItem, ...prev]);
+      addMenuItemToCatalogCache(optimisticItem);
       if (!usesPageFlow) {
         closeModals();
       }
 
-      if (pageConfig?.scope === 'company') {
+      if (usesApiCatalog) {
         try {
-          const result = await createMenuItemViaBff(input, {
-            categoryName: matchedCat?.name ?? 'General',
+          const res = await executeCreateMenuItemApiFlow({
+            input,
+            matchedCatName: matchedCat?.name ?? 'General',
             tagDefinitions,
+            scope: pageConfig?.scope,
+            userBranchId,
+            refreshMenuCatalog,
           });
-          if (!result.ok) {
-            setLegacyItems((prev) => prev.filter((item) => item.id !== tempId));
-            return { ok: false, message: result.message };
+          if (!res.ok) {
+            removeMenuItemFromCatalogCache(tempId);
+            return { ok: false, message: res.message };
           }
 
-          let savedItem = result.data;
-          const pendingVariants = input.variants ?? [];
-
-          if (pendingVariants.length > 0 && isPersistedMenuItemId(savedItem.id)) {
-            const variantResults = await Promise.allSettled(
-              pendingVariants.map((variant, index) =>
-                createMenuItemVariantViaBff(
-                  savedItem.id,
-                  {
-                    size: variant.size,
-                    price: variant.price,
-                    displayOrder: index,
-                    isDefault: index === 0,
-                  },
-                  `create-item-${savedItem.id}-variant-${index}`,
-                ),
-              ),
-            );
-            const createdVariants: ItemVariant[] = [];
-            for (const r of variantResults) {
-              if (r.status === 'fulfilled' && r.value.ok) {
-                createdVariants.push(r.value.data);
-              }
-            }
-            savedItem = {
-              ...savedItem,
-              variants: createdVariants.length > 0 ? createdVariants : pendingVariants,
-            };
-          } else if (pendingVariants.length > 0) {
-            savedItem = { ...savedItem, variants: pendingVariants };
-          }
-
-          savedItem = {
-            ...savedItem,
-            scope: input.scope ?? 'company',
-            assignBranchId: input.assignBranchId ?? undefined,
-            images: input.images ?? savedItem.images,
-            image: input.image ?? savedItem.image,
-          };
-
-          if (input.scope === 'branch' && input.assignBranchId) {
-            void syncBranchMenuForOutlet(input.assignBranchId).catch(() => {});
-          }
-
-          const imageFiles = input.imageFiles ?? [];
-          if (imageFiles.length > 0 && isPersistedMenuItemId(savedItem.id)) {
-            const uploadPromises = imageFiles.map((file, index) =>
-              uploadMenuItemImageFlow(savedItem.id, file, {
-                sortOrder: index,
-                isPrimary: index === 0,
-              }).catch(() => null),
-            );
-            const uploaded = (await Promise.all(uploadPromises)).filter(Boolean) as ItemImage[];
-            if (uploaded.length > 0) {
-              savedItem = {
-                ...savedItem,
-                images: uploaded,
-                image: uploaded[0]?.url ?? savedItem.image,
-              };
-            }
-          }
-
-          setLegacyItems((prev) => prev.map((item) => (item.id === tempId ? savedItem : item)));
-          await refreshMenuCatalog();
+          patchMenuItemInCatalogCache(tempId, () => res.data);
           if (usesPageFlow) {
             setViewMode('list');
           }
-          return { ok: true, data: savedItem };
+          return { ok: true, data: res.data };
         } catch (error) {
-          setLegacyItems((prev) => prev.filter((item) => item.id !== tempId));
+          removeMenuItemFromCatalogCache(tempId);
           const message = error instanceof Error ? error.message : 'Failed to create menu item.';
           return { ok: false, message };
         }
@@ -716,7 +1105,31 @@ export function MenuProvider({
       }
       return { ok: true, data: optimisticItem };
     },
-    [categories, closeModals, pageConfig, refreshMenuCatalog, tagDefinitions, usesPageFlow],
+    [
+      addMenuItemToCatalogCache,
+      categories,
+      closeModals,
+      pageConfig,
+      patchMenuItemInCatalogCache,
+      refreshMenuCatalog,
+      removeMenuItemFromCatalogCache,
+      tagDefinitions,
+      userBranchId,
+      usesApiCatalog,
+      usesPageFlow,
+    ],
+  );
+
+  const normalizeBranchItemUpdates = useCallback(
+    (updates: Partial<CreateMenuItemInput>): Partial<CreateMenuItemInput> => {
+      if (pageConfig?.scope !== 'branch' || !resolvedBranchId) return updates;
+      return {
+        ...updates,
+        scope: updates.scope ?? 'branch',
+        assignBranchId: updates.assignBranchId ?? resolvedBranchId,
+      };
+    },
+    [pageConfig?.scope, resolvedBranchId],
   );
 
   const updateMenuItem = useCallback(
@@ -743,7 +1156,7 @@ export function MenuProvider({
         variants: updates.variants ?? existingItem.variants,
       };
 
-      setLegacyItems((prev) => prev.map((item) => (item.id === id ? optimisticUpdatedItem : item)));
+      patchMenuItemInCatalogCache(id, () => optimisticUpdatedItem);
       if (selectedItem?.id === id) {
         setSelectedItem(optimisticUpdatedItem);
       }
@@ -751,81 +1164,46 @@ export function MenuProvider({
         closeModals();
       }
 
-      if (
+      const requiresBffUpdate =
         pageConfig?.scope === 'company' ||
-        (pageConfig?.scope === 'branch' && isPersistedMenuItemId(id))
-      ) {
-        try {
-          const result = await updateMenuItemViaBff(
-            id,
-            {
-              name: updates.name,
-              categoryId: updates.categoryId,
-              onlineDisplayName: updates.onlineDisplayName,
-              code: updates.code,
-              basePrice: updates.basePrice,
-              profitMargin: updates.profitMargin,
-              gst: updates.gst,
-              description: updates.description,
-              dietary: updates.dietary,
-              orderTypes: updates.orderTypes,
-              exposeIn: updates.exposeIn,
-              tags: updates.tags,
-              tagIds: updates.tagIds,
-              modifiers: updates.modifiers,
-              preparationStations: updates.preparationStations,
-              modifierGroups: updates.modifierGroups,
-              image: updates.image,
-              scope: updates.scope,
-              assignBranchId: updates.assignBranchId,
-            },
-            existingItem,
-            {
-              categoryName: updatedCat?.name ?? existingItem.categoryName,
-              tagDefinitions,
-            },
-          );
+        (pageConfig?.scope === 'branch' && isPersistedMenuItemId(id));
 
-          if (!result.ok) {
-            setLegacyItems((prev) => prev.map((item) => (item.id === id ? existingItem : item)));
-            if (selectedItem?.id === id) {
-              setSelectedItem(existingItem);
-            }
-            return { ok: false, message: result.message };
-          }
-
-          if (
-            updates.scope === 'branch' &&
-            updates.assignBranchId &&
-            (existingItem.scope !== 'branch' ||
-              existingItem.assignBranchId !== updates.assignBranchId)
-          ) {
-            void syncBranchMenuForOutlet(updates.assignBranchId).catch(() => {});
-          }
-
-          const mergedUpdatedItem: MenuItem = {
-            ...optimisticUpdatedItem,
-            ...result.data,
-            status: updates.status ?? result.data.status ?? existingItem.status,
-            images: updates.images ?? existingItem.images ?? result.data.images,
-            image: updates.image ?? result.data.image ?? existingItem.image,
-            variants: updates.variants ?? existingItem.variants ?? result.data.variants,
-          };
-
-          setLegacyItems((prev) => prev.map((item) => (item.id === id ? mergedUpdatedItem : item)));
+      if (requiresBffUpdate) {
+        const rollback = () => {
+          patchMenuItemInCatalogCache(id, () => existingItem);
           if (selectedItem?.id === id) {
-            setSelectedItem(mergedUpdatedItem);
+            setSelectedItem(existingItem);
           }
-          await refreshMenuCatalog();
+        };
+
+        try {
+          const res = await executePersistUpdatedMenuItemBffFlow({
+            id,
+            updates,
+            existingItem,
+            optimisticUpdatedItem,
+            categoryName: updatedCat?.name ?? existingItem.categoryName,
+            tagDefinitions,
+            normalizeBranchItemUpdates,
+            persistedMenuItemBffOptions,
+            refreshMenuCatalog,
+          });
+
+          if (!res.ok) {
+            rollback();
+            return { ok: false, message: res.message };
+          }
+
+          patchMenuItemInCatalogCache(id, () => res.mergedItem);
+          if (selectedItem?.id === id) {
+            setSelectedItem(res.mergedItem);
+          }
           if (usesPageFlow) {
             setViewMode('list');
           }
           return { ok: true };
         } catch (error) {
-          setLegacyItems((prev) => prev.map((item) => (item.id === id ? existingItem : item)));
-          if (selectedItem?.id === id) {
-            setSelectedItem(existingItem);
-          }
+          rollback();
           const message = error instanceof Error ? error.message : 'Failed to update menu item.';
           return { ok: false, message };
         }
@@ -840,7 +1218,10 @@ export function MenuProvider({
       categories,
       closeModals,
       editingItem,
+      normalizeBranchItemUpdates,
       pageConfig,
+      patchMenuItemInCatalogCache,
+      persistedMenuItemBffOptions,
       refreshMenuCatalog,
       selectedItem,
       tagDefinitions,
@@ -855,15 +1236,13 @@ export function MenuProvider({
         findFallbackItem(itemId, selectedItem, editingItem);
       const previousStatus = existingItem?.status ?? 'Available';
 
-      setLegacyItems((prev) =>
-        prev.map((item) => (item.id === itemId ? { ...item, status: 'Hidden' as const } : item)),
+      setItemStatusState(
+        itemId,
+        'Hidden',
+        patchMenuItemInCatalogCache,
+        setSelectedItem,
+        setEditingItem,
       );
-      if (selectedItem?.id === itemId) {
-        setSelectedItem((prev) => (prev ? { ...prev, status: 'Hidden' } : null));
-      }
-      if (editingItem?.id === itemId) {
-        setEditingItem((prev) => (prev ? { ...prev, status: 'Hidden' } : null));
-      }
 
       if (
         pageConfig?.scope === 'company' ||
@@ -872,23 +1251,17 @@ export function MenuProvider({
         const result = await deactivateMenuItemViaBff(itemId, existingItem, {
           categoryName: existingItem?.categoryName ?? '',
           tagDefinitions,
+          ...persistedMenuItemBffOptions,
         });
         if (!result.ok) {
-          setLegacyItems((prev) =>
-            prev.map((item) =>
-              item.id === itemId ? (existingItem ?? { ...item, status: previousStatus }) : item,
-            ),
+          revertItemStatusState(
+            itemId,
+            existingItem,
+            previousStatus,
+            patchMenuItemInCatalogCache,
+            setSelectedItem,
+            setEditingItem,
           );
-          if (selectedItem?.id === itemId) {
-            setSelectedItem((prev) =>
-              prev ? (existingItem ?? { ...prev, status: previousStatus }) : null,
-            );
-          }
-          if (editingItem?.id === itemId) {
-            setEditingItem((prev) =>
-              prev ? (existingItem ?? { ...prev, status: previousStatus }) : null,
-            );
-          }
           return { ok: false, message: result.message };
         }
 
@@ -896,7 +1269,7 @@ export function MenuProvider({
           ...mergePersistedMenuItem(existingItem, result.data),
           status: 'Hidden',
         };
-        setLegacyItems((prev) => prev.map((item) => (item.id === itemId ? next : item)));
+        patchMenuItemInCatalogCache(itemId, () => next);
         if (selectedItem?.id === itemId) setSelectedItem(next);
         if (editingItem?.id === itemId) setEditingItem(next);
         await refreshMenuCatalog();
@@ -908,7 +1281,15 @@ export function MenuProvider({
         data: existingItem ? { ...existingItem, status: 'Hidden' as const } : undefined,
       };
     },
-    [editingItem, pageConfig?.scope, refreshMenuCatalog, selectedItem, tagDefinitions],
+    [
+      editingItem,
+      pageConfig?.scope,
+      patchMenuItemInCatalogCache,
+      persistedMenuItemBffOptions,
+      refreshMenuCatalog,
+      selectedItem,
+      tagDefinitions,
+    ],
   );
 
   const activateMenuItemByItemId = useCallback(
@@ -918,15 +1299,13 @@ export function MenuProvider({
         findFallbackItem(itemId, selectedItem, editingItem);
       const previousStatus = existingItem?.status ?? 'Hidden';
 
-      setLegacyItems((prev) =>
-        prev.map((item) => (item.id === itemId ? { ...item, status: 'Available' as const } : item)),
+      setItemStatusState(
+        itemId,
+        'Available',
+        patchMenuItemInCatalogCache,
+        setSelectedItem,
+        setEditingItem,
       );
-      if (selectedItem?.id === itemId) {
-        setSelectedItem((prev) => (prev ? { ...prev, status: 'Available' } : null));
-      }
-      if (editingItem?.id === itemId) {
-        setEditingItem((prev) => (prev ? { ...prev, status: 'Available' } : null));
-      }
 
       if (
         pageConfig?.scope === 'company' ||
@@ -935,23 +1314,17 @@ export function MenuProvider({
         const result = await activateMenuItemViaBff(itemId, existingItem, {
           categoryName: existingItem?.categoryName ?? '',
           tagDefinitions,
+          ...persistedMenuItemBffOptions,
         });
         if (!result.ok) {
-          setLegacyItems((prev) =>
-            prev.map((item) =>
-              item.id === itemId ? (existingItem ?? { ...item, status: previousStatus }) : item,
-            ),
+          revertItemStatusState(
+            itemId,
+            existingItem,
+            previousStatus,
+            patchMenuItemInCatalogCache,
+            setSelectedItem,
+            setEditingItem,
           );
-          if (selectedItem?.id === itemId) {
-            setSelectedItem((prev) =>
-              prev ? (existingItem ?? { ...prev, status: previousStatus }) : null,
-            );
-          }
-          if (editingItem?.id === itemId) {
-            setEditingItem((prev) =>
-              prev ? (existingItem ?? { ...prev, status: previousStatus }) : null,
-            );
-          }
           return { ok: false, message: result.message };
         }
 
@@ -959,7 +1332,7 @@ export function MenuProvider({
           ...mergePersistedMenuItem(existingItem, result.data),
           status: 'Available',
         };
-        setLegacyItems((prev) => prev.map((item) => (item.id === itemId ? next : item)));
+        patchMenuItemInCatalogCache(itemId, () => next);
         if (selectedItem?.id === itemId) setSelectedItem(next);
         if (editingItem?.id === itemId) setEditingItem(next);
         await refreshMenuCatalog();
@@ -971,24 +1344,33 @@ export function MenuProvider({
         data: existingItem ? { ...existingItem, status: 'Available' as const } : undefined,
       };
     },
-    [editingItem, pageConfig?.scope, refreshMenuCatalog, selectedItem, tagDefinitions],
+    [
+      editingItem,
+      pageConfig?.scope,
+      patchMenuItemInCatalogCache,
+      persistedMenuItemBffOptions,
+      refreshMenuCatalog,
+      selectedItem,
+      tagDefinitions,
+    ],
   );
 
   const deleteMenuItem = useCallback(
     async (itemId: MenuItemId) => {
       const existingItem = items.find((item) => item.id === itemId);
 
-      if (pageConfig?.scope === 'company') {
+      if (usesPersistedMenuItemApi(pageConfig?.scope) && isPersistedMenuItemId(itemId)) {
         const result = await deactivateMenuItemViaBff(itemId, existingItem, {
           categoryName: existingItem?.categoryName ?? '',
           tagDefinitions,
+          ...persistedMenuItemBffOptions,
         });
         if (!result.ok) {
           return { ok: false, message: result.message };
         }
       }
 
-      setLegacyItems((prev) => prev.filter((item) => item.id !== itemId));
+      removeMenuItemFromCatalogCache(itemId);
       setDeletingItem(null);
       if (selectedItem?.id === itemId) {
         setSelectedItem(null);
@@ -1004,7 +1386,9 @@ export function MenuProvider({
       closeModals,
       items,
       pageConfig,
+      persistedMenuItemBffOptions,
       refreshMenuCatalog,
+      removeMenuItemFromCatalogCache,
       selectedItem?.id,
       tagDefinitions,
       usesPageFlow,
@@ -1025,7 +1409,7 @@ export function MenuProvider({
         assignBranchId: input.assignBranchId,
       };
 
-      setLegacyCategories((prev) => [...prev, optimisticCat]);
+      addMenuCategoryToCatalogCache(optimisticCat);
       setActiveCategoryId(tempId);
 
       if (usesPageFlow) {
@@ -1051,16 +1435,16 @@ export function MenuProvider({
             },
           );
           if (!result.ok) {
-            setLegacyCategories((prev) => prev.filter((c) => c.id !== tempId));
+            removeMenuCategoryFromCatalogCache(tempId);
             return { ok: false, message: result.message };
           }
 
-          setLegacyCategories((prev) => prev.map((c) => (c.id === tempId ? result.data : c)));
+          patchMenuCategoryInCatalogCache(tempId, () => result.data);
           setActiveCategoryId((prev) => (prev === tempId ? result.data.id : prev));
           await refreshMenuCatalog();
           return { ok: true };
         } catch (error) {
-          setLegacyCategories((prev) => prev.filter((c) => c.id !== tempId));
+          removeMenuCategoryFromCatalogCache(tempId);
           const message = error instanceof Error ? error.message : 'Failed to create category.';
           return { ok: false, message };
         }
@@ -1068,68 +1452,124 @@ export function MenuProvider({
 
       return { ok: true };
     },
-    [categories.length, closeModals, pageConfig, refreshMenuCatalog, usesPageFlow, user],
+    [
+      addMenuCategoryToCatalogCache,
+      categories.length,
+      closeModals,
+      pageConfig,
+      patchMenuCategoryInCatalogCache,
+      refreshMenuCatalog,
+      removeMenuCategoryFromCatalogCache,
+      usesPageFlow,
+      user,
+    ],
   );
 
   const deactivateCategory = useCallback(
     async (id: string) => {
-      if (!pageConfig || !shouldUseCategoryApi(pageConfig)) {
-        setLegacyCategories((prev) =>
-          prev.map((category) =>
-            category.id === id ? { ...category, status: 'Inactive' } : category,
-          ),
+      const existingCategory = categories.find((c) => c.id === id);
+      const isInherited =
+        pageConfig?.scope === 'branch' &&
+        (!existingCategory ||
+          !resolvedBranchId ||
+          !isBranchOwnedCategory(existingCategory, resolvedBranchId));
+
+      if (isInherited || !pageConfig || !shouldUseCategoryApi(pageConfig)) {
+        deactivateCategoryLocally(
+          id,
+          resolvedBranchId,
+          patchMenuCategoryInCatalogCache,
+          setActiveCategoryId,
+          activeCategoryId,
         );
-        if (activeCategoryId === id) {
-          setActiveCategoryId(null);
-        }
         return { ok: true };
       }
 
       const result = await deactivateMenuCategoryViaBff(id);
       if (!result.ok) {
+        if (pageConfig?.scope === 'branch') {
+          deactivateCategoryLocally(
+            id,
+            resolvedBranchId,
+            patchMenuCategoryInCatalogCache,
+            setActiveCategoryId,
+            activeCategoryId,
+          );
+          return { ok: true };
+        }
         return { ok: false, message: result.message };
       }
 
-      setLegacyCategories((prev) =>
-        prev.map((category) => (category.id === id ? result.data : category)),
-      );
+      patchMenuCategoryInCatalogCache(id, () => result.data);
       if (activeCategoryId === id) {
         setActiveCategoryId(null);
       }
       await refreshMenuCatalog();
       return { ok: true };
     },
-    [activeCategoryId, pageConfig, refreshMenuCatalog],
+    [
+      activeCategoryId,
+      categories,
+      pageConfig,
+      patchMenuCategoryInCatalogCache,
+      refreshMenuCatalog,
+      resolvedBranchId,
+    ],
   );
 
   const activateCategory = useCallback(
     async (id: string) => {
+      const existingCategory = categories.find((c) => c.id === id);
+      const isInherited =
+        pageConfig?.scope === 'branch' &&
+        (!existingCategory ||
+          !resolvedBranchId ||
+          !isBranchOwnedCategory(existingCategory, resolvedBranchId));
+
+      if (isInherited) {
+        if (resolvedBranchId) {
+          saveBranchDeactivatedCategory(resolvedBranchId, id, false);
+        }
+        patchMenuCategoryInCatalogCache(id, (category) => ({
+          ...category,
+          status: 'Active',
+        }));
+        return { ok: true };
+      }
+
       if (!pageConfig || !shouldUseCategoryApi(pageConfig)) {
-        setLegacyCategories((prev) =>
-          prev.map((category) =>
-            category.id === id ? { ...category, status: 'Active' } : category,
-          ),
-        );
+        patchMenuCategoryInCatalogCache(id, (category) => ({
+          ...category,
+          status: 'Active',
+        }));
         return { ok: true };
       }
 
       const result = await activateMenuCategoryViaBff(id);
       if (!result.ok) {
+        if (pageConfig?.scope === 'branch') {
+          if (resolvedBranchId) {
+            saveBranchDeactivatedCategory(resolvedBranchId, id, false);
+          }
+          patchMenuCategoryInCatalogCache(id, (category) => ({
+            ...category,
+            status: 'Active',
+          }));
+          return { ok: true };
+        }
         return { ok: false, message: result.message };
       }
 
-      setLegacyCategories((prev) =>
-        prev.map((category) => (category.id === id ? result.data : category)),
-      );
+      patchMenuCategoryInCatalogCache(id, () => result.data);
       await refreshMenuCatalog();
       return { ok: true };
     },
-    [pageConfig, refreshMenuCatalog],
+    [categories, pageConfig, patchMenuCategoryInCatalogCache, refreshMenuCatalog, resolvedBranchId],
   );
 
   const loadMenuItemVariants = useCallback(
     async (itemId: MenuItemId) => {
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemId(itemId)) {
+      if (!usesPersistedMenuItemApi(pageConfig?.scope) || !isPersistedMenuItemId(itemId)) {
         const item = itemsRef.current.find((entry) => entry.id === itemId);
         return { ok: true, data: item?.variants ?? [] };
       }
@@ -1151,7 +1591,7 @@ export function MenuProvider({
 
   const createMenuItemVariant = useCallback(
     async (itemId: MenuItemId, input: Pick<ItemVariant, 'size' | 'price'>, displayOrder = 0) => {
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemId(itemId)) {
+      if (!usesPersistedMenuItemApi(pageConfig?.scope) || !isPersistedMenuItemId(itemId)) {
         const localVariant: ItemVariant = {
           id: `v_${Date.now()}`,
           size: input.size,
@@ -1176,26 +1616,23 @@ export function MenuProvider({
         return { ok: false, message: result.message };
       }
 
-      setLegacyItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId
-            ? {
-                ...item,
-                status: 'Available',
-                variants: [...(item.variants ?? []), result.data],
-              }
-            : item,
-        ),
-      );
+      patchMenuItemInCatalogCache(itemId, (item) => ({
+        ...item,
+        status: 'Available',
+        variants: [...(item.variants ?? []), result.data],
+      }));
 
       return { ok: true, data: result.data };
     },
-    [pageConfig?.scope],
+    [pageConfig?.scope, patchMenuItemInCatalogCache],
   );
 
   const deactivateMenuItemVariant = useCallback(
     async (itemId: MenuItemId, variantId: MenuItemVariantId) => {
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemVariantId(variantId)) {
+      if (
+        !usesPersistedMenuItemApi(pageConfig?.scope) ||
+        !isPersistedMenuItemVariantId(variantId)
+      ) {
         return { ok: true };
       }
 
@@ -1204,22 +1641,16 @@ export function MenuProvider({
         return { ok: false, message: result.message };
       }
 
-      setLegacyItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId
-            ? {
-                ...item,
-                variants: (item.variants ?? []).map((variant) =>
-                  variant.id === variantId ? result.data : variant,
-                ),
-              }
-            : item,
+      patchMenuItemInCatalogCache(itemId, (item) => ({
+        ...item,
+        variants: (item.variants ?? []).map((variant) =>
+          variant.id === variantId ? result.data : variant,
         ),
-      );
+      }));
 
       return { ok: true, data: result.data };
     },
-    [pageConfig?.scope],
+    [pageConfig?.scope, patchMenuItemInCatalogCache],
   );
 
   const updateMenuItemVariant = useCallback(
@@ -1228,7 +1659,10 @@ export function MenuProvider({
       variantId: MenuItemVariantId,
       input: Partial<Pick<ItemVariant, 'size' | 'price'>>,
     ) => {
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemVariantId(variantId)) {
+      if (
+        !usesPersistedMenuItemApi(pageConfig?.scope) ||
+        !isPersistedMenuItemVariantId(variantId)
+      ) {
         const updated: ItemVariant = {
           id: variantId,
           size: input.size ?? '',
@@ -1243,27 +1677,24 @@ export function MenuProvider({
         return { ok: false, message: result.message };
       }
 
-      setLegacyItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId
-            ? {
-                ...item,
-                variants: (item.variants ?? []).map((variant) =>
-                  variant.id === variantId ? result.data : variant,
-                ),
-              }
-            : item,
+      patchMenuItemInCatalogCache(itemId, (item) => ({
+        ...item,
+        variants: (item.variants ?? []).map((variant) =>
+          variant.id === variantId ? result.data : variant,
         ),
-      );
+      }));
 
       return { ok: true, data: result.data };
     },
-    [pageConfig?.scope],
+    [pageConfig?.scope, patchMenuItemInCatalogCache],
   );
 
   const activateMenuItemVariant = useCallback(
     async (itemId: MenuItemId, variantId: MenuItemVariantId) => {
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemVariantId(variantId)) {
+      if (
+        !usesPersistedMenuItemApi(pageConfig?.scope) ||
+        !isPersistedMenuItemVariantId(variantId)
+      ) {
         return { ok: true };
       }
 
@@ -1272,27 +1703,21 @@ export function MenuProvider({
         return { ok: false, message: result.message };
       }
 
-      setLegacyItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId
-            ? {
-                ...item,
-                variants: (item.variants ?? []).map((variant) =>
-                  variant.id === variantId ? result.data : variant,
-                ),
-              }
-            : item,
+      patchMenuItemInCatalogCache(itemId, (item) => ({
+        ...item,
+        variants: (item.variants ?? []).map((variant) =>
+          variant.id === variantId ? result.data : variant,
         ),
-      );
+      }));
 
       return { ok: true, data: result.data };
     },
-    [pageConfig?.scope],
+    [pageConfig?.scope, patchMenuItemInCatalogCache],
   );
 
   const loadMenuItemImages = useCallback(
     async (itemId: MenuItemId) => {
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemId(itemId)) {
+      if (!usesPersistedMenuItemApi(pageConfig?.scope) || !isPersistedMenuItemId(itemId)) {
         const item = itemsRef.current.find((entry) => entry.id === itemId);
         return { ok: true, data: item?.images ?? [] };
       }
@@ -1330,17 +1755,15 @@ export function MenuProvider({
         };
       };
 
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemId(itemId)) {
+      if (!usesPersistedMenuItemApi(pageConfig?.scope) || !isPersistedMenuItemId(itemId)) {
         const localImage = createLocalPreview();
         return { ok: true, data: localImage };
       }
 
       try {
         const data = await uploadMenuItemImageFlow(itemId, file, options);
-        setLegacyItems((prev) =>
-          patchItemInList(prev, itemId, (item) =>
-            withItemImages(item, [...(item.images ?? []), data]),
-          ),
+        patchMenuItemInCatalogCache(itemId, (item) =>
+          withItemImages(item, [...(item.images ?? []), data]),
         );
         setEditingItem((prev) =>
           prev?.id === itemId ? withItemImages(prev, [...(prev.images ?? []), data]) : prev,
@@ -1351,10 +1774,8 @@ export function MenuProvider({
         return { ok: true, data };
       } catch (error) {
         const fallbackImage = createLocalPreview();
-        setLegacyItems((prev) =>
-          patchItemInList(prev, itemId, (item) =>
-            withItemImages(item, [...(item.images ?? []), fallbackImage]),
-          ),
+        patchMenuItemInCatalogCache(itemId, (item) =>
+          withItemImages(item, [...(item.images ?? []), fallbackImage]),
         );
         setEditingItem((prev) =>
           prev?.id === itemId
@@ -1373,12 +1794,12 @@ export function MenuProvider({
         };
       }
     },
-    [pageConfig?.scope],
+    [pageConfig?.scope, patchMenuItemInCatalogCache],
   );
 
   const setPrimaryMenuItemImage = useCallback(
     async (itemId: MenuItemId, imageId: MenuItemImageId) => {
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemImageId(imageId)) {
+      if (!usesPersistedMenuItemApi(pageConfig?.scope) || !isPersistedMenuItemImageId(imageId)) {
         return { ok: true };
       }
 
@@ -1387,26 +1808,24 @@ export function MenuProvider({
         return { ok: false, message: result.message };
       }
 
-      setLegacyItems((prev) =>
-        patchItemInList(prev, itemId, (item) =>
-          withItemImages(
-            item,
-            (item.images ?? []).map((image) => ({
-              ...image,
-              isPrimary: image.id === imageId,
-            })),
-          ),
+      patchMenuItemInCatalogCache(itemId, (item) =>
+        withItemImages(
+          item,
+          (item.images ?? []).map((image) => ({
+            ...image,
+            isPrimary: image.id === imageId,
+          })),
         ),
       );
 
       return { ok: true, data: result.data };
     },
-    [pageConfig?.scope],
+    [pageConfig?.scope, patchMenuItemInCatalogCache],
   );
 
   const activateMenuItemImage = useCallback(
     async (itemId: MenuItemId, imageId: MenuItemImageId) => {
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemImageId(imageId)) {
+      if (!usesPersistedMenuItemApi(pageConfig?.scope) || !isPersistedMenuItemImageId(imageId)) {
         return { ok: true };
       }
 
@@ -1415,23 +1834,21 @@ export function MenuProvider({
         return { ok: false, message: result.message };
       }
 
-      setLegacyItems((prev) =>
-        patchItemInList(prev, itemId, (item) =>
-          withItemImages(
-            item,
-            (item.images ?? []).map((image) => (image.id === imageId ? result.data : image)),
-          ),
+      patchMenuItemInCatalogCache(itemId, (item) =>
+        withItemImages(
+          item,
+          (item.images ?? []).map((image) => (image.id === imageId ? result.data : image)),
         ),
       );
 
       return { ok: true, data: result.data };
     },
-    [pageConfig?.scope],
+    [pageConfig?.scope, patchMenuItemInCatalogCache],
   );
 
   const deactivateMenuItemImage = useCallback(
     async (itemId: MenuItemId, imageId: MenuItemImageId) => {
-      if (pageConfig?.scope !== 'company' || !isPersistedMenuItemImageId(imageId)) {
+      if (!usesPersistedMenuItemApi(pageConfig?.scope) || !isPersistedMenuItemImageId(imageId)) {
         return { ok: true };
       }
 
@@ -1440,32 +1857,27 @@ export function MenuProvider({
         return { ok: false, message: result.message };
       }
 
-      setLegacyItems((prev) =>
-        patchItemInList(prev, itemId, (item) =>
-          withItemImages(
-            item,
-            (item.images ?? []).map((image) => (image.id === imageId ? result.data : image)),
-          ),
+      patchMenuItemInCatalogCache(itemId, (item) =>
+        withItemImages(
+          item,
+          (item.images ?? []).map((image) => (image.id === imageId ? result.data : image)),
         ),
       );
 
       return { ok: true, data: result.data };
     },
-    [pageConfig?.scope],
+    [pageConfig?.scope, patchMenuItemInCatalogCache],
   );
 
   const createMenuItemTag = useCallback(
     async (input: { name: string; code: string }) => {
-      if (pageConfig?.scope === 'company') {
+      if (usesPersistedMenuItemApi(pageConfig?.scope)) {
         const result = await createMenuItemTagViaBff(input);
         if (!result.ok) {
           return { ok: false, message: result.message };
         }
 
-        setLegacyTagDefinitions((prev) => {
-          const exists = prev.some((tag) => tag.id === result.data.id);
-          return exists ? prev : [...prev, result.data];
-        });
+        addMenuItemTagToCatalogCache(result.data);
         return { ok: true, data: result.data };
       }
 
@@ -1476,47 +1888,39 @@ export function MenuProvider({
         status: 'Active',
       };
 
-      setLegacyTagDefinitions((prev) => {
-        const exists = prev.some((tag) => tag.id === localTag.id || tag.code === localTag.code);
-        return exists ? prev : [...prev, localTag];
-      });
+      addMenuItemTagToCatalogCache(localTag);
 
       return { ok: true, data: localTag };
     },
-    [pageConfig?.scope],
+    [addMenuItemTagToCatalogCache, pageConfig?.scope],
   );
 
   const updateMenuItemTag = useCallback(
     async (tagId: string, updates: Partial<Pick<MenuItemTag, 'name' | 'code' | 'status'>>) => {
-      if (pageConfig?.scope === 'company') {
+      if (usesPersistedMenuItemApi(pageConfig?.scope)) {
         const result = await updateMenuItemTagViaBff(tagId, updates);
         if (!result.ok) {
           return { ok: false, message: result.message };
         }
 
-        setLegacyTagDefinitions((prev) =>
-          prev.map((tag) => (tag.id === tagId ? result.data : tag)),
-        );
+        patchMenuItemTagInCatalogCache(tagId, () => result.data);
         return { ok: true, data: result.data };
       }
 
       let merged: MenuItemTag | undefined;
-      setLegacyTagDefinitions((prev) =>
-        prev.map((tag) => {
-          if (tag.id !== tagId) return tag;
-          merged = {
-            ...tag,
-            ...updates,
-            name: updates.name?.trim() ?? tag.name,
-            code: updates.code?.trim().toUpperCase() ?? tag.code,
-          };
-          return merged;
-        }),
-      );
+      patchMenuItemTagInCatalogCache(tagId, (tag) => {
+        merged = {
+          ...tag,
+          ...updates,
+          name: updates.name?.trim() ?? tag.name,
+          code: updates.code?.trim().toUpperCase() ?? tag.code,
+        };
+        return merged;
+      });
 
       return merged ? { ok: true, data: merged } : { ok: false, message: 'Tag not found.' };
     },
-    [pageConfig?.scope],
+    [pageConfig?.scope, patchMenuItemTagInCatalogCache],
   );
 
   const value = useMemo<MenuContextType>(

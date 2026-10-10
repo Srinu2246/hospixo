@@ -11,16 +11,59 @@ function asNumber(value: unknown, fallback = 0): number {
 }
 
 function mapCategory(raw: Record<string, unknown>): Exclude<DineInMenuCategoryId, 'all'> {
+  const nested =
+    raw.menu_item && typeof raw.menu_item === 'object'
+      ? (raw.menu_item as Record<string, unknown>)
+      : null;
+
   const category =
+    asString(raw.category_name) ||
+    asString(nested?.category_name) ||
     asString(raw.category_slug) ||
     asString(raw.category) ||
     asString(raw.menu_category) ||
     asString(raw.item_category);
-  const normalized = category.toLowerCase();
-  if (normalized.includes('starter') || normalized.includes('appetizer')) return 'starters';
-  if (normalized.includes('main') || normalized.includes('entree')) return 'mains';
-  if (normalized.includes('dessert')) return 'desserts';
-  if (normalized.includes('bev') || normalized.includes('drink')) return 'beverages';
+
+  const name =
+    asString(raw.display_name) ||
+    asString(raw.name) ||
+    asString(raw.item_name) ||
+    asString(nested?.name);
+  const normalized = `${category} ${name}`.toLowerCase();
+
+  if (
+    normalized.includes('bev') ||
+    normalized.includes('drink') ||
+    normalized.includes('mojito') ||
+    normalized.includes('cocktail') ||
+    normalized.includes('mocktail') ||
+    normalized.includes('shake') ||
+    normalized.includes('juice') ||
+    normalized.includes('soda') ||
+    normalized.includes('tea') ||
+    normalized.includes('coffee') ||
+    normalized.includes('bar')
+  ) {
+    return 'beverages';
+  }
+  if (
+    normalized.includes('dessert') ||
+    normalized.includes('sweet') ||
+    normalized.includes('ice cream') ||
+    normalized.includes('cake') ||
+    normalized.includes('pastry') ||
+    normalized.includes('kulfi')
+  ) {
+    return 'desserts';
+  }
+  if (
+    normalized.includes('starter') ||
+    normalized.includes('appetizer') ||
+    normalized.includes('snack') ||
+    normalized.includes('finger')
+  ) {
+    return 'starters';
+  }
   return 'mains';
 }
 
@@ -31,32 +74,49 @@ export function mapBranchMenuItemsToDineIn(
   return items
     .map((item, index) => {
       const record = item as Record<string, unknown>;
-      const id = asString(record.id ?? record.item_override_id ?? record.menu_item_id);
+      const nested =
+        record.menu_item && typeof record.menu_item === 'object'
+          ? (record.menu_item as Record<string, unknown>)
+          : null;
+
+      const id = asString(
+        record.id ?? record.item_override_id ?? record.menu_item_id ?? nested?.id,
+      );
       const name =
         asString(record.display_name) ||
         asString(record.name) ||
         asString(record.item_name) ||
+        asString(nested?.name) ||
         `Item ${index + 1}`;
       if (!id || !name) return null;
 
       const price =
-        asNumber(record.price) ||
         asNumber(record.selling_price) ||
+        asNumber(record.price) ||
         asNumber(record.base_price) ||
-        asNumber(record.unit_price);
+        asNumber(record.unit_price) ||
+        asNumber(nested?.selling_price) ||
+        asNumber(nested?.base_price);
 
       const fallbackImages = Object.values(posFoodImages);
       const imageUrl =
         asString(record.image_url) ||
         asString(record.thumbnail_url) ||
+        asString(nested?.image_url) ||
         fallbackImages[index % fallbackImages.length] ||
         '';
 
       const category = mapCategory(record);
-      const group =
-        asString(record.category_name) || asString(record.section_name) || category.toUpperCase();
+      const rawCategoryName =
+        asString(record.category_name) ||
+        asString(nested?.category_name) ||
+        asString(record.section_name);
+      const group = rawCategoryName || category.charAt(0).toUpperCase() + category.slice(1);
 
-      return {
+      const isAvailable =
+        record.is_available !== false && record.status !== '86d' && record.status !== 'inactive';
+
+      const mapped: DineInMenuItem = {
         id: String(id),
         name,
         price,
@@ -64,7 +124,10 @@ export function mapBranchMenuItemsToDineIn(
         group,
         imageUrl,
         customizable: Boolean(record.has_variants ?? record.customizable ?? false),
-      } satisfies DineInMenuItem;
+        isAvailable,
+        status: isAvailable ? 'available' : '86d',
+      };
+      return mapped;
     })
-    .filter((item): item is DineInMenuItem => item != null);
+    .filter((item): item is DineInMenuItem => item !== null);
 }

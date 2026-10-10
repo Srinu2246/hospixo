@@ -18,7 +18,7 @@ import { CrudFormActions } from '@/components/ui/crud-form-actions';
 import { StickyBreadcrumbBar } from '@/components/ui/sticky-breadcrumb-bar';
 import { useModifierGroups } from '../../context/modifier-groups-context';
 import type { ModifierGroupStatus } from '../../types/modifier-group-api';
-import { ModifierOptionsPanel } from '../shared/modifier-options-panel';
+import { ModifierOptionsPanel } from '../options/modifier-options-panel';
 
 export function ModifierGroupForm({ mode }: { readonly mode: 'create' | 'edit' }) {
   const { selectedGroup, createGroup, updateGroup, backToList } = useModifierGroups();
@@ -45,8 +45,8 @@ export function ModifierGroupForm({ mode }: { readonly mode: 'create' | 'edit' }
       return;
     }
 
-    const min = Math.max(0, parseInt(minSelect, 10) || 0);
-    const max = Math.max(min, parseInt(maxSelect, 10) || 1);
+    const min = Math.max(0, Number.parseInt(minSelect, 10) || 0);
+    const max = Math.max(min, Number.parseInt(maxSelect, 10) || 1);
 
     setIsSubmitting(true);
     setError(null);
