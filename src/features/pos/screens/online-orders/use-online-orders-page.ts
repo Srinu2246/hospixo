@@ -8,10 +8,13 @@ import {
   usePatchBranchOrderMutation,
 } from '@/features/pos/hooks/use-branch-orders';
 
+const emptyOrders: OnlineOrder[] = [];
+
 export interface OnlineOrdersPageViewModel {
   activeChannel: OnlineOrderChannel;
   setActiveChannel: (channel: OnlineOrderChannel) => void;
   orders: OnlineOrder[];
+  pendingCount: number;
   visibleOrders: OnlineOrder[];
   handleAccept: (orderId: string) => void;
   handleReject: (orderId: string) => void;
@@ -20,6 +23,9 @@ export interface OnlineOrdersPageViewModel {
   isError: boolean;
   loadError: string | null;
   isMutating: boolean;
+  mutationError: string | null;
+  mutationSucceeded: boolean;
+  pendingAcceptOrder: OnlineOrder | null;
 }
 
 export function useOnlineOrdersPage(): OnlineOrdersPageViewModel {
@@ -27,14 +33,20 @@ export function useOnlineOrdersPage(): OnlineOrdersPageViewModel {
   const { data, isPending, isError, error } = useOnlineOrdersQuery();
   const patchOrder = usePatchBranchOrderMutation();
 
-  const orders = data?.orders ?? [];
+  const orders = data?.orders ?? emptyOrders;
 
   const visibleOrders = useMemo(() => {
     if (activeChannel === 'all') return orders;
     return orders.filter((order) => order.channel === activeChannel);
   }, [activeChannel, orders]);
 
+  const pendingAcceptOrder = useMemo(
+    () => orders.find((order) => order.actionState === 'pendingAccept') ?? null,
+    [orders],
+  );
+
   function handleAccept(orderId: string) {
+    if (patchOrder.isPending) return;
     patchOrder.mutate({
       orderId,
       body: { status: 'accepted', kitchen_status: 'preparing' },
@@ -42,6 +54,7 @@ export function useOnlineOrdersPage(): OnlineOrdersPageViewModel {
   }
 
   function handleReject(orderId: string) {
+    if (patchOrder.isPending) return;
     patchOrder.mutate({
       orderId,
       body: { status: 'cancelled' },
@@ -49,6 +62,7 @@ export function useOnlineOrdersPage(): OnlineOrdersPageViewModel {
   }
 
   function handleMarkReady(orderId: string) {
+    if (patchOrder.isPending) return;
     patchOrder.mutate({
       orderId,
       body: { kitchen_status: 'ready' },
@@ -59,6 +73,7 @@ export function useOnlineOrdersPage(): OnlineOrdersPageViewModel {
     activeChannel,
     setActiveChannel,
     orders,
+    pendingCount: orders.filter((order) => order.actionState === 'pendingAccept').length,
     visibleOrders,
     handleAccept,
     handleReject,
@@ -67,5 +82,8 @@ export function useOnlineOrdersPage(): OnlineOrdersPageViewModel {
     isError,
     loadError: error instanceof Error ? error.message : (data?.loadError ?? null),
     isMutating: patchOrder.isPending,
+    mutationError: patchOrder.error instanceof Error ? patchOrder.error.message : null,
+    mutationSucceeded: patchOrder.isSuccess,
+    pendingAcceptOrder,
   };
 }

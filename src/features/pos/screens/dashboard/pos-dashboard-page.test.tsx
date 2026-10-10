@@ -2,7 +2,27 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PosDashboardPage } from '@/features/pos/screens/dashboard/pos-dashboard-page';
-import { dashboardSummaryCards } from '@/features/pos/config/dashboard';
+import { dashboardSummaryCards, floorStatusLegend } from '@/features/pos/config/dashboard';
+
+vi.mock('@/features/pos/hooks/use-pos-dashboard', () => ({
+  usePosDashboard: () => ({
+    summaryCards: dashboardSummaryCards,
+    liveOrderQueue: [],
+    floorTables: [],
+    floorLegend: floorStatusLegend,
+    onlineSummary: { totalSales: 0, orders: 0 },
+    onlinePlatforms: [],
+    readyOrders: [],
+    recentTransactions: [],
+    notifications: [],
+    shift: { started: '09:00 AM', ordersHandled: 0, status: 'Shift Open' },
+    isLoading: false,
+    isError: false,
+    loadError: null,
+    isFetching: false,
+    handleLiveOrderAction: vi.fn(),
+  }),
+}));
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/pos-dashboard',

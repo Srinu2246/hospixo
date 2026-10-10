@@ -1,5 +1,5 @@
 import type { TokenUserInfo } from '@/types/auth';
-import { routes } from '@/config/routes';
+import { isPlatformPosRoute, routes } from '@/config/routes';
 
 export type AccessLevel = 'organisation' | 'company' | 'branch' | 'counter' | 'captain' | 'kitchen';
 
@@ -299,6 +299,29 @@ export function resolveHierarchyEscape(
   }
 
   if (sidebarLevel === userLevel) return null;
+
+  const href = resolveHierarchyHomePath(userLevel);
+  if (!href) return null;
+
+  let label = 'Back to branch';
+  if (userLevel === 'organisation') label = 'Back to organisation';
+  else if (userLevel === 'company') label = 'Back to company';
+
+  return { href, label };
+}
+
+/**
+ * Branch (or org/company) managers in flat POS routes return to their hierarchy
+ * dashboard — e.g. branch analytics at `/branch`, not the POS ops home.
+ */
+export function resolvePosWorkspaceEscape(
+  userLevel: AccessLevel,
+  pathname: string,
+): HierarchyEscape | null {
+  if (!isPlatformPosRoute(pathname)) return null;
+  if (userLevel === 'counter' || userLevel === 'captain' || userLevel === 'kitchen') {
+    return null;
+  }
 
   const href = resolveHierarchyHomePath(userLevel);
   if (!href) return null;

@@ -3,25 +3,39 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import type { OpenOrderType } from '@/features/pos/config/open-orders';
+import type { OpenOrder, OpenOrderType } from '@/features/pos/config/open-orders';
+import { buildOpenOrdersSummary, OPEN_ORDERS_PAGE_SIZE } from '@/features/pos/config/open-orders';
 import { resolveTableIdFromReference } from '@/features/pos/lib/order/reference';
 import { usePosFlowPaths } from '@/features/pos/hooks/use-pos-flow-paths';
 import { useOpenOrdersQuery } from '@/features/pos/hooks/use-branch-orders';
 import { usePosOrder } from '@/context/pos-order';
 import { usePosOrdersStore } from '@/context/pos-orders-store';
 
+const emptyOpenOrders: OpenOrder[] = [];
+
 export function useOpenOrdersPage() {
   const router = useRouter();
   const flowPaths = usePosFlowPaths();
   const { setSelectedTable, setOrderLines } = usePosOrder();
   const { setEditingOrderId } = usePosOrdersStore();
-  const [activeType, setActiveType] = useState<OpenOrderType>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeType, setActiveTypeState] = useState<OpenOrderType>('all');
+  const [searchQuery, setSearchQueryState] = useState('');
+  const [page, setPage] = useState(1);
   const { data, isPending, isError, error } = useOpenOrdersQuery();
 
-  const openOrders = data?.orders ?? [];
+  const openOrders = data?.orders ?? emptyOpenOrders;
 
-  const visibleOrders = useMemo(() => {
+  function setActiveType(type: OpenOrderType) {
+    setActiveTypeState(type);
+    setPage(1);
+  }
+
+  function setSearchQuery(query: string) {
+    setSearchQueryState(query);
+    setPage(1);
+  }
+
+  const filteredOrders = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     return openOrders.filter((order) => {
@@ -35,6 +49,16 @@ export function useOpenOrdersPage() {
       );
     });
   }, [activeType, searchQuery, openOrders]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / OPEN_ORDERS_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+
+  const visibleOrders = useMemo((): OpenOrder[] => {
+    const start = (safePage - 1) * OPEN_ORDERS_PAGE_SIZE;
+    return filteredOrders.slice(start, start + OPEN_ORDERS_PAGE_SIZE);
+  }, [filteredOrders, safePage]);
+
+  const footerSummary = useMemo(() => buildOpenOrdersSummary(filteredOrders), [filteredOrders]);
 
   function handleAddItems(orderId: string) {
     const order = openOrders.find((entry) => entry.id === orderId);
@@ -58,6 +82,11 @@ export function useOpenOrdersPage() {
     searchQuery,
     setSearchQuery,
     visibleOrders,
+    filteredCount: filteredOrders.length,
+    footerSummary,
+    page: safePage,
+    totalPages,
+    setPage,
     handleAddItems,
     handleSettleBill,
     isLoading: isPending,

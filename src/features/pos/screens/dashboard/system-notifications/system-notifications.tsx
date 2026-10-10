@@ -1,20 +1,26 @@
+'use client';
+
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+
 import type { NotificationSeverity, SystemNotification } from '@/features/pos/config/dashboard';
 import { getNotificationSeverityLabel } from '@/features/pos/config/dashboard';
-
-import styles from './system-notifications.module.css';
+import { DashboardPanel } from '@/features/pos/screens/dashboard/dashboard-panel';
 
 const severityDot: Record<NotificationSeverity, string> = {
-  critical: styles.dotCritical,
-  completed: styles.dotCompleted,
-  warning: styles.dotWarning,
-  info: styles.dotInfo,
+  critical: 'var(--pos-danger, #D32F2F)',
+  completed: 'var(--pos-success)',
+  warning: 'var(--pos-warning)',
+  info: 'var(--pos-primary)',
 };
 
-const severityLabel: Record<NotificationSeverity, string> = {
-  critical: styles.labelCritical,
-  completed: styles.labelCompleted,
-  warning: styles.labelWarning,
-  info: styles.labelInfo,
+const severityChipColor: Record<NotificationSeverity, 'error' | 'success' | 'warning' | 'info'> = {
+  critical: 'error',
+  completed: 'success',
+  warning: 'warning',
+  info: 'info',
 };
 
 interface SystemNotificationsProps {
@@ -23,26 +29,40 @@ interface SystemNotificationsProps {
 
 export function SystemNotifications({ notifications }: Readonly<SystemNotificationsProps>) {
   return (
-    <section className={styles.panel} aria-labelledby="system-notifications-title">
-      <header className={styles.header}>
-        <h2 id="system-notifications-title" className={styles.title}>
-          System Notifications
-        </h2>
-      </header>
-
-      <ul className={styles.list}>
+    <DashboardPanel title="System Notifications" titleId="system-notifications-title">
+      <Stack component="ul" spacing={1.25} sx={{ listStyle: 'none', p: 0, m: 0 }}>
         {notifications.map((notification) => (
-          <li key={notification.id} className={styles.row}>
-            <div className={styles.meta}>
-              <span className={`${styles.dot} ${severityDot[notification.severity]}`} aria-hidden />
-              <span className={styles.titleText}>{notification.title}</span>
-            </div>
-            <span className={`${styles.severity} ${severityLabel[notification.severity]}`}>
-              {getNotificationSeverityLabel(notification.severity)}
-            </span>
-          </li>
+          <Stack
+            key={notification.id}
+            component="li"
+            direction="row"
+            sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
+          >
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
+              <Box
+                aria-hidden
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  bgcolor: severityDot[notification.severity],
+                }}
+              />
+              <Typography variant="body2" noWrap title={notification.title}>
+                {notification.title}
+              </Typography>
+            </Stack>
+            <Chip
+              size="small"
+              label={getNotificationSeverityLabel(notification.severity)}
+              color={severityChipColor[notification.severity]}
+              variant="outlined"
+              sx={{ flexShrink: 0 }}
+            />
+          </Stack>
         ))}
-      </ul>
-    </section>
+      </Stack>
+    </DashboardPanel>
   );
 }

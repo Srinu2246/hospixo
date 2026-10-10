@@ -1,57 +1,25 @@
 'use client';
 
-import type { ReadyOrder } from '@/features/pos/config/ready-list';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+
+import { readyListPageMeta } from '@/features/pos/config/ready-list';
 import {
   PosCompactBody,
   PosCompactHeader,
-  PosCompactHeaderChrome,
   PosCompactPage,
-  PosCompactSearch,
 } from '@/features/pos/screens/layout/pos-compact-page';
-import compactPageStyles from '@/features/pos/screens/layout/pos-compact-page.module.css';
 import { PosMobileHeader } from '@/features/pos/screens/layout/pos-mobile-header';
 import { PosMobileShell } from '@/features/pos/screens/layout/pos-mobile-shell';
+import { ReadyListHeader } from '@/features/pos/screens/ready-list/ready-list-header';
+import { ReadyOrderCard } from '@/features/pos/screens/ready-list/ready-order-card';
 
 import type { ReadyListPageViewModel } from './use-ready-list-page';
-import styles from './compact-ready-list-content.module.css';
 
 interface CompactReadyListContentProps extends ReadyListPageViewModel {
   layout: 'mobile' | 'tablet';
-}
-
-function CompactReadyOrderCard({
-  order,
-  onServe,
-}: Readonly<{
-  order: ReadyOrder;
-  onServe: (orderId: string) => void;
-}>) {
-  return (
-    <article className={styles.card}>
-      <div className={styles.cardHeader}>
-        <h2 className={styles.tableName}>{order.table}</h2>
-        <span className={styles.readyAgo}>Ready {order.readyAgo}</span>
-      </div>
-      <div className={styles.metaRow}>
-        <span>Token {order.token}</span>
-        <span className={`${styles.priority} ${styles[order.priority]}`}>
-          {order.priority.toUpperCase()}
-        </span>
-      </div>
-      <div className={styles.itemBox}>
-        <span className={styles.itemCount}>{order.itemCount} Items</span>
-        <p className={styles.itemSummary}>{order.itemSummary}</p>
-      </div>
-      <div className={styles.actions}>
-        <button type="button" className={styles.detailsBtn}>
-          Details
-        </button>
-        <button type="button" className={styles.serveBtn} onClick={() => onServe(order.id)}>
-          Mark Served
-        </button>
-      </div>
-    </article>
-  );
 }
 
 export function CompactReadyListContent({
@@ -62,63 +30,86 @@ export function CompactReadyListContent({
   setQuery,
   visibleOrders,
   handleServe,
+  activeCount,
   tabs,
+  isLoading,
+  isError,
+  loadError,
+  isMutating,
+  mutationError,
+  mutationSucceeded,
 }: Readonly<CompactReadyListContentProps>) {
   return (
     <PosMobileShell activeNavId="ready" withPageBg>
       <PosCompactPage>
         <PosCompactHeader>
-          <PosMobileHeader title="Ready to Serve" subtitle="Kitchen updates live" />
-          <PosCompactHeaderChrome>
-            <div
-              className={compactPageStyles.pillRow}
-              role="tablist"
-              aria-label="Ready order filters"
-            >
-              {tabs.map((tab) => {
-                const isActive = tab.id === activeTab;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    className={`${compactPageStyles.pill} ${
-                      isActive ? compactPageStyles.pillActive : ''
-                    }`}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    {tab.label}
-                    {tab.count != null ? ` (${tab.count})` : ''}
-                  </button>
-                );
-              })}
-            </div>
-          </PosCompactHeaderChrome>
+          <PosMobileHeader
+            title={readyListPageMeta.title}
+            subtitle={readyListPageMeta.mobileSubtitle}
+          />
+          <ReadyListHeader
+            query={query}
+            onQueryChange={setQuery}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            tabs={tabs}
+            activeCount={activeCount}
+            hideTitle
+          />
         </PosCompactHeader>
 
-        <PosCompactBody className={styles.body}>
-          <PosCompactSearch
-            value={query}
-            onChange={setQuery}
-            placeholder="Search orders, tokens, table numbers..."
-          />
+        <PosCompactBody>
+          {mutationError ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {mutationError}
+            </Alert>
+          ) : null}
+          {mutationSucceeded ? (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              Order updated successfully.
+            </Alert>
+          ) : null}
+          {isError || loadError ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {loadError ?? readyListPageMeta.loadErrorFallback}
+            </Alert>
+          ) : null}
+          {isLoading ? (
+            <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center', fontSize: 14 }}>
+              {readyListPageMeta.loadingLabel}
+            </Typography>
+          ) : null}
 
           {visibleOrders.length > 0 ? (
-            <section
-              className={layout === 'tablet' ? styles.gridTablet : styles.list}
+            <Box
+              component="section"
               aria-label={`${activeTab} ready orders`}
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: layout === 'tablet' ? 'repeat(2, minmax(0, 1fr))' : '1fr',
+                gap: 1.5,
+              }}
             >
               {visibleOrders.map((order) => (
-                <CompactReadyOrderCard key={order.id} order={order} onServe={handleServe} />
+                <ReadyOrderCard
+                  key={order.id}
+                  order={order}
+                  onServe={handleServe}
+                  isMutating={isMutating}
+                  compact
+                />
               ))}
-            </section>
-          ) : (
-            <div className={styles.empty}>
-              <h2>No orders found</h2>
-              <p>Orders matching this view will appear here.</p>
-            </div>
-          )}
+            </Box>
+          ) : !isLoading && !isError ? (
+            <Stack sx={{ py: 4, textAlign: 'center' }}>
+              <Typography component="h2" variant="subtitle1">
+                {readyListPageMeta.emptyTitle}
+              </Typography>
+              <Typography color="text.secondary" variant="body2" sx={{ mt: 0.75 }}>
+                {readyListPageMeta.emptyDescription}
+              </Typography>
+            </Stack>
+          ) : null}
         </PosCompactBody>
       </PosCompactPage>
     </PosMobileShell>

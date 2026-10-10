@@ -1,14 +1,15 @@
 'use client';
 
-import type { OpenOrder } from '@/features/pos/config/open-orders';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+
 import {
-  formatOpenOrderAmount,
-  formatOpenOrderTime,
-  getOpenOrderTypeLabel,
-  openOrderActions,
   openOrdersPageMeta,
   openOrdersPillFilters,
-  resolveOpenOrderAmount,
+  type OpenOrderType,
 } from '@/features/pos/config/open-orders';
 import {
   PosCompactBody,
@@ -17,63 +18,15 @@ import {
   PosCompactPage,
   PosCompactSearch,
 } from '@/features/pos/screens/layout/pos-compact-page';
-import compactPageStyles from '@/features/pos/screens/layout/pos-compact-page.module.css';
 import { PosMobileHeader } from '@/features/pos/screens/layout/pos-mobile-header';
 import { PosMobileShell } from '@/features/pos/screens/layout/pos-mobile-shell';
-import { KitchenStatusPill } from '@/features/pos/screens/open-orders/open-order-status-pill';
+import { CompactOpenOrderCard } from '@/features/pos/screens/open-orders/compact-open-order-card';
+import { OpenOrdersFooter } from '@/features/pos/screens/open-orders/open-orders-footer';
 
 import type { OpenOrdersPageViewModel } from './use-open-orders-page';
-import styles from './compact-open-orders-content.module.css';
 
 interface CompactOpenOrdersContentProps extends OpenOrdersPageViewModel {
   layout: 'mobile' | 'tablet';
-}
-
-function CompactOpenOrderCard({
-  order,
-  onAddItems,
-  onSettleBill,
-}: Readonly<{
-  order: OpenOrder;
-  onAddItems: (orderId: string) => void;
-  onSettleBill: (orderId: string) => void;
-}>) {
-  return (
-    <article className={styles.card}>
-      <div className={styles.topRow}>
-        <span>
-          <span className={styles.orderNumber}>{order.orderNumber}</span>
-          {' · '}
-          {getOpenOrderTypeLabel(order.type)}
-        </span>
-        <span>{formatOpenOrderTime(order.age)}</span>
-      </div>
-      <div className={styles.mainRow}>
-        <p className={styles.reference}>{order.reference}</p>
-        <span className={styles.amount}>
-          {formatOpenOrderAmount(resolveOpenOrderAmount(order))}
-        </span>
-      </div>
-      <div className={styles.statusRow}>
-        <KitchenStatusPill status={order.kitchenStatus} />
-        <span className={styles.paymentDot}>
-          <i
-            className={order.paymentStatus === 'paid' ? styles.paidDot : styles.unpaidDot}
-            aria-hidden
-          />
-          {order.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
-        </span>
-      </div>
-      <div className={styles.actions}>
-        <button type="button" className={styles.viewBtn} onClick={() => onAddItems(order.id)}>
-          {openOrderActions.addItems}
-        </button>
-        <button type="button" className={styles.settleBtn} onClick={() => onSettleBill(order.id)}>
-          {openOrderActions.settleBill}
-        </button>
-      </div>
-    </article>
-  );
 }
 
 export function CompactOpenOrdersContent({
@@ -83,8 +36,15 @@ export function CompactOpenOrdersContent({
   searchQuery,
   setSearchQuery,
   visibleOrders,
+  footerSummary,
+  page,
+  totalPages,
+  setPage,
   handleAddItems,
   handleSettleBill,
+  isLoading,
+  isError,
+  loadError,
 }: Readonly<CompactOpenOrdersContentProps>) {
   const mobileFilters = openOrdersPillFilters.filter((f) =>
     ['all', 'dineIn', 'takeaway', 'delivery'].includes(f.id),
@@ -94,45 +54,72 @@ export function CompactOpenOrdersContent({
     <PosMobileShell activeNavId="orders" withPageBg>
       <PosCompactPage>
         <PosCompactHeader>
-          <PosMobileHeader title="Open Orders" subtitle="Live active tickets" />
+          <PosMobileHeader title={openOrdersPageMeta.title} subtitle="Live active tickets" />
           <PosCompactHeaderChrome>
-            <div
-              className={compactPageStyles.pillRow}
+            <Stack
+              component="div"
+              direction="row"
               role="tablist"
               aria-label="Order type filters"
+              sx={{ flexWrap: 'wrap', gap: 1 }}
             >
               {mobileFilters.map((filter) => {
                 const active = filter.id === activeType;
                 return (
-                  <button
+                  <Button
                     key={filter.id}
                     type="button"
                     role="tab"
                     aria-selected={active}
-                    className={`${compactPageStyles.pill} ${
-                      active ? compactPageStyles.pillActive : ''
-                    }`}
-                    onClick={() => setActiveType(filter.id)}
+                    onClick={() => setActiveType(filter.id as OpenOrderType)}
+                    variant={active ? 'contained' : 'outlined'}
+                    sx={{
+                      minHeight: 32,
+                      px: 1.75,
+                      borderRadius: 999,
+                      borderColor: active ? 'var(--pos-primary)' : 'var(--pos-border-strong)',
+                      bgcolor: active ? 'var(--pos-primary)' : 'var(--pos-surface)',
+                      color: active ? '#fff' : 'text.secondary',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textTransform: 'none',
+                    }}
                   >
                     {filter.label}
-                  </button>
+                  </Button>
                 );
               })}
-            </div>
+            </Stack>
           </PosCompactHeaderChrome>
         </PosCompactHeader>
 
-        <PosCompactBody className={styles.body}>
+        <PosCompactBody>
           <PosCompactSearch
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder={openOrdersPageMeta.searchPlaceholder}
           />
 
+          {isError || loadError ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {loadError ?? 'Unable to load orders.'}
+            </Alert>
+          ) : null}
+          {isLoading ? (
+            <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center', fontSize: 14 }}>
+              Loading orders…
+            </Typography>
+          ) : null}
+
           {visibleOrders.length > 0 ? (
-            <section
-              className={layout === 'tablet' ? styles.gridTablet : styles.list}
+            <Box
+              component="section"
               aria-label="Open orders"
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: layout === 'tablet' ? 'repeat(2, minmax(0, 1fr))' : '1fr',
+                gap: 1.5,
+              }}
             >
               {visibleOrders.map((order) => (
                 <CompactOpenOrderCard
@@ -142,10 +129,19 @@ export function CompactOpenOrdersContent({
                   onSettleBill={handleSettleBill}
                 />
               ))}
-            </section>
-          ) : (
-            <p className={styles.empty}>No open orders match your filters.</p>
-          )}
+            </Box>
+          ) : !isLoading && !isError ? (
+            <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center', fontSize: 14 }}>
+              No open orders match your filters.
+            </Typography>
+          ) : null}
+
+          <OpenOrdersFooter
+            summaryText={footerSummary}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </PosCompactBody>
       </PosCompactPage>
     </PosMobileShell>

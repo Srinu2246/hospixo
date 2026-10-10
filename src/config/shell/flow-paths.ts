@@ -91,6 +91,10 @@ export function isBranchPosFeaturePath(pathname: string): boolean {
   return branchPosFeaturePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
+export function isCaptainFlowPath(pathname: string): boolean {
+  return pathname === flowPaths.captain.root || pathname.startsWith(`${flowPaths.captain.root}/`);
+}
+
 /** Cash counter entry — branch flow vs company /pos route. */
 export function resolveCashShiftHref(pathname: string): string {
   if (pathname === branch || pathname.startsWith(`${branch}/`)) {

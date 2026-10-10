@@ -19,6 +19,7 @@ import {
   resolveAccessLevel,
   resolveHierarchyEscape,
   resolveHierarchyHomePath,
+  resolvePosWorkspaceEscape,
   resolveHierarchyLevelFromPath,
   resolveSidebarLevel,
   type AccessLevel,
@@ -155,7 +156,9 @@ export function AccessSidebar({
     (resolvedLevel === 'branch' && isPlatformPosRoute(pathname)
       ? branchPosSidebar
       : getAccessSidebar(resolvedLevel));
-  const hierarchyEscape = resolveHierarchyEscape(userCeiling, resolvedLevel);
+  const hierarchyEscape =
+    resolveHierarchyEscape(userCeiling, resolvedLevel) ??
+    resolvePosWorkspaceEscape(userCeiling, pathname);
   const brandHref = resolveHierarchyHomePath(userCeiling) ?? config.homeHref;
   const { width: logoWidth, height: logoHeight } = siteConfig.brand.logoDimensions;
   const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || 'Profile';

@@ -15,6 +15,26 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/pos-dashboard',
 }));
 
+vi.mock('@/features/pos/hooks/use-pos-dashboard', () => ({
+  usePosDashboard: () => ({
+    summaryCards: [],
+    liveOrderQueue: [],
+    floorTables: [],
+    floorLegend: [],
+    onlineSummary: { totalSales: 0, orders: 0 },
+    onlinePlatforms: [],
+    readyOrders: [],
+    recentTransactions: [],
+    notifications: [],
+    shift: { started: '09:00 AM', ordersHandled: 0, status: 'Shift Open' },
+    isLoading: false,
+    isError: false,
+    loadError: null,
+    isFetching: false,
+    handleLiveOrderAction: vi.fn(),
+  }),
+}));
+
 vi.mock('@/features/pos/hooks/use-pos-breakpoint', () => ({
   usePosBreakpoint: () => 'mobile',
 }));

@@ -1,40 +1,47 @@
-import type { ShiftInfo } from '@/features/pos/config/dashboard';
+'use client';
 
-import styles from './shift-info.module.css';
+import Chip from '@mui/material/Chip';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+
+import type { ShiftInfo } from '@/features/pos/config/dashboard';
+import { DashboardPanel } from '@/features/pos/screens/dashboard/dashboard-panel';
 
 interface ShiftInfoPanelProps {
   shift: ShiftInfo;
 }
 
 export function ShiftInfoPanel({ shift }: Readonly<ShiftInfoPanelProps>) {
-  return (
-    <section className={styles.panel} aria-labelledby="shift-info-title">
-      <header className={styles.header}>
-        <h2 id="shift-info-title" className={styles.title}>
-          Shift Information
-        </h2>
-      </header>
+  const isOpen = shift.status.toLowerCase().includes('open');
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Started</th>
-              <th scope="col">Orders Handled</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>{shift.started}</td>
-              <td>{shift.ordersHandled}</td>
-              <td>
-                <span className={styles.statusOpen}>{shift.status}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+  return (
+    <DashboardPanel title="Shift Information" titleId="shift-info-title">
+      <Table size="small" aria-label="Shift information">
+        <TableHead>
+          <TableRow>
+            <TableCell>Started</TableCell>
+            <TableCell>Orders Handled</TableCell>
+            <TableCell>Status</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          <TableRow>
+            <TableCell>{shift.started}</TableCell>
+            <TableCell>{shift.ordersHandled}</TableCell>
+            <TableCell>
+              <Chip
+                size="small"
+                label={shift.status}
+                color={isOpen ? 'success' : 'default'}
+                variant="outlined"
+              />
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </DashboardPanel>
   );
 }

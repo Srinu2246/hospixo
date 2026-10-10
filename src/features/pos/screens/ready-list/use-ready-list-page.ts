@@ -2,11 +2,17 @@
 
 import { useMemo, useState } from 'react';
 
-import { readyListTabs, type ReadyListTab } from '@/features/pos/config/ready-list';
+import {
+  readyListTabs,
+  type ReadyListTab,
+  type ReadyOrder,
+} from '@/features/pos/config/ready-list';
 import {
   usePatchBranchOrderMutation,
   useReadyOrdersQuery,
 } from '@/features/pos/hooks/use-branch-orders';
+
+const emptyOrders: ReadyOrder[] = [];
 
 export function useReadyListPage() {
   const [activeTab, setActiveTab] = useState<ReadyListTab>('active');
@@ -14,7 +20,7 @@ export function useReadyListPage() {
   const { data, isPending, isError, error } = useReadyOrdersQuery();
   const patchOrder = usePatchBranchOrderMutation();
 
-  const orders = data?.orders ?? [];
+  const orders = data?.orders ?? emptyOrders;
 
   const tabs = useMemo(() => {
     const activeCount = orders.filter((order) => order.tab === 'active').length;
@@ -40,6 +46,7 @@ export function useReadyListPage() {
   }, [activeTab, orders, query]);
 
   function handleServe(orderId: string) {
+    if (patchOrder.isPending) return;
     patchOrder.mutate({
       orderId,
       body: { kitchen_status: 'served' },
@@ -61,6 +68,8 @@ export function useReadyListPage() {
     isError,
     loadError: error instanceof Error ? error.message : (data?.loadError ?? null),
     isMutating: patchOrder.isPending,
+    mutationError: patchOrder.error instanceof Error ? patchOrder.error.message : null,
+    mutationSucceeded: patchOrder.isSuccess,
   };
 }
 

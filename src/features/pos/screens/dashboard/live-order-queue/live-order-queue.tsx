@@ -1,61 +1,98 @@
-import type { LiveOrderRow, LiveOrderStatus } from '@/features/pos/config/dashboard';
+'use client';
+
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+
+import type {
+  LiveOrderAction,
+  LiveOrderRow,
+  LiveOrderStatus,
+} from '@/features/pos/config/dashboard';
 import { getLiveOrderActionLabel, getLiveOrderStatusLabel } from '@/features/pos/config/dashboard';
+import { DashboardPanel } from '@/features/pos/screens/dashboard/dashboard-panel';
 
-import styles from './live-order-queue.module.css';
+const statusChipColor: Record<LiveOrderStatus, 'warning' | 'success' | 'secondary' | 'default'> = {
+  preparing: 'warning',
+  ready: 'success',
+  billing: 'secondary',
+};
 
-const statusClass: Record<LiveOrderStatus, string> = {
-  preparing: styles.preparing,
-  ready: styles.ready,
-  billing: styles.billing,
+const actionTooltips: Record<LiveOrderAction, string> = {
+  view: 'Open all orders to review this ticket',
+  pay: 'Go to payment and settlement',
+  edit: 'Add items or edit the order on dine-in',
 };
 
 interface LiveOrderQueueProps {
   orders: LiveOrderRow[];
+  onAction?: (orderId: string, action: LiveOrderAction) => void;
 }
 
-export function LiveOrderQueue({ orders }: Readonly<LiveOrderQueueProps>) {
+export function LiveOrderQueue({ orders, onAction }: Readonly<LiveOrderQueueProps>) {
   return (
-    <section className={styles.panel} aria-labelledby="live-order-queue-title">
-      <header className={styles.header}>
-        <h2 id="live-order-queue-title" className={styles.title}>
-          Live Order Queue
-        </h2>
-      </header>
-
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Order #</th>
-              <th scope="col">Table</th>
-              <th scope="col">Customer Name</th>
-              <th scope="col">Status</th>
-              <th scope="col">Time</th>
-              <th scope="col">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((order) => (
-              <tr key={order.id}>
-                <td className={styles.orderNumber}>{order.orderNumber}</td>
-                <td>{order.table}</td>
-                <td>{order.customerName}</td>
-                <td>
-                  <span className={`${styles.statusPill} ${statusClass[order.status]}`}>
-                    {getLiveOrderStatusLabel(order.status)}
-                  </span>
-                </td>
-                <td className={styles.time}>{order.time}</td>
-                <td>
-                  <button type="button" className={styles.actionBtn}>
-                    {getLiveOrderActionLabel(order.action)}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <DashboardPanel title="Live Order Queue" titleId="live-order-queue-title">
+      {orders.length === 0 ? (
+        <Typography color="text.secondary" variant="body2" sx={{ py: 3, textAlign: 'center' }}>
+          No active orders in the queue.
+        </Typography>
+      ) : (
+        <TableContainer sx={{ maxHeight: 360 }}>
+          <Table size="small" stickyHeader aria-label="Live order queue">
+            <TableHead>
+              <TableRow>
+                <TableCell>Order #</TableCell>
+                <TableCell>Table</TableCell>
+                <TableCell>Customer Name</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Time</TableCell>
+                <TableCell align="right">Action</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow key={order.id} hover>
+                  <TableCell sx={{ fontWeight: 600 }}>{order.orderNumber}</TableCell>
+                  <TableCell>{order.table}</TableCell>
+                  <TableCell>{order.customerName}</TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={getLiveOrderStatusLabel(order.status)}
+                      color={statusChipColor[order.status]}
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip title="Time since order was placed" arrow>
+                      <Box component="span">{order.time}</Box>
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title={actionTooltips[order.action]} arrow>
+                      <Button
+                        size="small"
+                        variant="text"
+                        onClick={() => onAction?.(order.id, order.action)}
+                      >
+                        {getLiveOrderActionLabel(order.action)}
+                      </Button>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </DashboardPanel>
   );
 }

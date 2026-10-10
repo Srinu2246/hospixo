@@ -1,5 +1,8 @@
 'use client';
 
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+
 import type { OpenOrderType } from '@/features/pos/config/open-orders';
 import { PosOperationsShell } from '@/features/pos/screens/layout/pos-operations-shell';
 import { OpenOrdersFilters } from '@/features/pos/screens/open-orders/open-orders-filters';
@@ -8,7 +11,6 @@ import { OpenOrdersHeader } from '@/features/pos/screens/open-orders/open-orders
 import { OpenOrdersTable } from '@/features/pos/screens/open-orders/open-orders-table';
 
 import type { OpenOrdersPageViewModel } from './use-open-orders-page';
-import styles from './open-orders-page.module.css';
 
 export function OpenOrdersDesktopContent({
   activeType,
@@ -16,6 +18,10 @@ export function OpenOrdersDesktopContent({
   searchQuery,
   setSearchQuery,
   visibleOrders,
+  footerSummary,
+  page,
+  totalPages,
+  setPage,
   handleAddItems,
   handleSettleBill,
   isLoading,
@@ -28,7 +34,7 @@ export function OpenOrdersDesktopContent({
 
   return (
     <PosOperationsShell withPageBg>
-      <div className={styles.page}>
+      <Box sx={{ width: '100%', pb: 3, bgcolor: 'var(--pos-page-bg)' }}>
         <OpenOrdersHeader
           activeType={activeType}
           searchQuery={searchQuery}
@@ -39,12 +45,16 @@ export function OpenOrdersDesktopContent({
         <OpenOrdersFilters activeType={activeType} onChange={handleTypeChange} />
 
         {isError || loadError ? (
-          <p role="alert" className={styles.empty}>
+          <Typography role="alert" color="error" sx={{ mt: 2, textAlign: 'center', fontSize: 14 }}>
             {loadError ?? 'Unable to load orders.'}
-          </p>
+          </Typography>
         ) : null}
 
-        {isLoading ? <p className={styles.empty}>Loading orders…</p> : null}
+        {isLoading ? (
+          <Typography color="text.secondary" sx={{ mt: 2, textAlign: 'center', fontSize: 14 }}>
+            Loading orders…
+          </Typography>
+        ) : null}
 
         <OpenOrdersTable
           orders={visibleOrders}
@@ -52,12 +62,19 @@ export function OpenOrdersDesktopContent({
           onSettleBill={handleSettleBill}
         />
 
-        {visibleOrders.length === 0 ? (
-          <p className={styles.empty}>No open orders match your filters.</p>
+        {!isLoading && !isError && visibleOrders.length === 0 ? (
+          <Typography color="text.secondary" sx={{ mt: 2, textAlign: 'center', fontSize: 14 }}>
+            No open orders match your filters.
+          </Typography>
         ) : null}
 
-        <OpenOrdersFooter />
-      </div>
+        <OpenOrdersFooter
+          summaryText={footerSummary}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
+      </Box>
     </PosOperationsShell>
   );
 }

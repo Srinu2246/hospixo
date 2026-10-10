@@ -29,8 +29,11 @@ export interface OpenOrder {
   kitchenOrderId?: string;
 }
 
+/** Client page size for All Orders table pagination. */
+export const OPEN_ORDERS_PAGE_SIZE = 10;
+
 export const openOrdersPageMeta = {
-  title: 'Open Orders',
+  title: 'All Orders',
   searchPlaceholder: 'Order, table or bill no.',
   syncLabel: 'Online - synced',
   downloadReportLabel: 'Download Report',
@@ -168,7 +171,18 @@ export function getPaymentStatusLabel(status: OpenOrderPaymentStatus) {
   return status === 'paid' ? 'Paid' : 'Unpaid';
 }
 
-export function getOpenOrdersSummaryText() {
-  const { runningOrders, awaitingKitchen, readyToSettle } = openOrdersFooterSummary;
+export function buildOpenOrdersSummary(orders: readonly OpenOrder[]): string {
+  const runningOrders = orders.length;
+  const awaitingKitchen = orders.filter(
+    (order) => order.kitchenStatus === 'kotSent' || order.kitchenStatus === 'preparing',
+  ).length;
+  const readyToSettle = orders.filter(
+    (order) => order.kitchenStatus === 'ready' || order.kitchenStatus === 'billing',
+  ).length;
   return `Showing ${runningOrders} running orders • ${awaitingKitchen} awaiting kitchen, ${readyToSettle} ready to settle`;
+}
+
+/** @deprecated Use `buildOpenOrdersSummary(orders)` with live API data. */
+export function getOpenOrdersSummaryText() {
+  return buildOpenOrdersSummary(openOrders);
 }

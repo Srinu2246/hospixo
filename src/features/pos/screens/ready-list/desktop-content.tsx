@@ -1,88 +1,118 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 
+import { readyListPageMeta } from '@/features/pos/config/ready-list';
 import { PosOperationsShell } from '@/features/pos/screens/layout/pos-operations-shell';
+import { ReadyListHeader } from '@/features/pos/screens/ready-list/ready-list-header';
 import { ReadyOrderCard } from '@/features/pos/screens/ready-list/ready-order-card';
 
 import type { ReadyListPageViewModel } from './use-ready-list-page';
-import styles from './ready-list-page.module.css';
 
-export function ReadyListDesktopContent({
-  activeTab,
-  setActiveTab,
-  query,
-  setQuery,
-  visibleOrders,
-  handleServe,
-  activeCount,
-  tabs,
-  isLoading,
-  isError,
-  loadError,
-}: Readonly<ReadyListPageViewModel>) {
+export function ReadyListDesktopContent(props: Readonly<ReadyListPageViewModel>) {
+  const {
+    activeTab,
+    setActiveTab,
+    query,
+    setQuery,
+    visibleOrders,
+    handleServe,
+    activeCount,
+    tabs,
+    isLoading,
+    isError,
+    loadError,
+    isMutating,
+    mutationError,
+    mutationSucceeded,
+  } = props;
+
   return (
     <PosOperationsShell withPageBg>
-      <main className={styles.page}>
-        <div className={styles.utilityRow}>
-          <label className={styles.search}>
-            <Search size={16} aria-hidden />
-            <input
-              type="search"
-              placeholder="Search orders, tokens, table numbers..."
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-          <span className={styles.onlineStatus}>Live Store Ops Online</span>
-        </div>
+      <Box
+        component="main"
+        sx={{
+          width: '100%',
+          minHeight: 'calc(100dvh - var(--pos-header-height) - 32px)',
+          color: 'var(--pos-text)',
+          bgcolor: 'var(--pos-page-bg)',
+        }}
+      >
+        <ReadyListHeader
+          query={query}
+          onQueryChange={setQuery}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          tabs={tabs}
+          activeCount={activeCount}
+        />
 
-        <header className={styles.pageHeader}>
-          <h1 className={styles.title}>
-            Ready to Serve <span>{activeCount}</span>
-          </h1>
-
-          <div className={styles.tabs} role="tablist" aria-label="Ready order filters">
-            {tabs.map((tab) => {
-              const isActive = tab.id === activeTab;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`${styles.tab} ${isActive ? styles.activeTab : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  {tab.label}
-                  {tab.count != null ? ` (${tab.count})` : ''}
-                </button>
-              );
-            })}
-          </div>
-        </header>
-
+        {mutationError ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {mutationError}
+          </Alert>
+        ) : null}
+        {mutationSucceeded ? (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Order updated successfully.
+          </Alert>
+        ) : null}
         {isError || loadError ? (
-          <p role="alert" className={styles.empty}>
-            {loadError ?? 'Unable to load ready orders.'}
-          </p>
+          <Typography role="alert" color="error" sx={{ py: 2, textAlign: 'center', fontSize: 14 }}>
+            {loadError ?? readyListPageMeta.loadErrorFallback}
+          </Typography>
         ) : null}
 
-        {isLoading ? <p className={styles.empty}>Loading ready orders…</p> : null}
+        {isLoading ? (
+          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center', fontSize: 14 }}>
+            {readyListPageMeta.loadingLabel}
+          </Typography>
+        ) : null}
 
         {visibleOrders.length > 0 ? (
-          <section className={styles.grid} aria-label={`${activeTab} ready orders`}>
+          <Box
+            component="section"
+            aria-label={`${activeTab} ready orders`}
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, minmax(0, 1fr))',
+                md: 'repeat(3, minmax(0, 1fr))',
+              },
+              gap: 2,
+            }}
+          >
             {visibleOrders.map((order) => (
-              <ReadyOrderCard key={order.id} order={order} onServe={handleServe} />
+              <ReadyOrderCard
+                key={order.id}
+                order={order}
+                onServe={handleServe}
+                isMutating={isMutating}
+              />
             ))}
-          </section>
-        ) : (
-          <div className={styles.empty}>
-            <h2>No orders found</h2>
-            <p>Orders matching this view will appear here.</p>
-          </div>
-        )}
-      </main>
+          </Box>
+        ) : !isLoading && !isError ? (
+          <Stack
+            sx={{
+              minHeight: 260,
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+            }}
+          >
+            <Typography component="h2" variant="h6" sx={{ m: 0, fontSize: 18 }}>
+              {readyListPageMeta.emptyTitle}
+            </Typography>
+            <Typography color="text.secondary" sx={{ mt: 0.75, fontSize: 13 }}>
+              {readyListPageMeta.emptyDescription}
+            </Typography>
+          </Stack>
+        ) : null}
+      </Box>
     </PosOperationsShell>
   );
 }

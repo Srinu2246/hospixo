@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { formatOpenOrderTime, getOpenOrderTypeLabel } from '@/features/pos/config/open-orders';
+import type { OpenOrder } from '@/features/pos/config/open-orders';
 import {
   computeOrderGrandTotal,
   computeOrderSubtotal,
@@ -13,21 +14,27 @@ import {
 import { posOrderActions } from '@/features/pos/config/order-actions';
 import { usePosFlowPaths } from '@/features/pos/hooks/use-pos-flow-paths';
 import { countLineItems } from '@/features/pos/lib/order/lines';
+import { useOpenOrdersQuery } from '@/features/pos/hooks/use-branch-orders';
 import { usePosOrder } from '@/context/pos-order';
 import { usePosOrdersStore } from '@/context/pos-orders-store';
+
+const emptyOrderLines: NonNullable<OpenOrder['lines']> = [];
 
 export function useOrderDetailsPage(orderId: string) {
   const router = useRouter();
   const flowPaths = usePosFlowPaths();
   const { openOrders, selectOrderForCheckout } = usePosOrdersStore();
   const { setSelectedTable, setOrderLines } = usePosOrder();
+  const { data, isPending, isError, error } = useOpenOrdersQuery();
 
   const order = useMemo(
-    () => openOrders.find((entry) => entry.id === orderId),
-    [openOrders, orderId],
+    () =>
+      data?.orders.find((entry) => entry.id === orderId) ??
+      openOrders.find((entry) => entry.id === orderId),
+    [data?.orders, openOrders, orderId],
   );
 
-  const lines = order?.lines ?? [];
+  const lines = order?.lines ?? emptyOrderLines;
   const subtotal = useMemo(() => computeOrderSubtotal(lines), [lines]);
   const tax = useMemo(() => computeOrderTax(subtotal), [subtotal]);
   const grandTotal = useMemo(() => computeOrderGrandTotal(subtotal), [subtotal]);
@@ -55,6 +62,8 @@ export function useOrderDetailsPage(orderId: string) {
 
   return {
     order,
+    isLoading: isPending,
+    loadError: isError && error instanceof Error ? error.message : null,
     lines,
     subtotal,
     tax,
