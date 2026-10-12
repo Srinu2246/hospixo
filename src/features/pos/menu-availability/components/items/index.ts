@@ -1,1 +1,0 @@
-export { MenuItemsTable } from './items';

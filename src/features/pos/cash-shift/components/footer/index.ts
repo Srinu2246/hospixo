@@ -1,1 +1,0 @@
-export { CashShiftFooter } from './footer';

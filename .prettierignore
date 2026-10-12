@@ -5,3 +5,5 @@ coverage
 dist
 build
 pnpm-lock.yaml
+sidebar.json
+role_permissions.py

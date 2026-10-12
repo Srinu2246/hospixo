@@ -1,0 +1,97 @@
+import 'server-only';
+
+import { INITIAL_USERS } from '@/lib/mocks/employees/useUserRoles.mocks';
+import {
+  BRANCH_STAT_CARDS,
+  COMPANY_STAT_CARDS,
+  ORG_STAT_CARDS,
+} from '@/lib/mocks/dashboard/dashboard.mocks';
+import { MOCK_DUE_PAYMENTS } from '@/lib/mocks/pos/usePosDuePayments.mocks';
+import {
+  POS_FLOOR_TABLES,
+  POS_LIVE_ORDERS,
+  POS_METRIC_CARDS,
+} from '@/lib/mocks/pos/usePosDashboard.mocks';
+import { MOCK_MENU_ITEMS } from '@/lib/mocks/pos/usePosMenu.mocks';
+import { MOCK_POS_ORDERS, MOCK_READY_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
+import { MOCK_RESERVATIONS } from '@/lib/mocks/pos/usePosReservations.mocks';
+import {
+  MOCK_ACTIVE_SHIFT,
+  MOCK_CASH_TRANSACTIONS,
+  MOCK_SHIFT_METRICS,
+} from '@/lib/mocks/pos/usePosCashShift.mocks';
+import { POS_TABLES_DATA } from '@/lib/mocks/pos/usePosTables.mocks';
+import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
+import type { HttpMethod, QueryParams } from '@/services/api/types';
+
+type MockRequest = {
+  method: HttpMethod;
+  path: string;
+  params?: QueryParams;
+  body?: unknown;
+};
+
+const LIST_MOCKS: Record<string, unknown> = {
+  [ApiUrlsV1.auth.login]: { token: 'mock-session' },
+  [ApiUrlsV1.auth.logout]: {},
+  [ApiUrlsV1.auth.register]: { token: 'mock-session' },
+  [ApiUrlsV1.auth.forgotPassword]: { success: true },
+  [ApiUrlsV1.auth.resetPassword]: { success: true },
+  [ApiUrlsV1.pos.pointOfSale.allOrders.list]: MOCK_POS_ORDERS,
+  [ApiUrlsV1.pos.pointOfSale.cashAndShift.list]: {
+    metrics: MOCK_SHIFT_METRICS,
+    activeShift: MOCK_ACTIVE_SHIFT,
+    transactions: MOCK_CASH_TRANSACTIONS,
+  },
+  [ApiUrlsV1.pos.pointOfSale.dashboard.list]: {
+    metrics: POS_METRIC_CARDS,
+    liveOrders: POS_LIVE_ORDERS,
+    tables: POS_FLOOR_TABLES,
+  },
+  [ApiUrlsV1.pos.pointOfSale.dineIn.list]: POS_TABLES_DATA,
+  [ApiUrlsV1.pos.pointOfSale.duePayments.list]: MOCK_DUE_PAYMENTS,
+  [ApiUrlsV1.pos.pointOfSale.readyList.list]: MOCK_READY_ORDERS,
+  [ApiUrlsV1.pos.pointOfSale.reservation.list]: MOCK_RESERVATIONS,
+  [ApiUrlsV1.pos.pointOfSale.tables.list]: POS_TABLES_DATA,
+  [ApiUrlsV1.pos.pointOfSale.takeaway.list]: MOCK_MENU_ITEMS,
+  [ApiUrlsV1.employees.userRoles.list]: INITIAL_USERS,
+  [ApiUrlsV1.dashboard.organization.list]: { stats: ORG_STAT_CARDS },
+  [ApiUrlsV1.dashboard.company.list]: { stats: COMPANY_STAT_CARDS },
+  [ApiUrlsV1.dashboard.branch.list]: { stats: BRANCH_STAT_CARDS },
+};
+
+export function isMockApiEnabled(): boolean {
+  return process.env.API_MOCK === 'true';
+}
+
+export function resolveMock(request: MockRequest): unknown | undefined {
+  const listPath = findListPath(request.path);
+  if (!listPath) return undefined;
+
+  if (request.method !== 'GET') {
+    return { success: true, ...(isRecord(request.body) ? request.body : {}) };
+  }
+
+  const payload = LIST_MOCKS[listPath];
+  if (request.path === listPath) return payload;
+
+  const id = request.path.slice(listPath.length + 1).split('/')[0];
+  if (Array.isArray(payload)) {
+    return (
+      payload.find((item) => isRecord(item) && String(item.id) === decodeURIComponent(id)) ??
+      payload[0]
+    );
+  }
+
+  return payload;
+}
+
+function findListPath(path: string): string | undefined {
+  return Object.keys(LIST_MOCKS)
+    .sort((left, right) => right.length - left.length)
+    .find((listPath) => path === listPath || path.startsWith(`${listPath}/`));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
