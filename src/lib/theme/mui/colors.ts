@@ -233,6 +233,19 @@ export const colors = {
     dark: 'rgba(255, 255, 255, 0.08)',
   },
 
+  login: {
+    panel: '#0C1228',
+    panelGlow: '#1C2B66',
+    headline: '#FFFFFF',
+    body: '#C9D0DE',
+    muted: '#9AA3B5',
+    check: '#3D6BFF',
+    inactiveSurface: '#FDF2F4',
+    inactiveBorder: '#E11D48',
+    branchSurface: '#FFF8EB',
+    branchBorder: '#F59E0B',
+  },
+
   sidebar: {
     background: '#13141F',
     surface: '#1A1C29',

@@ -41,7 +41,8 @@ async function readErrorMessage(response: Response, contentType: string): Promis
 
   try {
     const payload: unknown = await response.json();
-    if (hasMessage(payload)) return payload.message;
+    const message = readPayloadMessage(payload);
+    if (message) return message;
   } catch {
     // Ignore invalid error payloads.
   }
@@ -49,11 +50,22 @@ async function readErrorMessage(response: Response, contentType: string): Promis
   return `Request failed with status ${response.status}`;
 }
 
-function hasMessage(value: unknown): value is { message: string } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'message' in value &&
-    typeof value.message === 'string'
-  );
+function readPayloadMessage(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.message === 'string' && record.message) return record.message;
+  if (typeof record.detail === 'string' && record.detail) return record.detail;
+
+  if (Array.isArray(record.detail)) {
+    const messages = record.detail
+      .map((item) => {
+        if (!item || typeof item !== 'object' || !('msg' in item)) return '';
+        return typeof item.msg === 'string' ? item.msg : '';
+      })
+      .filter(Boolean);
+    if (messages.length > 0) return messages.join(' ');
+  }
+
+  return null;
 }

@@ -59,7 +59,10 @@ export function Toast({
     <Snackbar
       open={open}
       autoHideDuration={autoHideDuration}
-      onClose={onClose}
+      onClose={(_event, reason) => {
+        if (reason === 'clickaway') return;
+        onClose();
+      }}
       anchorOrigin={anchorOrigin}
       slots={{
         transition: SlideTransition,

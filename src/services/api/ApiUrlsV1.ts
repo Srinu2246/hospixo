@@ -28,9 +28,7 @@ const ApiUrlsV1 = {
   auth: {
     login: '/v1/auth/login',
     logout: '/v1/auth/logout',
-    register: '/v1/auth/register',
-    forgotPassword: '/v1/auth/forgot-password',
-    resetPassword: '/v1/auth/reset-password',
+    me: '/v1/auth/me',
   },
   pos: {
     pointOfSale: {
@@ -57,12 +55,7 @@ const ApiUrlsV1 = {
 
 const ENDPOINT_PREFIXES = collectStaticPaths(ApiUrlsV1);
 
-const PUBLIC_ENDPOINTS = new Set<string>([
-  ApiUrlsV1.auth.login,
-  ApiUrlsV1.auth.register,
-  ApiUrlsV1.auth.forgotPassword,
-  ApiUrlsV1.auth.resetPassword,
-]);
+const PUBLIC_ENDPOINTS = new Set<string>([ApiUrlsV1.auth.login]);
 
 export function isPublicEndpoint(path: string): boolean {
   return PUBLIC_ENDPOINTS.has(path);

@@ -32,11 +32,32 @@ type MockRequest = {
 };
 
 const LIST_MOCKS: Record<string, unknown> = {
-  [ApiUrlsV1.auth.login]: { token: 'mock-session' },
-  [ApiUrlsV1.auth.logout]: {},
-  [ApiUrlsV1.auth.register]: { token: 'mock-session' },
-  [ApiUrlsV1.auth.forgotPassword]: { success: true },
-  [ApiUrlsV1.auth.resetPassword]: { success: true },
+  [ApiUrlsV1.auth.login]: {
+    success: true,
+    message: 'OK',
+    data: {
+      access_token: 'mock-session',
+      refresh_token: 'mock-refresh-token-value-32chars!',
+      token_type: 'bearer',
+    },
+  },
+  [ApiUrlsV1.auth.logout]: { success: true, message: 'OK' },
+  [ApiUrlsV1.auth.me]: {
+    success: true,
+    message: 'OK',
+    data: {
+      id: 94,
+      first_name: 'raju',
+      last_name: 'raju',
+      email: 'raju@gmail.com',
+      scope: 'branch',
+      roles: ['branch_admin'],
+      company_id: 94,
+      branch_id: 49,
+      org_id: 126,
+      must_change_password: false,
+    },
+  },
   [ApiUrlsV1.pos.pointOfSale.allOrders.list]: MOCK_POS_ORDERS,
   [ApiUrlsV1.pos.pointOfSale.cashAndShift.list]: {
     metrics: MOCK_SHIFT_METRICS,
@@ -69,6 +90,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   if (!listPath) return undefined;
 
   if (request.method !== 'GET') {
+    if (request.path === ApiUrlsV1.auth.login || request.path === ApiUrlsV1.auth.logout) {
+      return LIST_MOCKS[request.path];
+    }
     return { success: true, ...(isRecord(request.body) ? request.body : {}) };
   }
 

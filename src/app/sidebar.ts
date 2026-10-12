@@ -35,10 +35,13 @@ export function isSidebarSection(entry: SidebarEntry): entry is SidebarSection {
 export type SidebarContext = {
   organizationName?: string;
   organizationSlug?: string;
+  organizationId?: number;
   companyName?: string;
   companySlug?: string;
+  companyId?: number;
   branchName?: string;
   branchSlug?: string;
+  branchId?: number;
 };
 
 export type SidebarUserProfile = {
@@ -157,9 +160,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 // Route Resolution (Organization / Company / Branch replacement)
 // ----------------------------------------------------------------------
 
-export function resolveSidebarRoute(href: string, context?: SidebarContext): string {
+export function resolveSidebarRoute(href: string, context?: SidebarContext, role?: string): string {
   if (!href) return href;
   let resolved = href;
+
+  if (role) {
+    resolved = resolved.replace(/\/branch-manager(\/|$)/g, `/${rolePathSegment(role)}$1`);
+  }
 
   const org = context?.organizationSlug || context?.organizationName;
   const comp = context?.companySlug || context?.companyName;
@@ -698,14 +705,14 @@ export const WAITER_SIDEBAR: SidebarEntry[] = [
   {
     id: 2,
     name: 'Order Menu',
-    href: '/branch-manager/pos/dine-in',
+    href: '/branch-manager/pos/order-menu',
     icon: 'restaurant',
     permission: PERMISSIONS.ORDERS_CREATE,
   },
   {
     id: 3,
     name: 'Ready List',
-    href: '/branch-manager/pos/online-orders',
+    href: '/branch-manager/pos/ready-list',
     icon: 'fact_check',
     permission: PERMISSIONS.ORDERS_VIEW,
   },
@@ -785,6 +792,15 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
 // Configuration Lookup & Filtering
 // ----------------------------------------------------------------------
 
+export function rolePathSegment(role: string): string {
+  const key = normalizeRoleKey(role);
+  if (key === 'branch_manager') return 'branch-manager';
+  if (key === 'waiter') return 'waiter';
+  if (key === 'company') return 'company';
+  if (key === 'organization' || key === 'super_admin') return 'organization';
+  return key.replace(/_/g, '-');
+}
+
 export function normalizeRoleKey(role: string): string {
   const normalized = role
     .trim()
@@ -816,7 +832,7 @@ export const ROLE_SIDEBAR_REGISTRY: Record<string, SidebarEntry[]> = {
  * Filter and resolve navigation entries based on role, user permissions, and context.
  */
 export function getSidebarNavigation({
-  role = 'company',
+  role,
   userPermissions,
   context,
 }: {
@@ -824,19 +840,24 @@ export function getSidebarNavigation({
   userPermissions?: string[] | null;
   context?: SidebarContext;
 }): SidebarEntry[] {
-  const normalized = normalizeRoleKey(role);
-  const rawEntries = ROLE_SIDEBAR_REGISTRY[normalized] || COMPANY_SIDEBAR;
+  if (!role?.trim()) return [];
 
-  // Resolve user permissions (fallback to role defaults if none provided)
+  const normalized = normalizeRoleKey(role);
+  const rawEntries = ROLE_SIDEBAR_REGISTRY[normalized];
+  if (!rawEntries) return [];
+
+  // Branch managers see every item in their sidebar. Other roles stay on their permission list.
   const permissions =
-    userPermissions !== undefined && userPermissions !== null
-      ? userPermissions
-      : DEFAULT_ROLE_PERMISSIONS[normalized] || [];
+    normalized === 'branch_manager'
+      ? null
+      : userPermissions !== undefined && userPermissions !== null
+        ? userPermissions
+        : DEFAULT_ROLE_PERMISSIONS[normalized] || [];
 
   const filterItem = (item: SidebarItem): SidebarItem | null => {
     if (!hasPermission(permissions, item.permission)) return null;
 
-    const resolvedHref = item.href ? resolveSidebarRoute(item.href, context) : undefined;
+    const resolvedHref = item.href ? resolveSidebarRoute(item.href, context, role) : undefined;
     const resolvedChildren = item.items
       ? (item.items.map(filterItem).filter(Boolean) as SidebarItem[])
       : undefined;

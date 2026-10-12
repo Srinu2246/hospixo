@@ -2,11 +2,14 @@ import 'server-only';
 
 import { cookies } from 'next/headers';
 
+import { logoutRequestSchema } from '@/lib/schemas/login/loginFormSchema';
+import { PROFILE_COOKIE, profileCookieValue } from '@/lib/auth/shell-session';
 import ApiUrlsV1, { isAllowedEndpoint, isPublicEndpoint } from './ApiUrlsV1';
 import { isMockApiEnabled, resolveMock } from './handler';
 import { ApiError, readResponse, type HttpMethod, type QueryParams } from './types';
 
 const SESSION_COOKIE = 'session';
+const REFRESH_COOKIE = 'refresh_token';
 
 type ServerRequestOptions = {
   params?: QueryParams;
@@ -26,7 +29,7 @@ function getBackendConfig(): { baseUrl: string; secret: string } {
   const baseUrl = process.env.API_BASE_URL?.replace(/\/+$/, '') ?? '';
   const secret = process.env.API_SECRET ?? '';
 
-  if (!baseUrl || !secret) {
+  if (!baseUrl) {
     throw new ApiError('API is not configured', 503);
   }
 
@@ -39,7 +42,7 @@ function buildBackendUrl(path: string, params?: QueryParams): string {
   }
 
   const { baseUrl } = getBackendConfig();
-  const url = new URL(`${baseUrl}${path}`);
+  const url = new URL(`${baseUrl}/api${path}`);
 
   if (params) {
     for (const [key, value] of Object.entries(params)) {
@@ -62,21 +65,29 @@ async function request<T>(
   }
 
   const isPublic = isPublicEndpoint(path);
+  const isLogout = path === ApiUrlsV1.auth.logout;
+  const usesAccessToken = isLogout || path === ApiUrlsV1.auth.me;
   const session = isPublic ? undefined : await requireSession();
   const { secret } = getBackendConfig();
   const headers = new Headers({
     Accept: 'application/json',
-    Authorization: `Bearer ${secret}`,
   });
+
+  if (usesAccessToken && session) {
+    headers.set('Authorization', `Bearer ${session}`);
+  } else if (secret) {
+    headers.set('Authorization', `Bearer ${secret}`);
+  }
 
   if (session) {
     headers.set('X-Session-Id', session);
   }
 
+  const requestBody = isLogout ? logoutBody() : options.body;
   let body: string | undefined;
-  if (options.body !== undefined && method !== 'GET') {
+  if (requestBody !== undefined && method !== 'GET') {
     headers.set('Content-Type', 'application/json');
-    body = JSON.stringify(options.body);
+    body = JSON.stringify(requestBody);
   }
 
   let response: Response;
@@ -120,8 +131,46 @@ function mockRequest<T>(method: HttpMethod, path: string, options: ServerRequest
 
 function storeSessionFromPayload(path: string, payload: unknown): void {
   if (path === ApiUrlsV1.auth.logout) {
-    cookies().delete(SESSION_COOKIE);
+    clearAuthCookies();
     return;
+  }
+
+  if (path === ApiUrlsV1.auth.me) {
+    const profile = profileCookieValue(payload);
+    if (profile) {
+      cookies().set(PROFILE_COOKIE, profile, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 60 * 60 * 8,
+      });
+    }
+    return;
+  }
+
+  if (path !== ApiUrlsV1.auth.login) return;
+
+  const profile = profileCookieValue(payload);
+  if (profile) {
+    cookies().set(PROFILE_COOKIE, profile, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 8,
+    });
+  }
+
+  const refreshToken = readRefreshToken(payload);
+  if (refreshToken) {
+    cookies().set(REFRESH_COOKIE, refreshToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
   }
 
   const token = readSessionToken(payload);
@@ -133,6 +182,34 @@ function storeSessionFromPayload(path: string, payload: unknown): void {
     secure: process.env.NODE_ENV === 'production',
     path: '/',
   });
+}
+
+function logoutBody(): { refresh_token: string | null; revoke_all: false } {
+  const stored = cookies().get(REFRESH_COOKIE)?.value ?? '';
+  return logoutRequestSchema.parse({
+    refresh_token: stored.length >= 32 ? stored : null,
+    revoke_all: false,
+  });
+}
+
+function clearAuthCookies(): void {
+  cookies().delete(SESSION_COOKIE);
+  cookies().delete(REFRESH_COOKIE);
+  cookies().delete(PROFILE_COOKIE);
+}
+
+function readRefreshToken(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const record = payload as Record<string, unknown>;
+  const token = record.refresh_token ?? record.refreshToken;
+  if (typeof token === 'string' && token.length >= 32) return token;
+
+  if (record.data && typeof record.data === 'object') {
+    return readRefreshToken(record.data);
+  }
+
+  return null;
 }
 
 function readSessionToken(payload: unknown): string | null {
@@ -181,6 +258,7 @@ const SENSITIVE_KEYS = new Set([
   'api-secret',
   'access-token',
   'refresh-token',
+  'mfa-token',
   'authorization',
   'credential',
   'credentials',

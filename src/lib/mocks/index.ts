@@ -1,4 +1,3 @@
-export * from './sidebar';
 export * from './pos/usePosDashboard.mocks';
 export * from './pos/usePosTables.mocks';
 export * from './pos/usePosReservations.mocks';

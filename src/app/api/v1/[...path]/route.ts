@@ -76,7 +76,7 @@ function pathnameFromSegments(segments: string[]): string {
     throw new ApiError('Unknown endpoint', 404);
   }
 
-  return `/${segments.join('/')}`;
+  return `/v1/${segments.join('/')}`;
 }
 
 function searchParamsOf(request: NextRequest): QueryParams {

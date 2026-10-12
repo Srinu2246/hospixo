@@ -45,6 +45,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
+import { homePathForRole } from '@/lib/auth/session';
 import { colors } from '@/lib/theme/mui/colors';
 import {
   getSidebarNavigation,
@@ -201,12 +202,12 @@ function renderSidebarIcon(iconKey?: string, name?: string): React.ReactElement 
 // ----------------------------------------------------------------------
 
 export function Sidebar({
-  role = 'Branch manager',
+  role = '',
   userPermissions,
   context,
   user = {
-    name: 'Ravi Kumar',
-    role: 'Captain',
+    name: '',
+    role: '',
   },
   isOpen: controlledIsOpen,
   defaultOpen = true,
@@ -339,7 +340,7 @@ export function Sidebar({
     if (context?.branchSlug) {
       return `/${context.branchSlug}/dashboard`;
     }
-    return '/branch-manager/dashboard';
+    return homePathForRole(role);
   };
 
   const handleBackToMenu = () => {
@@ -830,7 +831,7 @@ export function Sidebar({
                   textOverflow: 'ellipsis',
                 }}
               >
-                {user?.name || 'Ravi Kumar'}
+                {user?.name || 'Signed out'}
               </Typography>
               <Typography
                 variant="caption"
@@ -844,7 +845,7 @@ export function Sidebar({
                   textOverflow: 'ellipsis',
                 }}
               >
-                {user?.role || 'Captain'}
+                {user?.role || 'No role'}
               </Typography>
             </Box>
           </Box>

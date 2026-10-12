@@ -17,6 +17,7 @@ export interface ModalProps {
   showCloseButton?: boolean; // Displays top-right close icon (default: true)
   children: ReactNode; // Modal content elements
   footer?: ReactNode; // Optional footer element
+  loading?: boolean; // Blocks dismiss while a request is in flight
   width?: number | string; // Dialog width (default: 660)
   height?: number | string; // Dialog height (default: 868)
   padding?: number | string; // Content padding (default: 24)
@@ -35,6 +36,7 @@ export function Modal({
   showCloseButton = true,
   children,
   footer,
+  loading = false,
   width = 660,
   height = 868,
   padding = 24,
@@ -45,7 +47,10 @@ export function Modal({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={(_event, reason) => {
+        if (loading && (reason === 'backdropClick' || reason === 'escapeKeyDown')) return;
+        onClose();
+      }}
       maxWidth={false}
       sx={{
         '& .MuiBackdrop-root': {
@@ -146,6 +151,7 @@ export function Modal({
           {showCloseButton ? (
             <ButtonBase
               onClick={onClose}
+              disabled={loading}
               aria-label="Close dialog"
               sx={{
                 width: 36,

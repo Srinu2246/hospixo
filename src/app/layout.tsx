@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 
+import { readShellSession } from '@/lib/auth/shell-session';
 import { AppProvider } from '@/providers/AppProvider';
 import { AppShell } from '@/components/layout/AppShell';
 
@@ -13,11 +15,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = readShellSession(cookies());
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
         <AppProvider>
-          <AppShell>{children}</AppShell>
+          <AppShell initialSession={session}>{children}</AppShell>
         </AppProvider>
       </body>
     </html>

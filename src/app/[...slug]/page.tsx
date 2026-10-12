@@ -245,8 +245,25 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     match: (path) =>
       path.endsWith('pos/point-of-sale/all-orders') ||
       path.endsWith('pos/captain-flow/all-orders') ||
-      path.endsWith('captain-flow/all-orders'),
+      path.endsWith('captain-flow/all-orders') ||
+      path.endsWith('pos/all-orders'),
     render: () => <AllOrdersPage />,
+  },
+
+  {
+    name: 'Role POS Tables',
+    match: (path) => path.endsWith('pos/tables'),
+    render: () => <PosTableSelection isDineIn={false} />,
+  },
+  {
+    name: 'Role POS Order Menu',
+    match: (path) => path.endsWith('pos/order-menu'),
+    render: () => <TakeawayPage mode="takeaway" />,
+  },
+  {
+    name: 'Role POS Ready List',
+    match: (path) => path.endsWith('pos/ready-list'),
+    render: () => <ReadyListPage />,
   },
 
   // 10. POS Due Payments

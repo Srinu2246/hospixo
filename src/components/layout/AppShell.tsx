@@ -1,22 +1,64 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Box } from '@mui/material';
 import { Sidebar } from '@/components/shared/app/Sidebar';
 import { TopNavbar } from '@/components/shared/app/TopNavbar';
+import { Toast } from '@/components/shared/ui/Toast';
+import type { SidebarSession } from '@/lib/auth/session';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import { useToastStore } from '@/stores/toastStore';
 import { colors } from '@/lib/theme/mui/colors';
 
 type AppShellProps = {
   children: React.ReactNode;
+  initialSession?: SidebarSession | null;
 };
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, initialSession = null }: AppShellProps) {
+  const pathname = usePathname() ?? '';
   const isOpen = useSidebarStore((state) => state.isOpen);
   const setIsOpen = useSidebarStore((state) => state.setIsOpen);
-  const role = useSidebarStore((state) => state.role);
-  const context = useSidebarStore((state) => state.context);
-  const user = useSidebarStore((state) => state.user);
+  const storeRole = useSidebarStore((state) => state.role);
+  const storeContext = useSidebarStore((state) => state.context);
+  const storeUser = useSidebarStore((state) => state.user);
+  const setSession = useSidebarStore((state) => state.setSession);
+  const hydrateSession = useSidebarStore((state) => state.hydrateSession);
+  const toastMessage = useToastStore((state) => state.message);
+  const toastSeverity = useToastStore((state) => state.severity);
+  const clearToast = useToastStore((state) => state.clear);
+
+  const role = storeRole || initialSession?.role || '';
+  const context = storeRole ? storeContext : (initialSession?.context ?? {});
+  const user = storeRole ? storeUser : (initialSession?.user ?? storeUser);
+
+  useEffect(() => {
+    if (storeRole) return;
+    if (initialSession) {
+      setSession(initialSession);
+      return;
+    }
+    hydrateSession();
+  }, [hydrateSession, initialSession, setSession, storeRole]);
+
+  const toast = (
+    <Toast
+      open={Boolean(toastMessage)}
+      message={toastMessage ?? ''}
+      severity={toastSeverity}
+      onClose={clearToast}
+    />
+  );
+
+  if (pathname === '/login' || pathname.startsWith('/login/')) {
+    return (
+      <Box sx={{ minHeight: '100vh', width: '100%', bgcolor: colors.white.default }}>
+        {children}
+        {toast}
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -53,7 +95,7 @@ export function AppShell({ children }: AppShellProps) {
         }}
       >
         {/* Stationary Top Navbar */}
-        <TopNavbar />
+        <TopNavbar role={role} context={context} user={user} />
 
         {/* 
           Independently Scrollable Main Content Area:
@@ -83,6 +125,7 @@ export function AppShell({ children }: AppShellProps) {
         {/* Page Action Footer Container (Outside <main>) */}
         <Box id="app-shell-footer" sx={{ flexShrink: 0, zIndex: 20 }} />
       </Box>
+      {toast}
     </Box>
   );
 }

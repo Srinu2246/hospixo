@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Box, Stack, Avatar, Tooltip } from '@mui/material';
+import { Box, Stack, Avatar, Menu, MenuItem, Tooltip } from '@mui/material';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
 import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
@@ -11,16 +11,17 @@ import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 
+import { LogoutModal } from '@/components/shared/app/Logout';
 import { Dropdown, type DropdownOption } from '@/components/shared/form-fields/Dropdown';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { colors } from '@/lib/theme/mui/colors';
-import { MOCK_BRANCHES, type MockBranch } from '@/lib/mocks/sidebar';
-import { normalizeRoleKey, type SidebarUserProfile } from '@/app/sidebar';
+import { normalizeRoleKey, type SidebarContext, type SidebarUserProfile } from '@/app/sidebar';
 
 export interface TopNavbarProps {
   role?: string;
+  context?: SidebarContext;
   user?: SidebarUserProfile;
   onAiAgentClick?: () => void;
   onExploreProductsClick?: () => void;
@@ -30,6 +31,7 @@ export interface TopNavbarProps {
 
 export function TopNavbar({
   role: propRole,
+  context: propContext,
   user: propUser,
   onAiAgentClick,
   onExploreProductsClick,
@@ -38,39 +40,43 @@ export function TopNavbar({
 }: TopNavbarProps) {
   // Store subscriptions
   const storeRole = useSidebarStore((state) => state.role);
-  const context = useSidebarStore((state) => state.context);
+  const storeContext = useSidebarStore((state) => state.context);
   const setContext = useSidebarStore((state) => state.setContext);
   const storeUser = useSidebarStore((state) => state.user);
+  const context = propContext ?? storeContext;
 
   const mode = useThemeStore((state) => state.mode);
   const toggleMode = useThemeStore((state) => state.toggleMode);
 
-  const activeRole = propRole || storeRole || 'Branch manager';
+  const activeRole = propRole || storeRole;
   const activeUser = propUser || storeUser;
   const normalizedRole = normalizeRoleKey(activeRole);
 
   // Business rule: show AI Agent and Explore Products for managers/company, hide for waiter
-  const showManagementActions = normalizedRole !== 'waiter';
+  const showManagementActions = Boolean(normalizedRole) && normalizedRole !== 'waiter';
 
-  // Outlet dropdown options derived from mock branches or context
-  const outletOptions: DropdownOption<string>[] = MOCK_BRANCHES.map((b: MockBranch) => ({
-    id: b.slug,
-    label: b.label || `${b.name} Branch`,
-  }));
+  const outletOptions: DropdownOption<string>[] =
+    context.branchId == null
+      ? []
+      : [
+          {
+            id: String(context.branchId),
+            label: context.branchName ?? `Branch ${context.branchId}`,
+          },
+        ];
 
-  const selectedOutletSlug = context.branchSlug || 'indiranagar';
+  const selectedOutletSlug = context.branchId == null ? '' : String(context.branchId);
 
-  const handleOutletChange = (slug: string, option?: DropdownOption<string>) => {
-    if (option) {
-      setContext({
-        branchSlug: slug,
-        branchName: option.label.replace(' Branch', '').replace(' Theme...', ''),
-      });
-    }
+  const handleOutletChange = (branchId: string) => {
+    const parsed = Number(branchId);
+    if (!Number.isFinite(parsed)) return;
+    setContext({ branchId: parsed });
   };
 
   const pathname = usePathname();
   const isBranchView = pathname?.includes('/branch-manager') || false;
+  const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   return (
     <Box
@@ -242,48 +248,84 @@ export function TopNavbar({
         </Tooltip>
 
         {/* User Profile Avatar (Black AK avatar on branch view matching Figma) */}
-        <Tooltip
-          title={
-            isBranchView
-              ? 'Branch Manager (AK)'
-              : `${activeUser?.name || 'User'} (${activeUser?.role || 'Staff'})`
-          }
+        <Box
+          component="button"
+          type="button"
+          aria-label="Open profile menu"
+          aria-haspopup="menu"
+          aria-expanded={profileAnchor ? true : undefined}
+          onClick={(event) => setProfileAnchor(event.currentTarget)}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: isBranchView ? 0 : '2px',
+            borderRadius: '50%',
+            border: isBranchView ? 'none' : `2px solid ${colors.primary.default}`,
+            bgcolor: 'transparent',
+            cursor: 'pointer',
+            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+            '&:hover': {
+              transform: 'scale(1.05)',
+              boxShadow: `0 0 10px ${colors.sidebar.activeGlow}`,
+            },
+          }}
         >
-          <Box
+          <Avatar
+            src={activeUser?.avatar}
+            alt={activeUser?.name || 'User'}
             sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              p: isBranchView ? 0 : '2px',
-              borderRadius: '50%',
-              border: isBranchView ? 'none' : `2px solid ${colors.primary.default}`,
-              cursor: 'pointer',
-              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-              '&:hover': {
-                transform: 'scale(1.05)',
-                boxShadow: `0 0 10px ${colors.sidebar.activeGlow}`,
-              },
+              width: 32,
+              height: 32,
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              backgroundColor: isBranchView ? '#111827' : colors.surface.muted,
+              color: isBranchView ? '#FFFFFF' : colors.primary.default,
             }}
           >
-            <Avatar
-              src={isBranchView ? undefined : activeUser?.avatar}
-              alt={isBranchView ? 'AK' : activeUser?.name || 'User'}
-              sx={{
-                width: 32,
-                height: 32,
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                backgroundColor: isBranchView ? '#111827' : colors.surface.muted,
-                color: isBranchView ? '#FFFFFF' : colors.primary.default,
-              }}
-            >
-              {isBranchView ? 'AK' : (activeUser?.name || 'U').charAt(0).toUpperCase()}
-            </Avatar>
-          </Box>
-        </Tooltip>
+            {initials(activeUser?.name)}
+          </Avatar>
+        </Box>
+        <Menu
+          anchorEl={profileAnchor}
+          open={Boolean(profileAnchor)}
+          onClose={() => setProfileAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          slotProps={{
+            paper: {
+              sx: {
+                minWidth: 160,
+                mt: 1,
+                borderRadius: '8px',
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+              },
+            },
+          }}
+        >
+          <MenuItem
+            onClick={() => {
+              setProfileAnchor(null);
+              setLogoutOpen(true);
+            }}
+            sx={{ fontSize: '0.875rem', color: 'error.main' }}
+          >
+            Logout
+          </MenuItem>
+        </Menu>
+        <LogoutModal open={logoutOpen} onClose={() => setLogoutOpen(false)} />
       </Stack>
     </Box>
   );
+}
+
+function initials(name?: string): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'U';
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 export default TopNavbar;
