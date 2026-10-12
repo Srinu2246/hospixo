@@ -20,6 +20,7 @@ import {
   CreateCustomTemplateScreen,
 } from '@/features/employees/user-roles';
 import { DashboardScreen } from '@/features/dashboard';
+import { FloorSetupScreen } from '@/features/management/floor-and-table-setup';
 
 interface CatchAllPageProps {
   params: {
@@ -326,6 +327,13 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path === 'user-roles' ||
       path.endsWith('/user-roles'),
     render: () => <UsersAndRolesScreen />,
+  },
+
+  {
+    name: 'Floor and Table Setup',
+    match: (path) =>
+      path.endsWith('floor-and-table-setup') || path.includes('floor-and-table-setup/'),
+    render: () => <FloorSetupScreen />,
   },
 
   // 12. Main Dashboard: .../dashboard

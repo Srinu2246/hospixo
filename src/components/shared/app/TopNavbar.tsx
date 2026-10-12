@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Box, Stack, Avatar, Menu, MenuItem, Tooltip } from '@mui/material';
+import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
 import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
@@ -17,6 +18,7 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { normalizeRoleKey, type SidebarContext, type SidebarUserProfile } from '@/app/sidebar';
 
 export interface TopNavbarProps {
@@ -27,6 +29,7 @@ export interface TopNavbarProps {
   onExploreProductsClick?: () => void;
   onNotificationClick?: () => void;
   onSettingsClick?: () => void;
+  onOpenMenu?: () => void;
 }
 
 export function TopNavbar({
@@ -37,6 +40,7 @@ export function TopNavbar({
   onExploreProductsClick,
   onNotificationClick,
   onSettingsClick,
+  onOpenMenu,
 }: TopNavbarProps) {
   // Store subscriptions
   const storeRole = useSidebarStore((state) => state.role);
@@ -102,7 +106,15 @@ export function TopNavbar({
       {/* ------------------------------------------------------------------ */}
       {/* Left Section: Outlets Location Dropdown (using Dropdown component)  */}
       {/* ------------------------------------------------------------------ */}
-      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 1 }}>
+        <ActionButton
+          variant="icon"
+          ariaLabel="Open navigation"
+          onClick={onOpenMenu}
+          sx={{ display: { [screen.mobile]: 'inline-flex', [screen.tablet]: 'none' } }}
+        >
+          <MenuOutlinedIcon sx={{ fontSize: 20 }} />
+        </ActionButton>
         <Dropdown
           variant="outlet"
           label="Outlets"
