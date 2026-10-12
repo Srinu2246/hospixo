@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import type { SxProps, Theme } from '@mui/material/styles';
 import { AlertTriangle, Check, Eye, EyeOff, Info } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
@@ -22,6 +23,7 @@ import {
 } from '@/lib/schemas/login/loginFormSchema';
 import { homePathForRole, sessionFromLoginUser } from '@/lib/auth/session';
 import { useApiMutation } from '@/lib/hooks/api/useApiMutation';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { colors } from '@/lib/theme/mui/colors';
 import { api } from '@/services/api/browserClient';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
@@ -56,9 +58,8 @@ const FEATURES = [
 ] as const;
 
 const INVALID_MESSAGE = 'Invalid email, mobile number, or password. Please try again.';
-const INACTIVE_MESSAGE =
-  'Your account is inactive. Please contact your organization administrator.';
-const BRANCH_MESSAGE = 'You do not have access to this branch. Please contact your admin.';
+const INACTIVE_MESSAGE = 'Your account is inactive. Contact your administrator.';
+const BRANCH_MESSAGE = 'Access denied. You do not have permission to this branch.';
 
 export function LoginPage() {
   const [notice, setNotice] = useState<AccountNotice | null>(null);
@@ -69,25 +70,63 @@ export function LoginPage() {
       sx={{
         minHeight: '100vh',
         display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        bgcolor: colors.white.default,
+        flexDirection: { [screen.mobile]: 'column', [screen.desktop]: 'row' },
+        alignItems: { [screen.mobile]: 'center', [screen.desktop]: 'stretch' },
+        justifyContent: { [screen.mobile]: 'center', [screen.desktop]: 'flex-start' },
+        bgcolor: { [screen.mobile]: colors.surface.muted, [screen.desktop]: colors.white.default },
+        px: { [screen.mobile]: 2, [screen.desktop]: 0 },
+        py: { [screen.mobile]: 3, [screen.desktop]: 0 },
       }}
     >
       <BrandPanel />
       <Box
         sx={{
           position: 'relative',
-          flex: 1,
+          flex: { [screen.desktop]: 1 },
+          width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          px: { xs: 2.5, sm: 4 },
-          py: { xs: 4, md: 6 },
+          px: { [screen.desktop]: 4 },
+          py: { [screen.desktop]: 6 },
         }}
       >
-        {notice ? <AccountBanner status={notice} /> : null}
+        {notice ? (
+          <AccountBanner
+            status={notice}
+            sx={{
+              display: { [screen.mobile]: 'none', [screen.desktop]: 'flex' },
+              position: 'absolute',
+              top: 28,
+              left: 36,
+              right: 36,
+            }}
+          />
+        ) : null}
 
-        <Box sx={{ width: '100%', maxWidth: 420 }}>
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: 420,
+            bgcolor: { [screen.mobile]: colors.white.default, [screen.desktop]: 'transparent' },
+            borderRadius: { [screen.mobile]: '24px', [screen.desktop]: 0 },
+            boxShadow: {
+              [screen.mobile]: '0 10px 30px rgba(17, 24, 39, 0.06)',
+              [screen.desktop]: 'none',
+            },
+            px: { [screen.mobile]: 2.5, [screen.desktop]: 0 },
+            py: { [screen.mobile]: 3, [screen.desktop]: 0 },
+          }}
+        >
+          {notice ? (
+            <AccountBanner
+              status={notice}
+              sx={{
+                display: { [screen.mobile]: 'flex', [screen.desktop]: 'none' },
+                mb: 2.5,
+              }}
+            />
+          ) : null}
           <SignInForm
             credentialError={credentialError}
             onAccountNotice={setNotice}
@@ -105,19 +144,19 @@ function BrandPanel() {
       sx={{
         position: 'relative',
         overflow: 'hidden',
-        width: { xs: '100%', md: '42%' },
-        minHeight: { xs: 'auto', md: '100vh' },
-        px: { xs: 3, md: 6 },
-        py: { xs: 4, md: 7 },
+        display: { [screen.mobile]: 'none', [screen.desktop]: 'flex' },
+        width: '42%',
+        minHeight: '100vh',
+        px: 6,
+        py: 7,
         color: colors.login.headline,
         background: `linear-gradient(160deg, ${colors.login.panel} 0%, ${colors.login.panelGlow} 100%)`,
-        display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
       }}
     >
       <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 460 }}>
-        <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', mb: { xs: 3, md: 6 } }}>
+        <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', mb: 6 }}>
           <Box
             aria-hidden="true"
             sx={{
@@ -143,7 +182,7 @@ function BrandPanel() {
           component="h1"
           sx={{
             fontWeight: 700,
-            fontSize: { xs: '1.75rem', md: '2.15rem' },
+            fontSize: '2.15rem',
             lineHeight: 1.2,
             letterSpacing: '-0.03em',
             maxWidth: 360,
@@ -156,7 +195,7 @@ function BrandPanel() {
           Hospixo gives hospitality teams one system for inventory, finance, HR, and daily ops.
         </Typography>
 
-        <Stack spacing={2.25} sx={{ display: { xs: 'none', sm: 'flex' } }}>
+        <Stack spacing={2.25}>
           {FEATURES.map((feature) => (
             <Stack
               key={feature.title}
@@ -194,7 +233,7 @@ function BrandPanel() {
 
         <Typography
           sx={{
-            display: { xs: 'none', md: 'block' },
+            display: 'block',
             color: colors.login.muted,
             fontSize: '0.875rem',
             lineHeight: 1.6,
@@ -209,28 +248,27 @@ function BrandPanel() {
   );
 }
 
-function AccountBanner({ status }: Readonly<{ status: AccountNotice }>) {
+function AccountBanner({ status, sx }: Readonly<{ status: AccountNotice; sx?: SxProps<Theme> }>) {
   const inactive = status === 'inactive';
 
   return (
     <Box
       role="alert"
-      sx={{
-        position: 'absolute',
-        top: { xs: 16, md: 28 },
-        left: { xs: 20, md: 36 },
-        right: { xs: 20, md: 36 },
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 1.25,
-        px: 2,
-        py: 1.5,
-        borderRadius: '10px',
-        bgcolor: inactive ? colors.login.inactiveSurface : colors.login.branchSurface,
-        borderLeft: '3px solid',
-        borderLeftColor: inactive ? colors.login.inactiveBorder : colors.login.branchBorder,
-        color: inactive ? colors.danger.dark : colors.warning.dark,
-      }}
+      sx={[
+        {
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 1.25,
+          px: 2,
+          py: 1.5,
+          borderRadius: '10px',
+          bgcolor: inactive ? colors.login.inactiveSurface : colors.login.branchSurface,
+          borderLeft: '3px solid',
+          borderLeftColor: inactive ? colors.login.inactiveBorder : colors.login.branchBorder,
+          color: inactive ? colors.danger.dark : colors.warning.dark,
+        },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
     >
       <Box
         sx={{ mt: 0.15, color: inactive ? colors.login.inactiveBorder : colors.login.branchBorder }}
@@ -299,11 +337,33 @@ function SignInForm({
       <Box>
         <Typography
           component="h2"
-          sx={{ fontWeight: 700, fontSize: '1.75rem', letterSpacing: '-0.03em' }}
+          sx={{
+            fontWeight: 700,
+            fontSize: { [screen.mobile]: '1.5rem', [screen.desktop]: '1.75rem' },
+            letterSpacing: '-0.03em',
+          }}
         >
           Welcome back to Hospixo
         </Typography>
-        <Typography sx={{ color: 'text.secondary', mt: 1, lineHeight: 1.55 }}>
+        <Typography
+          sx={{
+            display: { [screen.mobile]: 'block', [screen.desktop]: 'none' },
+            color: 'text.secondary',
+            mt: 0.75,
+            fontSize: '0.875rem',
+            lineHeight: 1.5,
+          }}
+        >
+          Manage your hospitality operations effortlessly.
+        </Typography>
+        <Typography
+          sx={{
+            display: { [screen.mobile]: 'none', [screen.desktop]: 'block' },
+            color: 'text.secondary',
+            mt: 1,
+            lineHeight: 1.55,
+          }}
+        >
           Sign in to manage your operations, teams, inventory, and workflows.
         </Typography>
       </Box>
@@ -317,7 +377,7 @@ function SignInForm({
             label="Email / Username"
             placeholder="Enter your email or Username"
             autoFocus
-            error={Boolean(errors.identifier) || Boolean(credentialError)}
+            error={Boolean(errors.identifier)}
             helperText={errors.identifier?.message}
             value={field.value}
             name={field.name}
@@ -375,14 +435,90 @@ function SignInForm({
         size="large"
         fullWidth
         loading={login.isPending}
-        sx={{ height: 48 }}
+        sx={{
+          height: 48,
+          borderRadius: { [screen.mobile]: '12px', [screen.desktop]: '10px' },
+        }}
       >
         Sign in
       </ActionButton>
 
+      <Stack
+        spacing={2}
+        sx={{
+          display: { [screen.mobile]: 'flex', [screen.desktop]: 'none' },
+          alignItems: 'center',
+        }}
+      >
+        <Box
+          component="button"
+          type="button"
+          sx={{
+            border: 0,
+            bgcolor: 'transparent',
+            p: 0,
+            color: 'primary.main',
+            font: 'inherit',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Forgot Password?
+        </Box>
+        <Stack direction="row" spacing={1.5} sx={{ width: '100%', alignItems: 'center' }}>
+          <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600 }}>
+            OR
+          </Typography>
+          <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
+        </Stack>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+          <Box
+            component="button"
+            type="button"
+            sx={{
+              border: 0,
+              bgcolor: 'transparent',
+              p: 0,
+              color: 'primary.main',
+              font: 'inherit',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Sign in with OTP
+          </Box>
+          <Typography sx={{ color: 'text.disabled' }}>·</Typography>
+          <Box
+            component="button"
+            type="button"
+            sx={{
+              border: 0,
+              bgcolor: 'transparent',
+              p: 0,
+              color: 'primary.main',
+              font: 'inherit',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Sign in with SSO
+          </Box>
+        </Stack>
+      </Stack>
+
       <Typography sx={{ textAlign: 'center', color: 'text.secondary', fontSize: '0.875rem' }}>
         Don&apos;t have an account?{' '}
-        <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>
+        <Box
+          component="span"
+          sx={{
+            color: { [screen.mobile]: 'primary.main', [screen.desktop]: 'text.primary' },
+            fontWeight: 600,
+          }}
+        >
           Contact your administrator
         </Box>
       </Typography>
