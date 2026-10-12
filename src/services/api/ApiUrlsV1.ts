@@ -51,7 +51,114 @@ const ApiUrlsV1 = {
     company: resource('/v1/dashboard/company'),
     branch: resource('/v1/dashboard/branch'),
   },
+  restaurant: {
+    branches: '/v1/branches',
+  },
 };
+
+export function restaurantFloorsPath(branchId: number): string {
+  return `${ApiUrlsV1.restaurant.branches}/${branchId}/floors`;
+}
+
+export function restaurantFloorPath(branchId: number, floorId: number): string {
+  return `${restaurantFloorsPath(branchId)}/${floorId}`;
+}
+
+export function restaurantFloorArchivePath(branchId: number, floorId: number): string {
+  return `${restaurantFloorPath(branchId, floorId)}/archive`;
+}
+
+export function restaurantFloorRestorePath(branchId: number, floorId: number): string {
+  return `${restaurantFloorPath(branchId, floorId)}/restore`;
+}
+
+export function restaurantFloorSectionsPath(branchId: number, floorId: number): string {
+  return `${restaurantFloorPath(branchId, floorId)}/sections`;
+}
+
+export function restaurantFloorSectionPath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+): string {
+  return `${restaurantFloorSectionsPath(branchId, floorId)}/${sectionId}`;
+}
+
+export function restaurantFloorSectionArchivePath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+): string {
+  return `${restaurantFloorSectionPath(branchId, floorId, sectionId)}/archive`;
+}
+
+export function restaurantSectionTablesPath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+): string {
+  return `${restaurantFloorSectionPath(branchId, floorId, sectionId)}/tables`;
+}
+
+export function restaurantSectionTablesBulkPath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+): string {
+  return `${restaurantSectionTablesPath(branchId, floorId, sectionId)}/bulk`;
+}
+
+export function restaurantSectionFloorMapPath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+): string {
+  return `${restaurantFloorSectionPath(branchId, floorId, sectionId)}/floor-map`;
+}
+
+export function restaurantSectionTablePath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+  tableId: number,
+): string {
+  return `${restaurantSectionTablesPath(branchId, floorId, sectionId)}/${tableId}`;
+}
+
+export function restaurantSectionTableMovePath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+  tableId: number,
+): string {
+  return `${restaurantSectionTablePath(branchId, floorId, sectionId, tableId)}/move`;
+}
+
+export function restaurantSectionTableArchivePath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+  tableId: number,
+): string {
+  return `${restaurantSectionTablePath(branchId, floorId, sectionId, tableId)}/archive`;
+}
+
+export function restaurantSectionTableRestorePath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+  tableId: number,
+): string {
+  return `${restaurantSectionTablePath(branchId, floorId, sectionId, tableId)}/restore`;
+}
+
+export function restaurantFloorSectionRestorePath(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+): string {
+  return `${restaurantFloorSectionPath(branchId, floorId, sectionId)}/restore`;
+}
 
 const ENDPOINT_PREFIXES = collectStaticPaths(ApiUrlsV1);
 

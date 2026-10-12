@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -9,13 +10,13 @@ import { Eye, Pencil, Plus, Search } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
+import { Loading } from '@/components/shared/ui/Loading';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
-import { floorSetupCatalog } from '@/lib/mocks/floor-and-table-setup/floorSetup.mocks';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import type {
-  CatalogFloor,
   FloorSort,
   FloorStatusFilter,
+  FloorSummary,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 
 const sortOptions = [
@@ -31,16 +32,25 @@ const statusOptions = [
 ] as const;
 
 export function FloorCatalog({
+  floors,
+  isLoading = false,
+  error = null,
+  status,
+  onStatusChange,
   onCreate,
   onOpen,
 }: Readonly<{
+  floors: readonly FloorSummary[];
+  isLoading?: boolean;
+  error?: string | null;
+  status: FloorStatusFilter;
+  onStatusChange: (status: FloorStatusFilter) => void;
   onCreate: () => void;
-  onOpen: (floor: CatalogFloor, tab: 'overview' | 'floor') => void;
+  onOpen: (floor: FloorSummary, tab: 'overview' | 'floor') => void;
 }>) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<FloorSort>('recent');
-  const [status, setStatus] = useState<FloorStatusFilter>('all');
-  const floors = visibleFloors(query, sort, status);
+  const visible = visibleFloors(floors, query, sort);
 
   return (
     <Stack spacing={2.5} sx={{ flex: 1 }}>
@@ -102,7 +112,7 @@ export function FloorCatalog({
               placeholder="Status"
               options={statusOptions}
               value={status}
-              onChange={setStatus}
+              onChange={onStatusChange}
               size="small"
               minWidth={0}
               sx={{
@@ -124,6 +134,13 @@ export function FloorCatalog({
         </ActionButton>
       </Stack>
 
+      {error ? <Alert severity="error">{error}</Alert> : null}
+      {isLoading ? <Loading message="Loading floors..." fullPage={false} /> : null}
+      {!isLoading && !error && visible.length === 0 ? (
+        <Typography sx={{ color: 'text.secondary', py: 6, textAlign: 'center' }}>
+          No floors match this search.
+        </Typography>
+      ) : null}
       <Box
         sx={{
           display: 'grid',
@@ -135,81 +152,84 @@ export function FloorCatalog({
           gap: 2,
         }}
       >
-        {floors.map((floor) => (
-          <Box
-            key={floor.id}
-            sx={{
-              p: 2,
-              borderRadius: '16px',
-              border: '1px solid',
-              borderColor: 'divider',
-              bgcolor: 'background.paper',
-            }}
-          >
-            <Stack
-              direction="row"
-              sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}
-            >
-              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem' }}>{floor.name}</Typography>
-              <StatusChip
-                label={floor.active ? 'Active' : 'Inactive'}
-                variantType={floor.active ? 'success' : 'default'}
-              />
-            </Stack>
-            <Typography sx={{ color: 'text.secondary', mt: 1, fontSize: '0.875rem' }}>
-              {floor.hubTableCount} Tables · {floor.hubSeatCount} Seats
-            </Typography>
-            <Stack
-              direction="row"
-              sx={{
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                mt: 2,
-                pt: 1.5,
-                borderTop: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem' }}>
-                {floor.updatedLabel}
-              </Typography>
-              <Stack direction="row" spacing={0.5}>
-                <ActionButton
-                  variant="icon"
-                  size="small"
-                  ariaLabel={`View ${floor.name}`}
-                  onClick={() => onOpen(floor, 'overview')}
+        {!isLoading && !error
+          ? visible.map((floor) => (
+              <Box
+                key={floor.id}
+                sx={{
+                  p: 2,
+                  borderRadius: '16px',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <Stack
+                  direction="row"
+                  sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}
                 >
-                  <Eye size={15} />
-                </ActionButton>
-                <ActionButton
-                  variant="icon"
-                  size="small"
-                  ariaLabel={`Edit ${floor.name}`}
-                  onClick={() => onOpen(floor, 'floor')}
+                  <Typography sx={{ fontWeight: 800, fontSize: '1.05rem' }}>
+                    {floor.name}
+                  </Typography>
+                  <StatusChip
+                    label={floor.active ? 'Active' : 'Inactive'}
+                    variantType={floor.active ? 'success' : 'default'}
+                  />
+                </Stack>
+                <Typography sx={{ color: 'text.secondary', mt: 1, fontSize: '0.875rem' }}>
+                  {floor.code || 'No code'}
+                </Typography>
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mt: 2,
+                    pt: 1.5,
+                    borderTop: '1px solid',
+                    borderColor: 'divider',
+                  }}
                 >
-                  <Pencil size={15} />
-                </ActionButton>
-              </Stack>
-            </Stack>
-          </Box>
-        ))}
+                  <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem' }}>
+                    {floor.updatedLabel}
+                  </Typography>
+                  <Stack direction="row" spacing={0.5}>
+                    <ActionButton
+                      variant="icon"
+                      size="small"
+                      ariaLabel={`View ${floor.name}`}
+                      onClick={() => onOpen(floor, 'overview')}
+                    >
+                      <Eye size={15} />
+                    </ActionButton>
+                    <ActionButton
+                      variant="icon"
+                      size="small"
+                      ariaLabel={`Edit ${floor.name}`}
+                      onClick={() => onOpen(floor, 'floor')}
+                    >
+                      <Pencil size={15} />
+                    </ActionButton>
+                  </Stack>
+                </Stack>
+              </Box>
+            ))
+          : null}
       </Box>
     </Stack>
   );
 }
 
-function visibleFloors(query: string, sort: FloorSort, status: FloorStatusFilter): CatalogFloor[] {
+function visibleFloors(
+  floors: readonly FloorSummary[],
+  query: string,
+  sort: FloorSort,
+): FloorSummary[] {
   const needle = query.trim().toLowerCase();
-  const matched = floorSetupCatalog.filter((floor) => {
-    if (status === 'active' && !floor.active) return false;
-    if (status === 'inactive' && floor.active) return false;
-    if (!needle) return true;
-    return floor.name.toLowerCase().includes(needle) || floor.code.toLowerCase().includes(needle);
-  });
+  const matched = floors.filter((floor) => !needle || floor.name.toLowerCase().includes(needle));
   return [...matched].sort((left, right) => {
     if (sort === 'name') return left.name.localeCompare(right.name);
-    if (sort === 'tables') return right.tableCount - left.tableCount;
+    if (sort === 'tables') return (right.tableCount ?? 0) - (left.tableCount ?? 0);
     return right.updatedAt - left.updatedAt;
   });
 }

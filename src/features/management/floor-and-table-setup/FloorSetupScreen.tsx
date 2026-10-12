@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 
@@ -16,6 +17,7 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Tabs } from '@/components/shared/form-fields/Tabs';
 import { FloorDetailScreen } from '@/features/management/floor-and-table-setup/FloorDetailScreen';
 import type {
+  FloorStatusFilter,
   SavedFloor,
   SectionInput,
   WizardStep,
@@ -37,7 +39,13 @@ import {
   withFloorCode,
 } from '@/lib/helpers/floorAndTableSetup';
 import { useFloorSetupDraft } from '@/lib/hooks/floor-and-table-setup/useFloorSetupDraft';
-import { findCatalogFloor } from '@/lib/mocks/floor-and-table-setup/floorSetup.mocks';
+import {
+  useArchiveFloor,
+  useBulkCreateTables,
+  useCreateFloor,
+  useCreateSection,
+  useFloors,
+} from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
@@ -57,9 +65,15 @@ export function FloorSetupScreen() {
   const { route, draft, ready, save, openStep } = useFloorSetupDraft();
   const { details, sections, tables, floors } = draft;
   const detail = parseFloorDetailRoute(pathname);
-  const catalogFloor = detail ? findCatalogFloor(detail.floorId) : null;
+  const [floorStatus, setFloorStatus] = useState<FloorStatusFilter>('all');
+  const floorsQuery = useFloors(branchId, floorStatus);
+  const createFloorRequest = useCreateFloor(branchId);
+  const createSectionRequest = useCreateSection(branchId);
+  const bulkCreateTables = useBulkCreateTables(branchId);
+  const archiveFloorRequest = useArchiveFloor(branchId);
 
   const [nameError, setNameError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
 
   const step: WizardStep | null = isWizardStep(route.step) ? route.step : null;
@@ -124,19 +138,75 @@ export function FloorSetupScreen() {
     });
   }
 
-  function createFloor() {
+  async function createFloor() {
     if (!details.name.trim()) {
       setNameError('Enter a floor name.');
       openStep('floor');
       return;
     }
+    if (branchId == null) {
+      setCreateError('Select a branch before creating a floor.');
+      return;
+    }
+    setCreateError(null);
     const saved = buildSavedFloor(details, sections, tables);
-    openStep('success', {
-      ...draft,
-      floors: [saved, ...floors.filter((floor) => floor.id !== draft.createdId)],
-      details: saved.details,
-      createdId: saved.id,
-    });
+    try {
+      const created = await createFloorRequest.mutateAsync({
+        name: saved.details.name,
+        description: saved.details.description,
+        sort_order: 0,
+        code: saved.details.code,
+      });
+      if (!saved.details.active) {
+        await archiveFloorRequest.mutateAsync({
+          floorId: created.id,
+          body: { reason: 'Inactive', version: created.version ?? 0 },
+        });
+      }
+      const sectionIds = new Map<string, number>();
+      for (const [index, section] of saved.sections.entries()) {
+        const createdSection = await createSectionRequest.mutateAsync({
+          floorId: created.id,
+          body: {
+            name: section.name,
+            description: section.description,
+            sort_order: index,
+            code: section.code,
+          },
+        });
+        sectionIds.set(section.id, createdSection.id);
+      }
+      const tablesBySection = new Map<number, typeof saved.tables>();
+      for (const table of saved.tables) {
+        const sectionId =
+          (table.sectionId ? sectionIds.get(table.sectionId) : undefined) ??
+          sectionIds.values().next().value;
+        if (sectionId == null) continue;
+        tablesBySection.set(sectionId, [...(tablesBySection.get(sectionId) ?? []), table]);
+      }
+      for (const [sectionId, group] of tablesBySection) {
+        await bulkCreateTables.mutateAsync({
+          floorId: created.id,
+          sectionId,
+          body: {
+            items: group.map((table, index) => ({
+              name: table.number,
+              description: '',
+              capacity: table.seats,
+              sort_order: index,
+            })),
+          },
+        });
+      }
+      openStep('success', {
+        ...draft,
+        floors: [saved, ...floors.filter((floor) => floor.id !== draft.createdId)],
+        details: saved.details,
+        createdId: saved.id,
+      });
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Could not create this floor.');
+    }
   }
 
   const footer = step ? (
@@ -173,12 +243,13 @@ export function FloorSetupScreen() {
       (step === 'table' && tables.length > 0) ||
       step === 'review' ? (
         <ActionButton
+          disabled={step === 'review' && createFloorRequest.isPending}
           sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
           onClick={() => {
             if (step === 'floor') goToStep('section');
             else if (step === 'section') goToStep('table');
             else if (step === 'table') goToStep('review');
-            else createFloor();
+            else void createFloor();
           }}
         >
           {step === 'floor'
@@ -187,17 +258,21 @@ export function FloorSetupScreen() {
               ? 'Update Floor'
               : step === 'table'
                 ? 'Setup Permissions'
-                : 'Create Floor'}
+                : createFloorRequest.isPending
+                  ? 'Creating Floor'
+                  : 'Create Floor'}
         </ActionButton>
       ) : null}
     </Stack>
   ) : null;
 
-  if (detail && catalogFloor) {
+  if (detail) {
     return (
       <FloorDetailScreen
-        key={catalogFloor.id}
-        floor={catalogFloor}
+        key={detail.floorId}
+        floorId={detail.floorId}
+        branchId={branchId}
+        branchName={branchName || (branchId ? `Branch ${branchId}` : '—')}
         detail={detail}
         base={route.base}
       />
@@ -208,10 +283,23 @@ export function FloorSetupScreen() {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100%', gap: 2.5, pb: 3 }}>
       {route.step === 'hub' ? (
         <FloorCatalog
+          floors={floorsQuery.data ?? []}
+          isLoading={floorsQuery.isLoading}
+          error={
+            branchId == null
+              ? 'Select a branch to load floors.'
+              : floorsQuery.isError
+                ? floorsQuery.error.message
+                : null
+          }
+          status={floorStatus}
+          onStatusChange={setFloorStatus}
           onCreate={openCreate}
           onOpen={(floor, tab) => router.push(floorDetailHref(route.base, floor.id, tab))}
         />
       ) : null}
+
+      {createError ? <Alert severity="error">{createError}</Alert> : null}
 
       {step ? (
         <>

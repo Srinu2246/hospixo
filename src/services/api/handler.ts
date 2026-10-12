@@ -21,6 +21,7 @@ import {
   MOCK_SHIFT_METRICS,
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
 import { POS_TABLES_DATA } from '@/lib/mocks/pos/usePosTables.mocks';
+import { resolveRestaurantFloorMock } from '@/lib/mocks/floor-and-table-setup/restaurantFloors.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 import type { HttpMethod, QueryParams } from '@/services/api/types';
 
@@ -86,6 +87,9 @@ export function isMockApiEnabled(): boolean {
 }
 
 export function resolveMock(request: MockRequest): unknown | undefined {
+  const restaurant = resolveRestaurantFloorMock(request);
+  if (restaurant !== undefined) return restaurant;
+
   const listPath = findListPath(request.path);
   if (!listPath) return undefined;
 

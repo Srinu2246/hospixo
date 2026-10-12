@@ -27,7 +27,7 @@ export function SuccessStep({
     { label: 'Floor Type', value: floorTypeLabel(floor.details.type) },
     {
       label: 'Seating Summary',
-      value: `${floor.tables.length} ${floor.tables.length === 1 ? 'Table' : 'Tables'} · ${seatCount} ${seatCount === 1 ? 'Seat' : 'Seats'}`,
+      value: `${floor.tables.length} ${floor.tables.length === 1 ? 'Table' : 'Tables'} - ${seatCount} ${seatCount === 1 ? 'Seat' : 'Seats'}`,
     },
     {
       label: 'Reservations',
@@ -77,7 +77,16 @@ export function SuccessStep({
         <Typography sx={{ color: 'text.secondary', mt: 1, lineHeight: 1.6 }}>
           The {floor.details.name} has been configured and is now active for {outlet}.
         </Typography>
-        <Stack spacing={1.25} sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Stack
+          spacing={1.25}
+          sx={{
+            mt: 3,
+            p: 2,
+            textAlign: 'left',
+            borderRadius: 2,
+            bgcolor: 'action.hover',
+          }}
+        >
           {rows.map((row) => (
             <Stack key={row.label} direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
               <Typography

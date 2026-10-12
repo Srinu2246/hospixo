@@ -66,7 +66,8 @@ async function request<T>(
 
   const isPublic = isPublicEndpoint(path);
   const isLogout = path === ApiUrlsV1.auth.logout;
-  const usesAccessToken = isLogout || path === ApiUrlsV1.auth.me;
+  const usesAccessToken =
+    isLogout || path === ApiUrlsV1.auth.me || path.startsWith(`${ApiUrlsV1.restaurant.branches}/`);
   const session = isPublic ? undefined : await requireSession();
   const { secret } = getBackendConfig();
   const headers = new Headers({

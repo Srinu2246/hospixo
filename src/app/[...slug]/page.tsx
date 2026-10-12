@@ -81,11 +81,19 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     },
   },
 
+  {
+    name: 'Floor and Table Setup',
+    match: (path) =>
+      path.endsWith('floor-and-table-setup') || path.includes('floor-and-table-setup/'),
+    render: () => <FloorSetupScreen />,
+  },
+
   // POS Payment Success: .../success or .../payment-success
   {
     name: 'POS Payment Success Receipt',
     match: (path) =>
       !path.includes('cash-shift') &&
+      !path.includes('floor-and-table-setup') &&
       (path.endsWith('/success') ||
         path.endsWith('success') ||
         path.endsWith('/payment-success') ||
@@ -327,13 +335,6 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path === 'user-roles' ||
       path.endsWith('/user-roles'),
     render: () => <UsersAndRolesScreen />,
-  },
-
-  {
-    name: 'Floor and Table Setup',
-    match: (path) =>
-      path.endsWith('floor-and-table-setup') || path.includes('floor-and-table-setup/'),
-    render: () => <FloorSetupScreen />,
   },
 
   // 12. Main Dashboard: .../dashboard

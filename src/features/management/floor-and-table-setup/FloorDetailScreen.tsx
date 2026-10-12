@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -18,6 +19,7 @@ import {
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Tabs } from '@/components/shared/form-fields/Tabs';
+import { Loading } from '@/components/shared/ui/Loading';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import type {
   CatalogFloor,
@@ -28,10 +30,19 @@ import type {
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { floorDetailHref, type FloorDetailRoute } from '@/lib/helpers/floorAndTableSetup';
 import {
-  readCatalogSession,
-  subscribeCatalogSession,
-  writeCatalogSession,
-} from '@/lib/mocks/floor-and-table-setup/floorSetup.mocks';
+  useArchiveFloor,
+  useArchiveSection,
+  useCreateSection,
+  useFloor,
+  useFloorMap,
+  useFloorSections,
+  useRestoreFloor,
+  useSectionTables,
+  useRestoreSection,
+  useUpdateFloor,
+  useUpdateSection,
+} from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
+import { formatCreatedOn, isActiveRecord } from '@/lib/schemas/floor-and-table-setup/floors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 
 const detailTabs = [
@@ -49,31 +60,180 @@ const floorTypes: { id: FloorType; label: string }[] = [
 ];
 
 export function FloorDetailScreen({
-  floor,
+  floorId,
+  branchId,
+  branchName,
   detail,
   base,
-}: Readonly<{ floor: CatalogFloor; detail: FloorDetailRoute; base: string }>) {
+}: Readonly<{
+  floorId: string;
+  branchId: number | undefined;
+  branchName: string;
+  detail: FloorDetailRoute;
+  base: string;
+}>) {
   const router = useRouter();
-  const view = useSyncExternalStore(
-    subscribeCatalogSession,
-    () => readCatalogSession(floor.id) ?? floor,
-    () => floor,
-  );
-  const { sections, tables } = view;
+  const numericFloorId = /^\d+$/.test(floorId) ? Number(floorId) : undefined;
+  const floorQuery = useFloor(branchId, numericFloorId);
+  const sectionsQuery = useFloorSections(branchId, numericFloorId);
+  const updateFloor = useUpdateFloor(branchId, numericFloorId);
+  const archiveFloor = useArchiveFloor(branchId);
+  const restoreFloor = useRestoreFloor(branchId);
+  const createSection = useCreateSection(branchId);
+  const updateSection = useUpdateSection(branchId);
+  const archiveSection = useArchiveSection(branchId);
+  const restoreSection = useRestoreSection(branchId);
+  const sections = sectionsQuery.data ?? [];
+  const tablesQuery = useSectionTables(branchId, numericFloorId, sections);
+  const mapSectionId = numericSectionId(sections[0]?.id);
+  const floorMapQuery = useFloorMap(branchId, numericFloorId, mapSectionId);
+  const tables = mergeTables(tablesQuery.data ?? [], floorMapQuery.data ?? []);
+  const sectionsWithTables = sections.map((section) => {
+    const owned = tables.filter((table) => table.sectionId === section.id);
+    const activeCount = owned.filter((table) => table.active).length;
+    return {
+      ...section,
+      tableCount: owned.length,
+      seatCount: owned.reduce((total, table) => total + table.seats, 0),
+      activeTableCount: activeCount,
+      inactiveTableCount: owned.length - activeCount,
+    };
+  });
   const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const record = floorQuery.data;
+  const view: CatalogFloor | null = record
+    ? {
+        id: String(record.id),
+        name: record.name,
+        code: record.code ?? '',
+        type: 'indoor',
+        description: record.description ?? '',
+        active: isActiveRecord(record),
+        branch: branchName,
+        createdBy: '—',
+        createdOn: formatCreatedOn(record.created_at),
+        updatedLabel: '',
+        updatedAt: Date.parse(record.updated_at ?? '') || 0,
+        tableCount: tables.length,
+        seatCount: tables.reduce((total, table) => total + table.seats, 0),
+        hubTableCount: tables.length,
+        hubSeatCount: tables.reduce((total, table) => total + table.seats, 0),
+        activeTableCount: tables.filter((table) => table.active).length,
+        maintenanceCount: tables.filter((table) => !table.active).length,
+        sections: sectionsWithTables,
+        tables,
+        activity: [],
+      }
+    : null;
   const isNewSection = detail.sectionId === 'new';
-  const section = sections.find((item) => item.id === detail.sectionId) ?? null;
+  const section = sectionsWithTables.find((item) => item.id === detail.sectionId) ?? null;
 
   useEffect(() => {
     setFooterTarget(document.getElementById('app-shell-footer'));
   }, []);
 
   function openTab(tab: FloorDetailTab) {
-    router.push(floorDetailHref(base, floor.id, tab));
+    router.push(floorDetailHref(base, floorId, tab));
   }
 
   function openSection(sectionId: string, editing = false) {
-    router.push(floorDetailHref(base, floor.id, 'sections', sectionId, editing));
+    router.push(floorDetailHref(base, floorId, 'sections', sectionId, editing));
+  }
+
+  async function saveFloor(values: {
+    name: string;
+    code: string;
+    description: string;
+    active: boolean;
+  }) {
+    if (!record || numericFloorId == null) return;
+    setActionError(null);
+    try {
+      let version = record.version ?? 0;
+      const wasActive = isActiveRecord(record);
+      if (values.active !== wasActive) {
+        const changed = values.active
+          ? await restoreFloor.mutateAsync({
+              floorId: numericFloorId,
+              body: { reason: 'Restored', version },
+            })
+          : await archiveFloor.mutateAsync({
+              floorId: numericFloorId,
+              body: { reason: 'Inactive', version },
+            });
+        version = changed.version ?? version;
+      }
+      await updateFloor.mutateAsync({
+        name: values.name.trim(),
+        description: values.description.trim(),
+        sort_order: record.sort_order ?? 0,
+        status: values.active ? 'active' : 'inactive',
+        version,
+        code: values.code.trim(),
+      });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not update this floor.');
+    }
+  }
+
+  async function saveSection(next: CatalogSection) {
+    if (numericFloorId == null) return;
+    setActionError(null);
+    const body = {
+      name: next.name.trim(),
+      description: next.description.trim(),
+      sort_order: next.sortOrder ?? 0,
+      code: next.code.trim(),
+    };
+    try {
+      const numericId = /^\d+$/.test(next.id) ? Number(next.id) : undefined;
+      if (numericId == null) {
+        const created = await createSection.mutateAsync({ floorId: numericFloorId, body });
+        openSection(String(created.id));
+        return;
+      }
+      let version = next.version ?? 0;
+      const wasActive = sections.find((item) => item.id === next.id)?.active ?? true;
+      if (next.active !== wasActive) {
+        const changed = next.active
+          ? await restoreSection.mutateAsync({
+              floorId: numericFloorId,
+              sectionId: numericId,
+              body: { reason: 'Restored', version },
+            })
+          : await archiveSection.mutateAsync({
+              floorId: numericFloorId,
+              sectionId: numericId,
+              body: { reason: 'Inactive', version },
+            });
+        version = changed.version ?? version;
+      }
+      await updateSection.mutateAsync({
+        floorId: numericFloorId,
+        sectionId: numericId,
+        body: { ...body, status: next.active ? 'active' : 'inactive', version },
+      });
+      openSection(String(numericId));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save this section.');
+    }
+  }
+
+  async function archiveSectionById(sectionId: string) {
+    if (numericFloorId == null || !/^\d+$/.test(sectionId)) return;
+    const current = sections.find((item) => item.id === sectionId);
+    setActionError(null);
+    try {
+      await archiveSection.mutateAsync({
+        floorId: numericFloorId,
+        sectionId: Number(sectionId),
+        body: { reason: 'Archived', version: current?.version ?? 0 },
+      });
+      if (detail.sectionId === sectionId) openTab('sections');
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not archive this section.');
+    }
   }
 
   const title =
@@ -83,7 +243,7 @@ export function FloorDetailScreen({
         ? 'Add Section'
         : section
           ? `${section.name} Section`
-          : view.name;
+          : (view?.name ?? 'Floor');
 
   const footer =
     detail.tab === 'sections' && !detail.editing && !section ? (
@@ -123,6 +283,18 @@ export function FloorDetailScreen({
         </ActionButton>
       </DetailFooter>
     ) : null;
+
+  if (branchId == null || numericFloorId == null) {
+    return <Alert severity="error">This floor could not be loaded.</Alert>;
+  }
+  if (floorQuery.isLoading) {
+    return <Loading message="Loading floor..." fullPage={false} />;
+  }
+  if (floorQuery.isError || !view) {
+    return (
+      <Alert severity="error">{floorQuery.error?.message ?? 'Could not load this floor.'}</Alert>
+    );
+  }
 
   return (
     <Stack spacing={2.5} sx={{ pb: 3 }}>
@@ -176,44 +348,82 @@ export function FloorDetailScreen({
         ) : null}
       </Stack>
 
-      {detail.tab === 'overview' ? <OverviewPanel floor={view} sections={sections} /> : null}
-      {detail.tab === 'floor' ? <FloorPanel floor={view} /> : null}
-      {detail.tab === 'sections' ? (
+      {actionError ? <Alert severity="error">{actionError}</Alert> : null}
+      {detail.tab === 'overview' ? (
+        <OverviewPanel floor={view} sections={sectionsWithTables} />
+      ) : null}
+      {detail.tab === 'floor' ? (
+        <FloorPanel
+          key={`${view.id}-${record?.version ?? 0}`}
+          floor={view}
+          saving={updateFloor.isPending || archiveFloor.isPending || restoreFloor.isPending}
+          onSave={(values) => {
+            void saveFloor(values);
+          }}
+        />
+      ) : null}
+      {detail.tab === 'sections' && sectionsQuery.isLoading ? (
+        <Loading message="Loading sections..." fullPage={false} />
+      ) : null}
+      {detail.tab === 'sections' && sectionsQuery.isError ? (
+        <Alert severity="error">{sectionsQuery.error.message}</Alert>
+      ) : null}
+      {detail.tab === 'sections' && !sectionsQuery.isLoading && !sectionsQuery.isError ? (
         <FloorSectionsPanel
-          sections={sections}
+          sections={sectionsWithTables}
           tables={tables}
-          selected={section}
-          editing={detail.editing}
+          selected={isNewSection ? null : section}
+          editing={detail.editing || isNewSection}
           onOpen={(sectionId) => openSection(sectionId)}
           onEdit={(sectionId) => openSection(sectionId, true)}
-          onDelete={(sectionId) =>
-            writeCatalogSession(floor.id, {
-              sections: sections.filter((item) => item.id !== sectionId),
-            })
-          }
+          onDelete={(sectionId) => {
+            void archiveSectionById(sectionId);
+          }}
           onAdd={() => openSection('new', true)}
           onSave={(next) => {
-            writeCatalogSession(floor.id, {
-              sections: sections.some((item) => item.id === next.id)
-                ? sections.map((item) => (item.id === next.id ? next : item))
-                : [...sections, next],
-            });
-            openSection(next.id);
+            void saveSection(next);
           }}
           onCancel={() => (section ? openSection(section.id) : openTab('sections'))}
         />
       ) : null}
-      {detail.tab === 'tables' ? (
+      {detail.tab === 'tables' && (tablesQuery.isLoading || floorMapQuery.isLoading) ? (
+        <Loading message="Loading tables..." fullPage={false} />
+      ) : null}
+      {detail.tab === 'tables' && tablesQuery.isError && tables.length === 0 ? (
+        <Alert severity="error">{tablesQuery.error.message}</Alert>
+      ) : null}
+      {detail.tab === 'tables' &&
+      !tablesQuery.isLoading &&
+      !floorMapQuery.isLoading &&
+      !(tablesQuery.isError && tables.length === 0) ? (
         <FloorTablesPanel
           tables={tables}
-          sections={sections}
-          onChange={(next) => writeCatalogSession(floor.id, { tables: next })}
+          sections={sectionsWithTables}
+          branchId={branchId}
+          floorId={numericFloorId}
         />
       ) : null}
 
       {footer ? (footerTarget ? createPortal(footer, footerTarget) : footer) : null}
     </Stack>
   );
+}
+
+function numericSectionId(value: string | undefined): number | undefined {
+  return value && /^\d+$/.test(value) ? Number(value) : undefined;
+}
+
+function mergeTables(
+  listed: readonly CatalogTable[],
+  mapped: readonly CatalogTable[],
+): CatalogTable[] {
+  const byId = new Map<string, CatalogTable>();
+  for (const table of mapped) byId.set(table.id, table);
+  for (const table of listed) {
+    const previous = byId.get(table.id);
+    byId.set(table.id, previous ? { ...previous, ...table } : table);
+  }
+  return [...byId.values()];
 }
 
 function DetailFooter({ children }: Readonly<{ children: ReactNode }>) {
@@ -262,18 +472,7 @@ function OverviewPanel({
               variantType={floor.active ? 'success' : 'default'}
             />
           </Info>
-          <Info
-            label="Floor Type"
-            value={
-              floor.type === 'indoor'
-                ? 'Indoor'
-                : floor.type === 'outdoor'
-                  ? 'Outdoor'
-                  : floor.type === 'vip'
-                    ? 'VIP'
-                    : 'Banquet'
-            }
-          />
+          <Info label="Floor Code" value={floor.code || '—'} />
           <Info label="Tables" value={`${floor.tableCount} Tables`} />
           <Info label="Created By" value={floor.createdBy} />
         </Box>
@@ -285,35 +484,37 @@ function OverviewPanel({
         </Box>
       </SetupCard>
 
-      <SetupCard>
-        <Typography sx={{ fontWeight: 800, mb: 2 }}>Sections Overview</Typography>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { [screen.mobile]: '1fr', [screen.desktop]: '1fr 1fr' },
-            gap: 1.5,
-          }}
-        >
-          {sections.slice(0, 2).map((item) => (
-            <Box
-              key={item.id}
-              sx={{ p: 1.5, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}
-            >
-              <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 1.5 }}>
-                <Typography sx={{ fontWeight: 800 }}>{item.name}</Typography>
-                <StatusChip
-                  label={item.active ? 'Active' : 'Inactive'}
-                  variantType={item.active ? 'success' : 'default'}
-                />
-              </Stack>
-              <Stack direction="row" spacing={4}>
-                <Info label="Tables" value={String(item.tableCount)} strong />
-                <Info label="Seats" value={String(item.seatCount)} strong />
-              </Stack>
-            </Box>
-          ))}
-        </Box>
-      </SetupCard>
+      {sections.length > 0 ? (
+        <SetupCard>
+          <Typography sx={{ fontWeight: 800, mb: 2 }}>Sections Overview</Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { [screen.mobile]: '1fr', [screen.desktop]: '1fr 1fr' },
+              gap: 1.5,
+            }}
+          >
+            {sections.slice(0, 2).map((item) => (
+              <Box
+                key={item.id}
+                sx={{ p: 1.5, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}
+              >
+                <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 1.5 }}>
+                  <Typography sx={{ fontWeight: 800 }}>{item.name}</Typography>
+                  <StatusChip
+                    label={item.active ? 'Active' : 'Inactive'}
+                    variantType={item.active ? 'success' : 'default'}
+                  />
+                </Stack>
+                <Stack direction="row" spacing={4}>
+                  <Info label="Tables" value={String(item.tableCount)} strong />
+                  <Info label="Seats" value={String(item.seatCount)} strong />
+                </Stack>
+              </Box>
+            ))}
+          </Box>
+        </SetupCard>
+      ) : null}
 
       <Box
         sx={{
@@ -325,35 +526,47 @@ function OverviewPanel({
         <Stat label="Total Tables" value={floor.tableCount} />
         <Stat label="Total Seats" value={floor.seatCount} />
         <Stat label="Active Tables" value={floor.activeTableCount} />
-        <Stat label="Maintenance" value={floor.maintenanceCount} />
+        <Stat label="Inactive" value={floor.maintenanceCount} />
       </Box>
 
-      <SetupCard>
-        <Stack
-          direction="row"
-          sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}
-        >
-          <Typography sx={{ fontWeight: 800 }}>Recent Activity</Typography>
-          <ActionButton variant="text" size="small">
-            View All
-          </ActionButton>
-        </Stack>
-        <Stack spacing={1.25}>
-          {floor.activity.map((item) => (
-            <Stack key={item.id} direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.875rem' }}>{item.message}</Typography>
-              <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', flexShrink: 0 }}>
-                {item.timeLabel}
-              </Typography>
-            </Stack>
-          ))}
-        </Stack>
-      </SetupCard>
+      {floor.activity.length > 0 ? (
+        <SetupCard>
+          <Stack
+            direction="row"
+            sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}
+          >
+            <Typography sx={{ fontWeight: 800 }}>Recent Activity</Typography>
+            <ActionButton variant="text" size="small">
+              View All
+            </ActionButton>
+          </Stack>
+          <Stack spacing={1.25}>
+            {floor.activity.map((item) => (
+              <Stack key={item.id} direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: '0.875rem' }}>
+                  {item.message}
+                </Typography>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', flexShrink: 0 }}>
+                  {item.timeLabel}
+                </Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </SetupCard>
+      ) : null}
     </Stack>
   );
 }
 
-function FloorPanel({ floor }: Readonly<{ floor: CatalogFloor }>) {
+function FloorPanel({
+  floor,
+  saving,
+  onSave,
+}: Readonly<{
+  floor: CatalogFloor;
+  saving: boolean;
+  onSave: (values: { name: string; code: string; description: string; active: boolean }) => void;
+}>) {
   const [name, setName] = useState(floor.name);
   const [code, setCode] = useState(floor.code);
   const [type, setType] = useState<FloorType>(floor.type);
@@ -397,10 +610,18 @@ function FloorPanel({ floor }: Readonly<{ floor: CatalogFloor }>) {
       <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
         <StatusRow
           title="Floor Status"
-          hint="Toggle active visibility on checkout POS channels"
+          hint="Inactive floors are archived. Turning a floor back on restores it."
           checked={active}
           onChange={setActive}
         />
+      </Box>
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <ActionButton
+          disabled={saving || !name.trim()}
+          onClick={() => onSave({ name, code, description, active })}
+        >
+          Save Changes
+        </ActionButton>
       </Box>
     </SetupCard>
   );

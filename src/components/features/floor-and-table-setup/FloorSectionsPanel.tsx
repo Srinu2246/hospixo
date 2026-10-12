@@ -141,7 +141,7 @@ function SectionList({
               <ActionButton variant="outlined" size="small" startIcon={<QrCode size={14} />}>
                 Download QR
               </ActionButton>
-              <Stack direction="row">
+              <Stack direction="row" spacing={1}>
                 <ActionButton
                   variant="icon"
                   size="small"

@@ -55,6 +55,16 @@ export type FloorDetailTab = 'overview' | 'floor' | 'sections' | 'tables';
 
 export type FloorStatusFilter = 'all' | 'active' | 'inactive';
 
+export type FloorSummary = {
+  id: string;
+  name: string;
+  code: string;
+  active: boolean;
+  tableCount: number | null;
+  updatedAt: number;
+  updatedLabel: string;
+};
+
 export type FloorActivity = {
   id: string;
   message: string;
@@ -71,6 +81,8 @@ export type CatalogSection = {
   seatCount: number;
   activeTableCount: number;
   inactiveTableCount: number;
+  version?: number;
+  sortOrder?: number;
 };
 
 export type CatalogTable = {
@@ -82,6 +94,9 @@ export type CatalogTable = {
   sectionId: string;
   area: string;
   shape: string;
+  description?: string;
+  version?: number;
+  sortOrder?: number;
 };
 
 export type CatalogFloor = {
