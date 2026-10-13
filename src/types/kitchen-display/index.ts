@@ -36,3 +36,13 @@ export interface KitchenDisplayStats {
 }
 
 export type KitchenStation = 'Main Kitchen' | 'Tandoor' | 'Bar';
+
+export type {
+  KitchenBoardItemLine,
+  KitchenBoardTicket,
+  PreparationStationSummary,
+  KitchenBoardCounts,
+  KitchenBoardResponse,
+  ApiResponseKitchenBoard,
+  KitchenStatusUpdateRequest,
+} from '@/lib/schemas/kitchen-display/kitchenDisplaySchema';

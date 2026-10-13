@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type Query } from '@tanstack/react-query';
 
 import { api } from '@/services/api/browserClient';
 import type { QueryParams } from '@/services/api/types';
@@ -11,7 +11,8 @@ export type UseApiQueryOptions<T> = {
   params?: QueryParams;
   enabled?: boolean;
   initialData?: T;
-  refetchInterval?: number;
+  refetchInterval?: number | false | ((query: Query<T, unknown, T>) => number | false | undefined);
+  retry?: boolean | number | ((failureCount: number, error: unknown) => boolean);
 };
 
 export function useApiQuery<T>({
@@ -20,6 +21,7 @@ export function useApiQuery<T>({
   enabled = true,
   initialData,
   refetchInterval,
+  retry,
 }: UseApiQueryOptions<T>) {
   const [initialDataUpdatedAt] = useState(() => Date.now());
 
@@ -29,6 +31,7 @@ export function useApiQuery<T>({
     enabled,
     initialData,
     initialDataUpdatedAt: initialData === undefined ? undefined : initialDataUpdatedAt,
-    refetchInterval,
+    refetchInterval: refetchInterval as never,
+    retry,
   });
 }

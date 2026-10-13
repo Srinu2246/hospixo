@@ -68,8 +68,30 @@ const ApiUrlsV1 = {
   },
   restaurant: {
     branches: '/v1/branches',
+    preparationStations: '/v1/restaurant/preparation-stations',
+  },
+  kitchen: {
+    kitchenBoard: resource('/v1/kitchen-display'),
+    branchBoard: (branchId: number | string) => branchKitchenBoardPath(branchId),
+    branchStatus: (branchId: number | string, orderId: number | string) =>
+      branchKitchenStatusPath(branchId, orderId),
   },
 };
+
+export function branchKitchenBoardPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/kitchen-board`;
+}
+
+export function branchKitchenStatusPath(
+  branchId: number | string,
+  orderId: number | string,
+): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders/${encodeURIComponent(String(orderId))}/kitchen-status`;
+}
+
+export function restaurantPreparationStationsPath(): string {
+  return ApiUrlsV1.restaurant.preparationStations;
+}
 
 /** GET /v2/platform/organizations/{organization_id}/companies */
 export function organizationCompaniesPath(organizationId: number | string): string {

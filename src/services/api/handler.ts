@@ -32,7 +32,10 @@ import { POS_TABLES_DATA } from '@/lib/mocks/pos/usePosTables.mocks';
 import { MOCK_BRANCHES } from '@/lib/mocks/organization/branches.mocks';
 import { MOCK_COMPANIES } from '@/lib/mocks/organization/companies.mocks';
 import { resolveRestaurantFloorMock } from '@/lib/mocks/floor-and-table-setup/restaurantFloors.mocks';
-import { MOCK_KITCHEN_ORDERS } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
+import {
+  MOCK_KITCHEN_ORDERS,
+  resolveKitchenDisplayMock,
+} from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
 import type { HttpMethod, QueryParams } from '@/services/api/types';
@@ -109,6 +112,9 @@ export function isMockApiEnabled(): boolean {
 export function resolveMock(request: MockRequest): unknown | undefined {
   const restaurant = resolveRestaurantFloorMock(request);
   if (restaurant !== undefined) return restaurant;
+
+  const kitchen = resolveKitchenDisplayMock(request);
+  if (kitchen !== undefined) return kitchen;
 
   const listPath = findListPath(request.path);
   if (!listPath) return undefined;
