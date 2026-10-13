@@ -1,8 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { Box, Stack, Avatar, Menu, MenuItem, Tooltip } from '@mui/material';
+import {
+  Box,
+  Stack,
+  Avatar,
+  Divider,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
@@ -11,6 +22,7 @@ import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import { CircleHelp, FileText, LogOut, PenLine, Shield, UserRound } from 'lucide-react';
 
 import { LogoutModal } from '@/components/shared/app/Logout';
 import { Dropdown, type DropdownOption } from '@/components/shared/form-fields/Dropdown';
@@ -20,6 +32,20 @@ import { useThemeStore } from '@/stores/themeStore';
 import { colors } from '@/lib/theme/mui/colors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { normalizeRoleKey, type SidebarContext, type SidebarUserProfile } from '@/app/sidebar';
+
+type ProfileMenuAction = 'profile' | 'help' | 'privacy' | 'terms' | 'blogs' | 'logout';
+
+const PROFILE_MENU_ITEMS: ReadonlyArray<{
+  id: Exclude<ProfileMenuAction, 'logout'>;
+  label: string;
+  icon: ReactNode;
+}> = [
+  { id: 'profile', label: 'My Profile', icon: <UserRound size={18} strokeWidth={1.75} /> },
+  { id: 'help', label: 'Help & Support', icon: <CircleHelp size={18} strokeWidth={1.75} /> },
+  { id: 'privacy', label: 'Privacy & Policy', icon: <Shield size={18} strokeWidth={1.75} /> },
+  { id: 'terms', label: 'Terms & Conditions', icon: <FileText size={18} strokeWidth={1.75} /> },
+  { id: 'blogs', label: 'Blogs', icon: <PenLine size={18} strokeWidth={1.75} /> },
+];
 
 export interface TopNavbarProps {
   role?: string;
@@ -81,6 +107,18 @@ export function TopNavbar({
   const isBranchView = pathname?.includes('/branch-manager') || false;
   const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
   const [logoutOpen, setLogoutOpen] = useState(false);
+
+  const closeProfileMenu = () => setProfileAnchor(null);
+
+  const handleProfileMenuAction = (action: ProfileMenuAction) => {
+    closeProfileMenu();
+    if (action === 'logout') {
+      setLogoutOpen(true);
+    }
+  };
+
+  const displayName = activeUser?.name?.trim() || 'User';
+  const displayRole = formatRoleLabel(activeUser?.role || activeRole);
 
   return (
     <Box
@@ -301,30 +339,120 @@ export function TopNavbar({
         <Menu
           anchorEl={profileAnchor}
           open={Boolean(profileAnchor)}
-          onClose={() => setProfileAnchor(null)}
+          onClose={closeProfileMenu}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           slotProps={{
+            list: { dense: true, sx: { py: 0.5 } },
             paper: {
               sx: {
-                minWidth: 160,
+                width: 240,
                 mt: 1,
-                borderRadius: '8px',
+                borderRadius: '12px',
                 border: '1px solid',
                 borderColor: 'divider',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+                boxShadow: '0 8px 24px rgba(15, 23, 42, 0.12)',
+                overflow: 'hidden',
               },
             },
           }}
         >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 1.75, py: 1.5 }}>
+            <Avatar
+              src={activeUser?.avatar}
+              alt={displayName}
+              sx={{
+                width: 40,
+                height: 40,
+                fontSize: '0.9375rem',
+                fontWeight: 700,
+                bgcolor: '#111827',
+                color: '#FFFFFF',
+              }}
+            >
+              {initials(displayName)}
+            </Avatar>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.9375rem',
+                  fontWeight: 700,
+                  color: 'text.primary',
+                  lineHeight: 1.25,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {displayName}
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 400,
+                  color: 'text.secondary',
+                  lineHeight: 1.3,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {displayRole}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Divider sx={{ borderColor: 'divider' }} />
+
+          {PROFILE_MENU_ITEMS.map((item) => (
+            <MenuItem
+              key={item.id}
+              onClick={() => handleProfileMenuAction(item.id)}
+              sx={{
+                mx: 0.5,
+                my: 0.25,
+                px: 1.25,
+                py: 1,
+                borderRadius: '8px',
+                gap: 0.5,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 32, color: 'text.primary' }}>{item.icon}</ListItemIcon>
+              <ListItemText>
+                <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'text.primary' }}>
+                  {item.label}
+                </Typography>
+              </ListItemText>
+            </MenuItem>
+          ))}
+
+          <Divider sx={{ borderColor: 'divider', my: 0.5 }} />
+
           <MenuItem
-            onClick={() => {
-              setProfileAnchor(null);
-              setLogoutOpen(true);
+            onClick={() => handleProfileMenuAction('logout')}
+            sx={{
+              mx: 0.5,
+              mb: 0.5,
+              px: 1.25,
+              py: 1,
+              borderRadius: '8px',
+              gap: 0.5,
+              color: colors.danger.default,
+              '&:hover': {
+                bgcolor: 'action.hover',
+                color: colors.danger.default,
+              },
             }}
-            sx={{ fontSize: '0.875rem', color: 'error.main' }}
           >
-            Logout
+            <ListItemIcon sx={{ minWidth: 32, color: 'inherit' }}>
+              <LogOut size={18} strokeWidth={1.75} />
+            </ListItemIcon>
+            <ListItemText>
+              <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'inherit' }}>
+                Logout
+              </Typography>
+            </ListItemText>
           </MenuItem>
         </Menu>
         <LogoutModal open={logoutOpen} onClose={() => setLogoutOpen(false)} />
@@ -338,6 +466,12 @@ function initials(name?: string): string {
   if (parts.length === 0) return 'U';
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function formatRoleLabel(role?: string): string {
+  const value = (role ?? '').trim();
+  if (!value) return 'User';
+  return value.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').toLowerCase();
 }
 
 export default TopNavbar;

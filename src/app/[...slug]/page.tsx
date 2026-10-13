@@ -183,23 +183,7 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     render: () => <PosTableSelection isDineIn />,
   },
 
-  // POS Tables Table Order: .../pos/point-of-sale/tables/[tableId]
-  {
-    name: 'POS Table Detail Order',
-    match: (_, slug) => {
-      return (
-        slug.length >= 2 &&
-        slug[slug.length - 2] === 'tables' &&
-        slug[slug.length - 1] !== 'checkout'
-      );
-    },
-    render: (_, slug) => {
-      const tableId = slug[slug.length - 1];
-      return <PosTableSelection isDineIn={false} initialTableId={tableId} />;
-    },
-  },
-
-  // POS Tables (Floor Plan)
+  // POS Tables (Floor Plan) — ordering routes live under dine-in/[tableId] only
   {
     name: 'POS Tables',
     match: (path) =>

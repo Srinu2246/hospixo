@@ -5,26 +5,35 @@ import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { LayoutGrid, Pencil, Plus, QrCode, Trash2 } from 'lucide-react';
+import { Eye, LayoutGrid, Pencil, Plus, QrCode } from 'lucide-react';
 
+import {
+  EditTableDialog,
+  nextTableNames,
+  numericId,
+} from '@/components/features/floor-and-table-setup/EditTableDialog';
+import { SetupCard, StatusRow } from '@/components/features/floor-and-table-setup/SetupFields';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
-import { screen } from '@/lib/theme/mui/breakpoints';
-import { SetupCard, StatusRow } from '@/components/features/floor-and-table-setup/SetupFields';
 import type {
   CatalogSection,
   CatalogTable,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
+import { useCreateTable } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
+import { screen } from '@/lib/theme/mui/breakpoints';
+import { ApiError } from '@/services/api/types';
+import { useToastStore } from '@/stores/toastStore';
 
 export function FloorSectionsPanel({
   sections,
   tables,
   selected,
   editing,
+  branchId,
+  floorId,
   onOpen,
   onEdit,
-  onDelete,
   onAdd,
   onSave,
   onCancel,
@@ -33,9 +42,10 @@ export function FloorSectionsPanel({
   tables: readonly CatalogTable[];
   selected: CatalogSection | null;
   editing: boolean;
+  branchId?: number;
+  floorId?: number;
   onOpen: (sectionId: string) => void;
   onEdit: (sectionId: string) => void;
-  onDelete: (sectionId: string) => void;
   onAdd: () => void;
   onSave: (section: CatalogSection) => void;
   onCancel: () => void;
@@ -48,31 +58,24 @@ export function FloorSectionsPanel({
       <SectionDetail
         section={selected}
         tables={tables.filter((item) => item.sectionId === selected.id)}
+        floorTables={tables}
+        branchId={branchId}
+        floorId={floorId}
       />
     );
   }
-  return (
-    <SectionList
-      sections={sections}
-      onOpen={onOpen}
-      onEdit={onEdit}
-      onDelete={onDelete}
-      onAdd={onAdd}
-    />
-  );
+  return <SectionList sections={sections} onOpen={onOpen} onEdit={onEdit} onAdd={onAdd} />;
 }
 
 function SectionList({
   sections,
   onOpen,
   onEdit,
-  onDelete,
   onAdd,
 }: Readonly<{
   sections: readonly CatalogSection[];
   onOpen: (sectionId: string) => void;
   onEdit: (sectionId: string) => void;
-  onDelete: (sectionId: string) => void;
   onAdd: () => void;
 }>) {
   return (
@@ -110,22 +113,29 @@ function SectionList({
         {sections.map((section) => (
           <Box
             key={section.id}
+            role="button"
+            tabIndex={0}
+            aria-label={`Open ${section.name} section overview`}
+            onClick={() => onOpen(section.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpen(section.id);
+              }
+            }}
             sx={{
               p: 1.75,
               borderRadius: '14px',
               border: '1px solid',
               borderColor: 'divider',
               bgcolor: 'background.paper',
+              cursor: 'pointer',
+              transition: 'border-color 0.15s ease',
+              '&:hover': { borderColor: 'grey.400' },
             }}
           >
             <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1 }}>
-              <ActionButton
-                variant="text"
-                onClick={() => onOpen(section.id)}
-                sx={{ px: 0, height: 'auto', color: 'text.primary', fontWeight: 800 }}
-              >
-                {section.name}
-              </ActionButton>
+              <Typography sx={{ fontWeight: 800 }}>{section.name}</Typography>
               <StatusChip
                 label={section.active ? 'Active' : 'Inactive'}
                 variantType={section.active ? 'success' : 'default'}
@@ -137,11 +147,21 @@ function SectionList({
             <Stack
               direction="row"
               sx={{ justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
             >
               <ActionButton variant="outlined" size="small" startIcon={<QrCode size={14} />}>
                 Download QR
               </ActionButton>
-              <Stack direction="row" spacing={1}>
+              <Stack direction="row" spacing={0.5}>
+                <ActionButton
+                  variant="icon"
+                  size="small"
+                  ariaLabel={`View ${section.name}`}
+                  onClick={() => onOpen(section.id)}
+                >
+                  <Eye size={15} />
+                </ActionButton>
                 <ActionButton
                   variant="icon"
                   size="small"
@@ -149,14 +169,6 @@ function SectionList({
                   onClick={() => onEdit(section.id)}
                 >
                   <Pencil size={15} />
-                </ActionButton>
-                <ActionButton
-                  variant="icon"
-                  size="small"
-                  ariaLabel={`Delete ${section.name}`}
-                  onClick={() => onDelete(section.id)}
-                >
-                  <Trash2 size={15} />
                 </ActionButton>
               </Stack>
             </Stack>
@@ -170,7 +182,49 @@ function SectionList({
 function SectionDetail({
   section,
   tables,
-}: Readonly<{ section: CatalogSection; tables: readonly CatalogTable[] }>) {
+  floorTables,
+  branchId,
+  floorId,
+}: Readonly<{
+  section: CatalogSection;
+  tables: readonly CatalogTable[];
+  floorTables: readonly CatalogTable[];
+  branchId?: number;
+  floorId?: number;
+}>) {
+  const [draft, setDraft] = useState<CatalogTable | null>(null);
+  const showToast = useToastStore((state) => state.show);
+  const createTable = useCreateTable(branchId);
+  const sectionId = numericId(section.id);
+  const canCreate = floorId != null && sectionId != null;
+
+  async function saveTable(next: CatalogTable) {
+    if (floorId == null || sectionId == null) return;
+    try {
+      await createTable.mutateAsync({
+        floorId,
+        sectionId,
+        body: {
+          name: next.number.trim(),
+          description: next.description ?? '',
+          capacity: next.seats,
+          sort_order: next.sortOrder ?? floorTables.length,
+        },
+      });
+      setDraft(null);
+      showToast(`Table ${next.number.trim()} created successfully.`, 'success');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        showToast(
+          'That table number is already used in this branch. Choose a different name.',
+          'error',
+        );
+        return;
+      }
+      showToast(error instanceof Error ? error.message : 'Could not create this table.', 'error');
+    }
+  }
+
   return (
     <Stack spacing={2}>
       <SetupCard>
@@ -216,38 +270,86 @@ function SectionDetail({
         <Stat label="Inactive" value={section.inactiveTableCount} />
       </Box>
       <Box>
-        <Typography sx={{ fontWeight: 800, mb: 1.25 }}>Tables in this Section</Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {tables.map((item) => (
-            <Box
-              key={item.id}
-              sx={{
-                px: 1.25,
-                py: 1,
-                borderRadius: '12px',
-                border: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-                minWidth: 92,
-              }}
-            >
-              <Stack
-                direction="row"
-                spacing={0.75}
-                sx={{ alignItems: 'center', color: 'primary.main' }}
+        <Stack
+          direction={{ [screen.mobile]: 'column', [screen.desktop]: 'row' }}
+          spacing={1.25}
+          sx={{
+            alignItems: { [screen.desktop]: 'center' },
+            justifyContent: 'space-between',
+            mb: 1.25,
+          }}
+        >
+          <Typography sx={{ fontWeight: 800 }}>Tables in this Section</Typography>
+          <ActionButton
+            startIcon={<Plus size={16} />}
+            disabled={!canCreate || createTable.isPending}
+            onClick={() =>
+              setDraft({
+                id: `t-${Date.now()}`,
+                number: nextTableNames(floorTables, 1)[0] ?? 'T001',
+                seats: 4,
+                active: true,
+                reservations: true,
+                sectionId: section.id,
+                area: section.name,
+                shape: 'Square',
+              })
+            }
+            sx={{ width: { [screen.mobile]: '100%', [screen.desktop]: 'auto' } }}
+          >
+            Add Table
+          </ActionButton>
+        </Stack>
+        {tables.length === 0 ? (
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+            No tables in this section yet.
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {tables.map((item) => (
+              <Box
+                key={item.id}
+                sx={{
+                  px: 1.25,
+                  py: 1,
+                  borderRadius: '12px',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                  minWidth: 92,
+                }}
               >
-                <LayoutGrid size={14} />
-                <Typography sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.8125rem' }}>
-                  {item.number}
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  sx={{ alignItems: 'center', color: 'primary.main' }}
+                >
+                  <LayoutGrid size={14} />
+                  <Typography
+                    sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.8125rem' }}
+                  >
+                    {item.number}
+                  </Typography>
+                </Stack>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', mt: 0.25 }}>
+                  {item.seats} Seats
                 </Typography>
-              </Stack>
-              <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', mt: 0.25 }}>
-                {item.seats} Seats
-              </Typography>
-            </Box>
-          ))}
-        </Box>
+              </Box>
+            ))}
+          </Box>
+        )}
       </Box>
+
+      <EditTableDialog
+        table={draft}
+        sections={[section]}
+        saving={createTable.isPending}
+        lockSection
+        onClose={() => setDraft(null)}
+        onSave={(next) => {
+          void saveTable(next);
+        }}
+      />
     </Stack>
   );
 }

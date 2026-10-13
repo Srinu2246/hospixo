@@ -25,6 +25,7 @@ import type {
   CatalogFloor,
   CatalogSection,
   CatalogTable,
+  FloorActivity,
   FloorDetailTab,
   FloorType,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
@@ -42,6 +43,7 @@ import {
   useUpdateFloor,
   useUpdateSection,
 } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
+import { MOCK_FLOOR_ACTIVITY } from '@/lib/mocks/floor-and-table-setup/floorSetup.mocks';
 import { formatCreatedOn, isActiveRecord } from '@/lib/schemas/floor-and-table-setup/floors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 
@@ -50,6 +52,7 @@ const detailTabs = [
   { value: 'floor', label: 'Floor' },
   { value: 'sections', label: 'Sections' },
   { value: 'tables', label: 'Tables' },
+  { value: 'history', label: 'History' },
 ];
 
 const floorTypes: { id: FloorType; label: string }[] = [
@@ -123,7 +126,7 @@ export function FloorDetailScreen({
         maintenanceCount: tables.filter((table) => !table.active).length,
         sections: sectionsWithTables,
         tables,
-        activity: [],
+        activity: MOCK_FLOOR_ACTIVITY,
       }
     : null;
   const isNewSection = detail.sectionId === 'new';
@@ -220,22 +223,6 @@ export function FloorDetailScreen({
     }
   }
 
-  async function archiveSectionById(sectionId: string) {
-    if (numericFloorId == null || !/^\d+$/.test(sectionId)) return;
-    const current = sections.find((item) => item.id === sectionId);
-    setActionError(null);
-    try {
-      await archiveSection.mutateAsync({
-        floorId: numericFloorId,
-        sectionId: Number(sectionId),
-        body: { reason: 'Archived', version: current?.version ?? 0 },
-      });
-      if (detail.sectionId === sectionId) openTab('sections');
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Could not archive this section.');
-    }
-  }
-
   const title =
     detail.editing && section
       ? `Edit Section – ${section.name}`
@@ -307,7 +294,8 @@ export function FloorDetailScreen({
             value === 'overview' ||
             value === 'floor' ||
             value === 'sections' ||
-            value === 'tables'
+            value === 'tables' ||
+            value === 'history'
           ) {
             openTab(value);
           }
@@ -350,7 +338,12 @@ export function FloorDetailScreen({
 
       {actionError ? <Alert severity="error">{actionError}</Alert> : null}
       {detail.tab === 'overview' ? (
-        <OverviewPanel floor={view} sections={sectionsWithTables} />
+        <OverviewPanel
+          floor={view}
+          sections={sectionsWithTables}
+          onOpenSection={(sectionId) => openSection(sectionId)}
+          onViewHistory={() => openTab('history')}
+        />
       ) : null}
       {detail.tab === 'floor' ? (
         <FloorPanel
@@ -374,11 +367,10 @@ export function FloorDetailScreen({
           tables={tables}
           selected={isNewSection ? null : section}
           editing={detail.editing || isNewSection}
+          branchId={branchId}
+          floorId={numericFloorId}
           onOpen={(sectionId) => openSection(sectionId)}
           onEdit={(sectionId) => openSection(sectionId, true)}
-          onDelete={(sectionId) => {
-            void archiveSectionById(sectionId);
-          }}
           onAdd={() => openSection('new', true)}
           onSave={(next) => {
             void saveSection(next);
@@ -403,6 +395,7 @@ export function FloorDetailScreen({
           floorId={numericFloorId}
         />
       ) : null}
+      {detail.tab === 'history' ? <HistoryPanel activity={view.activity} /> : null}
 
       {footer ? (footerTarget ? createPortal(footer, footerTarget) : footer) : null}
     </Stack>
@@ -452,7 +445,16 @@ function DetailFooter({ children }: Readonly<{ children: ReactNode }>) {
 function OverviewPanel({
   floor,
   sections,
-}: Readonly<{ floor: CatalogFloor; sections: readonly CatalogSection[] }>) {
+  onOpenSection,
+  onViewHistory,
+}: Readonly<{
+  floor: CatalogFloor;
+  sections: readonly CatalogSection[];
+  onOpenSection: (sectionId: string) => void;
+  onViewHistory: () => void;
+}>) {
+  const recentActivity = floor.activity.slice(0, 4);
+
   return (
     <Stack spacing={2}>
       <SetupCard>
@@ -497,7 +499,25 @@ function OverviewPanel({
             {sections.slice(0, 2).map((item) => (
               <Box
                 key={item.id}
-                sx={{ p: 1.5, borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${item.name} section overview`}
+                onClick={() => onOpenSection(item.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onOpenSection(item.id);
+                  }
+                }}
+                sx={{
+                  p: 1.5,
+                  borderRadius: '12px',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s ease',
+                  '&:hover': { borderColor: 'grey.400' },
+                }}
               >
                 <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 1.5 }}>
                   <Typography sx={{ fontWeight: 800 }}>{item.name}</Typography>
@@ -529,31 +549,65 @@ function OverviewPanel({
         <Stat label="Inactive" value={floor.maintenanceCount} />
       </Box>
 
-      {floor.activity.length > 0 ? (
-        <SetupCard>
-          <Stack
-            direction="row"
-            sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}
-          >
-            <Typography sx={{ fontWeight: 800 }}>Recent Activity</Typography>
-            <ActionButton variant="text" size="small">
-              View All
-            </ActionButton>
-          </Stack>
+      <SetupCard>
+        <Stack
+          direction="row"
+          sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}
+        >
+          <Typography sx={{ fontWeight: 800 }}>History</Typography>
+          <ActionButton variant="text" size="small" onClick={onViewHistory}>
+            View All
+          </ActionButton>
+        </Stack>
+        {recentActivity.length === 0 ? (
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+            No history for this floor yet.
+          </Typography>
+        ) : (
           <Stack spacing={1.25}>
-            {floor.activity.map((item) => (
-              <Stack key={item.id} direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: '0.875rem' }}>
-                  {item.message}
-                </Typography>
-                <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', flexShrink: 0 }}>
-                  {item.timeLabel}
-                </Typography>
-              </Stack>
+            {recentActivity.map((item) => (
+              <ActivityRow key={item.id} item={item} />
             ))}
           </Stack>
-        </SetupCard>
-      ) : null}
+        )}
+      </SetupCard>
+    </Stack>
+  );
+}
+
+function HistoryPanel({ activity }: Readonly<{ activity: readonly FloorActivity[] }>) {
+  return (
+    <Stack spacing={2}>
+      <Box>
+        <Typography sx={{ fontWeight: 800 }}>History</Typography>
+        <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+          Recent changes and activity for this floor
+        </Typography>
+      </Box>
+      <SetupCard>
+        {activity.length === 0 ? (
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+            No history for this floor yet.
+          </Typography>
+        ) : (
+          <Stack spacing={1.5}>
+            {activity.map((item) => (
+              <ActivityRow key={item.id} item={item} />
+            ))}
+          </Stack>
+        )}
+      </SetupCard>
+    </Stack>
+  );
+}
+
+function ActivityRow({ item }: Readonly<{ item: FloorActivity }>) {
+  return (
+    <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
+      <Typography sx={{ fontWeight: 700, fontSize: '0.875rem' }}>{item.message}</Typography>
+      <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', flexShrink: 0 }}>
+        {item.timeLabel}
+      </Typography>
     </Stack>
   );
 }

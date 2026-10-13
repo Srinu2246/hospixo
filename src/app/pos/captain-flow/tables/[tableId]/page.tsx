@@ -1,11 +1,6 @@
-import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
+import { redirect } from 'next/navigation';
 
-interface CaptainFlowTableDetailRouteProps {
-  params: {
-    tableId: string;
-  };
-}
-
-export default function CaptainFlowTableDetailRoute({ params }: CaptainFlowTableDetailRouteProps) {
-  return <PosTableSelection isDineIn={false} initialTableId={params.tableId} />;
+/** Captain tables no longer use /tables/[tableId] for ordering. */
+export default function CaptainFlowTableDetailRoute() {
+  redirect('/pos/captain-flow/tables');
 }

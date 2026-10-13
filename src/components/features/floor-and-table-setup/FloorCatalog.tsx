@@ -12,12 +12,12 @@ import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Loading } from '@/components/shared/ui/Loading';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
-import { screen } from '@/lib/theme/mui/breakpoints';
 import type {
   FloorSort,
   FloorStatusFilter,
   FloorSummary,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
+import { screen } from '@/lib/theme/mui/breakpoints';
 
 const sortOptions = [
   { id: 'recent', label: 'Recently Updated' },
@@ -30,6 +30,11 @@ const statusOptions = [
   { id: 'active', label: 'Active' },
   { id: 'inactive', label: 'Inactive' },
 ] as const;
+
+const cardHoverSx = {
+  transition: 'border-color 0.15s ease',
+  '&:hover': { borderColor: 'grey.400' },
+} as const;
 
 export function FloorCatalog({
   floors,
@@ -92,10 +97,11 @@ export function FloorCatalog({
               options={sortOptions}
               value={sort}
               onChange={setSort}
-              size="small"
+              size="large"
               minWidth={0}
               sx={{
                 width: '100%',
+                height: 44,
                 '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
               }}
             />
@@ -113,10 +119,11 @@ export function FloorCatalog({
               options={statusOptions}
               value={status}
               onChange={onStatusChange}
-              size="small"
+              size="large"
               minWidth={0}
               sx={{
                 width: '100%',
+                height: 44,
                 '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
               }}
             />
@@ -156,12 +163,24 @@ export function FloorCatalog({
           ? visible.map((floor) => (
               <Box
                 key={floor.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${floor.name} floor overview`}
+                onClick={() => onOpen(floor, 'overview')}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onOpen(floor, 'overview');
+                  }
+                }}
                 sx={{
                   p: 2,
                   borderRadius: '16px',
                   border: '1px solid',
                   borderColor: 'divider',
                   bgcolor: 'background.paper',
+                  cursor: 'pointer',
+                  ...cardHoverSx,
                 }}
               >
                 <Stack
@@ -189,6 +208,8 @@ export function FloorCatalog({
                     borderTop: '1px solid',
                     borderColor: 'divider',
                   }}
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
                 >
                   <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem' }}>
                     {floor.updatedLabel}

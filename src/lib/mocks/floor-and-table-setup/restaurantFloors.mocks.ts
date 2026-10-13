@@ -86,7 +86,8 @@ export function resolveRestaurantFloorMock(request: MockRequest): unknown | unde
 function routeFloor(request: MockRequest, branchId: number, parts: string[]): unknown {
   if (parts.length === 0) {
     if (request.method === 'POST') return ok(createFloor(branchId, request.body), 'Floor created');
-    return paged(listFloors(branchId, request.params), 'Floors retrieved');
+    // Nested sections match POS api.md §1.1; floor-setup parsers strip unknown fields.
+    return paged(listFloorsWithSections(branchId, request.params), 'Floors retrieved');
   }
 
   const floorId = numberId(parts[0]);
@@ -204,6 +205,48 @@ function listFloors(branchId: number, params: QueryParams | undefined): FloorRec
     if (item.branch_id !== branchId) return false;
     if (!status || status === 'all') return true;
     return item.status === status;
+  });
+}
+
+type FloorListItem = FloorRecord & {
+  floor_type: string;
+  is_active: boolean;
+  table_count: number;
+  sections: Array<{
+    id: number;
+    name: string;
+    code: string;
+    is_active: boolean;
+    table_count: number;
+  }>;
+};
+
+/** POS table floor plan needs floors with nested sections in one response. */
+function listFloorsWithSections(
+  branchId: number,
+  params: QueryParams | undefined,
+): FloorListItem[] {
+  return listFloors(branchId, params).map((item) => {
+    const floorSections = sections.filter(
+      (section) => section.branch_id === branchId && section.floor_id === item.id,
+    );
+    const floorTables = tables.filter(
+      (table) => table.branch_id === branchId && table.floor_id === item.id,
+    );
+
+    return {
+      ...item,
+      floor_type: 'indoor',
+      is_active: item.status === 'active',
+      table_count: floorTables.length,
+      sections: floorSections.map((section) => ({
+        id: section.id,
+        name: section.name,
+        code: section.code,
+        is_active: section.status === 'active',
+        table_count: floorTables.filter((table) => table.section_id === section.id).length,
+      })),
+    };
   });
 }
 

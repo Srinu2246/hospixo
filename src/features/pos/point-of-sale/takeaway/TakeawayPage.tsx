@@ -297,15 +297,28 @@ export function TakeawayPage({
     setToastMessage('Bill generated successfully!');
   };
 
-  // Serve Items to table
+  const isSendToKot = mode === 'table';
+  const primaryOrderLabel = isSendToKot
+    ? 'Send to KOT'
+    : `Serve to ${resolvedTableName ?? table?.name ?? 'Table'}`;
+
+  // Serve items (dine-in) or send ticket to kitchen (tables flow)
   const handleServeItems = () => {
     const targetTable = resolvedTableName ?? table?.name ?? 'Table';
     if (cartItems.length === 0) {
-      setToastMessage(`Please add items from the menu to serve to ${targetTable}.`);
+      setToastMessage(
+        isSendToKot
+          ? `Please add items from the menu before sending to KOT.`
+          : `Please add items from the menu to serve to ${targetTable}.`,
+      );
       return;
     }
     const totalQty = cartItems.reduce((acc, ci) => acc + ci.quantity, 0);
-    setToastMessage(`✓ ${totalQty} item(s) successfully served to ${targetTable}!`);
+    setToastMessage(
+      isSendToKot
+        ? `✓ ${totalQty} item(s) sent to KOT for ${targetTable}!`
+        : `✓ ${totalQty} item(s) successfully served to ${targetTable}!`,
+    );
     if (table && onServeOrder) {
       onServeOrder(table, cartItems);
     }
@@ -612,7 +625,7 @@ export function TakeawayPage({
             <SlidersHorizontal size={18} />
           </IconButton>
 
-          {/* Serve to Table button when in table ordering mode or adding items to a table */}
+          {/* Tables flow: Send to KOT. Dine-in: Serve to table. */}
           {(resolvedTableName || table) && (
             <ActionButton
               variant="primary"
@@ -631,7 +644,7 @@ export function TakeawayPage({
                 '&:hover': { bgcolor: colors.success.dark },
               }}
             >
-              Serve to {resolvedTableName ?? table?.name ?? 'Table'}
+              {primaryOrderLabel}
             </ActionButton>
           )}
 
@@ -921,13 +934,7 @@ export function TakeawayPage({
             onGenerateBill={handleGenerateBill}
             onProceedCheckout={handleProceedCheckout}
             onServe={resolvedTableName || table ? handleServeItems : undefined}
-            serveLabel={
-              resolvedTableName
-                ? `Serve to ${resolvedTableName}`
-                : table
-                  ? `Serve to ${table.name}`
-                  : 'Serve Items'
-            }
+            serveLabel={'Send to KOT'}
           />
         </Box>
       </Box>

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Box, Typography, Stack, Divider } from '@mui/material';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
@@ -14,23 +14,29 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { FilterChips } from '@/components/shared/form-fields/FilterChips';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { Toast } from '@/components/shared/ui/Toast';
 import {
   ReservationDialog,
   type NewReservationFormData,
 } from '@/features/pos/point-of-sale/reservation/ReservationDialog';
-import { colors } from '@/lib/theme/mui/colors';
-import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway/TakeawayPage';
-import { PosFloorTableCard } from './PosFloorTableCard';
+import { usePosFloorLayout } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorLayout';
 import {
+  DINE_IN_STATUS_FILTERS,
+  DINE_IN_TABLE_STATUSES,
   POS_FLOOR_TABS,
   POS_SECTIONS,
   POS_STATUS_FILTERS,
   POS_TABLES_DATA,
   type PosTableItem,
+  type PosTableStatus,
 } from '@/lib/mocks/pos/usePosTables.mocks';
 import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
+import { colors } from '@/lib/theme/mui/colors';
+import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway/TakeawayPage';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { PosFloorTableCard } from './PosFloorTableCard';
 
 function getTableIdFromPathname(pathname?: string | null): string | null {
   if (!pathname) return null;
@@ -40,6 +46,10 @@ function getTableIdFromPathname(pathname?: string | null): string | null {
   const reserved = ['dine-in', 'tables', 'checkout', 'dashboard', 'takeaway', 'take-away'];
   if (reserved.includes(last.toLowerCase())) return null;
   return last;
+}
+
+function isDineInActiveStatus(status: PosTableStatus) {
+  return DINE_IN_TABLE_STATUSES.includes(status);
 }
 
 export interface PosTableSelectionProps {
@@ -57,16 +67,59 @@ export function PosTableSelection({
 }: Readonly<PosTableSelectionProps> = {}) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const fromTables = searchParams?.get('from') === 'tables';
+  const isCaptainFlow = Boolean(pathname?.includes('captain-flow'));
+  const branchId = useSidebarStore((state) => state.context.branchId);
+  const floorsQuery = usePosFloorLayout(branchId);
+  const floors = useMemo(() => floorsQuery.data ?? [], [floorsQuery.data]);
 
   const [tables, setTables] = useState<PosTableItem[]>(POS_TABLES_DATA);
-  const [activeFloor, setActiveFloor] = useState('ground-floor');
-  const [activeSection, setActiveSection] = useState('section-a');
+  const [activeFloor, setActiveFloor] = useState(POS_FLOOR_TABS[0]?.id ?? '');
+  const [activeSection, setActiveSection] = useState(POS_SECTIONS[0]?.id ?? '');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTableId, setSelectedTableId] = useState<string>(initialSelectedTableId);
   const [manualActiveTable, setManualActiveTable] = useState<PosTableItem | null>(null);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const floorTabs = useMemo(
+    () =>
+      floors.length > 0
+        ? floors.map((floor) => ({ id: String(floor.id), label: floor.name }))
+        : POS_FLOOR_TABS,
+    [floors],
+  );
+
+  const sectionOptions = useMemo(() => {
+    const selected = floors.find((floor) => String(floor.id) === activeFloor);
+    if (selected?.sections.length) {
+      return selected.sections.map((section) => ({
+        id: String(section.id),
+        label: section.name,
+      }));
+    }
+    if (floors.length === 0) return POS_SECTIONS;
+    return [];
+  }, [floors, activeFloor]);
+
+  // Keep floor / section selection in sync with the floors API payload.
+  useEffect(() => {
+    if (floorTabs.length === 0) return;
+    const floorStillValid = floorTabs.some((tab) => tab.id === activeFloor);
+    if (!floorStillValid) {
+      setActiveFloor(floorTabs[0].id);
+    }
+  }, [floorTabs, activeFloor]);
+
+  useEffect(() => {
+    if (sectionOptions.length === 0) return;
+    const sectionStillValid = sectionOptions.some((option) => option.id === activeSection);
+    if (!sectionStillValid) {
+      setActiveSection(sectionOptions[0].id);
+    }
+  }, [sectionOptions, activeSection]);
 
   // Reservation confirmation handler
   const handleConfirmReservation = (data: NewReservationFormData) => {
@@ -103,8 +156,24 @@ export function PosTableSelection({
     setIsReservationOpen(false);
   };
 
-  // Derive active order table from route params/slug or manual selection
-  const routeTableId = initialTableId ?? getTableIdFromPathname(pathname);
+  const dineInBasePath = useMemo(() => {
+    if (!pathname) return '/pos/point-of-sale/dine-in';
+    const base = pathname.replace(/\/+$/, '');
+    if (base.endsWith('/dine-in')) return base;
+    if (base.includes('/dine-in/')) return base.replace(/\/dine-in\/.*$/, '/dine-in');
+    return base.replace(/\/tables(?:\/.*)?$/, '/dine-in');
+  }, [pathname]);
+
+  const tablesBasePath = useMemo(() => {
+    if (!pathname) return '/pos/point-of-sale/tables';
+    const base = pathname.replace(/\/+$/, '');
+    if (base.endsWith('/tables')) return base;
+    if (base.includes('/tables/')) return base.replace(/\/tables\/.*$/, '/tables');
+    return base.replace(/\/dine-in(?:\/.*)?$/, '/tables');
+  }, [pathname]);
+
+  // Order URLs live under dine-in/[tableId] so refresh keeps the menu.
+  const routeTableId = isDineIn ? (initialTableId ?? getTableIdFromPathname(pathname)) : null;
   const activeOrderTable = useMemo(() => {
     if (routeTableId) {
       const match = tables.find(
@@ -117,37 +186,32 @@ export function PosTableSelection({
     return manualActiveTable;
   }, [routeTableId, tables, manualActiveTable]);
 
-  // Navigate to table ordering page with updated route
-  const handleSelectTableAndNavigate = (t: PosTableItem) => {
+  /**
+   * POS Tables → /dine-in/[tableId]?from=tables (refresh-safe, Send to KOT).
+   * Dine In → /dine-in/[tableId] (Serve).
+   * Captain → menu in place (no dine-in route).
+   */
+  const handleOpenTableMenu = (t: PosTableItem) => {
     setSelectedTableId(t.id);
-    setManualActiveTable(t);
     onTableSelect?.(t);
 
-    const base = pathname
-      ? pathname.replace(/\/+$/, '')
-      : isDineIn
-        ? '/pos/point-of-sale/dine-in'
-        : '/pos/point-of-sale/tables';
+    if (isCaptainFlow && !isDineIn) {
+      setManualActiveTable(t);
+      return;
+    }
 
-    const cleanBase =
-      base.endsWith('/dine-in') || base.endsWith('/tables') ? base : base.replace(/\/[^/]+$/, '');
-
-    router.push(`${cleanBase}/${t.id}`);
+    setManualActiveTable(t);
+    const query = !isDineIn ? '?from=tables' : '';
+    router.push(`${dineInBasePath}/${t.id}${query}`);
   };
 
-  // Navigate back to floor plan
+  const handleTableClick = (t: PosTableItem) => {
+    handleOpenTableMenu(t);
+  };
+
   const handleBackToTables = () => {
     setManualActiveTable(null);
-    const base = pathname
-      ? pathname.replace(/\/+$/, '')
-      : isDineIn
-        ? '/pos/point-of-sale/dine-in'
-        : '/pos/point-of-sale/tables';
-
-    const cleanBase =
-      base.endsWith('/dine-in') || base.endsWith('/tables') ? base : base.replace(/\/[^/]+$/, '');
-
-    router.push(cleanBase);
+    router.push(fromTables || !isDineIn ? tablesBasePath : dineInBasePath);
   };
 
   // Serve items order handler for active table
@@ -169,18 +233,34 @@ export function PosTableSelection({
     );
   };
 
-  // Filter tables based on search, floor, and status filter
-  const filteredTables = useMemo(() => {
+  // Dine-in pool: reserved / occupied / billing only (before search & chip filters)
+  const dineInEligibleTables = useMemo(() => {
+    if (!isDineIn) return tables;
     return tables.filter((table) => {
-      // Floor filter
+      if (!isDineInActiveStatus(table.status)) return false;
       if (activeFloor && table.floorId !== activeFloor) return false;
+      if (sectionOptions.length > 0 && activeSection && table.sectionId !== activeSection) {
+        return false;
+      }
+      return true;
+    });
+  }, [isDineIn, tables, activeFloor, activeSection, sectionOptions.length]);
 
-      // Status filter
+  // Filter tables based on search, floor, section, and status filter
+  const filteredTables = useMemo(() => {
+    const source = isDineIn ? dineInEligibleTables : tables;
+    return source.filter((table) => {
+      if (!isDineIn) {
+        if (activeFloor && table.floorId !== activeFloor) return false;
+        if (sectionOptions.length > 0 && activeSection && table.sectionId !== activeSection) {
+          return false;
+        }
+      }
+
       if (statusFilter && statusFilter !== 'all' && statusFilter !== 'filter') {
         if (table.status !== statusFilter) return false;
       }
 
-      // Search query filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         const matchesName = table.name.toLowerCase().includes(query);
@@ -191,23 +271,45 @@ export function PosTableSelection({
 
       return true;
     });
-  }, [tables, activeFloor, statusFilter, searchQuery]);
+  }, [
+    isDineIn,
+    dineInEligibleTables,
+    tables,
+    activeFloor,
+    activeSection,
+    sectionOptions.length,
+    statusFilter,
+    searchQuery,
+  ]);
+
+  const hasNoDineInTables = isDineIn && dineInEligibleTables.length === 0;
 
   // Find currently selected table object
   const selectedTable: PosTableItem | undefined = useMemo(() => {
-    return tables.find((t) => t.id === selectedTableId);
-  }, [tables, selectedTableId]);
+    const match = tables.find((t) => t.id === selectedTableId);
+    if (!match) return undefined;
+    if (isDineIn && !isDineInActiveStatus(match.status)) return undefined;
+    return match;
+  }, [tables, selectedTableId, isDineIn]);
 
-  // If a table is active for ordering, display the complete Takeaway/Dine-In menu & checkout flow
+  // Routed dine-in/[tableId] always opens the menu (incl. Tables → available tables).
   if (activeOrderTable) {
-    return (
-      <TakeawayPage
-        table={activeOrderTable}
-        mode={isDineIn ? 'dine-in' : 'table'}
-        onBackToTables={handleBackToTables}
-        onServeOrder={handleServeOrder}
-      />
-    );
+    const allowMenu =
+      !isDineIn ||
+      Boolean(routeTableId) ||
+      isDineInActiveStatus(activeOrderTable.status) ||
+      Boolean(manualActiveTable);
+
+    if (allowMenu) {
+      return (
+        <TakeawayPage
+          table={activeOrderTable}
+          mode={fromTables || !isDineIn ? 'table' : 'dine-in'}
+          onBackToTables={handleBackToTables}
+          onServeOrder={handleServeOrder}
+        />
+      );
+    }
   }
 
   return (
@@ -254,47 +356,64 @@ export function PosTableSelection({
             </Typography>
 
             <FilterBar
-              items={POS_FLOOR_TABS}
+              items={floorTabs}
               value={activeFloor}
               onChange={(val) => setActiveFloor(val)}
               variant="segmented"
               size="medium"
             />
 
-            <Dropdown
-              size="medium"
-              value={activeSection}
-              onChange={(val) => setActiveSection(val)}
-              options={POS_SECTIONS}
-              sx={{
-                height: 40,
-                minWidth: 125,
-                borderRadius: '8px',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-              }}
-            />
+            {sectionOptions.length > 0 ? (
+              <Dropdown
+                size="medium"
+                value={activeSection}
+                onChange={(val) => setActiveSection(val)}
+                options={sectionOptions}
+                disabled={floorsQuery.isLoading}
+                sx={{
+                  height: 40,
+                  minWidth: 125,
+                  borderRadius: '8px',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              />
+            ) : null}
           </Box>
 
-          {/* Right: + Reservation ActionButton */}
-          <ActionButton
-            variant="primary"
-            size="medium"
-            startIcon={<Plus size={18} />}
-            onClick={() => setIsReservationOpen(true)}
-            sx={{
-              height: 40,
-              px: 2.5,
-              borderRadius: '8px',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-            }}
-          >
-            Reservation
-          </ActionButton>
+          {/* Reservation stays on the Tables floor plan, not Dine In */}
+          {!isDineIn ? (
+            <ActionButton
+              variant="primary"
+              size="medium"
+              startIcon={<Plus size={18} />}
+              onClick={() => setIsReservationOpen(true)}
+              sx={{
+                height: 40,
+                px: 2.5,
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+              }}
+            >
+              Reservation
+            </ActionButton>
+          ) : null}
         </Box>
+
+        {floorsQuery.isError ? (
+          <AlertMessage
+            variant="error"
+            title="Unable to load floors"
+            message={
+              floorsQuery.error instanceof Error
+                ? floorsQuery.error.message
+                : 'The floors and sections request failed.'
+            }
+          />
+        ) : null}
 
         {/* Row 2: SearchBar + FilterChips + Status Legend */}
         <Box
@@ -319,7 +438,7 @@ export function PosTableSelection({
             />
 
             <FilterChips
-              items={POS_STATUS_FILTERS}
+              items={isDineIn ? DINE_IN_STATUS_FILTERS : POS_STATUS_FILTERS}
               value={statusFilter}
               onChange={(val) => setStatusFilter(val)}
             />
@@ -327,14 +446,16 @@ export function PosTableSelection({
 
           {/* Right: Status Color Legend */}
           <Stack direction="row" spacing={2.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Box
-                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.success.default }}
-              />
-              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                Available
-              </Typography>
-            </Box>
+            {!isDineIn ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box
+                  sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.success.default }}
+                />
+                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                  Available
+                </Typography>
+              </Box>
+            ) : null}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Box
                 sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.primary.default }}
@@ -378,34 +499,77 @@ export function PosTableSelection({
           },
         }}
       >
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)',
-              lg: 'repeat(4, 1fr)',
-            },
-            gap: '20px',
-            pb: 2,
-          }}
-        >
-          {filteredTables.map((table) => (
-            <PosFloorTableCard
-              key={table.id}
-              table={table}
-              isSelected={selectedTableId === table.id}
-              onClick={(t) => handleSelectTableAndNavigate(t)}
-            />
-          ))}
-        </Box>
+        {hasNoDineInTables ? (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              minHeight: 280,
+              px: 2,
+              textAlign: 'center',
+            }}
+          >
+            <Typography sx={{ fontWeight: 800, fontSize: '1.125rem' }}>
+              No active dine-in tables
+            </Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem', maxWidth: 360 }}>
+              Reserved or ordered tables will show up here. Open Tables to seat guests or start a
+              reservation.
+            </Typography>
+            <ActionButton
+              variant="primary"
+              size="medium"
+              onClick={() => router.push(tablesBasePath)}
+              sx={{ height: 40, px: 2.5, borderRadius: '8px', fontWeight: 600 }}
+            >
+              Go to Tables
+            </ActionButton>
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+                lg: 'repeat(4, 1fr)',
+              },
+              gap: '20px',
+              pb: 2,
+            }}
+          >
+            {filteredTables.length === 0 ? (
+              <Typography
+                sx={{
+                  gridColumn: '1 / -1',
+                  color: 'text.secondary',
+                  py: 6,
+                  textAlign: 'center',
+                }}
+              >
+                No tables match this search or filter.
+              </Typography>
+            ) : null}
+            {filteredTables.map((table) => (
+              <PosFloorTableCard
+                key={table.id}
+                table={table}
+                isSelected={selectedTableId === table.id}
+                onClick={handleTableClick}
+              />
+            ))}
+          </Box>
+        )}
       </Box>
 
       {/* ------------------------------------------------------------------ */}
       {/* 3. Bottom Section: Selected Table Action Bar (Fixed at bottom)     */}
       {/* ------------------------------------------------------------------ */}
-      {selectedTable && (
+      {selectedTable && !hasNoDineInTables ? (
         <Box
           sx={{
             flexShrink: 0,
@@ -581,9 +745,7 @@ export function PosTableSelection({
               size="medium"
               startIcon={<Plus size={18} />}
               onClick={() => {
-                if (selectedTable) {
-                  handleSelectTableAndNavigate(selectedTable);
-                }
+                if (selectedTable) handleOpenTableMenu(selectedTable);
               }}
               sx={{
                 height: 40,
@@ -595,7 +757,7 @@ export function PosTableSelection({
               Add Items
             </ActionButton>
 
-            {selectedTable.status === 'available' && (
+            {!isDineIn && selectedTable.status === 'available' ? (
               <ActionButton
                 variant="outlined"
                 size="medium"
@@ -611,7 +773,7 @@ export function PosTableSelection({
               >
                 Reserve
               </ActionButton>
-            )}
+            ) : null}
 
             <ActionButton
               variant="outlined"
@@ -660,7 +822,7 @@ export function PosTableSelection({
             </ActionButton>
           </Stack>
         </Box>
-      )}
+      ) : null}
 
       {/* Table Reservation Dialog Modal */}
       <ReservationDialog

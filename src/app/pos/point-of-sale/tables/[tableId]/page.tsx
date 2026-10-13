@@ -1,4 +1,4 @@
-import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
+import { redirect } from 'next/navigation';
 
 interface PosTableDetailRouteProps {
   params: {
@@ -6,6 +6,7 @@ interface PosTableDetailRouteProps {
   };
 }
 
+/** Ordering lives under dine-in only — send legacy /tables/[tableId] links there. */
 export default function PosTableDetailRoute({ params }: PosTableDetailRouteProps) {
-  return <PosTableSelection isDineIn={false} initialTableId={params.tableId} />;
+  redirect(`/pos/point-of-sale/dine-in/${params.tableId}?from=tables`);
 }

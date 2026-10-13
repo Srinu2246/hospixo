@@ -1,16 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { CalendarDays, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 
+import {
+  EditTableDialog,
+  nextTableNames,
+  numericId,
+} from '@/components/features/floor-and-table-setup/EditTableDialog';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Modal } from '@/components/shared/ui/Modal';
+import type {
+  CatalogSection,
+  CatalogTable,
+} from '@/features/management/floor-and-table-setup/types/floorSetup';
 import {
   useArchiveTable,
   useBulkCreateTables,
@@ -24,16 +32,7 @@ import {
 import { toCatalogTable } from '@/lib/schemas/floor-and-table-setup/floors';
 import { ApiError } from '@/services/api/types';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import { StatusRow } from '@/components/features/floor-and-table-setup/SetupFields';
-import type {
-  CatalogSection,
-  CatalogTable,
-} from '@/features/management/floor-and-table-setup/types/floorSetup';
-
-const statusOptions = [
-  { id: 'active', label: 'Active' },
-  { id: 'inactive', label: 'Inactive' },
-] as const;
+import { useToastStore } from '@/stores/toastStore';
 
 export function FloorTablesPanel({
   tables,
@@ -49,7 +48,7 @@ export function FloorTablesPanel({
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<CatalogTable | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const showToast = useToastStore((state) => state.show);
   const createTable = useCreateTable(branchId);
   const updateTable = useUpdateTable(branchId);
   const bulkCreateTables = useBulkCreateTables(branchId);
@@ -78,10 +77,9 @@ export function FloorTablesPanel({
     if (floorId == null) return;
     const sectionId = numericId(next.sectionId);
     if (sectionId == null) {
-      setActionError('Choose a section for this table.');
+      showToast('Choose a section for this table.', 'error');
       return;
     }
-    setActionError(null);
     try {
       const tableId = numericId(next.id);
       if (tableId == null) {
@@ -96,6 +94,7 @@ export function FloorTablesPanel({
           },
         });
         setEditing(null);
+        showToast(`Table ${next.number.trim()} created successfully.`, 'success');
         return;
       }
       const original = tables.find((item) => item.id === next.id);
@@ -140,8 +139,9 @@ export function FloorTablesPanel({
         },
       });
       setEditing(null);
+      showToast(`Table ${next.number.trim()} updated successfully.`, 'success');
     } catch (error) {
-      setActionError(tableError(error, 'Could not save this table.'));
+      showToast(tableError(error, 'Could not save this table.'), 'error');
     }
   }
 
@@ -149,7 +149,6 @@ export function FloorTablesPanel({
     const sectionId = numericId(table.sectionId);
     const tableId = numericId(table.id);
     if (floorId == null || sectionId == null || tableId == null) return;
-    setActionError(null);
     try {
       await archiveTable.mutateAsync({
         floorId,
@@ -157,8 +156,9 @@ export function FloorTablesPanel({
         tableId,
         body: { reason: 'Archived', version: table.version ?? 0 },
       });
+      showToast(`Table ${table.number} archived successfully.`, 'success');
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Could not archive this table.');
+      showToast(error instanceof Error ? error.message : 'Could not archive this table.', 'error');
     }
   }
 
@@ -170,7 +170,6 @@ export function FloorTablesPanel({
       if (numericId(table.id) == null || sectionId == null) continue;
       groups.set(sectionId, [...(groups.get(sectionId) ?? []), table]);
     }
-    setActionError(null);
     try {
       for (const [sectionId, group] of groups) {
         await bulkUpdateTables.mutateAsync({
@@ -189,14 +188,14 @@ export function FloorTablesPanel({
           },
         });
       }
+      showToast('Tables updated successfully.', 'success');
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Could not update these tables.');
+      showToast(error instanceof Error ? error.message : 'Could not update these tables.', 'error');
     }
   }
 
   async function bulkGenerate(sectionId: number, count: number, seats: number) {
     if (floorId == null || count < 1) return;
-    setActionError(null);
     try {
       await bulkCreateTables.mutateAsync({
         floorId,
@@ -211,8 +210,9 @@ export function FloorTablesPanel({
         },
       });
       setBulkOpen(false);
+      showToast(`${count} tables created successfully.`, 'success');
     } catch (error) {
-      setActionError(tableError(error, 'Could not create these tables.'));
+      showToast(tableError(error, 'Could not create these tables.'), 'error');
     }
   }
 
@@ -262,27 +262,26 @@ export function FloorTablesPanel({
         </Box>
         <ActionButton
           variant="outlined"
-          size="small"
+          size="large"
           disabled={saving || tables.length === 0}
           onClick={() => {
             void bulkEdit();
           }}
-          sx={{ flexShrink: 0, px: { [screen.mobile]: 1.25, [screen.desktop]: 2 } }}
+          sx={{ flexShrink: 0, height: 44, px: { [screen.mobile]: 1.25, [screen.desktop]: 2 } }}
         >
           Bulk Edit
         </ActionButton>
         <ActionButton
           variant="outlined"
-          size="small"
+          size="large"
           disabled={saving || sections.length === 0}
           onClick={() => setBulkOpen(true)}
-          sx={{ flexShrink: 0, px: { [screen.mobile]: 1.25, [screen.desktop]: 2 } }}
+          sx={{ flexShrink: 0, height: 44, px: { [screen.mobile]: 1.25, [screen.desktop]: 2 } }}
         >
           Bulk Generate
         </ActionButton>
       </Stack>
 
-      {actionError ? <Alert severity="error">{actionError}</Alert> : null}
       <Box
         sx={{
           display: 'grid',
@@ -311,6 +310,8 @@ export function FloorTablesPanel({
               border: '1px solid',
               borderColor: 'divider',
               bgcolor: 'background.paper',
+              transition: 'border-color 0.15s ease',
+              '&:hover': { borderColor: 'grey.400' },
             }}
           >
             <Stack
@@ -345,7 +346,7 @@ export function FloorTablesPanel({
               <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem' }}>
                 {item.seats} {item.seats === 1 ? 'Seat' : 'Seats'}
               </Typography>
-              <Stack direction="row">
+              <Stack direction="row" spacing={0.75}>
                 <ActionButton
                   variant="icon"
                   size="small"
@@ -393,165 +394,11 @@ export function FloorTablesPanel({
   );
 }
 
-function numericId(value: string | undefined): number | undefined {
-  return value && /^\d+$/.test(value) ? Number(value) : undefined;
-}
-
-function nextTableNames(tables: readonly CatalogTable[], count: number): string[] {
-  const used = new Set(tables.map((table) => table.number.trim().toLowerCase()));
-  const names: string[] = [];
-  let serial = 1;
-  while (names.length < count) {
-    const candidate = `T${String(serial).padStart(3, '0')}`;
-    serial += 1;
-    if (used.has(candidate.toLowerCase())) continue;
-    used.add(candidate.toLowerCase());
-    names.push(candidate);
-  }
-  return names;
-}
-
 function tableError(error: unknown, fallback: string): string {
   if (error instanceof ApiError && error.status === 409) {
     return 'That table number is already used in this branch. Choose a different name.';
   }
   return error instanceof Error ? error.message : fallback;
-}
-
-function EditTableDialog({
-  table,
-  sections,
-  saving,
-  onClose,
-  onSave,
-}: Readonly<{
-  table: CatalogTable | null;
-  sections: readonly CatalogSection[];
-  saving: boolean;
-  onClose: () => void;
-  onSave: (table: CatalogTable) => void;
-}>) {
-  return (
-    <Modal
-      open={table !== null}
-      onClose={onClose}
-      title={table && numericId(table.id) == null ? 'Add Table' : 'Edit Table'}
-      width={440}
-      height="auto"
-    >
-      {table ? (
-        <EditTableForm
-          key={`${table.id}-${table.seats}-${table.version ?? 0}-${table.sectionId}`}
-          table={table}
-          sections={sections}
-          saving={saving}
-          onClose={onClose}
-          onSave={onSave}
-        />
-      ) : null}
-    </Modal>
-  );
-}
-
-function EditTableForm({
-  table,
-  sections,
-  saving,
-  onClose,
-  onSave,
-}: Readonly<{
-  table: CatalogTable;
-  sections: readonly CatalogSection[];
-  saving: boolean;
-  onClose: () => void;
-  onSave: (table: CatalogTable) => void;
-}>) {
-  const [draft, setDraft] = useState(table);
-
-  return (
-    <Stack
-      component="form"
-      spacing={2}
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave(draft);
-      }}
-    >
-      <Input
-        id="edit-table-number"
-        label="Table Number"
-        value={draft.number}
-        onChange={(event) => setDraft({ ...draft, number: event.target.value })}
-      />
-      <Input
-        id="edit-table-capacity"
-        label="Capacity"
-        value={`${draft.seats} Seats`}
-        onChange={(event) => {
-          const seats = Number(event.target.value.replace(/[^\d]/g, ''));
-          setDraft({ ...draft, seats: Number.isFinite(seats) && seats > 0 ? seats : draft.seats });
-        }}
-      />
-      <Stack spacing={0.75}>
-        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Section</Typography>
-        <Dropdown
-          options={sections.map((section) => ({ id: section.id, label: section.name }))}
-          value={draft.sectionId}
-          onChange={(sectionId) => {
-            const section = sections.find((item) => item.id === sectionId);
-            setDraft({ ...draft, sectionId, area: section?.name ?? draft.area });
-          }}
-          minWidth="100%"
-          sx={{ width: '100%' }}
-        />
-      </Stack>
-      <Stack spacing={0.75}>
-        <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Status</Typography>
-        <Dropdown
-          options={statusOptions}
-          value={draft.active ? 'active' : 'inactive'}
-          onChange={(value) => setDraft({ ...draft, active: value === 'active' })}
-          minWidth="100%"
-          sx={{ width: '100%' }}
-        />
-      </Stack>
-      <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
-        <Box
-          sx={{
-            width: 36,
-            height: 36,
-            borderRadius: '10px',
-            display: 'grid',
-            placeItems: 'center',
-            bgcolor: 'action.hover',
-            color: 'primary.main',
-          }}
-        >
-          <CalendarDays size={16} />
-        </Box>
-        <Box sx={{ flex: 1 }}>
-          <StatusRow
-            title="Reservations"
-            hint="Set permissions for accepting and managing reservations"
-            checked={draft.reservations}
-            onChange={(reservations) => setDraft({ ...draft, reservations })}
-          />
-        </Box>
-      </Stack>
-      <Stack
-        direction={{ [screen.mobile]: 'column-reverse', [screen.tablet]: 'row' }}
-        spacing={1.5}
-        sx={{ justifyContent: 'flex-end' }}
-      >
-        <ActionButton variant="outlined" type="button" onClick={onClose}>
-          Cancel
-        </ActionButton>
-        <ActionButton type="submit" disabled={saving || !draft.number.trim() || !draft.sectionId}>
-          {numericId(draft.id) == null ? 'Create Table' : 'Save Changes'}
-        </ActionButton>
-      </Stack>
-    </Stack>
-  );
 }
 
 function BulkGenerateDialog({

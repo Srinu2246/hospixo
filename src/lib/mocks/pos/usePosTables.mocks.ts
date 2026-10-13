@@ -28,16 +28,16 @@ export interface PosStatusFilter {
   label: string;
 }
 
+/** Fallback floor tabs when the floors API has not loaded yet. */
 export const POS_FLOOR_TABS: PosFloorTab[] = [
-  { id: 'ground-floor', label: 'Ground Floor' },
-  { id: 'first-floor', label: 'First Floor' },
-  { id: 'terrace', label: 'Terrace' },
+  { id: '59', label: 'Ground Floor' },
+  { id: '66', label: 'First Floor' },
 ];
 
+/** Fallback section options when the floors API has not loaded yet. */
 export const POS_SECTIONS: PosSectionOption[] = [
-  { id: 'section-a', label: 'Section A' },
-  { id: 'section-b', label: 'Section B' },
-  { id: 'section-c', label: 'Section C' },
+  { id: '93', label: 'Main Dining' },
+  { id: '92', label: 'Right side' },
 ];
 
 export const POS_STATUS_FILTERS: PosStatusFilter[] = [
@@ -47,20 +47,31 @@ export const POS_STATUS_FILTERS: PosStatusFilter[] = [
   { id: 'billing', label: 'Billing' },
 ];
 
+/** Dine-in only lists tables that already have a reservation or an active order. */
+export const DINE_IN_TABLE_STATUSES: PosTableStatus[] = ['reserved', 'occupied', 'billing'];
+
+export const DINE_IN_STATUS_FILTERS: PosStatusFilter[] = [
+  { id: 'all', label: 'All' },
+  { id: 'occupied', label: 'Occupied' },
+  { id: 'reserved', label: 'Reserved' },
+  { id: 'billing', label: 'Billing' },
+];
+
+/** Table cards use floor/section ids from the floors API mock (branch 49). */
 export const POS_TABLES_DATA: PosTableItem[] = [
   {
     id: 't-1',
     name: 'T1',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'available',
     message: 'Tap to open',
   },
   {
     id: 't-2',
     name: 'T2',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'occupied',
     amount: 'Rs.1,250',
     guests: 4,
@@ -70,8 +81,8 @@ export const POS_TABLES_DATA: PosTableItem[] = [
   {
     id: 't-3',
     name: 'T3',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'available',
     amount: 'Rs.880',
     guests: 2,
@@ -81,8 +92,8 @@ export const POS_TABLES_DATA: PosTableItem[] = [
   {
     id: 't-4',
     name: 'T4',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'occupied',
     amount: 'Rs.882',
     guests: 3,
@@ -92,8 +103,8 @@ export const POS_TABLES_DATA: PosTableItem[] = [
   {
     id: 't-5',
     name: 'T5',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'reserved',
     amount: 'Rs.0',
     guests: 2,
@@ -103,8 +114,8 @@ export const POS_TABLES_DATA: PosTableItem[] = [
   {
     id: 't-6',
     name: 'T6',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'available',
     amount: 'Rs.450',
     guests: 1,
@@ -114,16 +125,16 @@ export const POS_TABLES_DATA: PosTableItem[] = [
   {
     id: 't-7',
     name: 'T7',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'cleaning',
     message: 'Being cleaned',
   },
   {
     id: 't-8',
     name: 'T8',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'reserved',
     amount: 'Rs.1,840',
     guests: 5,
@@ -133,16 +144,16 @@ export const POS_TABLES_DATA: PosTableItem[] = [
   {
     id: 't-9',
     name: 'T9',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'available',
     message: 'Tap to open',
   },
   {
     id: 't-10',
     name: 'T10',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '59',
+    sectionId: '93',
     status: 'occupied',
     amount: 'Rs.640',
     guests: 2,
@@ -152,8 +163,8 @@ export const POS_TABLES_DATA: PosTableItem[] = [
   {
     id: 't-11',
     name: 'T11',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '66',
+    sectionId: '92',
     status: 'available',
     amount: 'Rs.1,120',
     guests: 4,
@@ -163,8 +174,8 @@ export const POS_TABLES_DATA: PosTableItem[] = [
   {
     id: 't-12',
     name: 'T12',
-    floorId: 'ground-floor',
-    sectionId: 'section-a',
+    floorId: '66',
+    sectionId: '92',
     status: 'available',
     amount: 'Rs.920',
     guests: 2,

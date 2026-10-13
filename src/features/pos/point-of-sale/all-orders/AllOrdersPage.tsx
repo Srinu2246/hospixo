@@ -107,16 +107,14 @@ export function AllOrdersPage() {
     let targetUrl = '';
     if (isCaptain) {
       if (order.type === 'dine-in' && tableParam) {
-        targetUrl = `${baseFlow}/tables/${tableParam}?orderId=${cleanOrderNumber}`;
+        targetUrl = `${baseFlow}/tables?orderId=${cleanOrderNumber}`;
       } else {
         targetUrl = `${baseFlow}/order-menu?orderId=${cleanOrderNumber}`;
       }
+    } else if (order.type === 'dine-in' && tableParam) {
+      targetUrl = `${baseFlow}/dine-in/${tableParam}?orderId=${cleanOrderNumber}`;
     } else {
-      if (order.type === 'dine-in' && tableParam) {
-        targetUrl = `${baseFlow}/tables/${tableParam}?orderId=${cleanOrderNumber}`;
-      } else {
-        targetUrl = `${baseFlow}/takeaway?orderId=${cleanOrderNumber}`;
-      }
+      targetUrl = `${baseFlow}/takeaway?orderId=${cleanOrderNumber}`;
     }
 
     router.push(targetUrl);

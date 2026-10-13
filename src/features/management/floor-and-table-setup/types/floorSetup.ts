@@ -51,7 +51,7 @@ export type TableGenerateInput = {
   reservations: boolean;
 };
 
-export type FloorDetailTab = 'overview' | 'floor' | 'sections' | 'tables';
+export type FloorDetailTab = 'overview' | 'floor' | 'sections' | 'tables' | 'history';
 
 export type FloorStatusFilter = 'all' | 'active' | 'inactive';
 

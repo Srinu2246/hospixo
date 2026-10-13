@@ -243,7 +243,7 @@ export type FloorDetailRoute = {
 };
 
 const DETAIL_ROUTE =
-  /\/floors\/([^/]+)(?:\/(overview|floor|sections|tables))?(?:\/([^/]+))?(?:\/(edit))?$/;
+  /\/floors\/([^/]+)(?:\/(overview|floor|sections|tables|history))?(?:\/([^/]+))?(?:\/(edit))?$/;
 
 export function parseFloorRoute(pathname: string): { base: string; step: FloorRouteStep } {
   const normalized = pathname.replace(/\/$/, '') || '/';
@@ -263,7 +263,10 @@ export function parseFloorDetailRoute(pathname: string): FloorDetailRoute | null
   const tab = match[2];
   return {
     floorId: decodeURIComponent(match[1]),
-    tab: tab === 'floor' || tab === 'sections' || tab === 'tables' ? tab : 'overview',
+    tab:
+      tab === 'floor' || tab === 'sections' || tab === 'tables' || tab === 'history'
+        ? tab
+        : 'overview',
     sectionId: match[3] ? decodeURIComponent(match[3]) : null,
     editing: match[4] === 'edit',
   };
