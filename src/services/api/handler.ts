@@ -1,6 +1,14 @@
 import 'server-only';
 
-import { INITIAL_USERS } from '@/lib/mocks/employees/useUserRoles.mocks';
+import {
+  INITIAL_USERS,
+  COMPANY_INITIAL_USERS,
+  BRANCH_INITIAL_USERS,
+} from '@/lib/mocks/employees/useUserRoles.mocks';
+import {
+  COMPANY_ROLE_TEMPLATES,
+  BRANCH_ROLE_TEMPLATES,
+} from '@/lib/mocks/employees/multiform.mocks';
 import {
   BRANCH_STAT_CARDS,
   COMPANY_STAT_CARDS,
@@ -77,6 +85,10 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.pos.pointOfSale.tables.list]: POS_TABLES_DATA,
   [ApiUrlsV1.pos.pointOfSale.takeaway.list]: MOCK_MENU_ITEMS,
   [ApiUrlsV1.employees.userRoles.list]: INITIAL_USERS,
+  [ApiUrlsV1.employees.companyUserRoles.list]: COMPANY_INITIAL_USERS,
+  [ApiUrlsV1.employees.companyTemplates.list]: COMPANY_ROLE_TEMPLATES,
+  [ApiUrlsV1.employees.branchUserRoles.list]: BRANCH_INITIAL_USERS,
+  [ApiUrlsV1.employees.branchTemplates.list]: BRANCH_ROLE_TEMPLATES,
   [ApiUrlsV1.dashboard.organization.list]: { stats: ORG_STAT_CARDS },
   [ApiUrlsV1.dashboard.company.list]: { stats: COMPANY_STAT_CARDS },
   [ApiUrlsV1.dashboard.branch.list]: { stats: BRANCH_STAT_CARDS },

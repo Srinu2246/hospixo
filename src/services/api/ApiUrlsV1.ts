@@ -45,6 +45,10 @@ const ApiUrlsV1 = {
   },
   employees: {
     userRoles: resource('/v1/employees/user-roles'),
+    companyUserRoles: resource('/v1/company/employees/user-roles'),
+    companyTemplates: resource('/v1/company/employees/templates'),
+    branchUserRoles: resource('/v1/branch/employees/user-roles'),
+    branchTemplates: resource('/v1/branch/employees/templates'),
   },
   dashboard: {
     organization: resource('/v1/dashboard/organization'),

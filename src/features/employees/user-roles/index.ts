@@ -1,20 +1,13 @@
-export * from './components/UsersAndRolesScreen';
-export * from './components/UserRoleStats';
-export * from './components/AddUserModal';
-export * from './components/UserFilterPopover';
-export * from './components/UserRowActionsMenu';
-export * from './components/EditStaffProfileScreen';
-export * from './components/CreateCustomTemplateScreen';
-export * from './components/common/PermissionGroupsGrid';
-export * from './components/multiform/CreateUserMultiformFlow';
-export * from './components/multiform/RoleTemplateSelection';
-export * from './components/multiform/CreateUserStepOne';
-export * from './components/multiform/ConfigurePermissionsStepTwo';
-export * from './components/multiform/ReviewAndSaveStepThree';
-export * from './components/multiform/InvitationSuccessStep';
-export * from './hooks/useUserRoles';
-export * from './types';
-export * from './types/multiform.types';
-export * from './schemas/userrole.schema';
+// Screen/Page Exports
+export * from './UsersAndRolesScreen';
+export * from './CreateUserMultiformFlow';
+export * from './EditStaffProfileScreen';
+export * from './CreateCustomTemplateScreen';
+
+// Re-exports for backwards compatibility across existing routes and components
+export * from '@/components/features/user-roles';
+export * from '@/types/user-roles';
+export * from '@/lib/schemas/user-roles';
+export * from '@/lib/hooks/user-roles';
 export * from '@/lib/mocks/employees/useUserRoles.mocks';
 export * from '@/lib/mocks/employees/multiform.mocks';

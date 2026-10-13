@@ -291,7 +291,12 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.includes('staff-profile'),
     render: (path) => {
       const mode = path.includes('profile') && !path.includes('edit') ? 'view' : 'edit';
-      return <EditStaffProfileScreen initialMode={mode} />;
+      const scope = path.includes('company')
+        ? 'company'
+        : path.includes('branch')
+          ? 'branch'
+          : 'organization';
+      return <EditStaffProfileScreen initialMode={mode} scope={scope} />;
     },
   },
 
@@ -300,7 +305,14 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     name: 'Create Custom Template',
     match: (path) =>
       path.includes('users-and-roles/custom-template') || path.includes('custom-template'),
-    render: () => <CreateCustomTemplateScreen />,
+    render: (path) => {
+      const scope = path.includes('company')
+        ? 'company'
+        : path.includes('branch')
+          ? 'branch'
+          : 'organization';
+      return <CreateCustomTemplateScreen scope={scope} />;
+    },
   },
 
   // 13. Create User Multiform: .../users-and-roles/{template|create|permissions|review|success}
@@ -318,11 +330,16 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       else if (path.endsWith('/permissions')) step = 'permissions';
       else if (path.endsWith('/review')) step = 'review';
       else if (path.endsWith('/success')) step = 'success';
-      return <CreateUserMultiformFlow initialStep={step} />;
+      const scope = path.includes('company')
+        ? 'company'
+        : path.includes('branch')
+          ? 'branch'
+          : 'organization';
+      return <CreateUserMultiformFlow initialStep={step} scope={scope} />;
     },
   },
 
-  // 12. Users and Roles: .../users-and-roles, .../employees/users-and-roles, .../users, .../roles
+  // 14. Users and Roles: .../users-and-roles, .../employees/users-and-roles, .../users, .../roles
   {
     name: 'Users and Roles',
     match: (path) =>
@@ -334,7 +351,14 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('/roles') ||
       path === 'user-roles' ||
       path.endsWith('/user-roles'),
-    render: () => <UsersAndRolesScreen />,
+    render: (path) => {
+      const scope = path.includes('company')
+        ? 'company'
+        : path.includes('branch')
+          ? 'branch'
+          : 'organization';
+      return <UsersAndRolesScreen scope={scope} />;
+    },
   },
 
   // 12. Main Dashboard: .../dashboard

@@ -1,10 +1,24 @@
-import type { UserRoleItem, UserRoleStatsData } from '@/features/employees/user-roles/types';
+import type { UserRoleItem, UserRoleStatsData } from '@/types/user-roles';
 
 export const INITIAL_USER_ROLE_STATS: UserRoleStatsData = {
   totalUsers: 124,
   activeNow: 118,
   pendingInvites: 6,
   userRoles: 14,
+};
+
+export const COMPANY_USER_ROLE_STATS: UserRoleStatsData = {
+  totalUsers: 48,
+  activeNow: 44,
+  pendingInvites: 4,
+  userRoles: 8,
+};
+
+export const BRANCH_USER_ROLE_STATS: UserRoleStatsData = {
+  totalUsers: 18,
+  activeNow: 16,
+  pendingInvites: 2,
+  userRoles: 4,
 };
 
 export const ROLE_OPTIONS = [
@@ -25,6 +39,33 @@ export const ROLE_OPTIONS = [
   'General Manager',
 ] as const;
 
+export const COMPANY_ROLE_OPTIONS = [
+  'Branch Manager',
+  'Restaurant Manager',
+  'POS Counter',
+  'Captain',
+  'Kitchen Staff',
+  'Cashier',
+  'Staff',
+  'Head Chef',
+  'Sommelier',
+  'Waiter',
+  'Barista',
+  'Accountant',
+  'Shift Supervisor',
+] as const;
+
+export const BRANCH_ROLE_OPTIONS = [
+  'Captain',
+  'POS Counter',
+  'Kitchen Staff',
+  'Cashier',
+  'Staff',
+  'Head Chef',
+  'Waiter',
+  'Barista',
+] as const;
+
 export const BRANCH_OPTIONS = [
   'Downtown HQ',
   'Westside Cafe',
@@ -33,6 +74,15 @@ export const BRANCH_OPTIONS = [
   'Northside Bistro',
   'City Center Grill',
 ] as const;
+
+export const COMPANY_BRANCH_OPTIONS = [
+  'Downtown Branch',
+  'Westside Cafe',
+  'Airport Branch',
+  'Eastgate Outlet',
+] as const;
+
+export const BRANCH_BRANCH_OPTIONS = ['Downtown Branch'] as const;
 
 export const STATUS_OPTIONS = [
   { id: 'active', label: 'Active' },
@@ -218,5 +268,93 @@ export const INITIAL_USERS: UserRoleItem[] = [
     avatar:
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80',
     createdAt: '2024-02-20',
+    company: 'VJITVI',
+  },
+];
+
+export const COMPANY_INITIAL_USERS: UserRoleItem[] = INITIAL_USERS.map((u) => ({
+  ...u,
+  branch: u.branch.replace(' HQ', ' Branch'),
+  company: 'VJITVI',
+}));
+
+export const BRANCH_INITIAL_USERS: UserRoleItem[] = [
+  {
+    id: 'usr-branch-1',
+    name: 'Marco Rossi',
+    email: 'marco@email.com',
+    role: 'Captain',
+    branch: 'Downtown Branch',
+    status: 'active',
+    avatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+    createdAt: '2024-01-15',
+    company: 'VJITVI',
+    scope: 'branch',
+  },
+  {
+    id: 'usr-branch-2',
+    name: 'Sarah Chen',
+    email: 'sarah.chen@example.com',
+    role: 'Captain',
+    branch: 'Downtown Branch',
+    status: 'invited',
+    avatar:
+      'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=120&q=80',
+    createdAt: '2024-02-12',
+    company: 'VJITVI',
+    scope: 'branch',
+  },
+  {
+    id: 'usr-branch-3',
+    name: 'David Kim',
+    email: 'd.kim@hospixo.com',
+    role: 'POS Counter',
+    branch: 'Downtown Branch',
+    status: 'active',
+    avatar:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
+    createdAt: '2024-01-20',
+    company: 'VJITVI',
+    scope: 'branch',
+  },
+  {
+    id: 'usr-branch-4',
+    name: 'Elena Rostova',
+    email: 'e.rostova@hospixo.com',
+    role: 'Kitchen Staff',
+    branch: 'Downtown Branch',
+    status: 'active',
+    avatar:
+      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80',
+    createdAt: '2024-02-01',
+    company: 'VJITVI',
+    scope: 'branch',
+  },
+  {
+    id: 'usr-branch-5',
+    name: 'Carlos Mendez',
+    email: 'c.mendez@hospixo.com',
+    role: 'Waiter',
+    branch: 'Downtown Branch',
+    status: 'active',
+    avatar:
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80',
+    createdAt: '2024-01-28',
+    company: 'VJITVI',
+    scope: 'branch',
+  },
+  {
+    id: 'usr-branch-6',
+    name: 'Amina Al-Mansoor',
+    email: 'a.mansoor@hospixo.com',
+    role: 'Barista',
+    branch: 'Downtown Branch',
+    status: 'disabled',
+    avatar:
+      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=120&q=80',
+    createdAt: '2024-02-14',
+    company: 'VJITVI',
+    scope: 'branch',
   },
 ];

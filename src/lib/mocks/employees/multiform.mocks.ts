@@ -2,7 +2,7 @@ import type {
   RoleTemplateItem,
   PermissionCategory,
   CreateUserFormValues,
-} from '@/features/employees/user-roles/types/multiform.types';
+} from '@/types/user-roles';
 
 export const ROLE_TEMPLATES: RoleTemplateItem[] = [
   {
@@ -42,8 +42,81 @@ export const ROLE_TEMPLATES: RoleTemplateItem[] = [
   },
 ];
 
+export const COMPANY_ROLE_TEMPLATES: RoleTemplateItem[] = [
+  {
+    id: 'tpl-restaurant-mgr',
+    title: 'Restaurant Manager',
+    description: 'Daily store operations and staff',
+    icon: 'restaurant',
+    roleName: 'Restaurant Manager',
+    scope: 'company',
+  },
+  {
+    id: 'tpl-pos-counter',
+    title: 'POS Counter',
+    description: 'Financial approvals and reports',
+    icon: 'pos',
+    roleName: 'POS Counter',
+    scope: 'company',
+  },
+  {
+    id: 'tpl-captain',
+    title: 'Captain',
+    description: 'Read-only access to all system data',
+    icon: 'captain',
+    roleName: 'Captain',
+    scope: 'company',
+  },
+  {
+    id: 'tpl-kitchen-staff',
+    title: 'Kitchen Staff',
+    description: 'Kitchen display and order prep',
+    icon: 'kitchen',
+    roleName: 'Kitchen Staff',
+    scope: 'company',
+  },
+];
+
 export function addRoleTemplate(template: RoleTemplateItem): void {
   ROLE_TEMPLATES.push(template);
+}
+
+export function addCompanyRoleTemplate(template: RoleTemplateItem): void {
+  COMPANY_ROLE_TEMPLATES.push(template);
+}
+
+export const BRANCH_ROLE_TEMPLATES: RoleTemplateItem[] = [
+  {
+    id: 'tpl-branch-pos-counter',
+    title: 'POS Counter',
+    description: 'Financial approvals and reports',
+    icon: 'pos',
+    roleName: 'POS Counter',
+    scope: 'branch',
+    branch: 'Downtown Branch',
+  },
+  {
+    id: 'tpl-branch-captain',
+    title: 'Captain',
+    description: 'Read-only access to all system data',
+    icon: 'captain',
+    roleName: 'Captain',
+    scope: 'branch',
+    branch: 'Downtown Branch',
+  },
+  {
+    id: 'tpl-branch-kitchen-staff',
+    title: 'Kitchen Staff',
+    description: 'Kitchen display and order prep',
+    icon: 'kitchen',
+    roleName: 'Kitchen Staff',
+    scope: 'branch',
+    branch: 'Downtown Branch',
+  },
+];
+
+export function addBranchRoleTemplate(template: RoleTemplateItem): void {
+  BRANCH_ROLE_TEMPLATES.push(template);
 }
 
 export const DEFAULT_COMPANIES: readonly string[] = [
@@ -357,6 +430,10 @@ export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
     ],
   },
 ];
+
+export const COMPANY_PERMISSION_CATEGORIES: PermissionCategory[] =
+  DEFAULT_STAFF_PROFILE_PERMISSIONS;
+export const BRANCH_PERMISSION_CATEGORIES: PermissionCategory[] = DEFAULT_STAFF_PROFILE_PERMISSIONS;
 
 export const DEFAULT_CUSTOM_TEMPLATE_PERMISSIONS: PermissionCategory[] = [
   {
