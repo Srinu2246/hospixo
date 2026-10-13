@@ -246,6 +246,14 @@ export const colors = {
     branchBorder: '#F59E0B',
   },
 
+  entityList: {
+    canvas: '#F8FAFC',
+    infoTint: 'rgba(2, 132, 199, 0.08)',
+    infoTintStrong: 'rgba(2, 132, 199, 0.1)',
+    successTint: 'rgba(22, 163, 74, 0.1)',
+    cardShadow: '0 1px 2px rgb(0 0 0 / 0.04)',
+  },
+
   sidebar: {
     background: '#0B0D12',
     surface: '#1E293B',

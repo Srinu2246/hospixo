@@ -4,9 +4,11 @@ export const branchListItemSchema = z.object({
   id: z.union([z.string(), z.number()]),
   name: z.string().min(1),
   companyId: z.union([z.string(), z.number()]),
+  companyName: z.string().nullable().optional(),
   code: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
   status: z.enum(['active', 'inactive']),
+  isDefault: z.boolean().optional(),
 });
 
 export const branchListSchema = z.array(branchListItemSchema);
@@ -62,9 +64,14 @@ function mapBranch(raw: Record<string, unknown>, fallbackCompanyId?: number | st
       typeof companyId === 'number' || typeof companyId === 'string'
         ? companyId
         : String(companyId),
+    companyName: text(raw.companyName) ?? text(raw.company_name) ?? null,
     code: text(raw.code) ?? text(raw.branch_code) ?? null,
-    city: text(raw.city) ?? null,
-    status: statusRaw === 'inactive' || statusRaw === 'disabled' ? 'inactive' : 'active',
+    city: text(raw.city) ?? text(raw.location) ?? null,
+    status:
+      statusRaw === 'inactive' || statusRaw === 'disabled' || statusRaw === 'closed'
+        ? 'inactive'
+        : 'active',
+    isDefault: Boolean(raw.isDefault ?? raw.is_default),
   };
 }
 

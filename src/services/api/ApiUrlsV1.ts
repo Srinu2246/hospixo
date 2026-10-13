@@ -58,21 +58,27 @@ const ApiUrlsV1 = {
   organization: {
     companies: '/v1/companies',
     platformOrganizations: '/v1/platform/organizations',
+    platformOrganizationsV2: '/v2/platform/organizations',
+    platformOrganizationCompaniesV2: '/v2/platform/organizations/{organization_id}/companies',
   },
   restaurant: {
     branches: '/v1/branches',
   },
 };
 
+/** GET /v2/platform/organizations/{organization_id}/companies */
 export function organizationCompaniesPath(organizationId: number | string): string {
-  return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies`;
+  return ApiUrlsV1.organization.platformOrganizationCompaniesV2.replace(
+    '{organization_id}',
+    encodeURIComponent(String(organizationId)),
+  );
 }
 
 export function organizationCompanyBranchesPath(
   organizationId: number | string,
   companyId: number | string,
 ): string {
-  return `${organizationCompaniesPath(organizationId)}/${encodeURIComponent(String(companyId))}/branches`;
+  return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies/${encodeURIComponent(String(companyId))}/branches`;
 }
 
 export function restaurantFloorsPath(branchId: number): string {
@@ -191,9 +197,19 @@ export function isAllowedEndpoint(path: string): boolean {
   const normalized = normalizeEndpointPath(path);
   if (!normalized) return false;
 
-  return ENDPOINT_PREFIXES.some(
-    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`),
+  return ENDPOINT_PREFIXES.some((prefix) => matchesEndpoint(normalized, prefix));
+}
+
+/** `{organization_id}` in a catalog path matches one URL segment. */
+function matchesEndpoint(path: string, pattern: string): boolean {
+  if (!pattern.includes('{')) {
+    return path === pattern || path.startsWith(`${pattern}/`);
+  }
+
+  const expression = new RegExp(
+    `^${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{[^}]+\\\}/g, '[^/]+')}(?:/|$)`,
   );
+  return expression.test(path);
 }
 
 function collectStaticPaths(node: unknown, paths: string[] = []): string[] {

@@ -3,18 +3,25 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
-import Stack from '@mui/material/Stack';
+import Chip from '@mui/material/Chip';
+import TableCell from '@mui/material/TableCell';
+import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import { Building2 } from 'lucide-react';
+import { Building2, Store, Users } from 'lucide-react';
 
-import { SearchBar } from '@/components/shared/form-fields/SearchBar';
-import { AlertMessage } from '@/components/shared/ui/AlertMessage';
-import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
-import { StatusChip } from '@/components/shared/ui/StatusChip';
+import {
+  EntityDashboardButton,
+  EntityIdentityCell,
+  EntityListMetricsRow,
+  EntityListPageLayout,
+  EntityListToolbar,
+  EntityStatusChip,
+  EntityTable,
+  type EntityStatusFilter,
+  type EntityTableColumn,
+} from '@/components/shared/entity-list';
 import { useOrganizationCompanies } from '@/lib/hooks/organization/companies/useOrganizationCompanies';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
-import { colors } from '@/lib/theme/mui/colors';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 export interface CompaniesPageProps {
@@ -24,13 +31,21 @@ export interface CompaniesPageProps {
   organizationId?: number;
 }
 
-type StatusFilter = 'all' | 'active' | 'inactive';
+const COLUMNS: readonly EntityTableColumn[] = [
+  { label: 'Company' },
+  { label: 'Business Type' },
+  { label: 'Branches' },
+  { label: 'Users' },
+  { label: 'Status' },
+  { label: 'Action', align: 'center' },
+];
 
 /**
  * All Companies
- * 1. Page title for the organisation company list
- * 2. Search and status filter
- * 3. Company table. A row opens that company's dashboard.
+ * 1. Header with Refresh
+ * 2. Total, active, inactive counts
+ * 3. Search and status filter
+ * 4. Company table. A row opens that company's dashboard.
  */
 export function CompaniesPage({
   initialCompanies,
@@ -42,7 +57,7 @@ export function CompaniesPage({
   const orgId = organizationId ?? accountOrgId;
   const companies = useOrganizationCompanies(orgId, initialCompanies);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<EntityStatusFilter>('all');
 
   const rows = useMemo(() => companies.data ?? [], [companies.data]);
   const counts = useMemo(() => {
@@ -72,173 +87,114 @@ export function CompaniesPage({
     router.push('/company/dashboard?level=company');
   };
 
-  const columns: readonly DataGridColumn<CompanyListItem>[] = [
-    {
-      field: 'name',
-      headerName: 'Company',
-      minWidth: 240,
-      renderCell: ({ row }) => (
-        <Box>
-          <Typography sx={{ fontWeight: 700, fontSize: '0.9375rem', lineHeight: 1.3 }}>
-            {row.name}
-          </Typography>
-          {row.code ? (
-            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.25 }}>
-              {row.code}
-            </Typography>
-          ) : null}
-        </Box>
-      ),
-    },
-    {
-      field: 'businessType',
-      headerName: 'Business Type',
-      minWidth: 160,
-      renderCell: ({ row }) => row.businessType || 'Hospitality',
-    },
-    {
-      field: 'branchCount',
-      headerName: 'Branches',
-      minWidth: 120,
-      renderCell: ({ row }) => `${row.branchCount} branches`,
-    },
-    {
-      field: 'userCount',
-      headerName: 'Users',
-      minWidth: 100,
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      minWidth: 120,
-      sortable: false,
-      renderCell: ({ row }) => (
-        <StatusChip
-          status={row.status}
-          label={row.status === 'active' ? 'Active' : 'Inactive'}
-          variantType={row.status === 'active' ? 'success' : 'default'}
-        />
-      ),
-    },
-  ];
+  const errorMessage = companies.isError
+    ? companies.error instanceof Error
+      ? companies.error.message
+      : 'Unable to load companies list.'
+    : null;
 
   return (
-    <Stack spacing={2.5}>
-      <Box>
-        <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' }}>
-          Organization · Companies
-        </Typography>
-        <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, mt: 0.5 }}>All Companies</Typography>
-        <Typography sx={{ color: 'text.secondary', mt: 0.5 }}>
-          Overview of all registered companies and their operational footprint
-        </Typography>
-      </Box>
+    <EntityListPageLayout
+      breadcrumb="Organisation · Companies"
+      title="All Companies"
+      subtitle="Overview of all registered companies and their operational footprint"
+      onRefresh={() => void companies.refetch()}
+      error={errorMessage}
+    >
+      <EntityListMetricsRow
+        metrics={{ total: counts.all, active: counts.active, inactive: counts.inactive }}
+        totalLabel="Total Companies"
+        activeLabel="Active Companies"
+        inactiveLabel="Inactive Companies"
+        totalIcon={Building2}
+        isLoading={companies.isLoading}
+      />
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-        <Metric label="Total Companies" value={counts.all} />
-        <Metric label="Active Companies" value={counts.active} />
-        <Metric label="Inactive Companies" value={counts.inactive} />
-      </Stack>
+      <EntityListToolbar
+        searchQuery={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search companies by name, code, or type..."
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        counts={counts}
+      />
 
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={1.5}
-        sx={{ alignItems: { md: 'center' }, justifyContent: 'space-between' }}
-      >
-        <SearchBar
-          value={search}
-          onChange={setSearch}
-          showClear
-          onClear={() => setSearch('')}
-          placeholder="Search companies by name, code, or type..."
-          ariaLabel="Search companies"
-          sx={{ width: { xs: '100%', md: 420 } }}
-        />
-        <Stack direction="row" spacing={1}>
-          <FilterButton
-            label={`All ${counts.all}`}
-            selected={statusFilter === 'all'}
-            onClick={() => setStatusFilter('all')}
-          />
-          <FilterButton
-            label={`Active ${counts.active}`}
-            selected={statusFilter === 'active'}
-            onClick={() => setStatusFilter('active')}
-          />
-          <FilterButton
-            label={`Inactive ${counts.inactive}`}
-            selected={statusFilter === 'inactive'}
-            onClick={() => setStatusFilter('inactive')}
-          />
-        </Stack>
-      </Stack>
-
-      {companies.isError ? (
-        <AlertMessage
-          variant="error"
-          title="Unable to load companies"
-          message={companies.error instanceof Error ? companies.error.message : 'Try again.'}
-        />
-      ) : null}
-
-      <DataGrid
-        columns={columns}
-        rows={visibleRows}
-        getRowId={(row) => String(row.id)}
-        loading={companies.isLoading}
-        onRowClick={openCompany}
+      <EntityTable
+        columns={COLUMNS}
+        isLoading={companies.isLoading}
+        isEmpty={visibleRows.length === 0}
         emptyIcon={Building2}
         emptyTitle="No companies found"
         emptySubtitle={
-          search ? 'Try a different name, code, or type.' : 'No companies are registered yet.'
+          search ? 'Try adjusting your search criteria.' : 'No companies are currently registered.'
         }
-        ariaLabel="All companies"
-        pagination
-        paginationEntityName="companies"
-      />
-    </Stack>
+      >
+        {visibleRows.map((company) => (
+          <CompanyRow key={String(company.id)} company={company} onOpen={openCompany} />
+        ))}
+      </EntityTable>
+    </EntityListPageLayout>
   );
 }
 
-function Metric({ label, value }: Readonly<{ label: string; value: number }>) {
+function CompanyRow({
+  company,
+  onOpen,
+}: Readonly<{ company: CompanyListItem; onOpen: (company: CompanyListItem) => void }>) {
   return (
-    <Box
+    <TableRow
+      hover
+      onClick={() => onOpen(company)}
       sx={{
-        flex: 1,
-        px: 2,
-        py: 1.5,
-        borderRadius: '12px',
-        border: `1px solid ${colors.border.default}`,
-        bgcolor: colors.surface.default,
+        cursor: 'pointer',
+        transition: 'background-color 0.15s ease',
+        '&:last-child td, &:last-child th': { border: 0 },
       }}
     >
-      <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-        {label}
-      </Typography>
-      <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, mt: 0.5 }}>{value}</Typography>
-    </Box>
-  );
-}
-
-function FilterButton({
-  label,
-  selected,
-  onClick,
-}: Readonly<{ label: string; selected: boolean; onClick: () => void }>) {
-  return (
-    <ButtonBase
-      onClick={onClick}
-      sx={{
-        px: 1.5,
-        py: 0.75,
-        borderRadius: '999px',
-        fontSize: '0.8125rem',
-        fontWeight: 600,
-        color: selected ? colors.white.default : colors.text.secondary,
-        bgcolor: selected ? colors.primary.default : colors.surface.muted,
-      }}
-    >
-      {label}
-    </ButtonBase>
+      <TableCell sx={{ py: 1, px: 1.5 }}>
+        <EntityIdentityCell icon={Building2} name={company.name} code={company.code} />
+      </TableCell>
+      <TableCell sx={{ py: 1, px: 1.5, whiteSpace: 'nowrap' }}>
+        <Typography sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+          {company.businessType || 'Hospitality'}
+        </Typography>
+      </TableCell>
+      <TableCell sx={{ py: 1, px: 1.5, whiteSpace: 'nowrap' }}>
+        <Chip
+          icon={<Store size={13} />}
+          label={`${company.branchCount} branches`}
+          size="small"
+          sx={{
+            borderRadius: '9999px',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            bgcolor: 'action.hover',
+            borderColor: 'divider',
+            borderWidth: 1,
+            borderStyle: 'solid',
+          }}
+        />
+      </TableCell>
+      <TableCell sx={{ py: 1, px: 1.5, whiteSpace: 'nowrap' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            color: 'text.secondary',
+            fontSize: '0.875rem',
+          }}
+        >
+          <Users size={14} />
+          <span>{company.userCount}</span>
+        </Box>
+      </TableCell>
+      <TableCell sx={{ py: 1, px: 1.5, whiteSpace: 'nowrap' }}>
+        <EntityStatusChip status={company.status} />
+      </TableCell>
+      <TableCell align="center" sx={{ py: 1, px: 1.5, whiteSpace: 'nowrap' }}>
+        <EntityDashboardButton onClick={() => onOpen(company)} />
+      </TableCell>
+    </TableRow>
   );
 }

@@ -13,6 +13,8 @@ import type { DashboardLevel } from '../types/dashboard.types';
 import { DashboardHeader } from './shared/DashboardHeader';
 import { OrganizationDashboard } from './organization/OrganizationDashboard';
 import { CompanyDashboard } from './company/CompanyDashboard';
+import { BranchSalesDashboard } from './branch/BranchSalesDashboard';
+import { LowStockAlertBanner } from './branch/LowStockAlertBanner';
 
 export interface DashboardScreenProps {
   initialLevel?: DashboardLevel;
@@ -41,7 +43,6 @@ export function DashboardScreen({
     (state) => state.account?.org_id ?? state.context.organizationId,
   );
   const companyId = useSidebarStore((state) => state.context.companyId);
-  const branchId = useSidebarStore((state) => state.context.branchId);
   const directory = useDashboardDirectory(
     organizationId,
     currentLevel === 'company' ? companyId : undefined,
@@ -88,7 +89,7 @@ export function DashboardScreen({
         };
       case 'branch':
         return {
-          title: 'Branch',
+          title: 'Sales Statistics',
           entityLabel: 'Branch',
           options:
             branches.length > 0
@@ -121,6 +122,7 @@ export function DashboardScreen({
         onScopeChange={setSelectedScope}
         onExportClick={handleExportData}
         hideLevelSwitcher={hideLevelSwitcher}
+        topBanner={currentLevel === 'branch' ? <LowStockAlertBanner /> : undefined}
       />
 
       {directory.isError ? (
@@ -163,16 +165,7 @@ export function DashboardScreen({
         {currentLevel === 'branch' && (
           <Fade in={currentLevel === 'branch'} timeout={300}>
             <Box>
-              <CompanyDashboard
-                branches={
-                  branchId == null
-                    ? directory.data?.branches
-                    : directory.data?.branches.filter(
-                        (branch) => String(branch.id) === String(branchId),
-                      )
-                }
-                isLoading={directory.isLoading}
-              />
+              <BranchSalesDashboard />
             </Box>
           </Fade>
         )}

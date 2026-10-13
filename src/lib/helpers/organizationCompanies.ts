@@ -9,7 +9,7 @@ type GetJson = (path: string, params?: QueryParams) => Promise<unknown>;
 
 /**
  * Load every company for an organization.
- * Tries the platform organisation path first, then the tenant companies list.
+ * Tries GET /v2/platform/organizations/{org}/companies first, then the tenant companies list.
  */
 export async function loadOrganizationCompanies(
   organizationId: number | undefined,

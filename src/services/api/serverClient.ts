@@ -71,6 +71,7 @@ async function request<T>(
     path === ApiUrlsV1.auth.me ||
     path === ApiUrlsV1.organization.companies ||
     path.startsWith(`${ApiUrlsV1.organization.platformOrganizations}/`) ||
+    path.startsWith(`${ApiUrlsV1.organization.platformOrganizationsV2}/`) ||
     path === ApiUrlsV1.restaurant.branches ||
     path.startsWith(`${ApiUrlsV1.restaurant.branches}/`);
   const session = isPublic ? undefined : await requireSession();

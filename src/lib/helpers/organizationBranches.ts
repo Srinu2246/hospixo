@@ -1,4 +1,5 @@
 import ApiUrlsV1, { organizationCompanyBranchesPath } from '@/services/api/ApiUrlsV1';
+import { loadOrganizationCompanies } from '@/lib/helpers/organizationCompanies';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import {
   parseBranchList,
@@ -33,6 +34,25 @@ export async function loadOrganizationBranches(
   }
 
   return dedupeBranches(await loadTenantBranches(organizationId, companyId, get));
+}
+
+/**
+ * Branches with their company names filled in, for the All Branches screen.
+ * Loads the organisation's companies first so every row can show its company.
+ */
+export async function loadBranchDirectory(
+  organizationId: number | undefined,
+  companyId: number | undefined,
+  get: GetJson,
+): Promise<BranchListItem[]> {
+  const companies = await loadOrganizationCompanies(organizationId, get).catch(() => []);
+  const branches = await loadOrganizationBranches(organizationId, companies, get, companyId);
+  const namesById = new Map(companies.map((company) => [String(company.id), company.name]));
+
+  return branches.map((branch) => ({
+    ...branch,
+    companyName: branch.companyName ?? namesById.get(String(branch.companyId)) ?? null,
+  }));
 }
 
 async function loadCompanyBranches(
