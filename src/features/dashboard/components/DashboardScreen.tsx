@@ -5,6 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Fade from '@mui/material/Fade';
 
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { useDashboardDirectory } from '@/lib/hooks/dashboard/useDashboardDirectory';
+import { useSidebarStore } from '@/stores/sidebarStore';
 import { Toast } from '@/components/shared/ui/Toast';
 import type { DashboardLevel } from '../types/dashboard.types';
 import { DashboardHeader } from './shared/DashboardHeader';
@@ -31,18 +34,27 @@ export function DashboardScreen({
 
   const [currentLevel, setCurrentLevel] = useState<DashboardLevel>(validLevel);
   const [selectedScope, setSelectedScope] = useState(() => {
-    if (validLevel === 'company') return 'All Outlets';
-    if (validLevel === 'branch') return 'Downtown Central';
+    if (validLevel === 'company' || validLevel === 'branch') return 'All Outlets';
     return 'All Companies';
   });
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  const organizationId = useSidebarStore(
+    (state) => state.account?.org_id ?? state.context.organizationId,
+  );
+  const companyId = useSidebarStore((state) => state.context.companyId);
+  const directory = useDashboardDirectory(
+    organizationId,
+    currentLevel === 'company' ? companyId : undefined,
+  );
+  const companies = directory.data?.companies ?? [];
+  const branches = directory.data?.branches ?? [];
 
   const handleLevelChange = (newLevel: DashboardLevel) => {
     setCurrentLevel(newLevel);
     if (newLevel === 'organization') setSelectedScope('All Companies');
     if (newLevel === 'company') setSelectedScope('All Outlets');
-    if (newLevel === 'branch') setSelectedScope('Downtown Central');
+    if (newLevel === 'branch') setSelectedScope('All Outlets');
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.set('level', newLevel);
@@ -61,33 +73,28 @@ export function DashboardScreen({
         return {
           title: 'All Companies Statistics',
           entityLabel: 'Companies',
-          options: [
-            'All Companies',
-            'Al Baik Foods Ltd',
-            'Spice Garden Group',
-            'Urban Bites Co',
-            'Fresh Catch Ltd',
-            'Golden Wok Chain',
-          ],
+          options:
+            companies.length > 0
+              ? ['All Companies', ...companies.map((company) => company.name)]
+              : ['All Companies'],
         };
       case 'company':
         return {
           title: 'All Outlet Statistics',
           entityLabel: 'Outlets',
-          options: [
-            'All Outlets',
-            'Downtown Central',
-            'Westside Mall',
-            'Uptown Terrace',
-            'Harbor Front',
-            'North Station',
-          ],
+          options:
+            branches.length > 0
+              ? ['All Outlets', ...branches.map((branch) => branch.name)]
+              : ['All Outlets'],
         };
       case 'branch':
         return {
           title: 'Sales Statistics',
           entityLabel: 'Branch',
-          options: ['Downtown Central', 'Westside Mall', 'Uptown Terrace'],
+          options:
+            branches.length > 0
+              ? ['All Outlets', ...branches.map((branch) => branch.name)]
+              : ['All Outlets'],
         };
     }
   };
@@ -118,12 +125,28 @@ export function DashboardScreen({
         topBanner={currentLevel === 'branch' ? <LowStockAlertBanner /> : undefined}
       />
 
+      {directory.isError ? (
+        <AlertMessage
+          variant="error"
+          title="Unable to load dashboard"
+          message={
+            directory.error instanceof Error
+              ? directory.error.message
+              : 'The companies and branches request failed.'
+          }
+        />
+      ) : null}
+
       {/* 2. Level Content with Smooth Transition */}
       <Box sx={{ width: '100%' }}>
         {currentLevel === 'organization' && (
           <Fade in={currentLevel === 'organization'} timeout={300}>
             <Box>
-              <OrganizationDashboard />
+              <OrganizationDashboard
+                companies={directory.data?.companies}
+                branches={directory.data?.branches}
+                isLoading={directory.isLoading}
+              />
             </Box>
           </Fade>
         )}
@@ -131,7 +154,10 @@ export function DashboardScreen({
         {currentLevel === 'company' && (
           <Fade in={currentLevel === 'company'} timeout={300}>
             <Box>
-              <CompanyDashboard />
+              <CompanyDashboard
+                branches={directory.data?.branches}
+                isLoading={directory.isLoading}
+              />
             </Box>
           </Fade>
         )}

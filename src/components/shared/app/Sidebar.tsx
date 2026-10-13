@@ -50,6 +50,8 @@ import { colors } from '@/lib/theme/mui/colors';
 import {
   getSidebarNavigation,
   isSidebarSection,
+  resolveSidebarEscape,
+  resolveSidebarLevel,
   type SidebarItem,
   type SidebarSection,
   type SidebarEntry,
@@ -247,10 +249,17 @@ export function Sidebar({
   } | null>(null);
   const [dismissedPath, setDismissedPath] = useState<string | null>(null);
 
-  // Resolved Navigation Entries
+  // Resolved Navigation Entries — catalog follows the page, same as the main access sidebar.
+  const navigationLevel = resolveSidebarLevel(effectivePathname, role);
+  const hierarchyEscape = resolveSidebarEscape(role, navigationLevel);
   const navigationEntries = useMemo(() => {
-    return getSidebarNavigation({ role, userPermissions, context });
-  }, [role, userPermissions, context]);
+    return getSidebarNavigation({
+      role,
+      userPermissions,
+      context,
+      pathname: effectivePathname,
+    });
+  }, [role, userPermissions, context, effectivePathname]);
 
   // Check if an item or route is currently active
   const isItemActive = (href?: string): boolean => {
@@ -360,8 +369,8 @@ export function Sidebar({
     return null;
   }, [context]);
 
-  // Width: exactly 260px open, 80px closed
-  const sidebarWidth = isOpen ? 260 : 80;
+  // Open 15.5rem, collapsed icon rail 4.75rem — same widths as the main access sidebar.
+  const sidebarWidth = isOpen ? 248 : 76;
 
   // Render individual navigation item link/button
   const renderNavItem = (item: SidebarItem) => {
@@ -412,19 +421,19 @@ export function Sidebar({
           display: 'flex',
           alignItems: 'center',
           gap: 1.5,
-          height: 40,
-          px: isOpen ? 1.75 : 0,
-          mx: isOpen ? 1.5 : 'auto',
+          minHeight: isOpen ? 38 : 40,
+          height: isOpen ? 38 : 40,
+          px: isOpen ? 1.5 : 0,
+          mx: isOpen ? 0 : 'auto',
           width: isOpen ? 'auto' : 40,
           justifyContent: isOpen ? 'flex-start' : 'center',
-          borderRadius: '8px',
+          borderRadius: isOpen ? '10px' : '6px',
           cursor: 'pointer',
           textDecoration: 'none',
           userSelect: 'none',
-          transition: 'all 0.18s ease-in-out',
+          transition: 'background-color 120ms ease, color 120ms ease',
           backgroundColor: active ? colors.sidebar.active : 'transparent',
           color: active ? colors.white.default : colors.sidebar.textMuted,
-          boxShadow: active ? `0 4px 14px ${colors.sidebar.activeGlow}` : 'none',
           '&:hover': {
             backgroundColor: active ? colors.sidebar.active : colors.sidebar.hover,
             color: colors.white.default,
@@ -448,8 +457,8 @@ export function Sidebar({
           <Typography
             variant="body2"
             sx={{
-              fontWeight: active ? 600 : 500,
-              fontSize: '0.875rem',
+              fontWeight: 500,
+              fontSize: '0.9rem',
               color: 'inherit',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -506,8 +515,8 @@ export function Sidebar({
         borderRight: `1px solid ${colors.sidebar.border}`,
         display: 'flex',
         flexDirection: 'column',
-        transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        overflow: 'hidden',
+        transition: 'width 160ms ease, min-width 160ms ease',
+        overflow: 'visible',
         zIndex: 1200,
       }}
     >
@@ -516,7 +525,8 @@ export function Sidebar({
       {/* ------------------------------------------------------------- */}
       <Box
         sx={{
-          height: 68,
+          height: 60,
+          position: 'relative',
           display: 'flex',
           alignItems: 'center',
           justifyContent: isOpen ? 'space-between' : 'center',
@@ -611,10 +621,19 @@ export function Sidebar({
           sx={{
             width: 28,
             height: 28,
+            border: `1px solid ${colors.sidebar.border}`,
             backgroundColor: colors.sidebar.toggleBg,
-            color: colors.sidebar.textMuted,
+            color: colors.sidebar.text,
             borderRadius: '50%',
-            transition: 'all 0.18s ease',
+            transition: 'background-color 120ms ease',
+            ...(isOpen
+              ? {}
+              : {
+                  position: 'absolute',
+                  right: -10,
+                  top: 16,
+                  zIndex: 2,
+                }),
             '&:hover': {
               backgroundColor: colors.sidebar.toggleHover,
               color: colors.white.default,
@@ -629,21 +648,68 @@ export function Sidebar({
         </IconButton>
       </Box>
 
+      {hierarchyEscape && isOpen ? (
+        <Box
+          sx={{
+            flexShrink: 0,
+            px: 1.5,
+            pt: 1,
+            pb: 0.5,
+            borderBottom: `1px solid ${colors.sidebar.border}`,
+          }}
+        >
+          <Box
+            component={Link}
+            href={hierarchyEscape.href}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              minHeight: 34,
+              px: 1.25,
+              borderRadius: '9px',
+              color: colors.sidebar.badgeText,
+              textDecoration: 'none',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              '&:hover': {
+                backgroundColor: colors.sidebar.hover,
+                color: colors.white.default,
+              },
+            }}
+          >
+            <ArrowBackIcon sx={{ fontSize: 16 }} />
+            <Typography
+              component="span"
+              sx={{
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                color: 'inherit',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {hierarchyEscape.label}
+            </Typography>
+          </Box>
+        </Box>
+      ) : null}
+
       {/* ------------------------------------------------------------- */}
       {/* Navigation Scroll Area                                         */}
       {/* ------------------------------------------------------------- */}
       <Box
         sx={{
           flex: 1,
+          minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          py: 2,
+          py: 0.5,
+          px: 1.5,
+          scrollbarWidth: 'none',
           '&::-webkit-scrollbar': {
-            width: 4,
-          },
-          '&::-webkit-scrollbar-thumb': {
-            backgroundColor: colors.sidebar.toggleBg,
-            borderRadius: 4,
+            display: 'none',
           },
         }}
       >
@@ -713,7 +779,7 @@ export function Sidebar({
                 const isCollapsed = Boolean(collapsedSections[section.name]);
 
                 return (
-                  <Box key={section.name} sx={{ mb: 2 }}>
+                  <Box key={section.name} sx={{ mb: 1.75 }}>
                     {/* Section Header */}
                     {isOpen ? (
                       <Box
@@ -722,12 +788,12 @@ export function Sidebar({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          px: 2.5,
-                          py: 0.75,
+                          px: 1,
+                          py: 0.5,
+                          mb: 0.5,
                           cursor: 'pointer',
                           userSelect: 'none',
                           color: colors.sidebar.textSection,
-                          transition: 'color 0.15s ease',
                           '&:hover': {
                             color: colors.sidebar.textMuted,
                           },
@@ -736,9 +802,9 @@ export function Sidebar({
                         <Typography
                           variant="caption"
                           sx={{
-                            fontSize: '0.6875rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.08em',
+                            fontSize: '0.68rem',
+                            fontWeight: 600,
+                            letterSpacing: '0.14em',
                             textTransform: 'uppercase',
                           }}
                         >
@@ -793,26 +859,33 @@ export function Sidebar({
       >
         {isOpen ? (
           <Box
+            component={Link}
+            href={homePathForRole(role)}
             sx={{
               display: 'flex',
               alignItems: 'center',
               gap: 1.5,
-              p: 1.25,
-              borderRadius: '8px',
-              backgroundColor: colors.sidebar.cardBg,
-              border: `1px solid ${colors.sidebar.border}`,
+              minHeight: 38,
+              px: 1,
+              py: 0.75,
+              borderRadius: '11px',
+              textDecoration: 'none',
+              color: colors.sidebar.text,
+              '&:hover': {
+                backgroundColor: colors.sidebar.cardBg,
+              },
             }}
           >
             <Avatar
               src={user?.avatar}
               alt={user?.name || 'User'}
               sx={{
-                width: 36,
-                height: 36,
-                backgroundColor: colors.white.default,
-                color: colors.sidebar.background,
+                width: 34,
+                height: 34,
+                backgroundColor: colors.sidebar.cardBg,
+                color: colors.white.default,
                 fontWeight: 600,
-                fontSize: '0.875rem',
+                fontSize: '0.9rem',
               }}
             >
               {(user?.name || 'U').charAt(0).toUpperCase()}
@@ -824,7 +897,7 @@ export function Sidebar({
                 sx={{
                   color: colors.white.default,
                   fontWeight: 600,
-                  fontSize: '0.84375rem',
+                  fontSize: '0.88rem',
                   lineHeight: 1.2,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -836,8 +909,8 @@ export function Sidebar({
               <Typography
                 variant="caption"
                 sx={{
-                  color: colors.sidebar.textMuted,
-                  fontSize: '0.71875rem',
+                  color: colors.sidebar.textSection,
+                  fontSize: '0.72rem',
                   lineHeight: 1.2,
                   display: 'block',
                   whiteSpace: 'nowrap',
@@ -856,10 +929,10 @@ export function Sidebar({
                 src={user?.avatar}
                 alt={user?.name || 'User'}
                 sx={{
-                  width: 38,
-                  height: 38,
-                  backgroundColor: colors.white.default,
-                  color: colors.sidebar.background,
+                  width: 34,
+                  height: 34,
+                  backgroundColor: colors.sidebar.cardBg,
+                  color: colors.white.default,
                   fontWeight: 600,
                   fontSize: '0.875rem',
                   cursor: 'pointer',

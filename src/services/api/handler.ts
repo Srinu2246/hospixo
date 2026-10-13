@@ -29,6 +29,8 @@ import {
   MOCK_SHIFT_METRICS,
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
 import { POS_TABLES_DATA } from '@/lib/mocks/pos/usePosTables.mocks';
+import { MOCK_BRANCHES } from '@/lib/mocks/organization/branches.mocks';
+import { MOCK_COMPANIES } from '@/lib/mocks/organization/companies.mocks';
 import { resolveRestaurantFloorMock } from '@/lib/mocks/floor-and-table-setup/restaurantFloors.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 import type { HttpMethod, QueryParams } from '@/services/api/types';
@@ -92,6 +94,8 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.dashboard.organization.list]: { stats: ORG_STAT_CARDS },
   [ApiUrlsV1.dashboard.company.list]: { stats: COMPANY_STAT_CARDS },
   [ApiUrlsV1.dashboard.branch.list]: { stats: BRANCH_STAT_CARDS },
+  [ApiUrlsV1.organization.companies]: MOCK_COMPANIES,
+  [ApiUrlsV1.restaurant.branches]: MOCK_BRANCHES,
 };
 
 export function isMockApiEnabled(): boolean {

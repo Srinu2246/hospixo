@@ -35,7 +35,7 @@ export function DashboardHeader({
   onLevelChange,
   title,
   scopeEntityLabel = 'Companies',
-  scopeOptions = ['All Companies', 'Apollo Healthcare', 'Hospixo Group'],
+  scopeOptions = ['All Companies'],
   selectedScope = 'All Companies',
   onScopeChange,
   onExportClick,
@@ -44,7 +44,7 @@ export function DashboardHeader({
 }: Readonly<DashboardHeaderProps>) {
   const [scopeAnchor, setScopeAnchor] = useState<null | HTMLElement>(null);
   const [dateAnchor, setDateAnchor] = useState<null | HTMLElement>(null);
-  const [selectedDateRange, setSelectedDateRange] = useState('28 Jun - 4 Jul 2025');
+  const [selectedDateRange, setSelectedDateRange] = useState('Today');
 
   const DATE_OPTIONS = [
     'Today',

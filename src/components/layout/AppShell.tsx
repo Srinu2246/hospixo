@@ -81,7 +81,7 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
       {/* 
         Fixed Left Sidebar:
         - Stationary on the left side
-        - Width: 260px (Open) / 80px (Closed)
+        - Width: 248px (Open) / 76px (Closed)
         - Does NOT scroll when page content scrolls
       */}
       <Box
@@ -94,9 +94,9 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
             top: { [screen.mobile]: 0 },
             left: { [screen.mobile]: 0 },
             zIndex: { [screen.mobile]: 1300 },
-            width: { [screen.mobile]: 260 },
-            minWidth: { [screen.mobile]: 260 },
-            maxWidth: { [screen.mobile]: 260 },
+            width: { [screen.mobile]: 248 },
+            minWidth: { [screen.mobile]: 248 },
+            maxWidth: { [screen.mobile]: 248 },
             transform: {
               [screen.mobile]: mobileOpen ? 'none' : 'translateX(-100%)',
               [screen.tablet]: 'none',

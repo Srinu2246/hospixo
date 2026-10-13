@@ -587,16 +587,16 @@ export function BranchSalesDashboard() {
                     height: 32,
                     borderRadius: '8px',
                     bgcolor: (theme) =>
-                      theme.palette.mode === 'dark' ? channel.bgColor : channel.lightBgColor,
+                      theme.palette.mode === 'dark' ? `${channel.color}26` : channel.bgColor,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  {channel.icon === 'restaurant' && (
+                  {channel.icon === 'dine-in' && (
                     <RestaurantIcon sx={{ fontSize: 18, color: channel.color }} />
                   )}
-                  {channel.icon === 'takeaway' && (
+                  {channel.icon === 'take-away' && (
                     <TakeoutDiningIcon sx={{ fontSize: 18, color: channel.color }} />
                   )}
                   {channel.icon === 'delivery' && (

@@ -365,7 +365,14 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
   {
     name: 'Main Dashboard',
     match: (path) => path.endsWith('dashboard') && !path.includes('pos/point-of-sale'),
-    render: () => <DashboardScreen />,
+    render: (path) => {
+      const initialLevel = path.startsWith('company')
+        ? 'company'
+        : path.startsWith('branch')
+          ? 'branch'
+          : 'organization';
+      return <DashboardScreen initialLevel={initialLevel} />;
+    },
   },
 ];
 

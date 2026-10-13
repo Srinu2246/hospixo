@@ -12,13 +12,18 @@ import { Card } from '@/components/shared/ui/Card';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { colors } from '@/lib/theme/mui/colors';
-import {
-  COMPANY_PERFORMANCE_ROWS,
-  COMPANY_PERFORMANCE_CHART_BARS,
-} from '@/lib/mocks/dashboard/dashboard.mocks';
+import type { CompanyPerformanceRow } from '../../types/dashboard.types';
 
-export function CompanyPerformanceTable() {
+export function CompanyPerformanceTable({
+  rows = [],
+}: Readonly<{ rows?: CompanyPerformanceRow[] }> = {}) {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
+  const maxBranches = Math.max(...rows.map((row) => row.branches), 1);
+  const chartBars = rows.map((row, index) => ({
+    label: row.companyName,
+    heightPercent: Math.max(12, Math.round((row.branches / maxBranches) * 100)),
+    isHighlight: index === 0,
+  }));
 
   return (
     <Card
@@ -251,7 +256,7 @@ export function CompanyPerformanceTable() {
             </Box>
 
             <Box component="tbody">
-              {COMPANY_PERFORMANCE_ROWS.map((row) => (
+              {rows.map((row) => (
                 <Box
                   component="tr"
                   key={row.id}
@@ -374,7 +379,7 @@ export function CompanyPerformanceTable() {
               px: { xs: 1, sm: 4 },
             }}
           >
-            {COMPANY_PERFORMANCE_CHART_BARS.map((bar) => (
+            {chartBars.map((bar) => (
               <Box
                 key={bar.label}
                 sx={{

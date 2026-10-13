@@ -7,7 +7,7 @@ type BrowserRequestOptions = {
 };
 
 function toAppPath(endpoint: string, params?: QueryParams): string {
-  if (/^https?:\/\//i.test(endpoint) || !endpoint.startsWith('/v1/')) {
+  if (/^https?:\/\//i.test(endpoint) || !/^\/v[12]\//.test(endpoint)) {
     throw new ApiError('Browser client only calls versioned app endpoints', 400);
   }
 

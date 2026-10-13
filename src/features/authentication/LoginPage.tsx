@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { AlertTriangle, Check, Eye, EyeOff, Info } from 'lucide-react';
 
+import logoLight from '@/assets/app/logo-light.svg';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import {
@@ -44,7 +46,7 @@ const FEATURES = [
     body: 'One dashboard, every location.',
   },
   {
-    title: 'Smart Procurement',
+    title: 'Smart procurement',
     body: 'Auto-track stock, vendors & approvals.',
   },
   {
@@ -53,7 +55,7 @@ const FEATURES = [
   },
   {
     title: 'Enterprise security',
-    body: 'Audit logs, MFA, cloud-ready',
+    body: 'Audit logs, MFA, cloud-ready.',
   },
 ] as const;
 
@@ -69,64 +71,46 @@ export function LoginPage() {
     <Box
       sx={{
         minHeight: '100vh',
-        display: 'flex',
-        flexDirection: { [screen.mobile]: 'column', [screen.desktop]: 'row' },
-        alignItems: { [screen.mobile]: 'center', [screen.desktop]: 'stretch' },
-        justifyContent: { [screen.mobile]: 'center', [screen.desktop]: 'flex-start' },
-        bgcolor: { [screen.mobile]: colors.surface.muted, [screen.desktop]: colors.white.default },
-        px: { [screen.mobile]: 2, [screen.desktop]: 0 },
-        py: { [screen.mobile]: 3, [screen.desktop]: 0 },
+        display: 'grid',
+        gridTemplateColumns: {
+          [screen.mobile]: '1fr',
+          [screen.tablet]: 'minmax(0, 1.05fr) minmax(0, 0.95fr)',
+        },
+        bgcolor: colors.white.default,
       }}
     >
       <BrandPanel />
       <Box
         sx={{
           position: 'relative',
-          flex: { [screen.desktop]: 1 },
-          width: '100%',
+          minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          px: { [screen.desktop]: 4 },
-          py: { [screen.desktop]: 6 },
+          px: { [screen.mobile]: 2, [screen.tablet]: 3 },
+          py: { [screen.mobile]: 3, [screen.tablet]: 4 },
+          bgcolor: { [screen.mobile]: colors.white.default, [screen.tablet]: '#f7f7f7' },
         }}
       >
-        {notice ? (
-          <AccountBanner
-            status={notice}
-            sx={{
-              display: { [screen.mobile]: 'none', [screen.desktop]: 'flex' },
-              position: 'absolute',
-              top: 28,
-              left: 36,
-              right: 36,
-            }}
-          />
-        ) : null}
-
         <Box
           sx={{
             width: '100%',
-            maxWidth: 420,
-            bgcolor: { [screen.mobile]: colors.white.default, [screen.desktop]: 'transparent' },
-            borderRadius: { [screen.mobile]: '24px', [screen.desktop]: 0 },
-            boxShadow: {
-              [screen.mobile]: '0 10px 30px rgba(17, 24, 39, 0.06)',
-              [screen.desktop]: 'none',
+            maxWidth: '28rem',
+            bgcolor: colors.white.default,
+            border: {
+              [screen.mobile]: 'none',
+              [screen.tablet]: `1px solid ${colors.border.light}`,
             },
-            px: { [screen.mobile]: 2.5, [screen.desktop]: 0 },
-            py: { [screen.mobile]: 3, [screen.desktop]: 0 },
+            borderRadius: { [screen.mobile]: 0, [screen.tablet]: '8px' },
+            boxShadow: {
+              [screen.mobile]: 'none',
+              [screen.tablet]: '0 12px 40px rgb(15 23 42 / 0.06)',
+            },
+            px: { [screen.mobile]: 0.5, [screen.tablet]: 4 },
+            py: { [screen.mobile]: 1, [screen.tablet]: 4 },
           }}
         >
-          {notice ? (
-            <AccountBanner
-              status={notice}
-              sx={{
-                display: { [screen.mobile]: 'flex', [screen.desktop]: 'none' },
-                mb: 2.5,
-              }}
-            />
-          ) : null}
+          {notice ? <AccountBanner status={notice} sx={{ mb: 2 }} /> : null}
           <SignInForm
             credentialError={credentialError}
             onAccountNotice={setNotice}
@@ -144,58 +128,52 @@ function BrandPanel() {
       sx={{
         position: 'relative',
         overflow: 'hidden',
-        display: { [screen.mobile]: 'none', [screen.desktop]: 'flex' },
-        width: '42%',
+        display: { [screen.mobile]: 'none', [screen.tablet]: 'flex' },
         minHeight: '100vh',
-        px: 6,
-        py: 7,
+        px: { [screen.tablet]: 2, [screen.desktop]: 6 },
+        py: { [screen.tablet]: 3, [screen.desktop]: 6 },
         color: colors.login.headline,
-        background: `linear-gradient(160deg, ${colors.login.panel} 0%, ${colors.login.panelGlow} 100%)`,
+        background: `
+          radial-gradient(circle at 20% 20%, rgb(37 99 235 / 0.22), transparent 35%),
+          radial-gradient(circle at 80% 0%, rgb(59 130 246 / 0.12), transparent 30%),
+          linear-gradient(160deg, #081326 0%, #0f172a 48%, #111827 100%)
+        `,
         flexDirection: 'column',
         justifyContent: 'center',
       }}
     >
-      <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 460 }}>
-        <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', mb: 6 }}>
-          <Box
-            aria-hidden="true"
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          maxWidth: 544,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+        }}
+      >
+        <Image src={logoLight} alt="Hospixo" width={108} height={24} priority />
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 544 }}>
+          <Typography
+            component="h1"
             sx={{
-              width: 36,
-              height: 36,
-              borderRadius: '10px',
-              bgcolor: colors.white.default,
-              color: colors.primary.default,
-              display: 'grid',
-              placeItems: 'center',
-              fontWeight: 800,
-              fontSize: '1.05rem',
+              fontWeight: 700,
+              fontSize: 'clamp(2rem, 4vw, 2.75rem)',
+              lineHeight: 1.12,
+              letterSpacing: '-0.03em',
             }}
           >
-            N
-          </Box>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.35rem', letterSpacing: '-0.02em' }}>
-            Hospixo
+            Run every hotel operation from one place.
           </Typography>
-        </Stack>
+          <Typography
+            sx={{ color: 'rgba(255,255,255,0.78)', fontSize: '1.0625rem', lineHeight: 1.65 }}
+          >
+            Hospixo gives hospitality teams one system for inventory, finance, HR, and daily ops.
+          </Typography>
+        </Box>
 
-        <Typography
-          component="h1"
-          sx={{
-            fontWeight: 700,
-            fontSize: '2.15rem',
-            lineHeight: 1.2,
-            letterSpacing: '-0.03em',
-            maxWidth: 360,
-            mb: 2,
-          }}
-        >
-          Run every hotel operation from one place.
-        </Typography>
-        <Typography sx={{ color: colors.login.body, fontSize: '0.95rem', lineHeight: 1.6, mb: 4 }}>
-          Hospixo gives hospitality teams one system for inventory, finance, HR, and daily ops.
-        </Typography>
-
-        <Stack spacing={2.25}>
+        <Stack spacing={2.5}>
           {FEATURES.map((feature) => (
             <Stack
               key={feature.title}
@@ -206,24 +184,27 @@ function BrandPanel() {
               <Box
                 aria-hidden="true"
                 sx={{
-                  width: 22,
-                  height: 22,
-                  mt: 0.15,
+                  width: 24,
+                  height: 24,
+                  mt: 0.1,
                   borderRadius: '50%',
-                  bgcolor: colors.login.check,
-                  color: colors.white.default,
+                  bgcolor: colors.white.default,
+                  color: '#2563eb',
+                  border: '1px solid #2563eb',
                   display: 'grid',
                   placeItems: 'center',
                   flexShrink: 0,
                 }}
               >
-                <Check size={13} strokeWidth={3} />
+                <Check size={14} strokeWidth={3} />
               </Box>
               <Box>
                 <Typography sx={{ fontWeight: 700, fontSize: '0.95rem' }}>
                   {feature.title}
                 </Typography>
-                <Typography sx={{ color: colors.login.muted, fontSize: '0.875rem', mt: 0.25 }}>
+                <Typography
+                  sx={{ color: 'rgba(255,255,255,0.68)', fontSize: '0.875rem', mt: 0.25 }}
+                >
                   {feature.body}
                 </Typography>
               </Box>
@@ -234,11 +215,11 @@ function BrandPanel() {
         <Typography
           sx={{
             display: 'block',
-            color: colors.login.muted,
-            fontSize: '0.875rem',
+            color: 'rgba(255,255,255,0.55)',
+            fontSize: '0.8125rem',
             lineHeight: 1.6,
-            mt: 7,
-            maxWidth: 340,
+            mt: 0,
+            maxWidth: 480,
           }}
         >
           Trusted by growing hospitality teams to simplify operations and improve control.
@@ -339,32 +320,23 @@ function SignInForm({
           component="h2"
           sx={{
             fontWeight: 700,
-            fontSize: { [screen.mobile]: '1.5rem', [screen.desktop]: '1.75rem' },
-            letterSpacing: '-0.03em',
+            fontSize: { [screen.mobile]: '1.5rem', [screen.tablet]: '2rem' },
+            letterSpacing: '-0.02em',
+            lineHeight: 1.15,
           }}
         >
           Welcome back to Hospixo
         </Typography>
         <Typography
           sx={{
-            display: { [screen.mobile]: 'block', [screen.desktop]: 'none' },
             color: 'text.secondary',
-            mt: 0.75,
-            fontSize: '0.875rem',
-            lineHeight: 1.5,
+            mt: 1.5,
+            fontSize: { [screen.mobile]: '0.85rem', [screen.tablet]: '0.9375rem' },
+            lineHeight: 1.65,
           }}
         >
-          Manage your hospitality operations effortlessly.
-        </Typography>
-        <Typography
-          sx={{
-            display: { [screen.mobile]: 'none', [screen.desktop]: 'block' },
-            color: 'text.secondary',
-            mt: 1,
-            lineHeight: 1.55,
-          }}
-        >
-          Sign in to manage your operations, teams, inventory, and workflows.
+          Sign in to manage your hospitality operations, teams, branches, inventory, billing, and
+          daily workflows.
         </Typography>
       </Box>
 
@@ -374,8 +346,8 @@ function SignInForm({
         render={({ field }) => (
           <Input
             id="login-identifier"
-            label="Email / Username"
-            placeholder="Enter your email or Username"
+            label="Email or Username"
+            placeholder="Enter your email or username"
             autoFocus
             error={Boolean(errors.identifier)}
             helperText={errors.identifier?.message}
@@ -440,16 +412,10 @@ function SignInForm({
           borderRadius: { [screen.mobile]: '12px', [screen.desktop]: '10px' },
         }}
       >
-        Sign in
+        {login.isPending ? 'Signing in...' : 'Sign In'}
       </ActionButton>
 
-      <Stack
-        spacing={2}
-        sx={{
-          display: { [screen.mobile]: 'flex', [screen.desktop]: 'none' },
-          alignItems: 'center',
-        }}
-      >
+      <Stack spacing={2} sx={{ alignItems: 'center' }}>
         <Box
           component="button"
           type="button"
@@ -468,7 +434,14 @@ function SignInForm({
         </Box>
         <Stack direction="row" spacing={1.5} sx={{ width: '100%', alignItems: 'center' }}>
           <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
-          <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600 }}>
+          <Typography
+            sx={{
+              color: 'text.secondary',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+            }}
+          >
             OR
           </Typography>
           <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
@@ -513,10 +486,13 @@ function SignInForm({
       <Typography sx={{ textAlign: 'center', color: 'text.secondary', fontSize: '0.875rem' }}>
         Don&apos;t have an account?{' '}
         <Box
-          component="span"
+          component="a"
+          href="https://hospixo.com/contact"
           sx={{
-            color: { [screen.mobile]: 'primary.main', [screen.desktop]: 'text.primary' },
+            color: '#2563eb',
             fontWeight: 600,
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline' },
           }}
         >
           Contact your administrator
