@@ -103,6 +103,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.BRANCHES_UPDATE,
     PERMISSIONS.MENU_VIEW,
     PERMISSIONS.MENU_CREATE,
+    PERMISSIONS.MENU_UPDATE,
     PERMISSIONS.BRANCH_MENU_VIEW,
     PERMISSIONS.USERS_VIEW,
     PERMISSIONS.ROLES_VIEW,
@@ -111,6 +112,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.REPORTS_VIEW,
     PERMISSIONS.HR_ATTENDANCE_VIEW,
+    PERMISSIONS.GST_VIEW,
+    PERMISSIONS.FEATURES_VIEW,
+    PERMISSIONS.FEATURES_CONFIGURE,
   ],
   company: [
     PERMISSIONS.COMPANIES_VIEW,
@@ -122,12 +126,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.HR_ATTENDANCE_VIEW,
     PERMISSIONS.MENU_VIEW,
     PERMISSIONS.MENU_CREATE,
+    PERMISSIONS.MENU_UPDATE,
     PERMISSIONS.ORDERS_VIEW,
     PERMISSIONS.ORDERS_CREATE,
+    PERMISSIONS.ORDERS_UPDATE_STATUS,
     PERMISSIONS.PAYMENTS_VIEW,
     PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.REPORTS_VIEW,
     PERMISSIONS.GST_VIEW,
+    PERMISSIONS.BOOKINGS_VIEW,
   ],
   branch_manager: [
     PERMISSIONS.USERS_VIEW,
@@ -293,7 +300,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 4,
-        name: 'Prep Station',
+        name: 'Prep Stations',
         href: '/company/menu/prep-station',
         icon: 'kitchen',
         permission: PERMISSIONS.MENU_UPDATE,
@@ -349,7 +356,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
     ],
   },
   {
-    name: 'Report',
+    name: 'Reports',
     permission: PERMISSIONS.REPORTS_VIEW,
     items: [
       {
@@ -403,7 +410,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
     items: [
       {
         id: 1,
-        name: 'Users and Roles',
+        name: 'Users & Roles',
         href: '/branch-manager/employees/users-and-roles',
         icon: 'group',
         permission: PERMISSIONS.USERS_VIEW,
@@ -595,7 +602,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 4,
-        name: 'Prep Station',
+        name: 'Prep Stations',
         href: '/branch-manager/menu/prep-station',
         icon: 'kitchen',
         permission: PERMISSIONS.MENU_UPDATE,
@@ -658,7 +665,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
       {
         id: 6,
         name: 'Inventory',
-        href: '/branch-manager/management/customer-display',
+        href: '/branch-manager/management/inventory',
         icon: 'inventory',
         permission: PERMISSIONS.INVENTORY_VIEW,
       },
@@ -685,7 +692,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 10,
-        name: 'Floor and Table Setup',
+        name: 'Floor & Table Set-up',
         href: '/branch-manager/management/floor-and-table-setup',
         icon: 'view_quilt',
         permission: PERMISSIONS.FLOORS_VIEW,
@@ -698,30 +705,37 @@ export const WAITER_SIDEBAR: SidebarEntry[] = [
   {
     id: 1,
     name: 'Tables',
-    href: '/branch-manager/pos/tables',
+    href: '/branch-manager/pos/captain-flow/tables',
     icon: 'table_restaurant',
     permission: PERMISSIONS.TABLES_VIEW,
   },
   {
     id: 2,
-    name: 'Order Menu',
-    href: '/branch-manager/pos/order-menu',
+    name: 'Orders',
+    href: '/branch-manager/pos/captain-flow/all-orders',
+    icon: 'receipt_long',
+    permission: PERMISSIONS.ORDERS_VIEW,
+  },
+  {
+    id: 3,
+    name: 'Dine-In',
+    href: '/branch-manager/pos/captain-flow/order-menu',
     icon: 'restaurant',
     permission: PERMISSIONS.ORDERS_CREATE,
   },
   {
-    id: 3,
-    name: 'Ready List',
-    href: '/branch-manager/pos/ready-list',
+    id: 4,
+    name: 'Ready Orders',
+    href: '/branch-manager/pos/captain-flow/ready-list',
     icon: 'fact_check',
     permission: PERMISSIONS.ORDERS_VIEW,
   },
   {
-    id: 4,
-    name: 'All Orders',
-    href: '/branch-manager/pos/all-orders',
-    icon: 'receipt_long',
-    permission: PERMISSIONS.ORDERS_VIEW,
+    id: 5,
+    name: 'Menu Availability',
+    href: '/branch-manager/menu/menu-availability',
+    icon: 'calendar_today',
+    permission: PERMISSIONS.MENU_VIEW,
   },
 ];
 
@@ -733,27 +747,47 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
     permission: PERMISSIONS.COMPANIES_VIEW,
   },
   {
-    name: 'Organization Entities',
+    name: 'Companies',
     permission: PERMISSIONS.COMPANIES_VIEW,
     items: [
       {
         id: 1,
-        name: 'Companies',
+        name: 'All Companies',
         href: '/organization/companies',
         icon: 'business',
         permission: PERMISSIONS.COMPANIES_VIEW,
       },
       {
         id: 2,
-        name: 'Branches',
-        href: '/organization/branches',
-        icon: 'storefront',
-        permission: PERMISSIONS.BRANCHES_VIEW,
+        name: 'Company Analytics',
+        href: '/organization/companies/analytics',
+        icon: 'bar_chart',
+        permission: PERMISSIONS.REPORTS_VIEW,
       },
     ],
   },
   {
-    name: 'Administration',
+    name: 'Branches',
+    permission: PERMISSIONS.BRANCHES_VIEW,
+    items: [
+      {
+        id: 1,
+        name: 'All Branches',
+        href: '/organization/branches',
+        icon: 'storefront',
+        permission: PERMISSIONS.BRANCHES_VIEW,
+      },
+      {
+        id: 2,
+        name: 'Branch Performance',
+        href: '/organization/branches/performance',
+        icon: 'trending_up',
+        permission: PERMISSIONS.REPORTS_VIEW,
+      },
+    ],
+  },
+  {
+    name: 'Employees',
     permission: PERMISSIONS.USERS_VIEW,
     items: [
       {
@@ -765,24 +799,112 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 2,
-        name: 'Subscriptions',
-        href: '/organization/subscriptions',
+        name: 'Attendance',
+        href: '/organization/employees/attendence',
+        icon: 'badge',
+        permission: PERMISSIONS.HR_ATTENDANCE_VIEW,
+      },
+    ],
+  },
+  {
+    name: 'Menu',
+    permission: PERMISSIONS.MENU_VIEW,
+    items: [
+      {
+        id: 1,
+        name: 'Menu Creation',
+        href: '/organization/menu/menu-creation',
+        icon: 'menu_book',
+        permission: PERMISSIONS.MENU_CREATE,
+      },
+      {
+        id: 2,
+        name: 'Menus',
+        href: '/organization/menu/menus',
+        icon: 'menu_book',
+        permission: PERMISSIONS.MENU_VIEW,
+      },
+      {
+        id: 3,
+        name: 'Menu Management',
+        href: '/organization/menu/menu-management',
+        icon: 'storefront',
+        permission: PERMISSIONS.MENU_UPDATE,
+      },
+      {
+        id: 4,
+        name: 'Menu Builder',
+        href: '/organization/menu/menu-builder',
+        icon: 'tune',
+        permission: PERMISSIONS.MENU_UPDATE,
+      },
+    ],
+  },
+  {
+    name: 'Reports',
+    permission: PERMISSIONS.REPORTS_VIEW,
+    items: [
+      {
+        id: 1,
+        name: 'Sales',
+        href: '/organization/reports/sales',
+        icon: 'bar_chart',
+        permission: PERMISSIONS.REPORTS_VIEW,
+      },
+      {
+        id: 2,
+        name: 'Revenue',
+        href: '/organization/reports/revenue',
+        icon: 'currency_rupee',
+        permission: PERMISSIONS.REPORTS_VIEW,
+      },
+      {
+        id: 3,
+        name: 'Expenses',
+        href: '/organization/reports/expenses',
+        icon: 'receipt_long',
+        permission: PERMISSIONS.REPORTS_VIEW,
+      },
+      {
+        id: 4,
+        name: '% Taxes',
+        href: '/organization/reports/taxes',
+        icon: 'percent',
+        permission: PERMISSIONS.GST_VIEW,
+      },
+      {
+        id: 5,
+        name: 'Analytics',
+        href: '/organization/reports/analytics',
+        icon: 'speed',
+        permission: PERMISSIONS.REPORTS_VIEW,
+      },
+    ],
+  },
+  {
+    name: 'Settings',
+    permission: PERMISSIONS.COMPANIES_UPDATE,
+    items: [
+      {
+        id: 1,
+        name: 'Organization Settings',
+        href: '/organization/settings',
+        icon: 'settings',
+        permission: PERMISSIONS.COMPANIES_UPDATE,
+      },
+      {
+        id: 2,
+        name: 'Subscription',
+        href: '/organization/settings/billing',
         icon: 'credit_card',
         permission: PERMISSIONS.FEATURES_VIEW,
       },
       {
         id: 3,
-        name: 'Reports & Analytics',
-        href: '/organization/reports',
-        icon: 'bar_chart',
-        permission: PERMISSIONS.REPORTS_VIEW,
-      },
-      {
-        id: 4,
-        name: 'Settings',
-        href: '/organization/settings',
-        icon: 'settings',
-        permission: PERMISSIONS.COMPANIES_UPDATE,
+        name: 'Integrations',
+        href: '/organization/settings/integrations',
+        icon: 'inventory',
+        permission: PERMISSIONS.FEATURES_CONFIGURE,
       },
     ],
   },
@@ -799,6 +921,65 @@ export function rolePathSegment(role: string): string {
   if (key === 'company') return 'company';
   if (key === 'organization' || key === 'super_admin') return 'organization';
   return key.replace(/_/g, '-');
+}
+
+const SIDEBAR_RANK: Record<string, number> = {
+  organization: 3,
+  super_admin: 3,
+  company: 2,
+  branch_manager: 1,
+  waiter: 0,
+};
+
+/** Hierarchy level implied by the URL. Shared module routes such as `/pos` return null. */
+export function sidebarLevelFromPath(pathname: string): string | null {
+  if (!pathname) return null;
+  if (pathname === '/organization' || pathname.startsWith('/organization/')) return 'organization';
+  if (pathname === '/company' || pathname.startsWith('/company/')) return 'company';
+  if (pathname === '/waiter' || pathname.startsWith('/waiter/')) return 'waiter';
+  if (
+    pathname === '/branch-manager' ||
+    pathname.startsWith('/branch-manager/') ||
+    pathname === '/branch' ||
+    pathname.startsWith('/branch/')
+  ) {
+    return 'branch_manager';
+  }
+  return null;
+}
+
+/**
+ * Sidebar catalog for the current page.
+ * A higher role can drill into a lower catalog. A lower role never sees a wider one.
+ */
+export function resolveSidebarLevel(pathname: string, role?: string): string {
+  const userKey = normalizeRoleKey(role || '');
+  const pathKey = sidebarLevelFromPath(pathname);
+  if (!userKey) return pathKey || '';
+  if (!pathKey) return userKey;
+
+  const userRank = SIDEBAR_RANK[userKey] ?? 1;
+  const pathRank = SIDEBAR_RANK[pathKey] ?? 1;
+  if (pathRank > userRank) return userKey;
+  return pathKey;
+}
+
+/** Link back to the signed-in role's home when the page is using a lower catalog. */
+export function resolveSidebarEscape(
+  role: string | undefined,
+  level: string,
+): { href: string; label: string } | null {
+  const userKey = normalizeRoleKey(role || '');
+  if (!userKey || userKey === 'waiter' || !level || level === userKey) return null;
+  if ((SIDEBAR_RANK[level] ?? 0) >= (SIDEBAR_RANK[userKey] ?? 0)) return null;
+
+  if (userKey === 'company') {
+    return { href: '/company/dashboard', label: 'Back to company' };
+  }
+  if (userKey === 'organization' || userKey === 'super_admin') {
+    return { href: '/organization/dashboard', label: 'Back to organization' };
+  }
+  return { href: '/branch-manager/dashboard', label: 'Back to branch' };
 }
 
 export function normalizeRoleKey(role: string): string {
@@ -830,34 +1011,43 @@ export const ROLE_SIDEBAR_REGISTRY: Record<string, SidebarEntry[]> = {
 
 /**
  * Filter and resolve navigation entries based on role, user permissions, and context.
+ * The catalog for the access level is what that role sees. An explicit permission
+ * list still hides items the account cannot open.
  */
 export function getSidebarNavigation({
   role,
   userPermissions,
   context,
+  pathname = '',
 }: {
   role?: string;
   userPermissions?: string[] | null;
   context?: SidebarContext;
+  pathname?: string;
 }): SidebarEntry[] {
   if (!role?.trim()) return [];
 
   const normalized = normalizeRoleKey(role);
-  const rawEntries = ROLE_SIDEBAR_REGISTRY[normalized];
+  const level = resolveSidebarLevel(pathname, role);
+  const rawEntries = ROLE_SIDEBAR_REGISTRY[level] || ROLE_SIDEBAR_REGISTRY[normalized];
   if (!rawEntries) return [];
 
-  // Branch managers see every item in their sidebar. Other roles stay on their permission list.
-  const permissions =
-    normalized === 'branch_manager'
-      ? null
-      : userPermissions !== undefined && userPermissions !== null
-        ? userPermissions
-        : DEFAULT_ROLE_PERMISSIONS[normalized] || [];
+  const drilledIntoLowerCatalog = level !== normalized && Boolean(ROLE_SIDEBAR_REGISTRY[level]);
+  const permissionKey = normalized === 'organization' ? 'org_admin' : normalized;
+  // A drilled-in page shows that level's full menu. Otherwise the role's grants apply.
+  const permissions = drilledIntoLowerCatalog
+    ? null
+    : userPermissions !== undefined && userPermissions !== null
+      ? userPermissions
+      : permissionKey === 'branch_manager'
+        ? null
+        : DEFAULT_ROLE_PERMISSIONS[permissionKey] || [];
+  const routeRole = level === 'branch_manager' || level === 'waiter' ? level : role;
 
   const filterItem = (item: SidebarItem): SidebarItem | null => {
     if (!hasPermission(permissions, item.permission)) return null;
 
-    const resolvedHref = item.href ? resolveSidebarRoute(item.href, context, role) : undefined;
+    const resolvedHref = item.href ? resolveSidebarRoute(item.href, context, routeRole) : undefined;
     const resolvedChildren = item.items
       ? (item.items.map(filterItem).filter(Boolean) as SidebarItem[])
       : undefined;

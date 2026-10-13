@@ -7,9 +7,11 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
-import { ORG_TOP_BRANCHES } from '@/lib/mocks/dashboard/dashboard.mocks';
+import type { TopPerformingBranch } from '../../types/dashboard.types';
 
-export function TopPerformingBranchesCard() {
+export function TopPerformingBranchesCard({
+  branches = [],
+}: Readonly<{ branches?: TopPerformingBranch[] }> = {}) {
   return (
     <Card
       variant="outlined"
@@ -38,7 +40,7 @@ export function TopPerformingBranchesCard() {
 
       {/* Ranked List */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-        {ORG_TOP_BRANCHES.map((item) => (
+        {branches.map((item) => (
           <Box
             key={item.rank}
             sx={{

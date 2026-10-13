@@ -11,7 +11,19 @@ import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { colors } from '@/lib/theme/mui/colors';
 import { ORG_SUBSCRIPTION_USAGE } from '@/lib/mocks/dashboard/dashboard.mocks';
 
-export function SubscriptionUsageCard() {
+export function SubscriptionUsageCard({
+  companiesUsed,
+  branchesUsed,
+}: Readonly<{ companiesUsed?: number; branchesUsed?: number }> = {}) {
+  const metrics = ORG_SUBSCRIPTION_USAGE.metrics.map((metric) => {
+    if (metric.label === 'Companies' && companiesUsed != null) {
+      return { ...metric, used: companiesUsed };
+    }
+    if (metric.label === 'Branches' && branchesUsed != null) {
+      return { ...metric, used: branchesUsed };
+    }
+    return metric;
+  });
   return (
     <Card
       variant="outlined"
@@ -71,7 +83,7 @@ export function SubscriptionUsageCard() {
 
       {/* Progress Metrics */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        {ORG_SUBSCRIPTION_USAGE.metrics.map((m) => {
+        {metrics.map((m) => {
           const percent = Math.min(Math.round((m.used / m.total) * 100), 100);
 
           return (

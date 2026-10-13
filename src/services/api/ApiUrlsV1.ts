@@ -55,10 +55,25 @@ const ApiUrlsV1 = {
     company: resource('/v1/dashboard/company'),
     branch: resource('/v1/dashboard/branch'),
   },
+  organization: {
+    companies: '/v1/companies',
+    platformOrganizations: '/v1/platform/organizations',
+  },
   restaurant: {
     branches: '/v1/branches',
   },
 };
+
+export function organizationCompaniesPath(organizationId: number | string): string {
+  return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies`;
+}
+
+export function organizationCompanyBranchesPath(
+  organizationId: number | string,
+  companyId: number | string,
+): string {
+  return `${organizationCompaniesPath(organizationId)}/${encodeURIComponent(String(companyId))}/branches`;
+}
 
 export function restaurantFloorsPath(branchId: number): string {
   return `${ApiUrlsV1.restaurant.branches}/${branchId}/floors`;
