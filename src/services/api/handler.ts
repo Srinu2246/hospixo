@@ -32,7 +32,9 @@ import { POS_TABLES_DATA } from '@/lib/mocks/pos/usePosTables.mocks';
 import { MOCK_BRANCHES } from '@/lib/mocks/organization/branches.mocks';
 import { MOCK_COMPANIES } from '@/lib/mocks/organization/companies.mocks';
 import { resolveRestaurantFloorMock } from '@/lib/mocks/floor-and-table-setup/restaurantFloors.mocks';
+import { MOCK_KITCHEN_ORDERS } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
+
 import type { HttpMethod, QueryParams } from '@/services/api/types';
 
 type MockRequest = {
@@ -86,6 +88,8 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.pos.pointOfSale.reservation.list]: MOCK_RESERVATIONS,
   [ApiUrlsV1.pos.pointOfSale.tables.list]: POS_TABLES_DATA,
   [ApiUrlsV1.pos.pointOfSale.takeaway.list]: MOCK_MENU_ITEMS,
+  [ApiUrlsV1.pos.pointOfSale.kitchenDisplay.list]: MOCK_KITCHEN_ORDERS,
+  [ApiUrlsV1.operations.kitchenDisplay.list]: MOCK_KITCHEN_ORDERS,
   [ApiUrlsV1.employees.userRoles.list]: INITIAL_USERS,
   [ApiUrlsV1.employees.companyUserRoles.list]: COMPANY_INITIAL_USERS,
   [ApiUrlsV1.employees.companyTemplates.list]: COMPANY_ROLE_TEMPLATES,

@@ -21,6 +21,7 @@ import {
 } from '@/features/employees/user-roles';
 import { DashboardScreen } from '@/features/dashboard';
 import { FloorSetupScreen } from '@/features/management/floor-and-table-setup';
+import { KitchenDisplayScreen } from '@/features/kitchen-display';
 
 interface CatchAllPageProps {
   params: {
@@ -373,6 +374,16 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
           : 'organization';
       return <DashboardScreen initialLevel={initialLevel} />;
     },
+  },
+  // 13. Kitchen Display System (KDS): .../kitchen-display, .../kitchen-kds
+  {
+    name: 'Kitchen Display',
+    match: (path) =>
+      path.endsWith('kitchen-display') ||
+      path.endsWith('kitchen-kds') ||
+      path.includes('kitchen-display') ||
+      path.includes('kitchen-kds'),
+    render: () => <KitchenDisplayScreen />,
   },
 ];
 

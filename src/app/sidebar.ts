@@ -503,6 +503,12 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
             href: '/branch-manager/pos/point-of-sale/due-payments',
             icon: 'credit_card',
           },
+          {
+            id: 11,
+            name: 'Kitchen Display',
+            href: '/branch-manager/management/kitchen-display',
+            icon: 'tv',
+          },
         ],
       },
       {
@@ -536,6 +542,12 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
             name: 'All Orders',
             href: '/branch-manager/pos/captain-flow/all-orders',
             icon: 'receipt_long',
+          },
+          {
+            id: 5,
+            name: 'Kitchen Display',
+            href: '/branch-manager/management/kitchen-display',
+            icon: 'tv',
           },
         ],
       },
@@ -572,6 +584,13 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         href: '/branch-manager/orders/all-orders',
         icon: 'receipt_long',
         permission: PERMISSIONS.ORDERS_VIEW,
+      },
+      {
+        id: 5,
+        name: 'Kitchen Display',
+        href: '/branch-manager/management/kitchen-display',
+        icon: 'tv',
+        permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
       },
     ],
   },
@@ -736,6 +755,13 @@ export const WAITER_SIDEBAR: SidebarEntry[] = [
     href: '/branch-manager/menu/menu-availability',
     icon: 'calendar_today',
     permission: PERMISSIONS.MENU_VIEW,
+  },
+  {
+    id: 6,
+    name: 'Kitchen Display',
+    href: '/branch-manager/management/kitchen-display',
+    icon: 'tv',
+    permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
   },
 ];
 

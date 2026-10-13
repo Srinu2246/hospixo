@@ -225,7 +225,7 @@ export function OrdersTable<T extends { id: string } = OrdersTableRow>({
               ))
             ) : (
               <OrderRows
-                rows={rows as readonly OrdersTableRow[]}
+                rows={rows as unknown as readonly OrdersTableRow[]}
                 onViewOrder={onViewOrder}
                 onPrintOrder={onPrintOrder}
               />

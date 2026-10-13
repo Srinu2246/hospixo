@@ -41,8 +41,13 @@ const ApiUrlsV1 = {
       reservation: resource('/v1/pos/point-of-sale/reservation'),
       tables: resource('/v1/pos/point-of-sale/tables'),
       takeaway: resource('/v1/pos/point-of-sale/takeaway'),
+      kitchenDisplay: resource('/v1/kitchen-display'),
     },
   },
+  operations: {
+    kitchenDisplay: resource('/v1/operations/kitchen-display'),
+  },
+
   employees: {
     userRoles: resource('/v1/employees/user-roles'),
     companyUserRoles: resource('/v1/company/employees/user-roles'),
