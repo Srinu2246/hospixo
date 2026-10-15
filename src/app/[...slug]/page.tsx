@@ -22,7 +22,8 @@ import {
 import { DashboardScreen } from '@/features/dashboard';
 import { FloorSetupScreen } from '@/features/management/floor-and-table-setup';
 import { KitchenDisplayScreen } from '@/features/kitchen-display';
-import { MenuCreationLayout } from '@/features/menu';
+import { MenuAvailabilityLayout, MenuCreationLayout } from '@/features/menu';
+import type { MenuAvailabilityScope } from '@/lib/schemas/menu/menuAvailabilitySchema';
 import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
 
 interface CatchAllPageProps {
@@ -383,6 +384,20 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
           ? 'branch'
           : 'organization';
       return <MenuCreationLayout scope={scope} />;
+    },
+  },
+
+  // 15. Menu Availability: .../menu/menu-availability (company | branch-manager | organization)
+  {
+    name: 'Menu Availability',
+    match: (path) => path.endsWith('menu/menu-availability') || path.endsWith('menu-availability'),
+    render: (path) => {
+      const scope: MenuAvailabilityScope = path.startsWith('company')
+        ? 'company'
+        : path.startsWith('branch')
+          ? 'branch'
+          : 'organization';
+      return <MenuAvailabilityLayout scope={scope} />;
     },
   },
 ];

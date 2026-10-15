@@ -2,10 +2,11 @@
 
 import Box from '@mui/material/Box';
 
-import { getMenuPageConfig } from './config';
-import { MenuCreationProvider } from './context';
-import { MenuContent } from './MenuContent';
+import { getMenuCreationPageConfig } from '@/features/menu/config';
+import { MenuCreationProvider } from '@/features/menu/context';
 import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
+
+import { MenuContent } from './MenuContent';
 
 export interface MenuCreationLayoutProps {
   scope?: MenuCreationScope;
@@ -16,7 +17,7 @@ export interface MenuCreationLayoutProps {
  * Categories rail starts at the top; page header and tools live in the right pane.
  */
 export function MenuCreationLayout({ scope = 'company' }: Readonly<MenuCreationLayoutProps>) {
-  const pageConfig = getMenuPageConfig(scope);
+  const pageConfig = getMenuCreationPageConfig(scope);
 
   return (
     <MenuCreationProvider pageConfig={pageConfig}>

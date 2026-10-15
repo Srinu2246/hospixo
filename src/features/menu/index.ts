@@ -1,1 +1,2 @@
-export { MenuCreationLayout } from './menu-creation';
+export { MenuAvailabilityLayout } from './menu-availability/MenuAvailabilityLayout';
+export { MenuCreationLayout } from './menu-creation/MenuCreationLayout';
