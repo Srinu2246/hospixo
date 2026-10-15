@@ -36,5 +36,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # next-env.d.ts is gitignored; generate it so SVG/image imports typecheck.
+      - name: Generate Next.js types
+        run: pnpm exec next typegen
+
       - name: Lint, typecheck, format, cspell, knip
         run: pnpm codequality
