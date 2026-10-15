@@ -1,3 +1,7 @@
+import { clearSidebarSession } from '@/lib/auth/session';
+import { useSidebarStore } from '@/stores/sidebarStore';
+
+import ApiUrlsV1 from './ApiUrlsV1';
 import { readResponse } from './readResponse';
 import { ApiError, type HttpMethod, type QueryParams } from './types';
 
@@ -6,6 +10,8 @@ type BrowserRequestOptions = {
   body?: unknown;
   signal?: AbortSignal;
 };
+
+let redirectingToLogin = false;
 
 function toAppPath(endpoint: string, params?: QueryParams): string {
   if (/^https?:\/\//i.test(endpoint) || !/^\/v[12]\//.test(endpoint)) {
@@ -23,6 +29,24 @@ function toAppPath(endpoint: string, params?: QueryParams): string {
   }
 
   return `${url.pathname}${url.search}`;
+}
+
+function isAuthPath(endpoint: string): boolean {
+  return endpoint === ApiUrlsV1.auth.login || endpoint === ApiUrlsV1.auth.logout;
+}
+
+/** Cookies are cleared server-side on 401; clear client session and go to login. */
+function redirectToLoginAfterUnauthorized(): void {
+  if (typeof window === 'undefined') return;
+  if (redirectingToLogin) return;
+  if (window.location.pathname === '/login') return;
+
+  redirectingToLogin = true;
+  clearSidebarSession();
+  useSidebarStore.getState().clearSession();
+  // Hard navigation so middleware sees cleared httpOnly cookies.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload required after auth cookie clear
+  window.location.assign('/login');
 }
 
 async function request<T>(
@@ -47,7 +71,14 @@ async function request<T>(
     cache: 'no-store',
   });
 
-  return readResponse<T>(response);
+  try {
+    return await readResponse<T>(response);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401 && !isAuthPath(endpoint)) {
+      redirectToLoginAfterUnauthorized();
+    }
+    throw error;
+  }
 }
 
 export const api = {
