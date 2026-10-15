@@ -14,14 +14,14 @@ export function useDineInPage() {
   const flowPaths = usePosFlowPaths();
   const { orderLines, setOrderLines, selectedTableId, tableLabel, tableNumber, orderNumber } =
     usePosOrder();
-  const { sendToKot, editingOrderId, setEditingOrderId } = usePosOrdersStore();
+  const { sendToKot, editingOrderId } = usePosOrdersStore();
   const {
     data: menuData,
     isFetching: isMenuLoading,
     isError: isMenuError,
     error: menuError,
   } = useDineInMenu();
-  const menuItems = menuData?.items ?? [];
+  const menuItems = useMemo(() => menuData?.items ?? [], [menuData?.items]);
 
   const [activeCategory, setActiveCategory] = useState<DineInMenuCategoryId>('all');
   const [customizingItemId, setCustomizingItemId] = useState<string | null>(null);
@@ -147,7 +147,14 @@ export function useDineInPage() {
     selectedTable,
     isMenuLoading,
     isMenuError,
-    menuError: menuError instanceof Error ? menuError.message : (menuData?.loadError ?? null),
+    menuError:
+      menuError instanceof Error
+        ? menuError.message
+        : menuData?.loadError && menuItems.length === 0
+          ? null
+          : (menuData?.loadError ?? null),
+    menuLoadWarning:
+      !isMenuLoading && menuItems.length === 0 ? (menuData?.loadError ?? null) : null,
     menuIsEmpty: !isMenuLoading && menuItems.length === 0,
     handleMenuQuantityChange,
     handleCustomizeAdd,

@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -17,11 +18,14 @@ import { TablesTab } from '@/features/floor-table-setup/components/detail/tables
 import { detailCopy, floorTableSetupCopy } from '@/features/floor-table-setup/config';
 import { useFloorBranchOutletId } from '@/features/floor-table-setup/hooks/use-floor-branch-outlet';
 import {
+  computeFloorStatsFromTables,
   floorTableSetupPath,
   parseFloorDetailTab,
   tablesForFloor,
 } from '@/features/floor-table-setup/lib';
 import type { Floor, FloorDetailTabId } from '@/features/floor-table-setup/types/floor-table-setup';
+
+import { cn } from '@/lib/utils';
 
 import innerStyles from '../shared/workspace-page-inner.module.css';
 import wizardStyles from '../wizard/wizard.module.css';
@@ -40,7 +44,11 @@ export function FloorDetailPage({ floorId, initialFloor, error = null }: FloorDe
   const outletId = useFloorBranchOutletId();
   const tab = parseFloorDetailTab(searchParams.get('tab'));
   const floor = initialFloor;
-  const tables = initialFloor ? tablesForFloor(initialFloor) : [];
+  const tables = useMemo(() => (initialFloor ? tablesForFloor(initialFloor) : []), [initialFloor]);
+  const overviewStats = useMemo(() => {
+    if (!floor) return null;
+    return tables.length > 0 ? computeFloorStatsFromTables(tables, floor.sections) : floor.stats;
+  }, [floor, tables]);
 
   function setTab(next: FloorDetailTabId) {
     const params = new URLSearchParams(searchParams.toString());
@@ -77,8 +85,8 @@ export function FloorDetailPage({ floorId, initialFloor, error = null }: FloorDe
   }
 
   return (
-    <section className={styles.page} aria-label={floor.name}>
-      <div className={innerStyles.pageInner}>
+    <section className={styles.page} aria-label={floor.name ?? floorId}>
+      <div className={cn(innerStyles.pageInner, styles.floorDetailInner)}>
         <FloorDetailTabs value={tab} onChange={setTab} />
         <div className={styles.titleRow}>
           <Link
@@ -91,18 +99,26 @@ export function FloorDetailPage({ floorId, initialFloor, error = null }: FloorDe
           <h1 className={styles.title}>{floor.name}</h1>
         </div>
 
-        {tab === 'overview' ? (
-          <div className={styles.stack}>
-            <FloorInformation floor={floor} />
-            <SectionsOverview sections={floor.sections} />
-            <FloorStatCards stats={floor.stats} />
-            <RecentActivity items={floor.activity} onViewAll={() => setTab('history')} />
-          </div>
-        ) : null}
-        {tab === 'floor' ? <FloorEditTab floor={floor} onBack={() => setTab('overview')} /> : null}
-        {tab === 'sections' ? <SectionsTab floor={floor} tables={tables} /> : null}
-        {tab === 'tables' ? <TablesTab floor={floor} tables={tables} /> : null}
-        {tab === 'history' ? <HistoryTab floor={floor} /> : null}
+        <div className={styles.tabPane}>
+          {tab === 'overview' ? (
+            <div className={styles.stack}>
+              <FloorInformation floor={floor} />
+              <SectionsOverview
+                sections={floor.sections}
+                tables={tables}
+                outletLabel={floor.branch || floor.name}
+              />
+              <FloorStatCards stats={overviewStats ?? floor.stats} />
+              <RecentActivity items={floor.activity} onViewAll={() => setTab('history')} />
+            </div>
+          ) : null}
+          {tab === 'floor' ? (
+            <FloorEditTab floor={floor} onBack={() => setTab('overview')} />
+          ) : null}
+          {tab === 'sections' ? <SectionsTab floor={floor} tables={tables} /> : null}
+          {tab === 'tables' ? <TablesTab floor={floor} tables={tables} /> : null}
+          {tab === 'history' ? <HistoryTab floor={floor} /> : null}
+        </div>
       </div>
     </section>
   );

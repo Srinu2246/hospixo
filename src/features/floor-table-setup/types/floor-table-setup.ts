@@ -14,7 +14,11 @@ export type FloorTableStatus = 'available' | 'reserved' | 'occupied';
 
 export type SectionStatus = 'active' | 'inactive';
 
+export type SectionStatusFilter = 'all' | SectionStatus;
+
 export type TableConfigStatus = 'active' | 'inactive';
+
+export type TableConfigStatusFilter = 'all' | TableConfigStatus;
 
 export type TableShape = 'round' | 'square' | 'rectangle';
 

@@ -146,6 +146,14 @@
   gap: 0.75rem;
 }
 
+.listHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
 .listCopy {
   display: flex;
   flex-direction: column;
@@ -524,7 +532,7 @@
   }
 
   .sectionGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .tileGrid {

@@ -18,6 +18,8 @@ export {
   historyPageSize,
   historySubTabs,
   sectionStatusLabels,
+  sectionStatusFilterOptions,
+  tableConfigStatusFilterOptions,
   tableColumnKeys,
   tableConfigStatusLabels,
   tableConfigStatusOptions,

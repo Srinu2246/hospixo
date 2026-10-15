@@ -7,6 +7,9 @@ import { StatusToggle } from '@/features/floor-table-setup/components/status-tog
 import { detailCopy, floorTableSetupCopy, wizardCopy } from '@/features/floor-table-setup/config';
 import type { SectionDraft } from '@/features/floor-table-setup/types/floor-table-setup';
 
+import { cn } from '@/lib/utils';
+
+import detailStyles from './floor-detail-page.module.css';
 import wizardStyles from '../wizard/wizard.module.css';
 
 type SectionEditFormProps = Readonly<{
@@ -33,7 +36,7 @@ export function SectionEditForm({
   }
 
   return (
-    <div className={wizardStyles.page}>
+    <div className={cn(wizardStyles.page, detailStyles.detailShell)}>
       <section className={wizardStyles.card}>
         <h2 className={wizardStyles.cardTitle}>{detailCopy.editSection}</h2>
         <div className={wizardStyles.grid2}>
@@ -79,7 +82,7 @@ export function SectionEditForm({
         ) : null}
       </section>
       {showFooter ? (
-        <div className={wizardStyles.footer}>
+        <div className={cn(wizardStyles.footer, detailStyles.stickyTabFooter)}>
           <AsyncButton className={wizardStyles.secondary} onClick={onCancel} disabled={loading}>
             {detailCopy.cancel}
           </AsyncButton>

@@ -1,12 +1,22 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Plus, Search, SquarePen, Trash2 } from 'lucide-react';
+import { Plus, SquarePen, Trash2 } from 'lucide-react';
 
 import { EmptyState } from '@/features/floor-table-setup/components/empty-state';
+import { SectionDownloadQrButton } from '@/features/floor-table-setup/components/section-qr/section-download-qr-button';
+import { SectionQrDialog } from '@/features/floor-table-setup/components/section-qr/section-qr-dialog';
 import { FloorStatusBadge } from '@/features/floor-table-setup/components/status-badge';
+import { useFloorBranchOutletId } from '@/features/floor-table-setup/hooks/use-floor-branch-outlet';
+import { DetailListHeaderActions } from '@/features/floor-table-setup/components/shared/detail-list-header-actions';
+import { FloorSetupSearchField } from '@/features/floor-table-setup/components/shared/floor-setup-search-field';
 import { SectionModal } from '@/features/floor-table-setup/components/wizard/section-modal';
-import { detailCopy, sectionCodePrefix, wizardCopy } from '@/features/floor-table-setup/config';
+import {
+  detailCopy,
+  sectionCodePrefix,
+  sectionStatusFilterOptions,
+  wizardCopy,
+} from '@/features/floor-table-setup/config';
 import { useFloorDetailMutations } from '@/features/floor-table-setup/hooks/use-floor-detail-mutations';
 import {
   filterByQuery,
@@ -21,9 +31,10 @@ import type {
   FloorSection,
   FloorTableItem,
   SectionDraft,
+  SectionStatusFilter,
 } from '@/features/floor-table-setup/types/floor-table-setup';
 import wizardStyles from '../wizard/wizard.module.css';
-import styles from './floor-detail-page.module.css';
+import listCardStyles from './section-list-card.module.css';
 import { SectionDetail } from './section-detail';
 import { SectionEditForm } from './section-edit-form';
 
@@ -36,18 +47,31 @@ type SectionsTabProps = Readonly<{
 
 export function SectionsTab({ floor, tables }: SectionsTabProps) {
   const mutations = useFloorDetailMutations(floor.id);
+  const outletId = useFloorBranchOutletId();
   const [sections, setSections] = useState<FloorSection[]>(() => [...floor.sections]);
+  const [qrSection, setQrSection] = useState<FloorSection | null>(null);
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<SectionStatusFilter>('all');
   const [view, setView] = useState<SectionsView>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SectionDraft | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
 
-  const visible = useMemo(
-    () => filterByQuery(sections, query, (section) => `${section.name} ${section.code ?? ''}`),
-    [sections, query],
+  const sectionStatusOptions = useMemo(
+    () => sectionStatusFilterOptions.map((option) => ({ value: option.id, label: option.label })),
+    [],
   );
+
+  const visible = useMemo(() => {
+    const searched = filterByQuery(
+      sections,
+      query,
+      (section) => `${section.name} ${section.code ?? ''}`,
+    );
+    if (statusFilter === 'all') return searched;
+    return searched.filter((section) => section.status === statusFilter);
+  }, [sections, query, statusFilter]);
   const selected = sections.find((section) => section.id === selectedId);
   const editingSection = editingSectionId
     ? sections.find((section) => section.id === editingSectionId)
@@ -183,65 +207,73 @@ export function SectionsTab({ floor, tables }: SectionsTabProps) {
           <h2 className={wizardStyles.listTitle}>{detailCopy.sectionsTitle}</h2>
           <p className={wizardStyles.listSubtitle}>{detailCopy.sectionsSubtitle}</p>
         </div>
-        <button
-          type="button"
-          className={wizardStyles.primary}
-          onClick={() => {
+        <DetailListHeaderActions
+          status={statusFilter}
+          statusOptions={sectionStatusOptions}
+          onStatusChange={(value) => setStatusFilter(value as SectionStatusFilter)}
+          primaryLabel={detailCopy.addSection}
+          onPrimary={() => {
             setEditingSectionId(null);
             setCreateOpen(true);
           }}
-        >
-          <Plus className={wizardStyles.icon} aria-hidden="true" />
-          {detailCopy.addSection}
-        </button>
-      </div>
-      <label className={wizardStyles.search}>
-        <Search className={wizardStyles.icon} aria-hidden="true" />
-        <input
-          className={wizardStyles.searchInput}
-          type="search"
-          value={query}
-          placeholder={detailCopy.searchSections}
-          onChange={(event) => setQuery(event.target.value)}
+          primaryDisabled={mutations.isPending}
         />
-      </label>
+      </div>
+      <FloorSetupSearchField
+        value={query}
+        placeholder={detailCopy.searchSections}
+        onChange={setQuery}
+      />
       <div className={wizardStyles.sectionGrid}>
         {visible.map((section) => (
-          <article key={section.id} className={wizardStyles.sectionCard}>
+          <article key={section.id} className={listCardStyles.card}>
             <button
               type="button"
-              className={styles.sectionCardButton}
+              className={listCardStyles.body}
               onClick={() => openDetail(section.id)}
             >
-              <div className={wizardStyles.sectionTop}>
-                <h3 className={wizardStyles.sectionName}>{section.name}</h3>
+              <div className={listCardStyles.header}>
+                <h3 className={listCardStyles.name}>{section.name}</h3>
                 <FloorStatusBadge status={section.status} />
               </div>
-              <p className={wizardStyles.stats}>
+              <p className={listCardStyles.stats}>
                 {formatFloorStats(section.tableCount, section.seatCount)}
               </p>
             </button>
-            <div className={wizardStyles.iconActions}>
-              <button
-                type="button"
-                className={wizardStyles.iconButton}
-                aria-label={detailCopy.edit}
-                onClick={() => openEdit(section)}
-              >
-                <SquarePen className={wizardStyles.icon} />
-              </button>
-              <button
-                type="button"
-                className={wizardStyles.iconButton}
-                aria-label={detailCopy.deleteSection}
-                onClick={() => void deleteSection(section)}
-              >
-                <Trash2 className={wizardStyles.icon} />
-              </button>
+            <div className={listCardStyles.footer}>
+              <SectionDownloadQrButton
+                className={listCardStyles.downloadQr}
+                onClick={() => setQrSection(section)}
+              />
+              <div className={listCardStyles.iconGroup}>
+                <button
+                  type="button"
+                  className={wizardStyles.iconButton}
+                  aria-label={detailCopy.edit}
+                  onClick={() => openEdit(section)}
+                >
+                  <SquarePen className={wizardStyles.icon} />
+                </button>
+                <button
+                  type="button"
+                  className={wizardStyles.iconButton}
+                  aria-label={detailCopy.deleteSection}
+                  onClick={() => void deleteSection(section)}
+                >
+                  <Trash2 className={wizardStyles.icon} />
+                </button>
+              </div>
             </div>
           </article>
         ))}
       </div>
+      <SectionQrDialog
+        open={qrSection != null}
+        section={qrSection}
+        outletLabel={floor.branch || floor.name}
+        outletId={outletId}
+        onClose={() => setQrSection(null)}
+      />
       <SectionModal
         open={createOpen}
         defaultCode={createCode}

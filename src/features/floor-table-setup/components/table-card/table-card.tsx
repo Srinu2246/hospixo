@@ -1,5 +1,5 @@
 import type { ReactNode, Ref } from 'react';
-import { QrCode, SquarePen, Trash2 } from 'lucide-react';
+import { LayoutGrid, QrCode, SquarePen, Trash2 } from 'lucide-react';
 
 import { floorTableSetupCopy, setupStatusLabels } from '@/features/floor-table-setup/config';
 import type { SetupStatus } from '@/features/floor-table-setup/types/floor-table-setup';
@@ -116,6 +116,33 @@ export function SetupTableGrid({
   className,
 }: Readonly<{ children: ReactNode; className?: string }>) {
   return <div className={cn(styles.grid, className)}>{children}</div>;
+}
+
+type SectionDetailTableCardProps = Readonly<{
+  number: string;
+  capacity: number;
+}>;
+
+/** Compact table tile for section detail — icon, number, seats (no status row). */
+export function SectionDetailTableCard({ number, capacity }: SectionDetailTableCardProps) {
+  return (
+    <article className={styles.sectionOverviewCard}>
+      <LayoutGrid className={styles.sectionOverviewIcon} aria-hidden="true" />
+      <div className={styles.sectionOverviewText}>
+        <span className={styles.sectionOverviewNumber}>{number}</span>
+        <span className={styles.sectionOverviewCapacity}>
+          {capacity} {floorTableSetupCopy.seatsSuffix}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+export function SectionDetailTableGrid({
+  children,
+  className,
+}: Readonly<{ children: ReactNode; className?: string }>) {
+  return <div className={cn(styles.sectionOverviewGrid, className)}>{children}</div>;
 }
 
 /** @deprecated Use SetupTableCard for floor-table-setup grids. */

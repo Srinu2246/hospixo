@@ -40,6 +40,10 @@ export function CompactTablesContent({
   loadError,
   isFetching,
   hasAnyTables,
+  isMenuLoading,
+  menuError,
+  menuLoadWarning,
+  menuIsEmpty,
 }: Readonly<CompactTablesContentProps>) {
   const emptyMessage = loadError
     ? loadError
@@ -53,6 +57,21 @@ export function CompactTablesContent({
         {isError || loadError ? (
           <Alert severity="error" sx={{ mx: 2, mt: 1 }}>
             {loadError ?? 'Unable to load tables.'}
+          </Alert>
+        ) : null}
+        {menuError ? (
+          <Alert severity="error" sx={{ mx: 2, mt: 1 }}>
+            {menuError}
+          </Alert>
+        ) : null}
+        {menuLoadWarning ? (
+          <Alert severity="warning" sx={{ mx: 2, mt: 1 }}>
+            {menuLoadWarning}
+          </Alert>
+        ) : null}
+        {menuIsEmpty && !isMenuLoading && !menuError ? (
+          <Alert severity="info" sx={{ mx: 2, mt: 1 }}>
+            No menu items are available for this branch.
           </Alert>
         ) : null}
         <PosCompactHeader>

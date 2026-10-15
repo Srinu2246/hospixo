@@ -3,7 +3,11 @@
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 
-import { floorSetupToolbarSelectSx } from '@/features/floor-table-setup/components/shared/mui-field-styles';
+import {
+  floorSetupFilterFieldSx,
+  floorSetupToolbarSelectSx,
+} from '@/features/floor-table-setup/components/shared/mui-field-styles';
+import type { SxProps, Theme } from '@mui/material/styles';
 
 type FloorSetupToolbarSelectProps = Readonly<{
   value: string;
@@ -11,6 +15,8 @@ type FloorSetupToolbarSelectProps = Readonly<{
   options: readonly Readonly<{ value: string; label: string }>[];
   'aria-label': string;
   label?: string;
+  fullWidth?: boolean;
+  sx?: SxProps<Theme>;
 }>;
 
 export function FloorSetupToolbarSelect({
@@ -19,16 +25,19 @@ export function FloorSetupToolbarSelect({
   options,
   'aria-label': ariaLabel,
   label,
+  fullWidth = false,
+  sx,
 }: FloorSetupToolbarSelectProps) {
   return (
     <TextField
       select
+      fullWidth={fullWidth}
       size="small"
       value={value}
       label={label}
       aria-label={ariaLabel}
       onChange={(event) => onChange(event.target.value)}
-      sx={floorSetupToolbarSelectSx}
+      sx={[fullWidth ? floorSetupFilterFieldSx : floorSetupToolbarSelectSx, ...(sx ? [sx] : [])]}
       slotProps={{
         inputLabel: label ? { shrink: true } : undefined,
       }}

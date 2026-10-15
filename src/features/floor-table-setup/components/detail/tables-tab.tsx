@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Plus, Search, SquarePen, Trash2 } from 'lucide-react';
+import { Plus, SquarePen, Trash2 } from 'lucide-react';
 
 import { EmptyState } from '@/features/floor-table-setup/components/empty-state';
+import { DetailListHeaderActions } from '@/features/floor-table-setup/components/shared/detail-list-header-actions';
+import { FloorSetupSearchField } from '@/features/floor-table-setup/components/shared/floor-setup-search-field';
 import { FloorStatusBadge } from '@/features/floor-table-setup/components/status-badge';
 import { TableModal } from '@/features/floor-table-setup/components/wizard/table-modals';
 import {
@@ -12,12 +14,14 @@ import {
   floorTableSetupCopy,
   sectionCodePrefix,
   tableColumnKeys,
+  tableConfigStatusFilterOptions,
   tableConfigStatusOptions,
   tableViewOptions,
   wizardCopy,
 } from '@/features/floor-table-setup/config';
 import { useFloorDetailMutations } from '@/features/floor-table-setup/hooks/use-floor-detail-mutations';
 import {
+  effectiveTableConfigStatus,
   filterByQuery,
   generateTables,
   nextEntityCode,
@@ -29,6 +33,7 @@ import {
 import type {
   Floor,
   FloorTableItem,
+  TableConfigStatusFilter,
   TableViewId,
 } from '@/features/floor-table-setup/types/floor-table-setup';
 import { cn } from '@/lib/utils';
@@ -50,6 +55,7 @@ type TablesTabProps = Readonly<{
 export function TablesTab({ floor, tables }: TablesTabProps) {
   const mutations = useFloorDetailMutations(floor.id);
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<TableConfigStatusFilter>('all');
   const [view, setView] = useState<TableViewId>('grid');
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -57,15 +63,26 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const visible = useMemo(
+  const tableStatusOptions = useMemo(
     () =>
-      filterByQuery(
-        tables,
-        query,
-        (table) => `${table.number} ${table.area} ${table.configStatus}`,
-      ),
-    [tables, query],
+      tableConfigStatusFilterOptions.map((option) => ({
+        value: option.id,
+        label: option.label,
+      })),
+    [],
   );
+
+  const visible = useMemo(() => {
+    const searched = filterByQuery(
+      tables,
+      query,
+      (table) => `${table.number} ${table.area} ${table.configStatus}`,
+    );
+    if (statusFilter === 'all') return searched;
+    return searched.filter(
+      (table) => effectiveTableConfigStatus(table, floor.sections) === statusFilter,
+    );
+  }, [floor.sections, statusFilter, tables, query]);
   const areas = useMemo(
     () => [...new Set(floor.sections.map((section) => section.name))],
     [floor.sections],
@@ -212,30 +229,24 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
           <h2 className={wizardStyles.listTitle}>{detailCopy.tablesTitle}</h2>
           <p className={wizardStyles.listSubtitle}>{detailCopy.tablesSubtitle}</p>
         </div>
-        <button
-          type="button"
-          className={wizardStyles.primary}
-          onClick={() => {
+        <DetailListHeaderActions
+          status={statusFilter}
+          statusOptions={tableStatusOptions}
+          onStatusChange={(value) => setStatusFilter(value as TableConfigStatusFilter)}
+          primaryLabel={detailCopy.addTable}
+          onPrimary={() => {
             mutations.clearError();
             setCreateOpen(true);
           }}
-          disabled={mutations.isPending || !mutations.scopeReady}
-        >
-          <Plus className={wizardStyles.icon} aria-hidden="true" />
-          {detailCopy.addTable}
-        </button>
+          primaryDisabled={mutations.isPending || !mutations.scopeReady}
+        />
       </div>
       <div className={wizardStyles.toolbarRow}>
-        <label className={wizardStyles.search}>
-          <Search className={wizardStyles.icon} aria-hidden="true" />
-          <input
-            className={wizardStyles.searchInput}
-            type="search"
-            value={query}
-            placeholder={detailCopy.searchTables}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
+        <FloorSetupSearchField
+          value={query}
+          placeholder={detailCopy.searchTables}
+          onChange={setQuery}
+        />
         <div className={styles.viewToggle} role="group">
           {tableViewOptions.map((option) => (
             <button
@@ -330,7 +341,7 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
                   <td>{table.area}</td>
                   <td>{table.capacity}</td>
                   <td>
-                    <FloorStatusBadge status={table.configStatus} />
+                    <FloorStatusBadge status={effectiveTableConfigStatus(table, floor.sections)} />
                   </td>
                 </tr>
               ))}
@@ -362,7 +373,7 @@ export function TablesTab({ floor, tables }: TablesTabProps) {
                 </span>
               </div>
               <div className={styles.tileFooter}>
-                <FloorStatusBadge status={table.configStatus} />
+                <FloorStatusBadge status={effectiveTableConfigStatus(table, floor.sections)} />
                 <div className={`${wizardStyles.iconActions} ${styles.tileFooterActions}`}>
                   <button
                     type="button"

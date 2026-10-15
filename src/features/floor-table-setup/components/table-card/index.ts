@@ -1,4 +1,6 @@
 export {
+  SectionDetailTableCard,
+  SectionDetailTableGrid,
   SetupTableCard,
   SetupTableGrid,
   TableCard,

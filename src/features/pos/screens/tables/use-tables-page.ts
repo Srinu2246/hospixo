@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { PosTableFilterId, TableStatus } from '@/features/pos/config/tables';
 import { normalizeTableId } from '@/features/pos/config/tables';
 import { usePosFlowPaths } from '@/features/pos/hooks/use-pos-flow-paths';
+import { useDineInMenu } from '@/features/pos/hooks/use-dine-in-menu';
 import { usePosTables } from '@/features/pos/hooks/use-pos-tables';
 import { usePosOrder } from '@/context/pos-order';
 
@@ -20,8 +21,15 @@ export function useTablesPage() {
   const flowPaths = usePosFlowPaths();
   const { selectedTableId, setSelectedTable } = usePosOrder();
   const { data: tableData, isFetching, isError, error } = usePosTables();
-  const posFloors = tableData?.floors ?? [];
-  const posTables = tableData?.tables ?? [];
+  const {
+    data: menuData,
+    isFetching: isMenuLoading,
+    isError: isMenuError,
+    error: menuQueryError,
+  } = useDineInMenu();
+  const menuItems = useMemo(() => menuData?.items ?? [], [menuData?.items]);
+  const posFloors = useMemo(() => tableData?.floors ?? [], [tableData?.floors]);
+  const posTables = useMemo(() => tableData?.tables ?? [], [tableData?.tables]);
   const [activeFloorId, setActiveFloorId] = useState('');
   const [activeFilter, setActiveFilter] = useState<PosTableFilterId>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,6 +105,12 @@ export function useTablesPage() {
     handleDesktopTableSelect,
     handleCompactTableSelect,
     handleOrderMenu,
+    isMenuLoading,
+    isMenuError,
+    menuError: isMenuError && menuQueryError instanceof Error ? menuQueryError.message : null,
+    menuLoadWarning:
+      !isMenuLoading && menuItems.length === 0 ? (menuData?.loadError ?? null) : null,
+    menuIsEmpty: !isMenuLoading && menuItems.length === 0,
   };
 }
 

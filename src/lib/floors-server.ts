@@ -381,12 +381,15 @@ export async function loadFloorDetailPageData(
     sectionItems = enrichApiSectionsWithTableStats(sectionItems, tables);
 
     const seatCount = tables.reduce((sum, table) => sum + table.capacity, 0);
-    const floor = mapApiFloorToFloor({
-      ...apiFloor,
-      sections: sectionItems,
-      table_count: tables.length,
-      seat_count: seatCount,
-    });
+    const floor = mapApiFloorToFloor(
+      {
+        ...apiFloor,
+        sections: sectionItems,
+        table_count: tables.length,
+        seat_count: seatCount,
+      },
+      tables,
+    );
     return { floor: { ...floor, tables }, branchId, companyId, error: null };
   } catch (err) {
     return {

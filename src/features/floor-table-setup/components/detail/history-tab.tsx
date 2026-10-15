@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
 
 import { EmptyState } from '@/features/floor-table-setup/components/empty-state';
+import { FloorSetupHistoryFilters } from '@/features/floor-table-setup/components/shared/floor-setup-history-filters';
 import {
   detailCopy,
   generalHistoryColumns,
@@ -91,51 +91,34 @@ export function HistoryTab({ floor }: HistoryTabProps) {
           {detailCopy.export}
         </button>
       </div>
-      <div className={styles.filterRow}>
-        <label className={wizardStyles.search}>
-          <Search className={wizardStyles.icon} aria-hidden="true" />
-          <input
-            className={wizardStyles.searchInput}
-            type="search"
-            value={query}
-            placeholder={detailCopy.searchHistory}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setPage(1);
-            }}
-          />
-        </label>
-        <label>
-          {detailCopy.dateLabel}
-          <input
-            className={styles.compactInput}
-            type="date"
-            value={date}
-            onChange={(event) => {
-              setDate(event.target.value);
-              setPage(1);
-            }}
-          />
-        </label>
-        <label>
-          {detailCopy.actionLabel}
-          <select
-            className={styles.compactSelect}
-            value={action}
-            onChange={(event) => {
-              if (!isHistoryActionFilter(event.target.value)) return;
-              setAction(event.target.value);
-              setPage(1);
-            }}
-          >
-            {historyActionFilterOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <FloorSetupHistoryFilters
+        rowClassName={styles.filterRow}
+        searchClassName={styles.filterSearch}
+        fieldClassName={styles.filterFormField}
+        query={query}
+        searchPlaceholder={detailCopy.searchHistory}
+        onQueryChange={(next) => {
+          setQuery(next);
+          setPage(1);
+        }}
+        date={date}
+        dateLabel={detailCopy.dateLabel}
+        onDateChange={(next) => {
+          setDate(next);
+          setPage(1);
+        }}
+        action={action}
+        actionLabel={detailCopy.actionLabel}
+        actionOptions={historyActionFilterOptions.map((option) => ({
+          value: option.id,
+          label: option.label,
+        }))}
+        onActionChange={(value) => {
+          if (!isHistoryActionFilter(value)) return;
+          setAction(value);
+          setPage(1);
+        }}
+      />
       <div className={styles.statsThree}>
         {historyStatKeys.map((entry) => (
           <article key={entry.id} className={styles.statCard}>

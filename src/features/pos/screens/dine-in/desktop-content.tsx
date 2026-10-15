@@ -37,6 +37,7 @@ export function DineInDesktopContent({
   isMenuError,
   menuError,
   menuIsEmpty,
+  menuLoadWarning,
 }: Readonly<DineInPageViewModel>) {
   if (!selectedTableId) {
     return (
@@ -62,6 +63,7 @@ export function DineInDesktopContent({
         <Stack spacing={2} sx={{ mb: 2 }}>
           {isMenuLoading ? <CircularProgress size={24} aria-label="Loading menu" /> : null}
           {isMenuError || menuError ? <Alert severity="error">{menuError}</Alert> : null}
+          {menuLoadWarning ? <Alert severity="warning">{menuLoadWarning}</Alert> : null}
           {menuIsEmpty && !isMenuLoading && !menuError ? (
             <Alert severity="info">No menu items are available for this branch.</Alert>
           ) : null}

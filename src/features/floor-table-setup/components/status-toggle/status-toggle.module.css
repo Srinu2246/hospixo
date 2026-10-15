@@ -29,27 +29,39 @@
   width: 2.6rem;
   height: 1.45rem;
   flex-shrink: 0;
-  border: 0;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--input);
+  background: var(--muted);
   cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.switch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--auth-accent) 25%, transparent);
 }
 
 .switchOn {
   background: var(--auth-accent);
+  border-color: var(--auth-accent);
 }
 
 .thumb {
   position: absolute;
-  top: 0.15rem;
-  left: 0.15rem;
+  top: 0.12rem;
+  left: 0.12rem;
   width: 1.15rem;
   height: 1.15rem;
   border-radius: 999px;
   background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 12%, transparent);
   transition: transform 140ms ease;
 }
 
 .switchOn .thumb {
   transform: translateX(1.15rem);
+  border-color: color-mix(in srgb, var(--auth-accent) 40%, var(--border));
 }

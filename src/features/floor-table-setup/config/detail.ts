@@ -3,7 +3,9 @@ import type {
   HistoryActionId,
   HistorySubTabId,
   SectionStatus,
+  SectionStatusFilter,
   TableConfigStatus,
+  TableConfigStatusFilter,
   TableShape,
   TableViewId,
 } from '@/features/floor-table-setup/types/floor-table-setup';
@@ -95,6 +97,15 @@ export const sectionStatusLabels: Record<SectionStatus, string> = {
   inactive: 'Inactive',
 };
 
+export const sectionStatusFilterOptions: ReadonlyArray<{
+  id: SectionStatusFilter;
+  label: string;
+}> = [
+  { id: 'all', label: 'Status' },
+  { id: 'active', label: 'Active' },
+  { id: 'inactive', label: 'Inactive' },
+];
+
 export const tableConfigStatusLabels: Record<TableConfigStatus, string> = {
   active: 'Active',
   inactive: 'Inactive',
@@ -114,6 +125,11 @@ export const tableShapeOptions = Object.entries(tableShapeLabels).map(([id, labe
 export const tableConfigStatusOptions = Object.entries(tableConfigStatusLabels).map(
   ([id, label]) => ({ id: id as TableConfigStatus, label }),
 );
+
+export const tableConfigStatusFilterOptions: ReadonlyArray<{
+  id: TableConfigStatusFilter;
+  label: string;
+}> = [{ id: 'all', label: 'Status' }, ...tableConfigStatusOptions];
 
 export const tableViewOptions: ReadonlyArray<{ id: TableViewId; label: string }> = [
   { id: 'grid', label: 'Grid' },

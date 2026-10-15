@@ -1,6 +1,7 @@
-import { Plus, Search, SquarePen, Trash2 } from 'lucide-react';
+import { Plus, SquarePen, Trash2 } from 'lucide-react';
 
 import { EmptyState } from '@/features/floor-table-setup/components/empty-state';
+import { FloorSetupSearchField } from '@/features/floor-table-setup/components/shared/floor-setup-search-field';
 import { FloorStatusBadge } from '@/features/floor-table-setup/components/status-badge';
 import { wizardCopy } from '@/features/floor-table-setup/config';
 import { formatFloorStats } from '@/features/floor-table-setup/lib';
@@ -54,16 +55,11 @@ export function SectionCreationStep({
           {wizardCopy.addSection}
         </button>
       </div>
-      <label className={styles.search}>
-        <Search className={styles.icon} aria-hidden="true" />
-        <input
-          className={styles.searchInput}
-          type="search"
-          value={query}
-          placeholder={wizardCopy.searchSections}
-          onChange={(event) => onQueryChange(event.target.value)}
-        />
-      </label>
+      <FloorSetupSearchField
+        value={query}
+        placeholder={wizardCopy.searchSections}
+        onChange={onQueryChange}
+      />
       <div className={styles.sectionGrid}>
         {sections.map((section) => (
           <article key={section.id} className={styles.sectionCard}>

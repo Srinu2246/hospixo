@@ -21,11 +21,14 @@ export {
 } from './draft';
 export type { NewTableSectionInput, TableSectionChoice } from './draft';
 export {
+  computeFloorStatsFromTables,
+  effectiveTableConfigStatus,
   filterHistoryEntries,
   filterTableStatusHistory,
   floorToDraftForm,
   floorToSetupDraft,
   historyForFloor,
+  isTableActiveForStats,
   isFloorDetailTab,
   isTableConfigStatus,
   isTableShape,
@@ -37,6 +40,7 @@ export {
   tableDraftToFloorTableItem,
   tablesForFloor,
   tablesForSection,
+  resolveTableSectionName,
 } from './detail';
 export { createDraftFloor, filterFloors } from './filter-floors';
 export { isVisibleSection, resolvePrimarySectionId, userFacingSections } from './sections';

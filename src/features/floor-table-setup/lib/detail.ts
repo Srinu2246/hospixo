@@ -11,6 +11,7 @@ import type {
   FloorHistoryLog,
   FloorSection,
   FloorSetupDraft,
+  FloorStats,
   FloorTableItem,
   HistoryActionFilter,
   SectionDraft,
@@ -110,6 +111,64 @@ export function tablesForSection(
   sectionId: string,
 ): FloorTableItem[] {
   return tables.filter((table) => table.sectionId === sectionId);
+}
+
+function sectionById(sections: readonly FloorSection[]): Map<string, FloorSection> {
+  return new Map(sections.map((section) => [section.id, section]));
+}
+
+/** Table counts as inactive when config is inactive or its section is inactive. */
+export function isTableActiveForStats(
+  table: FloorTableItem,
+  sections: readonly FloorSection[],
+): boolean {
+  if (table.configStatus === 'inactive') return false;
+  if (!table.sectionId) return true;
+  const section = sectionById(sections).get(table.sectionId);
+  return section?.status !== 'inactive';
+}
+
+export function effectiveTableConfigStatus(
+  table: FloorTableItem,
+  sections: readonly FloorSection[],
+): TableConfigStatus {
+  return isTableActiveForStats(table, sections) ? table.configStatus : 'inactive';
+}
+
+export function computeFloorStatsFromTables(
+  tables: readonly FloorTableItem[],
+  sections: readonly FloorSection[] = [],
+): FloorStats {
+  let activeTables = 0;
+  let inactiveTables = 0;
+  let totalSeats = 0;
+
+  for (const table of tables) {
+    totalSeats += table.capacity;
+    if (isTableActiveForStats(table, sections)) {
+      activeTables += 1;
+    } else {
+      inactiveTables += 1;
+    }
+  }
+
+  return {
+    totalTables: tables.length,
+    totalSeats,
+    activeTables,
+    inactiveTables,
+  };
+}
+
+export function resolveTableSectionName(
+  table: FloorTableItem,
+  sections: readonly Pick<FloorSection, 'id' | 'name'>[],
+): string {
+  if (table.sectionId) {
+    const section = sections.find((item) => item.id === table.sectionId);
+    if (section?.name) return section.name;
+  }
+  return table.area;
 }
 
 export function sectionStatsFromTables(

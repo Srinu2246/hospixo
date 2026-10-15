@@ -45,7 +45,9 @@ export function FloorSetupSelectField({
           ? undefined
           : {
               MenuProps: {
-                PaperProps: { sx: { maxHeight: 320 } },
+                slotProps: {
+                  paper: { sx: { maxHeight: 320 } },
+                },
               },
             },
       }}

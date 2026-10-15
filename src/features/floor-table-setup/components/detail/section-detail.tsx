@@ -1,6 +1,10 @@
 import { FloorStatusBadge } from '@/features/floor-table-setup/components/status-badge';
-import { SetupTableCard, SetupTableGrid } from '@/features/floor-table-setup/components/table-card';
-import { detailCopy, floorTableSetupCopy, wizardCopy } from '@/features/floor-table-setup/config';
+import {
+  SectionDetailTableCard,
+  SectionDetailTableGrid,
+} from '@/features/floor-table-setup/components/table-card';
+import { detailCopy, wizardCopy } from '@/features/floor-table-setup/config';
+import { cn } from '@/lib/utils';
 import type {
   FloorSection,
   FloorTableItem,
@@ -39,7 +43,7 @@ export function SectionDetail({ section, tables, onBack, onEdit }: SectionDetail
   };
 
   return (
-    <div className={styles.stack}>
+    <div className={cn(styles.stack, styles.detailShell)}>
       <div className={styles.titleRow}>
         <h2 className={styles.title}>
           {section.name} {detailCopy.sectionSuffix}
@@ -81,19 +85,18 @@ export function SectionDetail({ section, tables, onBack, onEdit }: SectionDetail
         {tables.length === 0 ? (
           <p className={styles.activityTime}>{detailCopy.emptyTablesDescription}</p>
         ) : (
-          <SetupTableGrid>
+          <SectionDetailTableGrid>
             {tables.map((table) => (
-              <SetupTableCard
+              <SectionDetailTableCard
                 key={table.id}
                 number={table.number}
                 capacity={table.capacity}
-                status={table.configStatus}
               />
             ))}
-          </SetupTableGrid>
+          </SectionDetailTableGrid>
         )}
       </section>
-      <div className={wizardStyles.footer}>
+      <div className={cn(wizardStyles.footer, styles.stickyTabFooter)}>
         <button type="button" className={wizardStyles.secondary} onClick={onBack}>
           {detailCopy.back}
         </button>

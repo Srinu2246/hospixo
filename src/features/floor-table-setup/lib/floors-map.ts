@@ -1,3 +1,4 @@
+import { computeFloorStatsFromTables } from '@/features/floor-table-setup/lib/detail';
 import { ApiRequestError } from '@/lib/api/errors';
 import type {
   Floor,
@@ -343,12 +344,21 @@ export function buildReorderTablesInput(tables: readonly Pick<FloorTableItem, 'i
   };
 }
 
-export function mapApiFloorToFloor(floor: ApiFloor): Floor {
+export function mapApiFloorToFloor(floor: ApiFloor, tables: readonly FloorTableItem[] = []): Floor {
   const tableCount = floor.table_count ?? 0;
   const seatCount = floor.seat_count ?? 0;
   const sections = (floor.sections ?? []).map(mapApiSectionToSection);
   const updatedAt = floor.updated_at ?? floor.created_at ?? '';
   const createdOn = (floor.created_at ?? '').slice(0, 10);
+  const statsFromTables =
+    tables.length > 0
+      ? computeFloorStatsFromTables(tables, sections)
+      : {
+          totalTables: tableCount,
+          totalSeats: seatCount,
+          activeTables: tableCount,
+          inactiveTables: 0,
+        };
 
   return {
     id: String(floor.id),
@@ -365,12 +375,7 @@ export function mapApiFloorToFloor(floor: ApiFloor): Floor {
     createdBy: createdByLabel(floor.created_by),
     description: floor.description ?? '',
     sections,
-    stats: {
-      totalTables: tableCount,
-      totalSeats: seatCount,
-      activeTables: tableCount,
-      inactiveTables: 0,
-    },
+    stats: statsFromTables,
     activity: updatedAt
       ? [{ id: `${floor.id}-updated`, message: 'Floor updated', occurredAt: updatedAt }]
       : [],

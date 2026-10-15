@@ -14,6 +14,8 @@ import { useAutoFocus } from './use-auto-focus';
 interface FormFieldProps {
   label: string;
   required?: boolean;
+  /** When false, hides the "Optional" suffix on non-required fields (filters, etc.). */
+  showOptional?: boolean;
   className?: string;
   error?: string;
   hint?: string;
@@ -28,9 +30,20 @@ function FieldError({ id, message }: Readonly<{ id: string; message: string }>) 
   );
 }
 
+function fieldOptionalSuffix(required: boolean | undefined, showOptional: boolean | undefined) {
+  if (required) {
+    return <span className={styles.required}>*</span>;
+  }
+  if (showOptional === false) {
+    return null;
+  }
+  return <span className={styles.optional}>Optional</span>;
+}
+
 export function TextField({
   label,
   required,
+  showOptional,
   className,
   error,
   hint,
@@ -51,11 +64,7 @@ export function TextField({
     <label className={`${styles.field} ${className ?? ''}`}>
       <span className={styles.label}>
         {label}
-        {required ? (
-          <span className={styles.required}>*</span>
-        ) : (
-          <span className={styles.optional}>Optional</span>
-        )}
+        {fieldOptionalSuffix(required, showOptional)}
       </span>
 
       <input
@@ -79,6 +88,7 @@ export function TextField({
 export function TextAreaField({
   label,
   required,
+  showOptional,
   className,
   error,
   id: idProp,
@@ -92,11 +102,7 @@ export function TextAreaField({
     <label className={`${styles.field} ${className ?? ''}`}>
       <span className={styles.label}>
         {label}
-        {required ? (
-          <span className={styles.required}>*</span>
-        ) : (
-          <span className={styles.optional}>Optional</span>
-        )}
+        {fieldOptionalSuffix(required, showOptional)}
       </span>
 
       <textarea
@@ -123,6 +129,7 @@ type SelectFieldProps = FormFieldProps &
 export function SelectField({
   label,
   required,
+  showOptional,
   className,
   error,
   hint,
@@ -147,11 +154,7 @@ export function SelectField({
     <label className={`${styles.field} ${className ?? ''}`}>
       <span className={styles.label}>
         {label}
-        {required ? (
-          <span className={styles.required}>*</span>
-        ) : (
-          <span className={styles.optional}>Optional</span>
-        )}
+        {fieldOptionalSuffix(required, showOptional)}
       </span>
 
       <select

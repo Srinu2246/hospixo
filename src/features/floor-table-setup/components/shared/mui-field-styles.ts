@@ -45,3 +45,11 @@ export const floorSetupToolbarSelectSx: SxProps<Theme> = {
     fontSize: '0.8125rem',
   },
 };
+
+/** Full-width filter row fields (50% / 25% / 25% grid cells). */
+export const floorSetupFilterFieldSx: SxProps<Theme> = {
+  ...floorSetupToolbarSelectSx,
+  width: '100%',
+  minWidth: 0,
+  flex: 'unset',
+};

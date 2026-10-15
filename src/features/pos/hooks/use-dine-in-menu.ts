@@ -18,9 +18,6 @@ export function useDineInMenu() {
       if (!response.success || !response.data) {
         throw new Error(response.message ?? 'Unable to load menu.');
       }
-      if (response.data.loadError && response.data.items.length === 0) {
-        throw new Error(response.data.loadError);
-      }
       return response.data;
     },
   });

@@ -7,7 +7,9 @@ import { detailCopy } from '@/features/floor-table-setup/config';
 import { useFloorDetailMutations } from '@/features/floor-table-setup/hooks/use-floor-detail-mutations';
 import { floorToDraftForm, resolveLifecycleFieldError } from '@/features/floor-table-setup/lib';
 import type { Floor } from '@/features/floor-table-setup/types/floor-table-setup';
+import { cn } from '@/lib/utils';
 
+import detailStyles from './floor-detail-page.module.css';
 import wizardStyles from '../wizard/wizard.module.css';
 
 type FloorEditTabProps = Readonly<{
@@ -43,7 +45,7 @@ export function FloorEditTab({ floor, onBack }: FloorEditTabProps) {
           status: resolveLifecycleFieldError(mutations.fieldErrors, mutations.error) ?? undefined,
         }}
       />
-      <div className={wizardStyles.footer}>
+      <div className={cn(wizardStyles.footer, detailStyles.stickyTabFooter)}>
         <button type="button" className={wizardStyles.secondary} onClick={onBack} disabled={busy}>
           {detailCopy.back}
         </button>

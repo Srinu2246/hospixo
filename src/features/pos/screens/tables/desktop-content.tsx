@@ -29,6 +29,10 @@ export function TablesDesktopContent({
   loadError,
   isFetching,
   hasAnyTables,
+  isMenuLoading,
+  menuError,
+  menuLoadWarning,
+  menuIsEmpty,
 }: Readonly<TablesPageViewModel>) {
   const emptyMessage = loadError
     ? loadError
@@ -42,6 +46,21 @@ export function TablesDesktopContent({
         {isError || loadError ? (
           <Alert severity="error" sx={{ mb: 2 }}>
             {loadError ?? 'Unable to load tables.'}
+          </Alert>
+        ) : null}
+        {menuError ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {menuError}
+          </Alert>
+        ) : null}
+        {menuLoadWarning ? (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {menuLoadWarning}
+          </Alert>
+        ) : null}
+        {menuIsEmpty && !isMenuLoading && !menuError ? (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            No menu items are available for this branch.
           </Alert>
         ) : null}
         <header className={styles.pageHeader}>

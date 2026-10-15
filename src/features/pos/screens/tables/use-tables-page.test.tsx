@@ -12,6 +12,15 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/tables',
 }));
 
+vi.mock('@/features/pos/hooks/use-dine-in-menu', () => ({
+  useDineInMenu: () => ({
+    data: { items: [{ id: '1', name: 'Test Item' }], branchId: 1, loadError: null },
+    isFetching: false,
+    isError: false,
+    error: null,
+  }),
+}));
+
 vi.mock('@/features/pos/hooks/use-pos-tables', () => ({
   usePosTables: () => ({
     data: {

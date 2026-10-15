@@ -1,7 +1,8 @@
 'use client';
 
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
+import { FloorSetupSearchField } from '@/features/floor-table-setup/components/shared/floor-setup-search-field';
 import { FloorSetupToolbarSelect } from '@/features/floor-table-setup/components/shared/floor-setup-toolbar-select';
 import {
   floorSortOptions,
@@ -48,16 +49,12 @@ export function FloorToolbar({
 
   return (
     <div className={styles.toolbar}>
-      <label className={styles.search}>
-        <Search className={styles.searchIcon} aria-hidden="true" />
-        <input
-          className={styles.input}
-          type="search"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={floorTableSetupCopy.searchPlaceholder}
-        />
-      </label>
+      <FloorSetupSearchField
+        className={styles.search}
+        value={query}
+        onChange={onQueryChange}
+        placeholder={floorTableSetupCopy.searchPlaceholder}
+      />
       <div className={styles.filters}>
         <div className={styles.sort}>
           <span className={styles.sortLabel}>{floorTableSetupCopy.sortLabel}</span>

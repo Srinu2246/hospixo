@@ -3,7 +3,9 @@ import type { BranchMenuItemOverride } from '@/lib/api/restaurant-branch-menus';
 import type { DineInMenuCategoryId, DineInMenuItem } from '@/features/pos/config/dine-in';
 
 function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return fallback;
 }
 
 function asNumber(value: unknown, fallback = 0): number {
@@ -67,11 +69,18 @@ function mapCategory(raw: Record<string, unknown>): Exclude<DineInMenuCategoryId
   return 'mains';
 }
 
+function pickPreferredItem(current: DineInMenuItem, next: DineInMenuItem): DineInMenuItem {
+  if (next.price > current.price) return next;
+  if (next.price < current.price) return current;
+  if (next.isAvailable && !current.isAvailable) return next;
+  return current;
+}
+
 /** Map branch menu override records → dine-in menu cards. */
 export function mapBranchMenuItemsToDineIn(
   items: readonly BranchMenuItemOverride[],
 ): DineInMenuItem[] {
-  return items
+  const mapped = items
     .map((item, index) => {
       const record = item as Record<string, unknown>;
       const nested =
@@ -79,16 +88,18 @@ export function mapBranchMenuItemsToDineIn(
           ? (record.menu_item as Record<string, unknown>)
           : null;
 
-      const id = asString(
-        record.id ?? record.item_override_id ?? record.menu_item_id ?? nested?.id,
-      );
+      const menuItemId = asString(record.menu_item_id ?? nested?.id);
+      const overrideId = asString(record.id ?? record.item_override_id);
+      const resolvedId = menuItemId || overrideId;
       const name =
+        asString(nested?.name) ||
         asString(record.display_name) ||
         asString(record.name) ||
         asString(record.item_name) ||
-        asString(nested?.name) ||
         `Item ${index + 1}`;
-      if (!id || !name) return null;
+      if (!resolvedId || !name) return null;
+
+      if (record.allow_dine_in === false) return null;
 
       const price =
         asNumber(record.selling_price) ||
@@ -117,7 +128,7 @@ export function mapBranchMenuItemsToDineIn(
         record.is_available !== false && record.status !== '86d' && record.status !== 'inactive';
 
       const mapped: DineInMenuItem = {
-        id: String(id),
+        id: resolvedId,
         name,
         price,
         category,
@@ -130,4 +141,12 @@ export function mapBranchMenuItemsToDineIn(
       return mapped;
     })
     .filter((item): item is DineInMenuItem => item !== null);
+
+  const uniqueById = new Map<string, DineInMenuItem>();
+  for (const item of mapped) {
+    const existing = uniqueById.get(item.id);
+    uniqueById.set(item.id, existing ? pickPreferredItem(existing, item) : item);
+  }
+
+  return [...uniqueById.values()];
 }

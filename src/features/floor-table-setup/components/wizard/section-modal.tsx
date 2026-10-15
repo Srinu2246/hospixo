@@ -3,6 +3,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 
+import { TextAreaField, TextField } from '@/components/form/wizard-shared';
 import dialogStyles from '@/features/floor-table-setup/components/add-floor/add-floor.module.css';
 import { StatusToggle } from '@/features/floor-table-setup/components/status-toggle';
 import { wizardCopy } from '@/features/floor-table-setup/config';
@@ -102,35 +103,28 @@ function SectionModalForm({
             <X size={16} />
           </button>
         </div>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{wizardCopy.sectionName}</span>
-          <input
-            className={dialogStyles.input}
-            value={name}
-            placeholder={wizardCopy.sectionNamePlaceholder}
-            onChange={(event) => setName(event.target.value)}
-            autoFocus
-          />
-        </label>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{wizardCopy.sectionCode}</span>
-          <input
-            className={dialogStyles.input}
-            value={code}
-            placeholder={wizardCopy.sectionCodePlaceholder}
-            onChange={(event) => setCode(event.target.value)}
-          />
-          <span className={dialogStyles.hint}>{wizardCopy.sectionCodeHint}</span>
-        </label>
-        <label className={dialogStyles.field}>
-          <span className={dialogStyles.label}>{wizardCopy.description}</span>
-          <textarea
-            className={dialogStyles.textarea}
-            value={description}
-            placeholder={wizardCopy.sectionDescriptionPlaceholder}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </label>
+        <TextField
+          label={wizardCopy.sectionName}
+          required
+          value={name}
+          placeholder={wizardCopy.sectionNamePlaceholder}
+          onChange={(event) => setName(event.target.value)}
+          autoFocus
+        />
+        <TextField
+          label={wizardCopy.sectionCode}
+          required
+          value={code}
+          placeholder={wizardCopy.sectionCodePlaceholder}
+          hint={wizardCopy.sectionCodeHint}
+          onChange={(event) => setCode(event.target.value)}
+        />
+        <TextAreaField
+          label={wizardCopy.description}
+          value={description}
+          placeholder={wizardCopy.sectionDescriptionPlaceholder}
+          onChange={(event) => setDescription(event.target.value)}
+        />
         <StatusToggle
           label={wizardCopy.sectionStatus}
           hint={wizardCopy.sectionStatusHint}

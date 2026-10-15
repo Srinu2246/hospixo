@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { floors } from '@/features/floor-table-setup/config';
 import {
+  computeFloorStatsFromTables,
   filterHistoryEntries,
   floorToDraftForm,
   floorToSetupDraft,
@@ -76,5 +77,53 @@ describe('floor detail helpers', () => {
     expect(result.page).toBe(2);
     expect(result.totalPages).toBe(2);
     expect(result.items).toEqual(['c']);
+  });
+
+  it('counts tables in inactive sections as inactive', () => {
+    const stats = computeFloorStatsFromTables(
+      [
+        {
+          id: '1',
+          number: 'T1',
+          capacity: 4,
+          status: 'available',
+          configStatus: 'active',
+          reservations: false,
+          area: 'AC',
+          shape: 'square',
+          sectionId: 'ac',
+        },
+        {
+          id: '2',
+          number: 'T2',
+          capacity: 4,
+          status: 'available',
+          configStatus: 'active',
+          reservations: false,
+          area: 'NON AC',
+          shape: 'square',
+          sectionId: 'non-ac',
+        },
+      ],
+      [
+        {
+          id: 'ac',
+          name: 'AC',
+          status: 'active',
+          tableCount: 1,
+          seatCount: 4,
+        },
+        {
+          id: 'non-ac',
+          name: 'NON AC',
+          status: 'inactive',
+          tableCount: 1,
+          seatCount: 4,
+        },
+      ],
+    );
+
+    expect(stats.activeTables).toBe(1);
+    expect(stats.inactiveTables).toBe(1);
   });
 });

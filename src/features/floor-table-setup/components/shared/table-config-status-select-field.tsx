@@ -6,6 +6,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 
 import { floorSetupFieldSx } from '@/features/floor-table-setup/components/shared/mui-field-styles';
+import { TableConfigStatusDot } from '@/features/floor-table-setup/components/shared/table-config-status-dot';
 import {
   detailCopy,
   tableConfigStatusOptions,
@@ -13,22 +14,6 @@ import {
 } from '@/features/floor-table-setup/config';
 import { isTableConfigStatus } from '@/features/floor-table-setup/lib';
 import type { TableConfigStatus } from '@/features/floor-table-setup/types/floor-table-setup';
-
-function StatusDot({ status }: Readonly<{ status: TableConfigStatus }>) {
-  return (
-    <Box
-      component="span"
-      aria-hidden
-      sx={{
-        width: 8,
-        height: 8,
-        borderRadius: '50%',
-        flexShrink: 0,
-        bgcolor: status === 'active' ? 'success.main' : 'action.disabled',
-      }}
-    />
-  );
-}
 
 function statusLabel(status: TableConfigStatus): string {
   return tableConfigStatusOptions.find((option) => option.id === status)?.label ?? status;
@@ -65,7 +50,7 @@ export function TableConfigStatusSelectField({
               const status = selected as TableConfigStatus;
               return (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <StatusDot status={status} />
+                  <TableConfigStatusDot status={status} />
                   {statusLabel(status)}
                 </Box>
               );
@@ -76,7 +61,7 @@ export function TableConfigStatusSelectField({
         {tableConfigStatusOptions.map((option) => (
           <MenuItem key={option.id} value={option.id}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <StatusDot status={option.id} />
+              <TableConfigStatusDot status={option.id} />
               {option.label}
             </Box>
           </MenuItem>
