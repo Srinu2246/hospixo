@@ -748,5 +748,3 @@ export function PosDashboard() {
     </Box>
   );
 }
-
-export default PosDashboard;

@@ -26,5 +26,3 @@ export function CashAndShiftPage({
 
   return <CashAndShiftDashboardPage />;
 }
-
-export default CashAndShiftPage;

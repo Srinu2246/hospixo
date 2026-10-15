@@ -173,5 +173,3 @@ export function SearchBar({
     </Box>
   );
 }
-
-export default SearchBar;

@@ -1,11 +1,10 @@
 import { OrderSettle } from '@/features/pos/point-of-sale/all-orders';
 
 interface DineInTableSuccessPageProps {
-  params: {
-    tableId: string;
-  };
+  params: Promise<{ tableId: string }>;
 }
 
-export default function DineInTableSuccessPage({ params }: DineInTableSuccessPageProps) {
-  return <OrderSettle initialStep="success" orderId={params.tableId} />;
+export default async function DineInTableSuccessPage({ params }: DineInTableSuccessPageProps) {
+  const resolvedParams = await params;
+  return <OrderSettle initialStep="success" orderId={resolvedParams.tableId} />;
 }

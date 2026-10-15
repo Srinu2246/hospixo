@@ -9,13 +9,13 @@ import {
   ORG_TAX_BREAKDOWN,
   COMPANY_DISCOUNTS_BREAKDOWN,
 } from '@/lib/mocks/dashboard/dashboard.mocks';
+import { buildDonutSegments } from '@/lib/helpers/donutChartSegments';
 
 export function CompanyOperationsSummary() {
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
-
-  let taxAcc = 0;
-  let discAcc = 0;
+  const taxSegments = buildDonutSegments(ORG_TAX_BREAKDOWN, circumference);
+  const discountSegments = buildDonutSegments(COMPANY_DISCOUNTS_BREAKDOWN, circumference);
 
   return (
     <Card
@@ -72,25 +72,19 @@ export function CompanyOperationsSummary() {
             <Box sx={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
               <svg width="140" height="140" viewBox="0 0 140 140">
                 <g transform="rotate(-90 70 70)">
-                  {ORG_TAX_BREAKDOWN.map((item) => {
-                    const strokeDasharray = `${(item.percentage / 100) * circumference} ${circumference}`;
-                    const strokeDashoffset = -((taxAcc / 100) * circumference);
-                    taxAcc += item.percentage;
-
-                    return (
-                      <circle
-                        key={item.label}
-                        cx="70"
-                        cy="70"
-                        r={radius}
-                        fill="transparent"
-                        stroke={item.color}
-                        strokeWidth="14"
-                        strokeDasharray={strokeDasharray}
-                        strokeDashoffset={strokeDashoffset}
-                      />
-                    );
-                  })}
+                  {taxSegments.map((item) => (
+                    <circle
+                      key={item.label}
+                      cx="70"
+                      cy="70"
+                      r={radius}
+                      fill="transparent"
+                      stroke={item.color}
+                      strokeWidth="14"
+                      strokeDasharray={item.strokeDasharray}
+                      strokeDashoffset={item.strokeDashoffset}
+                    />
+                  ))}
                 </g>
               </svg>
 
@@ -169,25 +163,19 @@ export function CompanyOperationsSummary() {
             <Box sx={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
               <svg width="140" height="140" viewBox="0 0 140 140">
                 <g transform="rotate(-90 70 70)">
-                  {COMPANY_DISCOUNTS_BREAKDOWN.map((item) => {
-                    const strokeDasharray = `${(item.percentage / 100) * circumference} ${circumference}`;
-                    const strokeDashoffset = -((discAcc / 100) * circumference);
-                    discAcc += item.percentage;
-
-                    return (
-                      <circle
-                        key={item.label}
-                        cx="70"
-                        cy="70"
-                        r={radius}
-                        fill="transparent"
-                        stroke={item.color}
-                        strokeWidth="14"
-                        strokeDasharray={strokeDasharray}
-                        strokeDashoffset={strokeDashoffset}
-                      />
-                    );
-                  })}
+                  {discountSegments.map((item) => (
+                    <circle
+                      key={item.label}
+                      cx="70"
+                      cy="70"
+                      r={radius}
+                      fill="transparent"
+                      stroke={item.color}
+                      strokeWidth="14"
+                      strokeDasharray={item.strokeDasharray}
+                      strokeDashoffset={item.strokeDashoffset}
+                    />
+                  ))}
                 </g>
               </svg>
 

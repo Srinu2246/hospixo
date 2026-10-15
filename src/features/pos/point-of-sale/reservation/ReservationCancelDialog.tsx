@@ -91,5 +91,3 @@ export function ReservationCancelDialog({
     </Modal>
   );
 }
-
-export default ReservationCancelDialog;

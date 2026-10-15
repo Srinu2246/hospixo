@@ -578,5 +578,3 @@ export function MenuOrderSummaryBar({
 }
 
 // Aliases for backwards compatibility
-export { MenuOrderSummaryBar as PosOrderSummaryBar };
-export default MenuOrderSummaryBar;

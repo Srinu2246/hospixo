@@ -947,4 +947,3 @@ export function Sidebar({
     </Box>
   );
 }
-export default Sidebar;

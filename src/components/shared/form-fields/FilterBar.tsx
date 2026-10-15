@@ -237,5 +237,3 @@ export function FilterBar<T extends string | number = string>({
     </Box>
   );
 }
-
-export default FilterBar;

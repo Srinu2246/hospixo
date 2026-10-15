@@ -454,5 +454,3 @@ export function PaymentMethodSection({
     </Box>
   );
 }
-
-export default PaymentMethodSection;

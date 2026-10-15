@@ -24,9 +24,9 @@ import { FloorSetupScreen } from '@/features/management/floor-and-table-setup';
 import { KitchenDisplayScreen } from '@/features/kitchen-display';
 
 interface CatchAllPageProps {
-  params: {
+  params: Promise<{
     slug: string[];
-  };
+  }>;
 }
 
 interface RouteDefinition {
@@ -371,12 +371,13 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
   },
 ];
 
-export default function CatchAllPage({ params }: CatchAllPageProps) {
-  const path = params.slug.join('/');
+export default async function CatchAllPage({ params }: CatchAllPageProps) {
+  const { slug } = await params;
+  const path = slug.join('/');
 
   for (const route of ROUTE_REGISTRY) {
-    if (route.match(path, params.slug)) {
-      return route.render(path, params.slug);
+    if (route.match(path, slug)) {
+      return route.render(path, slug);
     }
   }
 

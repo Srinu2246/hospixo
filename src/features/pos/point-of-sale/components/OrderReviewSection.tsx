@@ -505,5 +505,3 @@ export function OrderReviewSection({
     </Box>
   );
 }
-
-export default OrderReviewSection;

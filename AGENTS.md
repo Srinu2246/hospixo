@@ -454,4 +454,6 @@ pnpm lint
 
 Run `pnpm codequality` before a commit. It runs lint, typecheck, Prettier, cspell, and knip.
 
+**Git hooks:** `.husky/pre-commit` runs `lint-staged`, then **`pnpm knip`** and **`pnpm cspell`**. Unused files/exports (knip) or spelling issues block the commit until fixed.
+
 Remove temporary `console.log` calls. Comments explain a non-obvious layout or business rule, not the next line of code.

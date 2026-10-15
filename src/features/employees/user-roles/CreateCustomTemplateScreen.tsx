@@ -583,5 +583,3 @@ export function CreateCustomTemplateScreen({
     </Box>
   );
 }
-
-export default CreateCustomTemplateScreen;

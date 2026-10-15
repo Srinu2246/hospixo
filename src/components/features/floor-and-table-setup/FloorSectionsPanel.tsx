@@ -364,17 +364,18 @@ function SectionEditor({
   onCancel: () => void;
 }>) {
   const [draft, setDraft] = useState<CatalogSection>(
-    section ?? {
-      id: `section-${Date.now()}`,
-      name: '',
-      code: '',
-      description: '',
-      active: true,
-      tableCount: 0,
-      seatCount: 0,
-      activeTableCount: 0,
-      inactiveTableCount: 0,
-    },
+    () =>
+      section ?? {
+        id: 'section-draft',
+        name: '',
+        code: '',
+        description: '',
+        active: true,
+        tableCount: 0,
+        seatCount: 0,
+        activeTableCount: 0,
+        inactiveTableCount: 0,
+      },
   );
   const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
 

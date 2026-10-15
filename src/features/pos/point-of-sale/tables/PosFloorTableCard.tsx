@@ -191,5 +191,3 @@ export function PosFloorTableCard({
     </Box>
   );
 }
-
-export default PosFloorTableCard;

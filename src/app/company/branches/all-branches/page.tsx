@@ -16,7 +16,7 @@ interface CompanyAllBranchesRouteProps {
 export default async function CompanyAllBranchesRoute({
   searchParams,
 }: Readonly<CompanyAllBranchesRouteProps>) {
-  const session = readShellSession(cookies());
+  const session = readShellSession(await cookies());
   const role = session?.role ?? '';
   const roleKey = normalizeRoleKey(role);
 

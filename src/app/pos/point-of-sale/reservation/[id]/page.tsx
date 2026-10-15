@@ -1,11 +1,10 @@
 import { ReservationDetails } from '@/features/pos/point-of-sale/reservation';
 
 interface PosReservationDetailPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
-export default function PosReservationDetailPage({ params }: PosReservationDetailPageProps) {
-  return <ReservationDetails reservationId={params.id} />;
+export default async function PosReservationDetailPage({ params }: PosReservationDetailPageProps) {
+  const resolvedParams = await params;
+  return <ReservationDetails reservationId={resolvedParams.id} />;
 }

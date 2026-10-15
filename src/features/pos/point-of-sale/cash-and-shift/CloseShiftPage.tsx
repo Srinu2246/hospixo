@@ -729,5 +729,3 @@ export function CloseShiftPage({
     </Box>
   );
 }
-
-export default CloseShiftPage;

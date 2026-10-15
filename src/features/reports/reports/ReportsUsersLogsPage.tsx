@@ -4,8 +4,7 @@
 
 import { useMemo, useState } from 'react';
 import { Box, Button, Card, IconButton, MenuItem, TextField, Typography } from '@mui/material';
-import { ChartColumn, Download, FileText, Users, Wallet } from 'lucide-react';
-import type { ElementType } from 'react';
+import { ChartColumn, Download, FileText, Users, Wallet, type LucideIcon } from 'lucide-react';
 
 import { KpiCard, type KpiCardAccent } from '@/components/shared/ui/KpiCard';
 import { OrdersTable, type OrdersTableColumn } from '@/components/shared/ui/OrdersTable';
@@ -18,7 +17,7 @@ import {
   type ReportsUserLogRow,
 } from '@/lib/mocks/reports/reports.mocks';
 
-const KPI_ICONS: Record<string, ElementType> = {
+const KPI_ICONS: Record<string, LucideIcon> = {
   'total-invoices': ChartColumn,
   'net-sales': ChartColumn,
   'staff-worked': Users,

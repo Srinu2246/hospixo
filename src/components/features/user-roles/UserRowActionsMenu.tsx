@@ -140,5 +140,3 @@ export function UserRowActionsMenu({
     </Menu>
   );
 }
-
-export default UserRowActionsMenu;

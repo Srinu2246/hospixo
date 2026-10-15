@@ -169,5 +169,3 @@ export function AlertMessage({
     </Box>
   );
 }
-
-export default AlertMessage;

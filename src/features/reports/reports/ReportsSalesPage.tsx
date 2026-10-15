@@ -5,7 +5,7 @@
  * Data from mocks; layout uses shared report components.
  */
 
-import type { ElementType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
   Box,
   Button,
@@ -25,6 +25,7 @@ import {
   IndianRupee,
   ShoppingBag,
   UtensilsCrossed,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { TrendChart } from '@/components/shared/ui/TrendChart';
@@ -42,7 +43,7 @@ import {
   reportsSalesCopy,
 } from '@/lib/mocks/reports/reports.mocks';
 
-const SUMMARY_ICONS: Record<string, ElementType> = {
+const SUMMARY_ICONS: Record<string, LucideIcon> = {
   'total-sales': IndianRupee,
   'dine-in-sales': UtensilsCrossed,
   'takeaway-sales': ShoppingBag,
@@ -53,7 +54,7 @@ const ORDER_TYPE_ACCENT: Record<string, MetricCardAccent> = {
   takeaway: 'warning',
 };
 
-const ORDER_TYPE_ICON: Record<string, ElementType> = {
+const ORDER_TYPE_ICON: Record<string, LucideIcon> = {
   'dine-in': UtensilsCrossed,
   takeaway: ShoppingBag,
 };

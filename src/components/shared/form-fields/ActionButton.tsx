@@ -139,5 +139,3 @@ export function ActionButton({
     </Button>
   );
 }
-
-export default ActionButton;

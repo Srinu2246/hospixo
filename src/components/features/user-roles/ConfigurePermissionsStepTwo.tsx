@@ -109,5 +109,3 @@ export function ConfigurePermissionsStepTwo({
     </Box>
   );
 }
-
-export default ConfigurePermissionsStepTwo;

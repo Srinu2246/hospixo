@@ -1,11 +1,10 @@
 import { OrderSettle } from '@/features/pos/point-of-sale/all-orders';
 
 interface DineInTableCheckoutPageProps {
-  params: {
-    tableId: string;
-  };
+  params: Promise<{ tableId: string }>;
 }
 
-export default function DineInTableCheckoutPage({ params }: DineInTableCheckoutPageProps) {
-  return <OrderSettle initialStep="checkout" orderId={params.tableId} />;
+export default async function DineInTableCheckoutPage({ params }: DineInTableCheckoutPageProps) {
+  const resolvedParams = await params;
+  return <OrderSettle initialStep="checkout" orderId={resolvedParams.tableId} />;
 }

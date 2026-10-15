@@ -448,5 +448,3 @@ function DetailRow({ label, value, isBold = false, isLast = false }: Readonly<De
     </Box>
   );
 }
-
-export default ReservationDetails;

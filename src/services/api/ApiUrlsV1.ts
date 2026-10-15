@@ -89,10 +89,6 @@ export function branchKitchenStatusPath(
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders/${encodeURIComponent(String(orderId))}/kitchen-status`;
 }
 
-export function restaurantPreparationStationsPath(): string {
-  return ApiUrlsV1.restaurant.preparationStations;
-}
-
 /** GET /v2/platform/organizations/{organization_id}/companies */
 export function organizationCompaniesPath(organizationId: number | string): string {
   return ApiUrlsV1.organization.platformOrganizationCompaniesV2.replace(

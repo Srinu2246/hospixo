@@ -683,5 +683,3 @@ export function DataGrid<T = object>({
     </Paper>
   );
 }
-
-export default DataGrid;

@@ -2,9 +2,17 @@
 
 /** Reports sessions tab — summary KPIs and per-session item tables. */
 
-import type { ElementType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Box, Button, Card, Typography } from '@mui/material';
-import { CalendarDays, Download, Moon, Sun, Sunrise, UtensilsCrossed } from 'lucide-react';
+import {
+  CalendarDays,
+  Download,
+  Moon,
+  Sun,
+  Sunrise,
+  UtensilsCrossed,
+  type LucideIcon,
+} from 'lucide-react';
 
 import { KpiCard, type KpiCardAccent } from '@/components/shared/ui/KpiCard';
 import {
@@ -14,14 +22,14 @@ import {
   type ReportsSessionItemRow,
 } from '@/lib/mocks/reports/reports.mocks';
 
-const SUMMARY_ICONS: Record<string, ElementType> = {
+const SUMMARY_ICONS: Record<string, LucideIcon> = {
   'best-session': CalendarDays,
   'lowest-session': CalendarDays,
   'top-item': UtensilsCrossed,
   'sessions-covered': CalendarDays,
 };
 
-const SESSION_ICONS: Record<string, ElementType> = {
+const SESSION_ICONS: Record<string, LucideIcon> = {
   breakfast: Sunrise,
   lunch: Sun,
   dinner: Moon,

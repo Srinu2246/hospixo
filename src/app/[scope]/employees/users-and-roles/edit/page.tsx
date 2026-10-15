@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 interface ScopeRouteProps {
-  params: { scope: string };
+  params: Promise<{ scope: string }>;
 }
 
 function resolveScope(raw: string): ScopeType {
@@ -17,6 +17,7 @@ function resolveScope(raw: string): ScopeType {
   return 'organization';
 }
 
-export default function ScopedEditStaffProfilePage({ params }: Readonly<ScopeRouteProps>) {
-  return <EditStaffProfileScreen initialMode="edit" scope={resolveScope(params.scope)} />;
+export default async function ScopedEditStaffProfilePage({ params }: Readonly<ScopeRouteProps>) {
+  const resolvedParams = await params;
+  return <EditStaffProfileScreen initialMode="edit" scope={resolveScope(resolvedParams.scope)} />;
 }

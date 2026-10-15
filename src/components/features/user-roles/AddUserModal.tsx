@@ -230,5 +230,3 @@ export function AddUserModal({
     </Modal>
   );
 }
-
-export default AddUserModal;

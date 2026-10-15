@@ -15,5 +15,3 @@ export class ApiError extends Error {
     this.details = details;
   }
 }
-
-export { readResponse } from './readResponse';

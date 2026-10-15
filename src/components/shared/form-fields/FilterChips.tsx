@@ -163,5 +163,3 @@ export function FilterChips<T extends string | number = string>({
     </Box>
   );
 }
-
-export default FilterChips;

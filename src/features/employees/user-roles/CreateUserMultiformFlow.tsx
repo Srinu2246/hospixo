@@ -414,5 +414,3 @@ export function CreateUserMultiformFlow({
     </>
   );
 }
-
-export default CreateUserMultiformFlow;

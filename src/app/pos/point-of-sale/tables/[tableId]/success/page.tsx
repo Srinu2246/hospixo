@@ -1,11 +1,10 @@
 import { OrderSettle } from '@/features/pos/point-of-sale/all-orders';
 
 interface TablesTableSuccessPageProps {
-  params: {
-    tableId: string;
-  };
+  params: Promise<{ tableId: string }>;
 }
 
-export default function TablesTableSuccessPage({ params }: TablesTableSuccessPageProps) {
-  return <OrderSettle initialStep="success" orderId={params.tableId} />;
+export default async function TablesTableSuccessPage({ params }: TablesTableSuccessPageProps) {
+  const resolvedParams = await params;
+  return <OrderSettle initialStep="success" orderId={resolvedParams.tableId} />;
 }

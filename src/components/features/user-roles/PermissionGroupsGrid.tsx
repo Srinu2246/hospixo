@@ -237,5 +237,3 @@ export function PermissionGroupsGrid({
     </Box>
   );
 }
-
-export default PermissionGroupsGrid;

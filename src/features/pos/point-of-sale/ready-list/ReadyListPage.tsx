@@ -356,5 +356,3 @@ export function ReadyListPage() {
     </Box>
   );
 }
-
-export default ReadyListPage;

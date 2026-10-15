@@ -58,5 +58,3 @@ export function Loading({
     </Box>
   );
 }
-
-export default Loading;

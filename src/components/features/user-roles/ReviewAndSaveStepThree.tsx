@@ -442,5 +442,3 @@ export function ReviewAndSaveStepThree({
     </Box>
   );
 }
-
-export default ReviewAndSaveStepThree;

@@ -273,5 +273,3 @@ export function ReadyOrderCard({
     </Card>
   );
 }
-
-export default ReadyOrderCard;

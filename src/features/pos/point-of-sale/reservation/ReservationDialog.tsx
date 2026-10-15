@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
 import { Moon, Sun, Sunrise } from 'lucide-react';
-import ActionButton from '@/components/shared/form-fields/ActionButton';
+import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { MobileNumberInput } from '@/components/shared/form-fields/MobileNumberInput';
 import { Modal } from '@/components/shared/ui/Modal';
 import { TabItem, Tabs } from '@/components/shared/form-fields/Tabs';

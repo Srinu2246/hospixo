@@ -380,5 +380,3 @@ export function OrderSuccessReceipt({
     </Box>
   );
 }
-
-export default OrderSuccessReceipt;

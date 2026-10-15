@@ -92,13 +92,13 @@ export const kitchenStatusUpdateRequestSchema = z.object({
   preparation_station_id: z.number().int().positive().nullable().optional(),
 });
 
-export type KitchenBoardItemLine = z.infer<typeof kitchenBoardItemLineSchema>;
+type KitchenBoardItemLine = z.infer<typeof kitchenBoardItemLineSchema>;
 export type KitchenBoardTicket = z.infer<typeof kitchenBoardTicketSchema>;
-export type PreparationStationSummary = z.infer<typeof preparationStationSummarySchema>;
-export type KitchenBoardCounts = z.infer<typeof kitchenBoardCountsSchema>;
+type PreparationStationSummary = z.infer<typeof preparationStationSummarySchema>;
+type KitchenBoardCounts = z.infer<typeof kitchenBoardCountsSchema>;
 export type KitchenBoardResponse = z.infer<typeof kitchenBoardResponseSchema>;
 export type ApiResponseKitchenBoard = z.infer<typeof apiResponseKitchenBoardSchema>;
-export type KitchenStatusUpdateRequest = z.infer<typeof kitchenStatusUpdateRequestSchema>;
+type KitchenStatusUpdateRequest = z.infer<typeof kitchenStatusUpdateRequestSchema>;
 
 // ============================================================================
 // 2. Client View Model Schemas (Used by Board UI & Mocks)
@@ -137,9 +137,9 @@ export const kitchenDisplayStatsSchema = z.object({
   avgPrepTime: z.string(),
 });
 
-export type KitchenDishItemSchema = z.infer<typeof kitchenDishItemSchema>;
-export type KitchenOrderItemSchema = z.infer<typeof kitchenOrderItemSchema>;
-export type KitchenDisplayStatsSchema = z.infer<typeof kitchenDisplayStatsSchema>;
+type KitchenDishItemSchema = z.infer<typeof kitchenDishItemSchema>;
+type KitchenOrderItemSchema = z.infer<typeof kitchenOrderItemSchema>;
+type KitchenDisplayStatsSchema = z.infer<typeof kitchenDisplayStatsSchema>;
 
 // ============================================================================
 // 3. Transformation Helpers: Map Backend Tickets to Client View Model

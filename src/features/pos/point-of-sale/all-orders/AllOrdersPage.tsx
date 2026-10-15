@@ -494,5 +494,3 @@ export function AllOrdersPage() {
     </Box>
   );
 }
-
-export default AllOrdersPage;

@@ -1,12 +1,5 @@
 import type { UserRoleItem, UserRoleStatsData } from '@/types/user-roles';
 
-export const INITIAL_USER_ROLE_STATS: UserRoleStatsData = {
-  totalUsers: 124,
-  activeNow: 118,
-  pendingInvites: 6,
-  userRoles: 14,
-};
-
 export const COMPANY_USER_ROLE_STATS: UserRoleStatsData = {
   totalUsers: 48,
   activeNow: 44,

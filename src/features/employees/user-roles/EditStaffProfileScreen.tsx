@@ -715,5 +715,3 @@ export function EditStaffProfileScreen({
     </Box>
   );
 }
-
-export default EditStaffProfileScreen;

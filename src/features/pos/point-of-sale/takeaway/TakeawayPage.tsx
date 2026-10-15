@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { createCartLineId } from '@/lib/helpers/cartId';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -197,7 +198,7 @@ export function TakeawayPage({
 
       const defaultSize = item.sizes[0]?.name ?? 'Regular';
       const newItem: CartItem = {
-        cartId: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        cartId: createCartLineId(),
         menuItemId: item.id,
         name: item.name,
         basePrice: item.basePrice,
@@ -241,19 +242,20 @@ export function TakeawayPage({
     if (addOnCount > 0) badges.push(`+${addOnCount} Add-ons`);
     if (customization.cookingPreference) badges.push(customization.cookingPreference);
 
-    const newItem: CartItem = {
-      cartId: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      menuItemId: item.id,
-      name: item.name,
-      basePrice: item.basePrice,
-      unitPrice,
-      quantity,
-      imageUrl: item.imageUrl,
-      customization,
-      itemBadges: badges,
-    };
-
-    setCartItems((prev) => [...prev, newItem]);
+    setCartItems((prev) => [
+      ...prev,
+      {
+        cartId: createCartLineId(),
+        menuItemId: item.id,
+        name: item.name,
+        basePrice: item.basePrice,
+        unitPrice,
+        quantity,
+        imageUrl: item.imageUrl,
+        customization,
+        itemBadges: badges,
+      },
+    ]);
     setToastMessage(`Added ${quantity}× ${item.name} (Customized) to order`);
   };
 

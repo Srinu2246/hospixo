@@ -634,5 +634,3 @@ export function UsersAndRolesScreen({
     </Box>
   );
 }
-
-export default UsersAndRolesScreen;

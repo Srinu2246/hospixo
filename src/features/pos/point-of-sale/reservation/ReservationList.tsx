@@ -420,5 +420,3 @@ export function ReservationList() {
     </Box>
   );
 }
-
-export default ReservationList;

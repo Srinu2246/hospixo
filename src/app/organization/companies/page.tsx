@@ -10,7 +10,7 @@ import type { CompanyListItem } from '@/lib/schemas/organization/companies/compa
 import { serverApi } from '@/services/api/serverClient';
 
 export default async function OrganizationCompaniesRoute() {
-  const session = readShellSession(cookies());
+  const session = readShellSession(await cookies());
   const role = session?.role ?? '';
   const roleKey = normalizeRoleKey(role);
 

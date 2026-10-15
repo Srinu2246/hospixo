@@ -17,5 +17,3 @@ export interface DineInPageProps {
 export function DineInPage({ initialTableId }: Readonly<DineInPageProps> = {}) {
   return <PosTableSelection isDineIn initialTableId={initialTableId} />;
 }
-
-export default DineInPage;

@@ -341,5 +341,3 @@ export function DuePaymentsPage() {
     </Box>
   );
 }
-
-export default DuePaymentsPage;

@@ -14,7 +14,6 @@ export const userRoleFormSchema = z.object({
 });
 
 export type UserRoleFormValues = z.infer<typeof userRoleFormSchema>;
-export { userRoleFormSchema as userRoleSchema };
 
 // ============================================================================
 // 2. Create User Multi-Form Flow Schema

@@ -4,8 +4,14 @@
 
 import { useState } from 'react';
 import { Box, Button, Card, MenuItem, TextField, Typography } from '@mui/material';
-import { ClipboardList, Download, ShoppingBag, Truck, UtensilsCrossed } from 'lucide-react';
-import type { ElementType } from 'react';
+import {
+  ClipboardList,
+  Download,
+  ShoppingBag,
+  Truck,
+  UtensilsCrossed,
+  type LucideIcon,
+} from 'lucide-react';
 
 import { KpiCard, type KpiCardAccent } from '@/components/shared/ui/KpiCard';
 import { OrdersTable } from '@/components/shared/ui/OrdersTable';
@@ -18,7 +24,7 @@ import {
   reportsOrdersCopy,
 } from '@/lib/mocks/reports/reports.mocks';
 
-const SUMMARY_ICONS: Record<string, ElementType> = {
+const SUMMARY_ICONS: Record<string, LucideIcon> = {
   'total-orders': ClipboardList,
   'dine-in-orders': UtensilsCrossed,
   'takeaway-orders': ShoppingBag,

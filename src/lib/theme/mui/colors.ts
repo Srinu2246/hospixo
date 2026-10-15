@@ -274,7 +274,3 @@ export const colors = {
   light: lightPalette,
   dark: darkPalette,
 } as const;
-
-export type Colors = typeof colors;
-export type LightPalette = typeof lightPalette;
-export type DarkPalette = typeof darkPalette;

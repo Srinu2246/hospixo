@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 interface ScopeRouteProps {
-  params: { scope: string };
+  params: Promise<{ scope: string }>;
 }
 
 function resolveScope(raw: string): ScopeType {
@@ -17,6 +17,9 @@ function resolveScope(raw: string): ScopeType {
   return 'organization';
 }
 
-export default function ScopedCreateUserPage({ params }: Readonly<ScopeRouteProps>) {
-  return <CreateUserMultiformFlow initialStep="user-form" scope={resolveScope(params.scope)} />;
+export default async function ScopedCreateUserPage({ params }: Readonly<ScopeRouteProps>) {
+  const resolvedParams = await params;
+  return (
+    <CreateUserMultiformFlow initialStep="user-form" scope={resolveScope(resolvedParams.scope)} />
+  );
 }

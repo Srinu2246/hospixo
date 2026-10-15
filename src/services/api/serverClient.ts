@@ -19,7 +19,8 @@ type ServerRequestOptions = {
 };
 
 async function requireSession(): Promise<string> {
-  const session = cookies().get(SESSION_COOKIE)?.value;
+  const cookieStore = await cookies();
+  const session = cookieStore.get(SESSION_COOKIE)?.value;
   if (!session) {
     throw new ApiError('Unauthorized', 401);
   }
@@ -62,7 +63,7 @@ async function request<T>(
   options: ServerRequestOptions = {},
 ): Promise<T> {
   if (isMockApiEnabled()) {
-    return mockRequest<T>(method, path, options);
+    return await mockRequest<T>(method, path, options);
   }
 
   const isPublic = isPublicEndpoint(path);
@@ -91,7 +92,7 @@ async function request<T>(
     headers.set('X-Session-Id', session);
   }
 
-  const requestBody = isLogout ? logoutBody() : options.body;
+  const requestBody = isLogout ? await logoutBody() : options.body;
   let body: string | undefined;
   if (requestBody !== undefined && method !== 'GET') {
     headers.set('Content-Type', 'application/json');
@@ -113,11 +114,15 @@ async function request<T>(
   }
 
   const payload = await readResponse<T>(response);
-  storeSessionFromPayload(path, payload);
+  await storeSessionFromPayload(path, payload);
   return sanitizeForClient(payload);
 }
 
-function mockRequest<T>(method: HttpMethod, path: string, options: ServerRequestOptions): T {
+async function mockRequest<T>(
+  method: HttpMethod,
+  path: string,
+  options: ServerRequestOptions,
+): Promise<T> {
   if (!isAllowedEndpoint(path)) {
     throw new ApiError('Unknown endpoint', 404);
   }
@@ -133,20 +138,22 @@ function mockRequest<T>(method: HttpMethod, path: string, options: ServerRequest
     throw new ApiError('No mock data for this endpoint', 404);
   }
 
-  storeSessionFromPayload(path, payload);
+  await storeSessionFromPayload(path, payload);
   return sanitizeForClient(payload) as T;
 }
 
-function storeSessionFromPayload(path: string, payload: unknown): void {
+async function storeSessionFromPayload(path: string, payload: unknown): Promise<void> {
+  const cookieStore = await cookies();
+
   if (path === ApiUrlsV1.auth.logout) {
-    clearAuthCookies();
+    clearAuthCookies(cookieStore);
     return;
   }
 
   if (path === ApiUrlsV1.auth.me) {
     const profile = profileCookieValue(payload);
     if (profile) {
-      cookies().set(PROFILE_COOKIE, profile, {
+      cookieStore.set(PROFILE_COOKIE, profile, {
         httpOnly: true,
         sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
@@ -161,7 +168,7 @@ function storeSessionFromPayload(path: string, payload: unknown): void {
 
   const profile = profileCookieValue(payload);
   if (profile) {
-    cookies().set(PROFILE_COOKIE, profile, {
+    cookieStore.set(PROFILE_COOKIE, profile, {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
@@ -172,7 +179,7 @@ function storeSessionFromPayload(path: string, payload: unknown): void {
 
   const refreshToken = readRefreshToken(payload);
   if (refreshToken) {
-    cookies().set(REFRESH_COOKIE, refreshToken, {
+    cookieStore.set(REFRESH_COOKIE, refreshToken, {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
@@ -184,7 +191,7 @@ function storeSessionFromPayload(path: string, payload: unknown): void {
   const token = readSessionToken(payload);
   if (!token) return;
 
-  cookies().set(SESSION_COOKIE, token, {
+  cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -192,18 +199,19 @@ function storeSessionFromPayload(path: string, payload: unknown): void {
   });
 }
 
-function logoutBody(): { refresh_token: string | null; revoke_all: false } {
-  const stored = cookies().get(REFRESH_COOKIE)?.value ?? '';
+async function logoutBody(): Promise<{ refresh_token: string | null; revoke_all: false }> {
+  const cookieStore = await cookies();
+  const stored = cookieStore.get(REFRESH_COOKIE)?.value ?? '';
   return logoutRequestSchema.parse({
     refresh_token: stored.length >= 32 ? stored : null,
     revoke_all: false,
   });
 }
 
-function clearAuthCookies(): void {
-  cookies().delete(SESSION_COOKIE);
-  cookies().delete(REFRESH_COOKIE);
-  cookies().delete(PROFILE_COOKIE);
+function clearAuthCookies(cookieStore: Awaited<ReturnType<typeof cookies>>): void {
+  cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete(REFRESH_COOKIE);
+  cookieStore.delete(PROFILE_COOKIE);
 }
 
 function readRefreshToken(payload: unknown): string | null {

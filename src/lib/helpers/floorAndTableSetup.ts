@@ -214,27 +214,6 @@ export function buildSavedFloor(
   };
 }
 
-export function filterFloors(
-  floors: readonly SavedFloor[],
-  query: string,
-  sort: FloorSort,
-): SavedFloor[] {
-  const needle = query.trim().toLowerCase();
-  const matched = floors.filter((floor) => {
-    if (!needle) return true;
-    return (
-      floor.details.name.toLowerCase().includes(needle) ||
-      floor.details.code.toLowerCase().includes(needle)
-    );
-  });
-
-  return [...matched].sort((left, right) => {
-    if (sort === 'name') return left.details.name.localeCompare(right.details.name);
-    if (sort === 'tables') return right.tables.length - left.tables.length;
-    return right.updatedAt - left.updatedAt;
-  });
-}
-
 export type FloorDetailRoute = {
   floorId: string;
   tab: FloorDetailTab;

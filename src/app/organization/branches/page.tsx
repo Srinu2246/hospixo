@@ -10,7 +10,7 @@ import type { BranchListItem } from '@/lib/schemas/organization/branches/branchL
 import { serverApi } from '@/services/api/serverClient';
 
 export default async function OrganizationBranchesRoute() {
-  const session = readShellSession(cookies());
+  const session = readShellSession(await cookies());
   const role = session?.role ?? '';
   const roleKey = normalizeRoleKey(role);
 

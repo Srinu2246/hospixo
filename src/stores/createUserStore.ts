@@ -9,7 +9,7 @@ import type {
 import {
   INITIAL_USER_FORM_VALUES,
   INITIAL_PERMISSION_CATEGORIES,
-  COMPANY_PERMISSION_CATEGORIES,
+  DEFAULT_STAFF_PROFILE_PERMISSIONS,
 } from '@/lib/mocks/employees/multiform.mocks';
 
 export interface CreateUserState {
@@ -41,7 +41,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
   step: 'template',
   selectedTemplate: null,
   formValues: { ...INITIAL_USER_FORM_VALUES },
-  categories: COMPANY_PERMISSION_CATEGORIES,
+  categories: DEFAULT_STAFF_PROFILE_PERMISSIONS,
   errors: {},
   isSubmitting: false,
 
@@ -50,7 +50,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
       scope,
       categories:
         scope === 'company' || scope === 'branch'
-          ? COMPANY_PERMISSION_CATEGORIES
+          ? DEFAULT_STAFF_PROFILE_PERMISSIONS
           : INITIAL_PERMISSION_CATEGORIES,
       formValues: {
         ...state.formValues,
@@ -147,7 +147,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
         },
         categories:
           scopeToUse === 'company' || scopeToUse === 'branch'
-            ? COMPANY_PERMISSION_CATEGORIES
+            ? DEFAULT_STAFF_PROFILE_PERMISSIONS
             : INITIAL_PERMISSION_CATEGORIES,
         errors: {},
         isSubmitting: false,

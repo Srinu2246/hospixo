@@ -928,8 +928,3 @@ export function MenuItemCard({
     </Box>
   );
 }
-
-// Aliases for backwards compatibility
-export { MenuItemCard as PosMenuItemCard };
-export { MenuItemCard as menuItemcard };
-export default MenuItemCard;

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 interface ScopeRouteProps {
-  params: { scope: string };
+  params: Promise<{ scope: string }>;
 }
 
 function resolveScope(raw: string): ScopeType {
@@ -17,6 +17,11 @@ function resolveScope(raw: string): ScopeType {
   return 'organization';
 }
 
-export default function ScopedConfigurePermissionsPage({ params }: Readonly<ScopeRouteProps>) {
-  return <CreateUserMultiformFlow initialStep="permissions" scope={resolveScope(params.scope)} />;
+export default async function ScopedConfigurePermissionsPage({
+  params,
+}: Readonly<ScopeRouteProps>) {
+  const resolvedParams = await params;
+  return (
+    <CreateUserMultiformFlow initialStep="permissions" scope={resolveScope(resolvedParams.scope)} />
+  );
 }

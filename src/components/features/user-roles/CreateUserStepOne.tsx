@@ -488,5 +488,3 @@ export function CreateUserStepOne({
     </Box>
   );
 }
-
-export default CreateUserStepOne;

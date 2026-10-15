@@ -98,5 +98,3 @@ export function Toast({
     </Snackbar>
   );
 }
-
-export default Toast;

@@ -6,9 +6,9 @@ import { ApiError, type HttpMethod, type QueryParams } from '@/services/api/type
 type ApiVersion = 'v1' | 'v2';
 
 type RouteContext = {
-  params: {
+  params: Promise<{
     path: string[];
-  };
+  }>;
 };
 
 export function createVersionedHandlers(version: ApiVersion) {
@@ -18,7 +18,8 @@ export function createVersionedHandlers(version: ApiVersion) {
     context: RouteContext,
   ): Promise<NextResponse> {
     try {
-      const path = pathnameFromSegments(version, context.params.path);
+      const { path: pathSegments } = await context.params;
+      const path = pathnameFromSegments(version, pathSegments);
       const data = await callServerApi(
         method,
         path,

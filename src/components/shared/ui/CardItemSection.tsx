@@ -58,5 +58,3 @@ export function CardItemSection({
     </Box>
   );
 }
-
-export default CardItemSection;

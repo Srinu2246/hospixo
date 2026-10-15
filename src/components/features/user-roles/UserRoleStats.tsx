@@ -76,5 +76,3 @@ export function UserRoleStats({ stats }: Readonly<UserRoleStatsProps>) {
     </Box>
   );
 }
-
-export default UserRoleStats;

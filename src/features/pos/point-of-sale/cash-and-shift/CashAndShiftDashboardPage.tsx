@@ -486,5 +486,3 @@ export function CashAndShiftDashboardPage({
     </Box>
   );
 }
-
-export default CashAndShiftDashboardPage;

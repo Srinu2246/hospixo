@@ -260,5 +260,3 @@ export function StatusChip({
     />
   );
 }
-
-export default StatusChip;

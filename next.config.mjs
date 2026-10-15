@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactCompiler: true,
+  turbopack: {},
   webpack: (config, { dev }) => {
     if (dev) {
       config.module.rules.push({

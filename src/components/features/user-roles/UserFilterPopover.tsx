@@ -150,5 +150,3 @@ export function UserFilterPopover({
     </Popover>
   );
 }
-
-export default UserFilterPopover;

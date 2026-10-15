@@ -10,8 +10,6 @@ import type { SidebarSession } from '@/lib/auth/session';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useToastStore } from '@/stores/toastStore';
-import { colors } from '@/lib/theme/mui/colors';
-
 type AppShellProps = {
   children: React.ReactNode;
   initialSession?: SidebarSession | null;
@@ -61,7 +59,7 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
 
   if (pathname === '/login' || pathname.startsWith('/login/')) {
     return (
-      <Box sx={{ minHeight: '100vh', width: '100%', bgcolor: colors.white.default }}>
+      <Box sx={{ minHeight: '100vh', width: '100%', bgcolor: 'background.default' }}>
         {children}
         {toast}
       </Box>
@@ -188,5 +186,3 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
     </Box>
   );
 }
-
-export default AppShell;

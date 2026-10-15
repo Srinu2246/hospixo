@@ -282,5 +282,3 @@ export function InvitationSuccessStep({
     </Box>
   );
 }
-
-export default InvitationSuccessStep;

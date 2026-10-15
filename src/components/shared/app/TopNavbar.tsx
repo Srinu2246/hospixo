@@ -473,5 +473,3 @@ function formatRoleLabel(role?: string): string {
   if (!value) return 'User';
   return value.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').toLowerCase();
 }
-
-export default TopNavbar;

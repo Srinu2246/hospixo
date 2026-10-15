@@ -5,7 +5,7 @@
  * session performance, finance, and operations. Data from mocks; UI from shared components.
  */
 
-import { useMemo, useState, type ElementType, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   Box,
   Button,
@@ -29,6 +29,7 @@ import {
   UserRound,
   Users,
   UtensilsCrossed,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { TrendChart } from '@/components/shared/ui/TrendChart';
@@ -70,14 +71,14 @@ const CHANNEL_STAT_ACCENT: Record<string, KpiCardAccent & MetricCardAccent> = {
   delivery: 'success',
 };
 
-const FINANCE_ICONS: Record<string, ElementType> = {
+const FINANCE_ICONS: Record<string, LucideIcon> = {
   'net-collections': Banknote,
   cash: Banknote,
   upi: Smartphone,
   card: CreditCard,
 };
 
-const OPERATIONS_ICONS: Record<string, ElementType> = {
+const OPERATIONS_ICONS: Record<string, LucideIcon> = {
   'staff-worked': Users,
   'completed-shifts': CalendarCheck,
   'active-staff': UserRound,

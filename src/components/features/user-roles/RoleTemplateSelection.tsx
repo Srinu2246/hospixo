@@ -204,5 +204,3 @@ export function RoleTemplateSelection({
     </Box>
   );
 }
-
-export default RoleTemplateSelection;

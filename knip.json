@@ -1,0 +1,30 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "next": {
+    "config": ["next.config.mjs"],
+    "entry": [
+      "src/middleware.ts",
+      "src/app/**/{page,layout,loading,error,not-found,global-error,route,default}.{js,jsx,ts,tsx}",
+      "src/app/**/route.{js,jsx,ts,tsx}",
+      "src/app/api/**/route.{js,jsx,ts,tsx}"
+    ]
+  },
+  "project": ["src/**/*.{js,jsx,ts,tsx}"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    "@babel/preset-typescript",
+    "@locator/babel-jsx",
+    "@locator/webpack-loader",
+    "@treelocator/runtime"
+  ],
+  "rules": {
+    "files": "error",
+    "exports": "error",
+    "types": "error",
+    "duplicates": "error",
+    "dependencies": "error",
+    "devDependencies": "error",
+    "unlisted": "error",
+    "binaries": "error"
+  }
+}

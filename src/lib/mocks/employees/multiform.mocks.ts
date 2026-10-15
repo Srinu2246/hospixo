@@ -431,10 +431,6 @@ export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
   },
 ];
 
-export const COMPANY_PERMISSION_CATEGORIES: PermissionCategory[] =
-  DEFAULT_STAFF_PROFILE_PERMISSIONS;
-export const BRANCH_PERMISSION_CATEGORIES: PermissionCategory[] = DEFAULT_STAFF_PROFILE_PERMISSIONS;
-
 export const DEFAULT_CUSTOM_TEMPLATE_PERMISSIONS: PermissionCategory[] = [
   {
     id: 'user_roles_mgmt',

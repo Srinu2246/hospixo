@@ -1,14 +1,14 @@
 'use client';
 
-import type { ElementType } from 'react';
 import { Box, Card, LinearProgress, Typography } from '@mui/material';
+import type { LucideIcon } from 'lucide-react';
 import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 
 export type MetricCardAccent = 'info' | 'warning' | 'success';
 
 export type MetricCardProps = Readonly<{
   label: string;
-  icon: ElementType;
+  icon: LucideIcon;
   sharePercent: number;
   /** Shown after the percentage, e.g. "orders" → "64.0% of orders". */
   shareOf?: string;

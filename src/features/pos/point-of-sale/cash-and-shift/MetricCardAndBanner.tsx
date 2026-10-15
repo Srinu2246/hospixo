@@ -333,5 +333,3 @@ export function ActiveShiftBanner({
     </Box>
   );
 }
-
-export default MetricCardsGrid;

@@ -228,5 +228,3 @@ export function ProgressBar({
     </Box>
   );
 }
-
-export default ProgressBar;

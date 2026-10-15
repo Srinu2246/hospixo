@@ -1,11 +1,10 @@
 import { DineInPage } from '@/features/pos/point-of-sale/dine-in';
 
 interface PosDineInTableRouteProps {
-  params: {
-    tableId: string;
-  };
+  params: Promise<{ tableId: string }>;
 }
 
-export default function PosDineInTableRoute({ params }: PosDineInTableRouteProps) {
-  return <DineInPage initialTableId={params.tableId} />;
+export default async function PosDineInTableRoute({ params }: PosDineInTableRouteProps) {
+  const resolvedParams = await params;
+  return <DineInPage initialTableId={resolvedParams.tableId} />;
 }

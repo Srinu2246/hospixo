@@ -487,6 +487,4 @@ export function OrderSettle({
   );
 }
 
-export { OrderSettle as OrderSettlePage };
 export type { OrderReviewData } from '@/features/pos/point-of-sale/components/OrderReviewSection';
-export default OrderSettle;

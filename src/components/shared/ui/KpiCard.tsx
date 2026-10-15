@@ -1,7 +1,8 @@
 'use client';
 
-import type { ElementType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Box, Card, Typography } from '@mui/material';
+import type { LucideIcon } from 'lucide-react';
 import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 
 export type KpiCardAccent = 'info' | 'warning' | 'success' | 'secondary';
@@ -9,7 +10,7 @@ export type KpiCardAccent = 'info' | 'warning' | 'success' | 'secondary';
 export type KpiCardProps = Readonly<{
   label: string;
   value: ReactNode;
-  icon: ElementType;
+  icon: LucideIcon;
   accent?: KpiCardAccent;
   selected?: boolean;
   clickable?: boolean;

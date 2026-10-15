@@ -76,5 +76,3 @@ export function PosTableCard({ table, onClick }: Readonly<PosTableCardProps>) {
     </Box>
   );
 }
-
-export default PosTableCard;

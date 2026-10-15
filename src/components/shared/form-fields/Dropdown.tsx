@@ -316,5 +316,3 @@ export function Dropdown<T extends string | number = string>({
     </FormControl>
   );
 }
-
-export default Dropdown;

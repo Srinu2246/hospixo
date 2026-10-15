@@ -134,15 +134,6 @@ export const COMPANY_PERFORMANCE_ROWS: CompanyPerformanceRow[] = [
   },
 ];
 
-export const COMPANY_PERFORMANCE_CHART_BARS: OutletChartBarItem[] = [
-  { label: 'Outlet 1', heightPercent: 85, isHighlight: false },
-  { label: 'Outlet 2', heightPercent: 65, isHighlight: false },
-  { label: 'Outlet 3', heightPercent: 78, isHighlight: false },
-  { label: 'Outlet 4', heightPercent: 50, isHighlight: false },
-  { label: 'Outlet 5', heightPercent: 70, isHighlight: false },
-  { label: 'Outlet 6', heightPercent: 100, isHighlight: true },
-];
-
 export const ORG_TAX_BREAKDOWN: TaxItem[] = [
   { label: 'CGST (2.5%)', rate: '2.5%', amount: '₹45,200', color: '#1B59F8', percentage: 40.6 },
   { label: 'SGST (2.5%)', rate: '2.5%', amount: '₹45,200', color: '#00BFA5', percentage: 40.6 },

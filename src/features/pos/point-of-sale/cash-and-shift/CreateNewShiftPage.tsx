@@ -307,5 +307,3 @@ export function CreateNewShiftPage({
     </Box>
   );
 }
-
-export default CreateNewShiftPage;

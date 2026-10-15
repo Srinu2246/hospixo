@@ -263,5 +263,3 @@ export function Breadcrumbs({
     </Box>
   );
 }
-
-export default Breadcrumbs;

@@ -212,7 +212,7 @@ const catalogListeners = new Set<() => void>();
 const catalogSession = new Map<string, CatalogSessionSlice>();
 const catalogPublished = new Map<string, CatalogFloor>();
 
-export function subscribeCatalogSession(listener: () => void): () => void {
+function subscribeCatalogSession(listener: () => void): () => void {
   catalogListeners.add(listener);
   return () => catalogListeners.delete(listener);
 }
@@ -229,7 +229,7 @@ export function readCatalogSession(floorId: string): CatalogFloor | null {
   return next;
 }
 
-export function writeCatalogSession(floorId: string, patch: Partial<CatalogSessionSlice>): void {
+function writeCatalogSession(floorId: string, patch: Partial<CatalogSessionSlice>): void {
   const current = readCatalogSession(floorId);
   if (!current) return;
   catalogSession.set(floorId, {

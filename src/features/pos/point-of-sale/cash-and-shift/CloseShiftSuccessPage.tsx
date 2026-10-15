@@ -423,5 +423,3 @@ export function CloseShiftSuccessPage({
     </Box>
   );
 }
-
-export default CloseShiftSuccessPage;

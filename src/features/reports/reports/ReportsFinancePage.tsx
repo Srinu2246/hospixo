@@ -2,9 +2,17 @@
 
 /** Reports finance tab — collections, tender mix, cash reconciliation, and attention items. */
 
-import type { ElementType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Box, Button, Card, Typography } from '@mui/material';
-import { AlertCircle, CalendarDays, Download, IndianRupee, Scale, Wallet } from 'lucide-react';
+import {
+  AlertCircle,
+  CalendarDays,
+  Download,
+  IndianRupee,
+  Scale,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react';
 
 import { TrendChart } from '@/components/shared/ui/TrendChart';
 import { KpiCard, type KpiCardAccent } from '@/components/shared/ui/KpiCard';
@@ -17,7 +25,7 @@ import {
   reportsFinanceCopy,
 } from '@/lib/mocks/reports/reports.mocks';
 
-const KPI_ICONS: Record<string, ElementType> = {
+const KPI_ICONS: Record<string, LucideIcon> = {
   'net-collections': Wallet,
   'cash-variance': Scale,
   'net-sales': IndianRupee,

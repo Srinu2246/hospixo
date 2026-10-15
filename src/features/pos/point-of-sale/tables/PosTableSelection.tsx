@@ -842,5 +842,3 @@ export function PosTableSelection({
     </Box>
   );
 }
-
-export default PosTableSelection;

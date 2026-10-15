@@ -24,14 +24,6 @@ export interface UserRoleStatsData {
   userRoles: number;
 }
 
-export interface UserRoleFilterValues {
-  search: string;
-  role: string;
-  branch: string;
-  status: string;
-  company?: string;
-}
-
 export interface RoleTemplateItem {
   id: string;
   title: string;

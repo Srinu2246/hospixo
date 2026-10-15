@@ -1,11 +1,10 @@
 import { OrderSettle } from '@/features/pos/point-of-sale/all-orders';
 
 interface PosOrderSettleRouteProps {
-  params: {
-    orderId: string;
-  };
+  params: Promise<{ orderId: string }>;
 }
 
-export default function PosOrderSettleRoute({ params }: PosOrderSettleRouteProps) {
-  return <OrderSettle orderId={params.orderId} />;
+export default async function PosOrderSettleRoute({ params }: PosOrderSettleRouteProps) {
+  const resolvedParams = await params;
+  return <OrderSettle orderId={resolvedParams.orderId} />;
 }

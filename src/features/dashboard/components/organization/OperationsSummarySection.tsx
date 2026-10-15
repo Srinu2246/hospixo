@@ -6,12 +6,12 @@ import Typography from '@mui/material/Typography';
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
 import { ORG_TAX_BREAKDOWN, ORG_FINANCIAL_BREAKDOWN } from '@/lib/mocks/dashboard/dashboard.mocks';
+import { buildDonutSegments } from '@/lib/helpers/donutChartSegments';
 
 export function OperationsSummarySection() {
-  // Compute SVG Donut segments for Tax Summary
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
-  let accumulatedPercent = 0;
+  const taxSegments = buildDonutSegments(ORG_TAX_BREAKDOWN, circumference);
 
   return (
     <Card
@@ -68,25 +68,19 @@ export function OperationsSummarySection() {
             <Box sx={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
               <svg width="140" height="140" viewBox="0 0 140 140">
                 <g transform="rotate(-90 70 70)">
-                  {ORG_TAX_BREAKDOWN.map((item) => {
-                    const strokeDasharray = `${(item.percentage / 100) * circumference} ${circumference}`;
-                    const strokeDashoffset = -((accumulatedPercent / 100) * circumference);
-                    accumulatedPercent += item.percentage;
-
-                    return (
-                      <circle
-                        key={item.label}
-                        cx="70"
-                        cy="70"
-                        r={radius}
-                        fill="transparent"
-                        stroke={item.color}
-                        strokeWidth="14"
-                        strokeDasharray={strokeDasharray}
-                        strokeDashoffset={strokeDashoffset}
-                      />
-                    );
-                  })}
+                  {taxSegments.map((item) => (
+                    <circle
+                      key={item.label}
+                      cx="70"
+                      cy="70"
+                      r={radius}
+                      fill="transparent"
+                      stroke={item.color}
+                      strokeWidth="14"
+                      strokeDasharray={item.strokeDasharray}
+                      strokeDashoffset={item.strokeDashoffset}
+                    />
+                  ))}
                 </g>
               </svg>
 

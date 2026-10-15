@@ -374,5 +374,3 @@ export function CalendarPicker({
     </>
   );
 }
-
-export default CalendarPicker;
