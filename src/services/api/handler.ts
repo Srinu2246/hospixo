@@ -28,10 +28,12 @@ import {
   MOCK_CASH_TRANSACTIONS,
   MOCK_SHIFT_METRICS,
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
-import { POS_TABLES_DATA } from '@/lib/mocks/pos/usePosTables.mocks';
 import { MOCK_BRANCHES } from '@/lib/mocks/organization/branches.mocks';
 import { MOCK_COMPANIES } from '@/lib/mocks/organization/companies.mocks';
-import { resolveRestaurantFloorMock } from '@/lib/mocks/floor-and-table-setup/restaurantFloors.mocks';
+import {
+  getMockPosTablesData,
+  resolveRestaurantFloorMock,
+} from '@/lib/mocks/floor-and-table-setup/restaurantFloors.mocks';
 import {
   MOCK_KITCHEN_ORDERS,
   resolveKitchenDisplayMock,
@@ -85,11 +87,11 @@ const LIST_MOCKS: Record<string, unknown> = {
     liveOrders: POS_LIVE_ORDERS,
     tables: POS_FLOOR_TABLES,
   },
-  [ApiUrlsV1.pos.pointOfSale.dineIn.list]: POS_TABLES_DATA,
+  [ApiUrlsV1.pos.pointOfSale.dineIn.list]: getMockPosTablesData(),
   [ApiUrlsV1.pos.pointOfSale.duePayments.list]: MOCK_DUE_PAYMENTS,
   [ApiUrlsV1.pos.pointOfSale.readyList.list]: MOCK_READY_ORDERS,
   [ApiUrlsV1.pos.pointOfSale.reservation.list]: MOCK_RESERVATIONS,
-  [ApiUrlsV1.pos.pointOfSale.tables.list]: POS_TABLES_DATA,
+  [ApiUrlsV1.pos.pointOfSale.tables.list]: getMockPosTablesData(),
   [ApiUrlsV1.pos.pointOfSale.takeaway.list]: MOCK_MENU_ITEMS,
   [ApiUrlsV1.pos.pointOfSale.kitchenDisplay.list]: MOCK_KITCHEN_ORDERS,
   [ApiUrlsV1.operations.kitchenDisplay.list]: MOCK_KITCHEN_ORDERS,
@@ -110,6 +112,7 @@ export function isMockApiEnabled(): boolean {
 }
 
 export function resolveMock(request: MockRequest): unknown | undefined {
+  // Floors, sections, tables, and floor-map under /v1/branches/:id/floors/**
   const restaurant = resolveRestaurantFloorMock(request);
   if (restaurant !== undefined) return restaurant;
 
