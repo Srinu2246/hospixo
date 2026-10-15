@@ -1,4 +1,5 @@
-import { ApiError, readResponse, type HttpMethod, type QueryParams } from './types';
+import { readResponse } from './readResponse';
+import { ApiError, type HttpMethod, type QueryParams } from './types';
 
 type BrowserRequestOptions = {
   params?: QueryParams;

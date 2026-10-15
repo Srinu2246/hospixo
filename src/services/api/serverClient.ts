@@ -6,7 +6,8 @@ import { logoutRequestSchema } from '@/lib/schemas/login/loginFormSchema';
 import { PROFILE_COOKIE, profileCookieValue } from '@/lib/auth/shell-session';
 import ApiUrlsV1, { isAllowedEndpoint, isPublicEndpoint } from './ApiUrlsV1';
 import { isMockApiEnabled, resolveMock } from './handler';
-import { ApiError, readResponse, type HttpMethod, type QueryParams } from './types';
+import { readResponse } from './readResponse';
+import { ApiError, type HttpMethod, type QueryParams } from './types';
 
 const SESSION_COOKIE = 'session';
 const REFRESH_COOKIE = 'refresh_token';
