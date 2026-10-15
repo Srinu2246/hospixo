@@ -7,8 +7,7 @@ import { Plus } from 'lucide-react';
 import { CategoryNavItem } from '@/components/features/menu/menu-creation/CategoryNavItem';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Card } from '@/components/shared/ui/Card';
-
-import { useMenuCreation } from './context';
+import { useMenuCreation } from '@/features/menu/context';
 
 export function MenuSidebar() {
   const {

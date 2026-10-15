@@ -14,9 +14,9 @@ import {
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
+import { useMenuCreation } from '@/features/menu/context';
 import { MENU_SESSION_OPTIONS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 
-import { useMenuCreation } from './context';
 import { MenuSidebar } from './MenuSidebar';
 
 /**
