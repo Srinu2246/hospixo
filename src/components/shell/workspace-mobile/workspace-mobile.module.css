@@ -1,10 +1,10 @@
-/* Shared workspace mobile chrome — Users & Roles and related flows. */
+/* Workspace mobile/tablet chrome — hidden from desktop (`lg` = 1200px). */
 
 .mobileOnly {
   display: none;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1199px) {
   .mobileOnly {
     display: block;
   }
@@ -21,19 +21,32 @@
   top: 0;
   z-index: 30;
   display: none;
-  height: 3.75rem;
   flex-shrink: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
   border-bottom: 1px solid var(--border);
   background: var(--card);
   padding: 0 1rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1199px) {
   .topbar {
-    display: flex;
+    display: block;
+  }
+}
+
+.topbarInner {
+  display: flex;
+  height: 3.75rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+@media (min-width: 600px) and (max-width: 1199px) {
+  .topbarInner {
+    max-width: 720px;
   }
 }
 
@@ -41,6 +54,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   text-decoration: none;
 }
 
@@ -50,48 +64,6 @@
   width: 2rem;
   align-items: center;
   justify-content: center;
-}
-
-.context {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.1rem;
-}
-
-.eyebrow {
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted-foreground);
-  line-height: 1.1;
-}
-
-.titleRow {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--foreground);
-  line-height: 1.2;
-}
-
-.titleChevron {
-  width: 0.9rem;
-  height: 0.9rem;
-  flex-shrink: 0;
-  color: var(--muted-foreground);
 }
 
 .actions {
@@ -113,7 +85,9 @@
   color: var(--muted-foreground);
   cursor: pointer;
   text-decoration: none;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .iconButton:hover {
@@ -161,7 +135,9 @@
   color: var(--auth-accent-foreground);
   cursor: pointer;
   text-decoration: none;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .primaryIconButton:hover {
@@ -180,7 +156,9 @@
   background: var(--card);
   color: var(--foreground);
   cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .menuButton:hover {
@@ -197,17 +175,30 @@
   left: 0;
   z-index: 40;
   display: none;
-  align-items: stretch;
-  justify-content: space-around;
-  min-height: var(--workspace-mobile-bottom-nav-height, 4rem);
-  padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border);
   background: var(--card);
+  padding: 0.5rem 1rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1199px) {
   .bottomNav {
-    display: flex;
+    display: block;
+  }
+}
+
+.bottomNavInner {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  align-items: stretch;
+  justify-content: space-around;
+  min-height: var(--workspace-mobile-bottom-nav-height, 3.5rem);
+}
+
+@media (min-width: 600px) and (max-width: 1199px) {
+  .bottomNavInner {
+    max-width: 720px;
   }
 }
 
@@ -219,6 +210,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
+  min-height: 44px;
   padding: 0.25rem 0.5rem;
   border-radius: 0.5rem;
   color: var(--muted-foreground);

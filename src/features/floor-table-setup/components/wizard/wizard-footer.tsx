@@ -4,7 +4,14 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { wizardCopy, wizardFooterNext } from '@/features/floor-table-setup/config';
+import { FloorSetupCompactStickyFooter } from '@/features/floor-table-setup/components/shared/compact-layout';
+import { compactTouchButtonSx } from '@/features/floor-table-setup/components/shared/compact-layout/compact-layout-sx';
+import {
+  wizardCopy,
+  wizardFooterNext,
+  wizardFooterNextCompact,
+} from '@/features/floor-table-setup/config';
+import { useFloorTableSetupResponsive } from '@/features/floor-table-setup/hooks/use-responsive-layout';
 import type { WizardStepId } from '@/features/floor-table-setup/types/floor-table-setup';
 
 type WizardFooterProps = Readonly<{
@@ -28,6 +35,42 @@ export function WizardFooter({
   loading = false,
   loadingLabel,
 }: WizardFooterProps) {
+  const { isCompactLayout } = useFloorTableSetupResponsive();
+
+  const backButton = (
+    <Button
+      variant="outlined"
+      onClick={onBack}
+      disabled={backDisabled || loading}
+      fullWidth={isCompactLayout}
+      sx={isCompactLayout ? compactTouchButtonSx : undefined}
+    >
+      {wizardCopy.back}
+    </Button>
+  );
+
+  const nextButton = (
+    <Button
+      variant="contained"
+      onClick={onNext}
+      disabled={nextDisabled || loading}
+      fullWidth={isCompactLayout}
+      sx={isCompactLayout ? compactTouchButtonSx : undefined}
+      startIcon={loading ? <CircularProgress size={16} color="inherit" aria-hidden /> : undefined}
+    >
+      {loading && loadingLabel
+        ? loadingLabel
+        : (nextLabel ??
+          (isCompactLayout && wizardFooterNextCompact[step]
+            ? wizardFooterNextCompact[step]
+            : wizardFooterNext[step]))}
+    </Button>
+  );
+
+  if (isCompactLayout) {
+    return <FloorSetupCompactStickyFooter back={backButton} primary={nextButton} />;
+  }
+
   return (
     <Box
       component="footer"
@@ -47,17 +90,8 @@ export function WizardFooter({
         borderColor: 'divider',
       }}
     >
-      <Button variant="outlined" onClick={onBack} disabled={backDisabled || loading}>
-        {wizardCopy.back}
-      </Button>
-      <Button
-        variant="contained"
-        onClick={onNext}
-        disabled={nextDisabled || loading}
-        startIcon={loading ? <CircularProgress size={16} color="inherit" aria-hidden /> : undefined}
-      >
-        {loading && loadingLabel ? loadingLabel : (nextLabel ?? wizardFooterNext[step])}
-      </Button>
+      {backButton}
+      {nextButton}
     </Box>
   );
 }

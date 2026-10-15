@@ -12,7 +12,6 @@ import {
   workspaceMobileStyles,
 } from '@/components/shell/workspace-mobile';
 import { WorkspaceNavigationProgress } from '@/components/shell/workspace-navigation-progress/workspace-navigation-progress';
-import { getWorkspaceMobileTopbarContext } from '@/config/shell/workspace-mobile-nav';
 import type { DashboardBootstrap } from '@/features/dashboard/types/dashboard-bootstrap';
 import { useAuth } from '@/context/auth';
 import { DashboardDataProvider } from '@/context/dashboard-data';
@@ -78,7 +77,6 @@ export function AccessShell({
     : 'company';
 
   const sidebarLevel = level ?? resolveSidebarLevel(pathname, userCeiling, null);
-  const mobileTopbar = getWorkspaceMobileTopbarContext(pathname, sidebarLevel);
   const mobileHomeHref = resolveHierarchyHomePath(userCeiling) ?? routes.dashboard.company;
 
   useEffect(() => {
@@ -100,18 +98,15 @@ export function AccessShell({
         <WorkspaceNavigationProgress />
         <DashboardFilterProvider>
           <DashboardDataProvider bootstrap={dashboardBootstrap}>
-            {flushMain ? (
-              <div className={workspaceMobileStyles.mobileOnly}>
-                <WorkspaceMobileTopbar
-                  eyebrow={mobileTopbar.eyebrow}
-                  title={mobileTopbar.title}
-                  navOpen={navOpen}
-                  onMenuClick={toggleNav}
-                  homeHref={mobileHomeHref}
-                />
-              </div>
-            ) : null}
-            <div className={flushMain ? workspaceMobileStyles.desktopOnly : undefined}>
+            <div className={workspaceMobileStyles.mobileOnly}>
+              <WorkspaceMobileTopbar
+                showOutlets={showOutlets}
+                navOpen={navOpen}
+                onMenuClick={toggleNav}
+                homeHref={mobileHomeHref}
+              />
+            </div>
+            <div className={workspaceMobileStyles.desktopOnly}>
               <DashboardTopbar
                 showOutlets={showOutlets}
                 navOpen={navOpen}
@@ -120,17 +115,20 @@ export function AccessShell({
             </div>
             <main
               data-access-chrome="main"
-              className={cn(styles.mainArea, styles.main, mainPaddingClass)}
+              className={cn(
+                styles.mainArea,
+                styles.main,
+                mainPaddingClass,
+                styles.mainWithMobileNav,
+              )}
             >
               <div className={styles.mainInner}>
                 <DbProvider>{children}</DbProvider>
               </div>
             </main>
-            {flushMain ? (
-              <div className={workspaceMobileStyles.mobileOnly}>
-                <WorkspaceMobileBottomNav level={sidebarLevel} />
-              </div>
-            ) : null}
+            <div className={workspaceMobileStyles.mobileOnly}>
+              <WorkspaceMobileBottomNav level={sidebarLevel} />
+            </div>
           </DashboardDataProvider>
         </DashboardFilterProvider>
       </div>

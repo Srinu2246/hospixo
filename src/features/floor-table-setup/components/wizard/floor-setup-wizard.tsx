@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import IconButton from '@mui/material/IconButton';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 
 import { useDashboardData } from '@/context/dashboard-data';
 import { useDashboardFilter } from '@/context/dashboard-filter';
@@ -14,8 +17,11 @@ import { SectionModal } from '@/features/floor-table-setup/components/wizard/sec
 import { SuccessStep } from '@/features/floor-table-setup/components/wizard/success-step';
 import { TableCreationStep } from '@/features/floor-table-setup/components/wizard/table-creation-step';
 import { TableModal } from '@/features/floor-table-setup/components/wizard/table-modals';
+import { FloorSetupCompactShell } from '@/features/floor-table-setup/components/shared/compact-layout';
 import { WizardFooter } from '@/features/floor-table-setup/components/wizard/wizard-footer';
 import { WizardTabs } from '@/features/floor-table-setup/components/wizard/wizard-tabs';
+import { WizardTabsCompact } from '@/features/floor-table-setup/components/wizard/wizard-tabs-compact';
+import { useFloorTableSetupResponsive } from '@/features/floor-table-setup/hooks/use-responsive-layout';
 import {
   floorTableSetupCopy,
   sectionCodePrefix,
@@ -81,6 +87,7 @@ export function FloorSetupWizard() {
   const { data: dashboardData } = useDashboardData();
   const selectedBranchId = useActiveBranchId();
   const outletId = useFloorBranchOutletId();
+  const { isCompactLayout } = useFloorTableSetupResponsive();
   const selectedOutletName =
     dashboardData?.outlets.find((outlet) => outlet.id === filterOutletId)?.name ??
     dashboardData?.outlets.find((outlet) => outlet.id === String(selectedBranchId))?.name ??
@@ -554,15 +561,25 @@ export function FloorSetupWizard() {
   }
 
   if (done && outletId) {
+    const successBody = (
+      <SuccessStep
+        draft={draft}
+        outletId={outletId}
+        branchName={savedFloor?.branch?.trim() || selectedOutletName}
+      />
+    );
+
+    if (isCompactLayout) {
+      return (
+        <section className={styles.page} aria-label={wizardCopy.successTitle}>
+          <FloorSetupCompactShell>{successBody}</FloorSetupCompactShell>
+        </section>
+      );
+    }
+
     return (
       <section className={styles.page} aria-label={wizardCopy.successTitle}>
-        <div className={innerStyles.pageInner}>
-          <SuccessStep
-            draft={draft}
-            outletId={outletId}
-            branchName={savedFloor?.branch?.trim() || selectedOutletName}
-          />
-        </div>
+        <div className={innerStyles.pageInner}>{successBody}</div>
       </section>
     );
   }
@@ -571,158 +588,226 @@ export function FloorSetupWizard() {
     ? draft.tables.find((item) => item.id === editingTableId)
     : undefined;
 
+  const floorNameRow =
+    step !== 'floor' && step !== 'review' ? (
+      isCompactLayout ? (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
+          }}
+        >
+          <IconButton
+            onClick={goBack}
+            aria-label={wizardCopy.back}
+            sx={{
+              minWidth: 44,
+              minHeight: 44,
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+            }}
+          >
+            <ArrowLeft size={18} />
+          </IconButton>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {draft.floor.name}
+          </Typography>
+        </Box>
+      ) : (
+        <div className={styles.titleRow}>
+          <button
+            type="button"
+            className={styles.backIconButton}
+            onClick={goBack}
+            aria-label={wizardCopy.back}
+          >
+            <ArrowLeft className={styles.icon} />
+          </button>
+          <h1 className={styles.title}>{draft.floor.name}</h1>
+        </div>
+      )
+    ) : null;
+
+  const submitErrorBanner =
+    submitError && !isInternalItemsError(submitError) ? (
+      <p className={styles.formError} role="alert">
+        {submitError}{' '}
+        {isPasswordChangeRequiredError(submitError) ? (
+          <button
+            type="button"
+            className={styles.editLink}
+            onClick={() => router.push(profileChangePasswordPath(floorTableSetupPath(outletId)))}
+          >
+            {floorTableSetupCopy.changePassword}
+          </button>
+        ) : null}
+      </p>
+    ) : null;
+
+  const stepPanels = (
+    <>
+      {step === 'floor' ? (
+        <FloorCreationStep
+          value={draft.floor}
+          errors={fieldErrors}
+          onChange={(floor) => {
+            setDraft((current) => ({ ...current, floor }));
+            setFieldErrors({});
+            setSubmitError(null);
+          }}
+        />
+      ) : null}
+      {step === 'section' ? (
+        <SectionCreationStep
+          sections={visibleSections}
+          query={sectionQuery}
+          onQueryChange={setSectionQuery}
+          onCreate={() => {
+            setSectionEditingId(null);
+            setSectionOpen(true);
+          }}
+          onEdit={(sectionId) => {
+            setSectionEditingId(sectionId);
+            setSectionOpen(true);
+          }}
+          onDelete={(id) => void deleteSection(id)}
+        />
+      ) : null}
+      {step === 'table' ? (
+        <TableCreationStep
+          tables={visibleTables}
+          query={tableQuery}
+          onQueryChange={setTableQuery}
+          onAdd={() => setTableMode('single')}
+          onBulk={() => setTableMode('bulk')}
+          onEdit={(tableId) => setEditingTableId(tableId)}
+          onDelete={(id) => void deleteTable(id)}
+        />
+      ) : null}
+      {step === 'review' ? (
+        <ReviewStep
+          draft={draft}
+          onEdit={(next) => void goToStep(next)}
+          onToggleFloor={(active) => void toggleFloor(active)}
+          onToggleSection={(id, active) => void toggleSection(id, active)}
+        />
+      ) : null}
+    </>
+  );
+
+  const wizardFooter = (
+    <WizardFooter
+      step={step}
+      onBack={goBack}
+      onNext={() => void goNext()}
+      nextDisabled={isSubmitting || (step === 'floor' && (!draft.floor.name.trim() || !outletId))}
+      backDisabled={isSubmitting}
+      nextLabel={isSubmitting ? floorTableSetupCopy.creatingFloor : undefined}
+    />
+  );
+
+  const modals = (
+    <>
+      <SectionModal
+        open={sectionOpen}
+        defaultCode={nextEntityCode(sectionCodePrefix, draft.sections)}
+        initial={
+          sectionEditingId
+            ? (() => {
+                const section = draft.sections.find((item) => item.id === sectionEditingId);
+                if (!section) return undefined;
+                return {
+                  name: section.name,
+                  code: section.code,
+                  description: section.description,
+                  active: section.active,
+                };
+              })()
+            : undefined
+        }
+        title={sectionEditingId ? wizardCopy.edit : undefined}
+        submitLabel={sectionEditingId ? wizardCopy.edit : undefined}
+        onClose={() => {
+          setSectionOpen(false);
+          setSectionEditingId(null);
+        }}
+        onSubmit={(input) =>
+          sectionEditingId ? updateSection(sectionEditingId, input) : createSection(input)
+        }
+      />
+      <TableModal
+        open={tableMode !== null}
+        mode={tableMode ?? 'single'}
+        defaultStart={nextTableNumber(draft.tables)}
+        existingTables={draft.tables}
+        sections={draft.sections}
+        defaultSectionId={draft.sections[0]?.id}
+        defaultSectionCode={nextEntityCode(sectionCodePrefix, draft.sections)}
+        onClose={() => {
+          setTableMode(null);
+          setSubmitError(null);
+        }}
+        onGenerate={createTables}
+      />
+      <EditTableModal
+        open={Boolean(editingTableId && editingTable)}
+        table={editingTable ? draftTableToItem(editingTable) : null}
+        areas={draft.sections.map((section) => section.name)}
+        onClose={() => setEditingTableId(null)}
+        onSave={(value) =>
+          editingTableId
+            ? updateTable(editingTableId, {
+                number: value.number,
+                capacity: value.capacity,
+                shape: value.shape,
+                configStatus: value.configStatus,
+                reservations: value.reservations,
+              })
+            : Promise.resolve(false)
+        }
+        statusError={submitError}
+      />
+    </>
+  );
+
+  if (isCompactLayout) {
+    return (
+      <section className={styles.page} aria-label={wizardCopy.floorTitle}>
+        <FloorSetupCompactShell
+          header={<WizardTabsCompact value={step} onChange={(next) => void goToStep(next)} />}
+          footer={wizardFooter}
+        >
+          {floorNameRow}
+          {submitErrorBanner}
+          {stepPanels}
+          {modals}
+        </FloorSetupCompactShell>
+      </section>
+    );
+  }
+
   return (
     <section className={styles.page} aria-label={wizardCopy.floorTitle}>
       <div className={innerStyles.pageInner}>
         <WizardTabs value={step} onChange={(next) => void goToStep(next)} />
-        {step !== 'floor' && step !== 'review' ? (
-          <div className={styles.titleRow}>
-            <button
-              type="button"
-              className={styles.backIconButton}
-              onClick={goBack}
-              aria-label={wizardCopy.back}
-            >
-              <ArrowLeft className={styles.icon} />
-            </button>
-            <h1 className={styles.title}>{draft.floor.name}</h1>
-          </div>
-        ) : null}
-
-        {submitError && !isInternalItemsError(submitError) ? (
-          <p className={styles.formError} role="alert">
-            {submitError}{' '}
-            {isPasswordChangeRequiredError(submitError) ? (
-              <button
-                type="button"
-                className={styles.editLink}
-                onClick={() =>
-                  router.push(profileChangePasswordPath(floorTableSetupPath(outletId)))
-                }
-              >
-                {floorTableSetupCopy.changePassword}
-              </button>
-            ) : null}
-          </p>
-        ) : null}
-
-        {step === 'floor' ? (
-          <FloorCreationStep
-            value={draft.floor}
-            errors={fieldErrors}
-            onChange={(floor) => {
-              setDraft((current) => ({ ...current, floor }));
-              setFieldErrors({});
-              setSubmitError(null);
-            }}
-          />
-        ) : null}
-        {step === 'section' ? (
-          <SectionCreationStep
-            sections={visibleSections}
-            query={sectionQuery}
-            onQueryChange={setSectionQuery}
-            onCreate={() => {
-              setSectionEditingId(null);
-              setSectionOpen(true);
-            }}
-            onEdit={(sectionId) => {
-              setSectionEditingId(sectionId);
-              setSectionOpen(true);
-            }}
-            onDelete={(id) => void deleteSection(id)}
-          />
-        ) : null}
-        {step === 'table' ? (
-          <TableCreationStep
-            tables={visibleTables}
-            query={tableQuery}
-            onQueryChange={setTableQuery}
-            onAdd={() => setTableMode('single')}
-            onBulk={() => setTableMode('bulk')}
-            onEdit={(tableId) => setEditingTableId(tableId)}
-            onDelete={(id) => void deleteTable(id)}
-          />
-        ) : null}
-        {step === 'review' ? (
-          <ReviewStep
-            draft={draft}
-            onEdit={(next) => void goToStep(next)}
-            onToggleFloor={(active) => void toggleFloor(active)}
-            onToggleSection={(id, active) => void toggleSection(id, active)}
-          />
-        ) : null}
-
-        <WizardFooter
-          step={step}
-          onBack={goBack}
-          onNext={() => void goNext()}
-          nextDisabled={
-            isSubmitting || (step === 'floor' && (!draft.floor.name.trim() || !outletId))
-          }
-          backDisabled={isSubmitting}
-          nextLabel={isSubmitting ? floorTableSetupCopy.creatingFloor : undefined}
-        />
-
-        <SectionModal
-          open={sectionOpen}
-          defaultCode={nextEntityCode(sectionCodePrefix, draft.sections)}
-          initial={
-            sectionEditingId
-              ? (() => {
-                  const section = draft.sections.find((item) => item.id === sectionEditingId);
-                  if (!section) return undefined;
-                  return {
-                    name: section.name,
-                    code: section.code,
-                    description: section.description,
-                    active: section.active,
-                  };
-                })()
-              : undefined
-          }
-          title={sectionEditingId ? wizardCopy.edit : undefined}
-          submitLabel={sectionEditingId ? wizardCopy.edit : undefined}
-          onClose={() => {
-            setSectionOpen(false);
-            setSectionEditingId(null);
-          }}
-          onSubmit={(input) =>
-            sectionEditingId ? updateSection(sectionEditingId, input) : createSection(input)
-          }
-        />
-        <TableModal
-          open={tableMode !== null}
-          mode={tableMode ?? 'single'}
-          defaultStart={nextTableNumber(draft.tables)}
-          existingTables={draft.tables}
-          sections={draft.sections}
-          defaultSectionId={draft.sections[0]?.id}
-          defaultSectionCode={nextEntityCode(sectionCodePrefix, draft.sections)}
-          onClose={() => {
-            setTableMode(null);
-            setSubmitError(null);
-          }}
-          onGenerate={createTables}
-        />
-        <EditTableModal
-          open={Boolean(editingTableId && editingTable)}
-          table={editingTable ? draftTableToItem(editingTable) : null}
-          areas={draft.sections.map((section) => section.name)}
-          onClose={() => setEditingTableId(null)}
-          onSave={(value) =>
-            editingTableId
-              ? updateTable(editingTableId, {
-                  number: value.number,
-                  capacity: value.capacity,
-                  shape: value.shape,
-                  configStatus: value.configStatus,
-                  reservations: value.reservations,
-                })
-              : Promise.resolve(false)
-          }
-          statusError={submitError}
-        />
+        {floorNameRow}
+        {submitErrorBanner}
+        {stepPanels}
+        {wizardFooter}
+        {modals}
       </div>
     </section>
   );

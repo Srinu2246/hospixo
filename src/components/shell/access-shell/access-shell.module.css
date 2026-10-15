@@ -30,12 +30,6 @@
   padding: 1rem;
 }
 
-@media (min-width: 768px) {
-  .mainPadding {
-    padding: 1.5rem;
-  }
-}
-
 .mainInner {
   display: flex;
   min-height: 100%;
@@ -70,5 +64,13 @@
   width: 100%;
   min-width: 0;
   flex: 1 1 auto;
+}
+
+@media (max-width: 1199px) {
+  .mainWithMobileNav {
+    padding-bottom: calc(
+      var(--workspace-mobile-bottom-nav-height, 3.5rem) + env(safe-area-inset-bottom, 0px) + 0.5rem
+    );
+  }
 }
 

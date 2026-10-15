@@ -8,6 +8,8 @@ import {
   isWorkspaceMobileNavActive,
   type WorkspaceMobileNavItem,
 } from '@/config/shell/workspace-mobile-nav';
+import { workspaceMobileChromeCopy } from '@/config/shell/workspace-mobile-chrome';
+import { resolveUserInitials } from '@/lib/user/resolve-user-initials';
 import { useAuth } from '@/context/auth';
 import { resolveAccessLevel, resolveSidebarLevel, type AccessLevel } from '@/lib/auth/access-level';
 import { cn } from '@/lib/utils';
@@ -50,25 +52,29 @@ export function WorkspaceMobileBottomNav({ level, className }: WorkspaceMobileBo
   const resolvedLevel = level ?? resolveSidebarLevel(pathname, userCeiling, null);
 
   const items = getWorkspaceMobileNav(resolvedLevel);
-  const initials =
-    [user?.first_name?.[0], user?.last_name?.[0]].filter(Boolean).join('').toUpperCase() || 'AK';
+  const initials = resolveUserInitials(user);
 
   return (
-    <nav className={cn(styles.bottomNav, className)} aria-label="Workspace mobile navigation">
-      {items.map((item) => {
-        const active = isWorkspaceMobileNavActive(pathname, item);
-        return (
-          <Link
-            key={item.id}
-            href={item.href}
-            className={cn(styles.bottomLink, active && styles.bottomLinkActive)}
-            aria-current={active ? 'page' : undefined}
-          >
-            <NavIcon item={item} initials={initials} />
-            <span className={styles.bottomLabel}>{item.label}</span>
-          </Link>
-        );
-      })}
+    <nav
+      className={cn(styles.bottomNav, className)}
+      aria-label={workspaceMobileChromeCopy.bottomNavAriaLabel}
+    >
+      <div className={styles.bottomNavInner}>
+        {items.map((item) => {
+          const active = isWorkspaceMobileNavActive(pathname, item);
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              className={cn(styles.bottomLink, active && styles.bottomLinkActive)}
+              aria-current={active ? 'page' : undefined}
+            >
+              <NavIcon item={item} initials={initials} />
+              <span className={styles.bottomLabel}>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }

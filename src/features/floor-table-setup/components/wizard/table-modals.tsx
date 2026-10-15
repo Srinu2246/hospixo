@@ -16,10 +16,13 @@ import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
+import { FloorSetupCompactStickyFooter } from '@/features/floor-table-setup/components/shared/compact-layout';
+import { compactTouchButtonSx } from '@/features/floor-table-setup/components/shared/compact-layout/compact-layout-sx';
 import {
   floorSetupFieldSx,
   floorSetupRequiredLabel,
 } from '@/features/floor-table-setup/components/shared/mui-field-styles';
+import { useFloorTableSetupResponsive } from '@/features/floor-table-setup/hooks/use-responsive-layout';
 import {
   bulkGenerateDefaults,
   createTableDefaults,
@@ -123,6 +126,7 @@ function TableModalForm({
   const [sectionName, setSectionName] = useState('');
   const [sectionCode, setSectionCode] = useState(defaultSectionCode);
   const [busy, setBusy] = useState(false);
+  const { isCompactLayout } = useFloorTableSetupResponsive();
   const creatingSection = sections.length === 0 || sectionId === NEW_TABLE_SECTION_ID;
 
   const parsedCount = mode === 'bulk' ? Number(count) : 1;
@@ -173,8 +177,55 @@ function TableModalForm({
     }
   }
 
+  const dialogPaperSx = isCompactLayout
+    ? {
+        width: 'calc(100% - 32px)',
+        maxWidth: 'calc(100% - 32px)',
+        m: 2,
+        borderRadius: 2,
+      }
+    : undefined;
+
+  const cancelButton = (
+    <Button
+      type="button"
+      variant="outlined"
+      onClick={onClose}
+      disabled={busy}
+      fullWidth={isCompactLayout}
+      sx={isCompactLayout ? compactTouchButtonSx : undefined}
+    >
+      {wizardCopy.cancel}
+    </Button>
+  );
+
+  const submitButton = (
+    <Button
+      type="submit"
+      variant="contained"
+      disabled={
+        busy ||
+        (creatingSection && !sectionName.trim()) ||
+        !rangeValidation.ok ||
+        parsedCount < 1 ||
+        parsedCapacity < 1
+      }
+      fullWidth={isCompactLayout}
+      sx={isCompactLayout ? compactTouchButtonSx : undefined}
+    >
+      {wizardCopy.generate}
+    </Button>
+  );
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" scroll="paper">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth={isCompactLayout ? false : 'sm'}
+      scroll="paper"
+      slotProps={dialogPaperSx ? { paper: { sx: dialogPaperSx } } : undefined}
+    >
       <Box component="form" onSubmit={handleSubmit}>
         <DialogTitle sx={{ pb: 1 }}>
           {mode === 'bulk' ? wizardCopy.bulkTitle : wizardCopy.createTableTitle}
@@ -331,23 +382,15 @@ function TableModalForm({
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button type="button" variant="outlined" onClick={onClose} disabled={busy}>
-            {wizardCopy.cancel}
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={
-              busy ||
-              (creatingSection && !sectionName.trim()) ||
-              !rangeValidation.ok ||
-              parsedCount < 1 ||
-              parsedCapacity < 1
-            }
-          >
-            {wizardCopy.generate}
-          </Button>
+        <DialogActions sx={{ px: 3, py: 2, width: isCompactLayout ? '100%' : undefined }}>
+          {isCompactLayout ? (
+            <FloorSetupCompactStickyFooter back={cancelButton} primary={submitButton} />
+          ) : (
+            <>
+              {cancelButton}
+              {submitButton}
+            </>
+          )}
         </DialogActions>
       </Box>
     </Dialog>

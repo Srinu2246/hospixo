@@ -10,6 +10,8 @@ import type {
 export const floorTableSetupCopy = {
   listTitle: 'Floor Management',
   listSubtitle: 'Hospixo Floor & Seating Management',
+  compactListTitle: 'Floors List',
+  compactListSubtitle: 'Manage Floors and sections tables',
   searchPlaceholder: 'Search floors...',
   sortLabel: 'Sort by:',
   statusLabel: 'Status',

@@ -1,8 +1,21 @@
+'use client';
+
 import { LayoutGrid } from 'lucide-react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Paper from '@mui/material/Paper';
+import Switch from '@mui/material/Switch';
+import Typography from '@mui/material/Typography';
 
 import { StatusToggle } from '@/features/floor-table-setup/components/status-toggle';
-import { reviewColumns, wizardCopy } from '@/features/floor-table-setup/config';
-import { seatingSummary } from '@/features/floor-table-setup/lib';
+import {
+  floorTypeFormLabels,
+  reviewColumns,
+  wizardCopy,
+} from '@/features/floor-table-setup/config';
+import { useFloorTableSetupResponsive } from '@/features/floor-table-setup/hooks/use-responsive-layout';
+import { formatFloorStats, seatingSummary } from '@/features/floor-table-setup/lib';
 import type {
   FloorSetupDraft,
   WizardStepId,
@@ -18,7 +31,124 @@ type ReviewStepProps = Readonly<{
 }>;
 
 export function ReviewStep({ draft, onEdit, onToggleFloor, onToggleSection }: ReviewStepProps) {
+  const { isCompactLayout } = useFloorTableSetupResponsive();
   const seating = seatingSummary(draft.tables);
+  const floorTypeLabel =
+    draft.floor.type && draft.floor.type in floorTypeFormLabels
+      ? floorTypeFormLabels[draft.floor.type as keyof typeof floorTypeFormLabels]
+      : '—';
+
+  if (isCompactLayout) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {wizardCopy.reviewTitle}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {wizardCopy.reviewSubtitle}
+          </Typography>
+        </Box>
+
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              {wizardCopy.floorDetails}
+            </Typography>
+            <Button size="small" onClick={() => onEdit('floor')}>
+              {wizardCopy.edit}
+            </Button>
+          </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1.5 }}>
+            <ReviewFieldCompact label={wizardCopy.floorName} value={draft.floor.name} />
+            <ReviewFieldCompact label={wizardCopy.floorCode} value={draft.floor.code} />
+            <ReviewFieldCompact label={wizardCopy.floorType} value={floorTypeLabel} />
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 2,
+              }}
+            >
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {wizardCopy.floorStatus}
+                </Typography>
+              </Box>
+              <Switch
+                checked={draft.floor.active}
+                onChange={(_, active) => onToggleFloor(active)}
+                slotProps={{ input: { 'aria-label': wizardCopy.floorStatus } }}
+              />
+            </Box>
+          </Box>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              {wizardCopy.sectionsReview}
+            </Typography>
+            <Button size="small" onClick={() => onEdit('section')}>
+              {wizardCopy.edit}
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {draft.sections.map((section) => (
+              <Box
+                key={section.id}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  border: 1,
+                  borderColor: 'divider',
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {section.name}
+                  </Typography>
+                  {section.active ? (
+                    <Chip size="small" label="Active" color="success" variant="outlined" />
+                  ) : (
+                    <Chip size="small" label="Inactive" variant="outlined" />
+                  )}
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  {section.code} · {formatFloorStats(section.tableCount, section.seatCount)}
+                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                  <Switch
+                    size="small"
+                    checked={section.active}
+                    onChange={(_, active) => onToggleSection(section.id, active)}
+                    slotProps={{ input: { 'aria-label': section.name } }}
+                  />
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            {wizardCopy.tablesSetup}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <LayoutGrid size={18} aria-hidden />
+            <Typography variant="body2" color="text.secondary">
+              {seating.tables} {wizardCopy.tablesConfigured}
+            </Typography>
+          </Box>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <section className={styles.card}>
@@ -96,5 +226,18 @@ function ReviewField({ label, value }: Readonly<{ label: string; value: string }
       <span className={styles.reviewLabel}>{label}</span>
       <span className={styles.reviewValue}>{value}</span>
     </div>
+  );
+}
+
+function ReviewFieldCompact({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary" display="block">
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+        {value}
+      </Typography>
+    </Box>
   );
 }

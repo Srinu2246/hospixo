@@ -45,6 +45,7 @@ export {
   wizardCopy,
   wizardEmpty,
   wizardFooterNext,
+  wizardFooterNextCompact,
   wizardOutletName,
   wizardSteps,
 } from './wizard';

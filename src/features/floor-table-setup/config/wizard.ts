@@ -28,6 +28,7 @@ export const wizardCopy = {
   floorStatusHint: 'Toggle active visibility on checkout POS channels',
   sectionsTitle: 'Sections List',
   sectionsSubtitle: 'Manage and organize dining zones within this floor',
+  sectionsSubtitleCompact: 'Organize dining zones on this floor.',
   addSection: 'Add Section',
   createSection: 'Create Section',
   createSectionTitle: 'Create New Section',
@@ -98,6 +99,13 @@ export const wizardCopy = {
   columnCapacity: 'Capacity',
   columnActions: 'Actions',
 } as const;
+
+export const wizardFooterNextCompact: Partial<Record<WizardStepId, string>> = {
+  floor: 'Section Creation',
+  section: 'Table Creation',
+  table: wizardCopy.setupPermissions,
+  review: wizardCopy.createFloor,
+};
 
 export const wizardFooterNext: Record<WizardStepId, string> = {
   floor: wizardCopy.createFloor,
