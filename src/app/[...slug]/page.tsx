@@ -401,10 +401,10 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     },
   },
 
-  // 16. GST Rates: .../menu/gst-rates (company | branch-manager | organization)
+  // 16. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
   {
     name: 'GST Rates',
-    match: (path) => path.endsWith('menu/gst-rates') || path.endsWith('gst-rates'),
+    match: (path) => path.includes('menu/gst-rates'),
     render: () => <GstRatesPage />,
   },
 ];
