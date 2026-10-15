@@ -1,79 +1,62 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
-import { useMemo } from 'react';
-
-import { useClientMounted } from '@/hooks/use-client-mounted';
-
-import { AuthProvider } from '@/context/auth';
-import { createAppTheme, type AppColorScheme } from '@/lib/theme/mui/theme';
-import { AppStoreProvider } from '@/stores/provider';
-import { AppThemeProvider, useTheme } from '@/providers/app-theme-provider';
-
 import { QueryProvider } from './QueryProvider';
+import { theme, darkTheme } from '@/lib/theme/mui/theme';
+import { useThemeStore } from '@/stores/themeStore';
 
 type AppProviderProps = {
   children: ReactNode;
 };
 
-function MuiThemeBridge({ children }: Readonly<{ children: ReactNode }>) {
-  const { resolvedTheme } = useTheme();
-  const mounted = useClientMounted();
-
-  const mode: AppColorScheme = mounted && resolvedTheme === 'dark' ? 'dark' : 'light';
-
-  const muiTheme = useMemo(() => createAppTheme(mode), [mode]);
-
-  return (
-    <ThemeProvider theme={muiTheme}>
-      <CssBaseline enableColorScheme />
-      {children}
-    </ThemeProvider>
-  );
-}
-
-function stringifyConsoleArg(arg: unknown): string {
-  if (typeof arg === 'string') return arg;
-  if (arg instanceof Error) return arg.message;
-  try {
-    return JSON.stringify(arg);
-  } catch {
-    return '';
-  }
-}
-
-function isLocatorOrHydrationNoise(args: unknown[]): boolean {
-  const text = args.map(stringifyConsoleArg).join(' ');
-  if (text.includes('[LocatorJS]') || text.includes('data-locatorjs-id')) return true;
-  if (text.includes('hydrated') && text.includes("didn't match")) return true;
-  if (text.includes('server rendered HTML') && text.includes("didn't match")) return true;
-  return false;
-}
-
+// Filter LocatorJS extension console.error in dev to prevent Next.js error overlay from popping up
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const originalConsoleError = console.error;
   console.error = (...args: unknown[]) => {
-    if (isLocatorOrHydrationNoise(args)) {
+    if (typeof args[0] === 'string' && args[0].includes('[LocatorJS]')) {
+      console.warn(...args);
       return;
     }
     originalConsoleError(...args);
   };
 }
 
+function subscribeThemeHydration(onChange: () => void) {
+  if (useThemeStore.persist.hasHydrated()) {
+    onChange();
+    return () => {};
+  }
+  return useThemeStore.persist.onFinishHydration(onChange);
+}
+
 export function AppProvider({ children }: AppProviderProps) {
+  const mode = useThemeStore((state) => state.mode);
+  const themeReady = useSyncExternalStore(
+    subscribeThemeHydration,
+    () => useThemeStore.persist.hasHydrated(),
+    () => false,
+  );
+
+  const activeMode = themeReady ? mode : 'light';
+  const currentTheme = activeMode === 'dark' ? darkTheme : theme;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      import('@locator/runtime')
+        .then((locator) => {
+          locator.setup();
+        })
+        .catch(() => {
+          // ignore error if locator failed to load
+        });
+    }
+  }, []);
+
   return (
-    <AppStoreProvider>
-      <QueryProvider>
-        <AppRouterCacheProvider>
-          <AppThemeProvider>
-            <MuiThemeBridge>
-              <AuthProvider>{children}</AuthProvider>
-            </MuiThemeBridge>
-          </AppThemeProvider>
-        </AppRouterCacheProvider>
-      </QueryProvider>
-    </AppStoreProvider>
+    <ThemeProvider theme={currentTheme}>
+      <CssBaseline />
+      <QueryProvider>{children}</QueryProvider>
+    </ThemeProvider>
   );
 }

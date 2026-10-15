@@ -1,1 +1,0 @@
-export { MenuCategories } from './categories';

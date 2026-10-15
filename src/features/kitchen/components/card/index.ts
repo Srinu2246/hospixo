@@ -1,1 +1,0 @@
-export { KitchenCard } from './card';

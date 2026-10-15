@@ -1,1 +1,0 @@
-export { KitchenBoard } from './board';
