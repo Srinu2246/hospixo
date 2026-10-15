@@ -2,7 +2,7 @@
 
 <!-- Add the related Zoho or ClickUp ticket URL here. -->
 
-## Summary
+## Summary of changes made
 
 <!-- Briefly describe what this PR does and why it is needed. -->
 
@@ -15,20 +15,6 @@
 - [ ] Documentation
 - [ ] Configuration / Dependencies
 - [ ] Breaking change
-
-## Changes Made
-
-<!-- List the key changes introduced in this PR. -->
-
--
--
--
-
-## Related Issue
-
-<!-- Link the related issue or ticket, if applicable. -->
-
-Closes #
 
 ## Screenshots / Demo
 
