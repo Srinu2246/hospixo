@@ -1,6 +1,7 @@
 import 'server-only';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 import { logoutRequestSchema } from '@/lib/schemas/login/loginFormSchema';
 import { PROFILE_COOKIE, profileCookieValue } from '@/lib/auth/shell-session';
@@ -22,9 +23,25 @@ async function requireSession(): Promise<string> {
   const cookieStore = await cookies();
   const session = cookieStore.get(SESSION_COOKIE)?.value;
   if (!session) {
-    throw new ApiError('Unauthorized', 401);
+    await rejectUnauthorized();
   }
-  return session;
+  return session as string;
+}
+
+/** Clear auth cookies; redirect document/RSC requests to login, JSON API calls get 401. */
+async function rejectUnauthorized(): Promise<never> {
+  const cookieStore = await cookies();
+  clearAuthCookies(cookieStore);
+
+  const accept = (await headers()).get('accept') ?? '';
+  const isDocumentOrRsc =
+    accept.includes('text/html') || accept.includes('text/x-component') || accept.includes('rsc');
+
+  if (isDocumentOrRsc) {
+    redirect('/login');
+  }
+
+  throw new ApiError('Unauthorized', 401);
 }
 
 function getBackendConfig(): { baseUrl: string; secret: string } {
@@ -111,6 +128,10 @@ async function request<T>(
   } catch {
     console.error('Upstream request failed');
     throw new ApiError('Upstream request failed', 502);
+  }
+
+  if (response.status === 401 && !isPublic) {
+    await rejectUnauthorized();
   }
 
   const payload = await readResponse<T>(response);

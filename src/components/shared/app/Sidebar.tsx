@@ -57,6 +57,7 @@ import {
   type SidebarContext,
   type SidebarUserProfile,
 } from '@/app/sidebar';
+import { Undo2 } from 'lucide-react';
 
 export type SidebarProps = {
   role?: string;
@@ -744,7 +745,7 @@ export function Sidebar({
                 },
               }}
             >
-              <ArrowBackIcon sx={{ fontSize: 18 }} />
+              <Undo2 size={18} />
               {isOpen && (
                 <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
                   Back to Menu

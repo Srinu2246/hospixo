@@ -93,9 +93,10 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
             top: { [screen.mobile]: 0 },
             left: { [screen.mobile]: 0 },
             zIndex: { [screen.mobile]: 1300 },
-            width: { [screen.mobile]: 248 },
-            minWidth: { [screen.mobile]: 248 },
-            maxWidth: { [screen.mobile]: 248 },
+            // Mobile drawer stays full width; tablet+ lets Sidebar set 248 / 76.
+            width: { [screen.mobile]: 248, [screen.tablet]: 'unset' },
+            minWidth: { [screen.mobile]: 248, [screen.tablet]: 'unset' },
+            maxWidth: { [screen.mobile]: 248, [screen.tablet]: 'unset' },
             transform: {
               [screen.mobile]: mobileOpen ? 'none' : 'translateX(-100%)',
               [screen.tablet]: 'none',
