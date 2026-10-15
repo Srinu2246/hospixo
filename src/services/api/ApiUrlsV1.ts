@@ -69,6 +69,7 @@ const ApiUrlsV1 = {
   restaurant: {
     branches: '/v1/branches',
     preparationStations: '/v1/restaurant/preparation-stations',
+    gstRates: '/v1/restaurant/gst-rates',
   },
   kitchen: {
     kitchenBoard: resource('/v1/kitchen-display'),
@@ -102,6 +103,16 @@ export function organizationCompanyBranchesPath(
   companyId: number | string,
 ): string {
   return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies/${encodeURIComponent(String(companyId))}/branches`;
+}
+
+/** GET/POST /v1/restaurant/gst-rates */
+export function restaurantGstRatesPath(): string {
+  return ApiUrlsV1.restaurant.gstRates;
+}
+
+/** GET /v1/restaurant/gst-rates/{gst_rate_id} */
+export function restaurantGstRatePath(gstRateId: number | string): string {
+  return `${restaurantGstRatesPath()}/${encodeURIComponent(String(gstRateId))}`;
 }
 
 export function restaurantFloorsPath(branchId: number): string {

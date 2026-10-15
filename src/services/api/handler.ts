@@ -38,6 +38,7 @@ import {
   MOCK_KITCHEN_ORDERS,
   resolveKitchenDisplayMock,
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
+import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
 import type { HttpMethod, QueryParams } from '@/services/api/types';
@@ -118,6 +119,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
   const kitchen = resolveKitchenDisplayMock(request);
   if (kitchen !== undefined) return kitchen;
+
+  const gstRates = resolveGstRatesMock(request);
+  if (gstRates !== undefined) return gstRates;
 
   const listPath = findListPath(request.path);
   if (!listPath) return undefined;
