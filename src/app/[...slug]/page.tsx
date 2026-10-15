@@ -22,7 +22,7 @@ import {
 import { DashboardScreen } from '@/features/dashboard';
 import { FloorSetupScreen } from '@/features/management/floor-and-table-setup';
 import { KitchenDisplayScreen } from '@/features/kitchen-display';
-import { MenuAvailabilityLayout, MenuCreationLayout } from '@/features/menu';
+import { GstRatesPage, MenuAvailabilityLayout, MenuCreationLayout } from '@/features/menu';
 import type { MenuAvailabilityScope } from '@/lib/schemas/menu/menuAvailabilitySchema';
 import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
 
@@ -399,6 +399,13 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
           : 'organization';
       return <MenuAvailabilityLayout scope={scope} />;
     },
+  },
+
+  // 16. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
+  {
+    name: 'GST Rates',
+    match: (path) => path.includes('menu/gst-rates'),
+    render: () => <GstRatesPage />,
   },
 ];
 
