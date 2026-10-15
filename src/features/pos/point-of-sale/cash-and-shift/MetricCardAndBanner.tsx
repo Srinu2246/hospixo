@@ -12,7 +12,6 @@ import {
   MOCK_SHIFT_METRICS,
   MOCK_ACTIVE_SHIFT,
   type ShiftMetricItem,
-  type ActiveShiftDetails,
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
 
 // ---------------------------------------------------------------------------

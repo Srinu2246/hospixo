@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -21,6 +21,7 @@ import type {
   CatalogTable,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { useCreateTable } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { ApiError } from '@/services/api/types';
 import { useToastStore } from '@/stores/toastStore';
@@ -377,11 +378,7 @@ function SectionEditor({
         inactiveTableCount: 0,
       },
   );
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setFooterTarget(document.getElementById('app-shell-footer'));
-  }, []);
+  const footerTarget = useAppShellFooterTarget();
 
   const footer = (
     <Stack

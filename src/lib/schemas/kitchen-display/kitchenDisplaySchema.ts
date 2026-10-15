@@ -86,19 +86,9 @@ export const apiResponseKitchenBoardSchema = z.object({
   request_id: z.string().optional(),
 });
 
-export const kitchenStatusUpdateRequestSchema = z.object({
-  expected_version: z.number().int().positive().default(1),
-  action: z.enum(['start_preparing', 'mark_ready', 'complete']),
-  preparation_station_id: z.number().int().positive().nullable().optional(),
-});
-
-type KitchenBoardItemLine = z.infer<typeof kitchenBoardItemLineSchema>;
 export type KitchenBoardTicket = z.infer<typeof kitchenBoardTicketSchema>;
-type PreparationStationSummary = z.infer<typeof preparationStationSummarySchema>;
-type KitchenBoardCounts = z.infer<typeof kitchenBoardCountsSchema>;
 export type KitchenBoardResponse = z.infer<typeof kitchenBoardResponseSchema>;
 export type ApiResponseKitchenBoard = z.infer<typeof apiResponseKitchenBoardSchema>;
-type KitchenStatusUpdateRequest = z.infer<typeof kitchenStatusUpdateRequestSchema>;
 
 // ============================================================================
 // 2. Client View Model Schemas (Used by Board UI & Mocks)
@@ -136,10 +126,6 @@ export const kitchenDisplayStatsSchema = z.object({
   readyCount: z.number().int().nonnegative(),
   avgPrepTime: z.string(),
 });
-
-type KitchenDishItemSchema = z.infer<typeof kitchenDishItemSchema>;
-type KitchenOrderItemSchema = z.infer<typeof kitchenOrderItemSchema>;
-type KitchenDisplayStatsSchema = z.infer<typeof kitchenDisplayStatsSchema>;
 
 // ============================================================================
 // 3. Transformation Helpers: Map Backend Tickets to Client View Model

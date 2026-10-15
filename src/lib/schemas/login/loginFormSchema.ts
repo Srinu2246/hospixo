@@ -35,14 +35,10 @@ export const loginResultSchema = z.object({
     .optional(),
 });
 
-type LoginResult = z.infer<typeof loginResultSchema>;
-
 export const logoutRequestSchema = z.object({
   refresh_token: z.string().min(32).nullable(),
   revoke_all: z.literal(false),
 });
-
-type LogoutRequest = z.infer<typeof logoutRequestSchema>;
 
 export const currentUserResponseSchema = z.object({
   success: z.boolean(),

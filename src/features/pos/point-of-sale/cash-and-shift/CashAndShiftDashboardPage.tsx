@@ -41,9 +41,11 @@ export interface CashAndShiftDashboardPageProps {
  */
 export function CashAndShiftDashboardPage({
   onCloseShift,
-  onAddCashIn,
-  onAddCashOut,
+  onAddCashIn: _onAddCashIn,
+  onAddCashOut: _onAddCashOut,
 }: Readonly<CashAndShiftDashboardPageProps> = {}) {
+  void _onAddCashIn;
+  void _onAddCashOut;
   const router = useRouter();
   const pathname = usePathname();
   const mode = useThemeStore((state) => state.mode);

@@ -1,7 +1,6 @@
 import type {
   FloorDetailTab,
   FloorDetails,
-  FloorSort,
   FloorType,
   SavedFloor,
   SectionDraft,

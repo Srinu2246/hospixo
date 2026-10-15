@@ -19,7 +19,7 @@ import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
 
-import type { UserRoleItem, UserStatus, ScopeType } from '@/types/user-roles';
+import type { UserRoleItem, ScopeType } from '@/types/user-roles';
 import type { UserRoleFormValues } from '@/lib/schemas/user-roles';
 import { useUserRoles } from '@/lib/hooks/user-roles';
 import {
@@ -140,11 +140,6 @@ export function UsersAndRolesScreen({
     router.push(`${baseRoute}/template`);
   };
 
-  const handleOpenEditModal = (user: UserRoleItem) => {
-    setEditingUser(user);
-    setIsAddModalOpen(true);
-  };
-
   const handleCloseModal = () => {
     setIsAddModalOpen(false);
     setEditingUser(null);
@@ -200,16 +195,6 @@ export function UsersAndRolesScreen({
     if (selectedUserForAction) {
       deleteUser(selectedUserForAction.id);
       showNotification(`User "${selectedUserForAction.name}" removed.`);
-    }
-    handleCloseActionMenu();
-  };
-
-  const handleToggleStatusFromMenu = () => {
-    if (selectedUserForAction) {
-      const nextStatus: UserStatus =
-        selectedUserForAction.status === 'active' ? 'disabled' : 'active';
-      changeUserStatus(selectedUserForAction.id, nextStatus);
-      showNotification(`Status updated to "${nextStatus}".`);
     }
     handleCloseActionMenu();
   };

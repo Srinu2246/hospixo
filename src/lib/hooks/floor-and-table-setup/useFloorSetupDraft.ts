@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
 import {
@@ -15,6 +15,12 @@ import {
   type FloorSetupDraft,
 } from '@/lib/helpers/floorAndTableSetup';
 
+function subscribeHydration(onChange: () => void) {
+  markFloorSetupHydrated();
+  onChange();
+  return () => {};
+}
+
 export function useFloorSetupDraft() {
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -24,12 +30,11 @@ export function useFloorSetupDraft() {
     () => getFloorSetupSnapshot(route.base),
     getFloorSetupServerSnapshot,
   );
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    markFloorSetupHydrated();
-    setReady(true);
-  }, []);
+  const ready = useSyncExternalStore(
+    subscribeHydration,
+    () => true,
+    () => false,
+  );
 
   function save(next: FloorSetupDraft) {
     writeFloorSetup(route.base, next);

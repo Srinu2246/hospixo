@@ -51,13 +51,7 @@ export function CreateUserStepOne({
         : DEFAULT_BRANCHES;
 
   // Established React Hook Form v7 pattern with Zod v4 resolver
-  const {
-    control,
-    handleSubmit,
-    setValue,
-    reset,
-    formState: { errors },
-  } = useForm<CreateUserFormValues>({
+  const { control, handleSubmit, setValue, reset } = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserMultiformSchema),
     defaultValues: formValues,
     mode: 'onBlur',

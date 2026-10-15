@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { QueryProvider } from './QueryProvider';
 import { theme, darkTheme } from '@/lib/theme/mui/theme';
@@ -22,19 +22,21 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   };
 }
 
+function subscribeThemeHydration(onChange: () => void) {
+  if (useThemeStore.persist.hasHydrated()) {
+    onChange();
+    return () => {};
+  }
+  return useThemeStore.persist.onFinishHydration(onChange);
+}
+
 export function AppProvider({ children }: AppProviderProps) {
   const mode = useThemeStore((state) => state.mode);
-  const [themeReady, setThemeReady] = useState(false);
-
-  useEffect(() => {
-    if (useThemeStore.persist.hasHydrated()) {
-      setThemeReady(true);
-      return;
-    }
-    return useThemeStore.persist.onFinishHydration(() => {
-      setThemeReady(true);
-    });
-  }, []);
+  const themeReady = useSyncExternalStore(
+    subscribeThemeHydration,
+    () => useThemeStore.persist.hasHydrated(),
+    () => false,
+  );
 
   const activeMode = themeReady ? mode : 'light';
   const currentTheme = activeMode === 'dark' ? darkTheme : theme;

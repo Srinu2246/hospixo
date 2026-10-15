@@ -54,7 +54,6 @@ import {
   resolveSidebarLevel,
   type SidebarItem,
   type SidebarSection,
-  type SidebarEntry,
   type SidebarContext,
   type SidebarUserProfile,
 } from '@/app/sidebar';
@@ -200,6 +199,43 @@ function renderSidebarIcon(iconKey?: string, name?: string): React.ReactElement 
 }
 
 // ----------------------------------------------------------------------
+// Active route matching
+// ----------------------------------------------------------------------
+
+function isSidebarItemActive(effectivePathname: string, href?: string): boolean {
+  if (!href || !effectivePathname) return false;
+  if (effectivePathname === href) return true;
+
+  // Handle path suffixes (e.g. branch-agnostic /pos/point-of-sale/tables matches /indiranagar/pos/point-of-sale/tables)
+  const cleanHref = href.replace(/^\/[^/]+/, '');
+  const cleanCurrent = effectivePathname.replace(/^\/[^/]+/, '');
+
+  // Exact match on normalized branch-agnostic path
+  if (cleanHref && cleanCurrent === cleanHref) return true;
+
+  // POS Dashboard equivalence (/pos/point-of-sale and /pos/point-of-sale/dashboard)
+  if (
+    (cleanHref === '/pos/point-of-sale' || cleanHref === '/pos/point-of-sale/dashboard') &&
+    (cleanCurrent === '/pos/point-of-sale' || cleanCurrent === '/pos/point-of-sale/dashboard')
+  ) {
+    return true;
+  }
+
+  // Nested sub-route match with strict '/' boundary (e.g. /reservation/RES-01 matches /reservation)
+  // Avoid matching parent sections (like /pos/point-of-sale) when viewing specific sibling features
+  if (
+    cleanHref &&
+    cleanHref !== '/' &&
+    cleanHref !== '/pos/point-of-sale' &&
+    (effectivePathname.startsWith(href + '/') || cleanCurrent.startsWith(cleanHref + '/'))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+// ----------------------------------------------------------------------
 // Main Sidebar Component
 // ----------------------------------------------------------------------
 
@@ -261,62 +297,30 @@ export function Sidebar({
     });
   }, [role, userPermissions, context, effectivePathname]);
 
-  // Check if an item or route is currently active
-  const isItemActive = (href?: string): boolean => {
-    if (!href || !effectivePathname) return false;
-    if (effectivePathname === href) return true;
-
-    // Handle path suffixes (e.g. branch-agnostic /pos/point-of-sale/tables matches /indiranagar/pos/point-of-sale/tables)
-    const cleanHref = href.replace(/^\/[^/]+/, '');
-    const cleanCurrent = effectivePathname.replace(/^\/[^/]+/, '');
-
-    // Exact match on normalized branch-agnostic path
-    if (cleanHref && cleanCurrent === cleanHref) return true;
-
-    // POS Dashboard equivalence (/pos/point-of-sale and /pos/point-of-sale/dashboard)
-    if (
-      (cleanHref === '/pos/point-of-sale' || cleanHref === '/pos/point-of-sale/dashboard') &&
-      (cleanCurrent === '/pos/point-of-sale' || cleanCurrent === '/pos/point-of-sale/dashboard')
-    ) {
-      return true;
-    }
-
-    // Nested sub-route match with strict '/' boundary (e.g. /reservation/RES-01 matches /reservation)
-    // Avoid matching parent sections (like /pos/point-of-sale) when viewing specific sibling features
-    if (
-      cleanHref &&
-      cleanHref !== '/' &&
-      cleanHref !== '/pos/point-of-sale' &&
-      (effectivePathname.startsWith(href + '/') || cleanCurrent.startsWith(cleanHref + '/'))
-    ) {
-      return true;
-    }
-
-    return false;
-  };
-
   // Find sub-flow matching current URL path
-  const matchedSubFlow = useMemo(() => {
-    if (!effectivePathname) return null;
-
+  let matchedSubFlow: { title: string; items: SidebarItem[] } | null = null;
+  if (effectivePathname) {
     for (const entry of navigationEntries) {
       const items = isSidebarSection(entry) ? entry.items : [entry];
       for (const item of items) {
         if (item.items && item.items.length > 0) {
-          const matchesParent = isItemActive(item.href);
-          const matchesChild = item.items.some((child) => isItemActive(child.href));
+          const matchesParent = isSidebarItemActive(effectivePathname, item.href);
+          const matchesChild = item.items.some((child) =>
+            isSidebarItemActive(effectivePathname, child.href),
+          );
 
           if (matchesParent || matchesChild) {
-            return {
+            matchedSubFlow = {
               title: item.name,
               items: item.items,
             };
+            break;
           }
         }
       }
+      if (matchedSubFlow) break;
     }
-    return null;
-  }, [navigationEntries, effectivePathname]);
+  }
 
   // Active sub-flow: manual override > matched sub-flow (unless manually dismissed on this route)
   const activeSubFlow = useMemo(() => {
@@ -375,7 +379,7 @@ export function Sidebar({
   // Render individual navigation item link/button
   const renderNavItem = (item: SidebarItem) => {
     const hasChildren = item.items && item.items.length > 0;
-    const active = isItemActive(item.href);
+    const active = isSidebarItemActive(effectivePathname, item.href);
 
     const handleClick = (e: React.MouseEvent) => {
       if (hasChildren) {

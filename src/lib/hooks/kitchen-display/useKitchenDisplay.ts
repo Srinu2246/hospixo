@@ -88,9 +88,9 @@ export function useKitchenDisplay({
     retry: false,
   });
 
-  // Transform backend response into client view model
-  useEffect(() => {
-    if (!apiResult) return;
+  // Transform backend response into client view model (sync on render when payload changes)
+  const remoteOrders = useMemo(() => {
+    if (!apiResult) return null;
 
     let boardData: KitchenBoardResponse | null = null;
     if ('data' in apiResult && apiResult.data) {
@@ -98,17 +98,23 @@ export function useKitchenDisplay({
     } else if ('counts' in apiResult) {
       boardData = apiResult as KitchenBoardResponse;
     }
+    if (!boardData) return null;
 
-    if (boardData) {
-      const { orders: transformedOrders } = kitchenBoardResponseToViewModel(
-        boardData,
-        selectedStation,
-      );
-      if (transformedOrders.length > 0) {
-        setOrders(transformedOrders);
-      }
-    }
+    const { orders: transformedOrders } = kitchenBoardResponseToViewModel(
+      boardData,
+      selectedStation,
+    );
+    return transformedOrders.length > 0 ? transformedOrders : null;
   }, [apiResult, selectedStation]);
+
+  const remoteSignature = remoteOrders
+    ? remoteOrders.map((order) => `${order.id}:${order.status}`).join('|')
+    : null;
+  const [appliedRemoteSignature, setAppliedRemoteSignature] = useState<string | null>(null);
+  if (remoteSignature !== null && remoteSignature !== appliedRemoteSignature) {
+    setAppliedRemoteSignature(remoteSignature);
+    setOrders(remoteOrders!);
+  }
 
   // QueryClient for cache invalidation
   const queryClient = useQueryClient();

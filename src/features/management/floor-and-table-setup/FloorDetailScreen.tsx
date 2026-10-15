@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import Alert from '@mui/material/Alert';
@@ -43,6 +43,7 @@ import {
   useUpdateFloor,
   useUpdateSection,
 } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { MOCK_FLOOR_ACTIVITY } from '@/lib/mocks/floor-and-table-setup/floorSetup.mocks';
 import { formatCreatedOn, isActiveRecord } from '@/lib/schemas/floor-and-table-setup/floors';
 import { screen } from '@/lib/theme/mui/breakpoints';
@@ -102,7 +103,7 @@ export function FloorDetailScreen({
       inactiveTableCount: owned.length - activeCount,
     };
   });
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
+  const footerTarget = useAppShellFooterTarget();
   const [actionError, setActionError] = useState<string | null>(null);
   const record = floorQuery.data;
   const view: CatalogFloor | null = record
@@ -131,10 +132,6 @@ export function FloorDetailScreen({
     : null;
   const isNewSection = detail.sectionId === 'new';
   const section = sectionsWithTables.find((item) => item.id === detail.sectionId) ?? null;
-
-  useEffect(() => {
-    setFooterTarget(document.getElementById('app-shell-footer'));
-  }, []);
 
   function openTab(tab: FloorDetailTab) {
     router.push(floorDetailHref(base, floorId, tab));

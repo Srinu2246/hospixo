@@ -15,9 +15,15 @@
     "public/**",
     "src/lib/mocks/**",
     "**/mocks/**",
-    "**/mock/**"
+    "**/mock/**",
+    "api.md"
   ],
   "words": [
+    "Paneer",
+    "readylist",
+    "Ravi",
+    "Kumar",
+    "ravi",
     "Nextjs",
     "TanStack",
     "Zustand",

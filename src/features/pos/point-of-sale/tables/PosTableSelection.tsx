@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Box, Typography, Stack, Divider } from '@mui/material';
+import { Box, Typography, Stack } from '@mui/material';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
@@ -104,22 +104,22 @@ export function PosTableSelection({
     return [];
   }, [floors, activeFloor]);
 
-  // Keep floor / section selection in sync with the floors API payload.
-  useEffect(() => {
-    if (floorTabs.length === 0) return;
-    const floorStillValid = floorTabs.some((tab) => tab.id === activeFloor);
-    if (!floorStillValid) {
-      setActiveFloor(floorTabs[0].id);
-    }
-  }, [floorTabs, activeFloor]);
+  // Keep floor / section selection in sync with the floors API payload (render-time adjust).
+  const resolvedFloor =
+    floorTabs.length === 0 || floorTabs.some((tab) => tab.id === activeFloor)
+      ? activeFloor
+      : floorTabs[0].id;
+  if (resolvedFloor !== activeFloor) {
+    setActiveFloor(resolvedFloor);
+  }
 
-  useEffect(() => {
-    if (sectionOptions.length === 0) return;
-    const sectionStillValid = sectionOptions.some((option) => option.id === activeSection);
-    if (!sectionStillValid) {
-      setActiveSection(sectionOptions[0].id);
-    }
-  }, [sectionOptions, activeSection]);
+  const resolvedSection =
+    sectionOptions.length === 0 || sectionOptions.some((option) => option.id === activeSection)
+      ? activeSection
+      : sectionOptions[0].id;
+  if (resolvedSection !== activeSection) {
+    setActiveSection(resolvedSection);
+  }
 
   // Reservation confirmation handler
   const handleConfirmReservation = (data: NewReservationFormData) => {
@@ -285,12 +285,11 @@ export function PosTableSelection({
   const hasNoDineInTables = isDineIn && dineInEligibleTables.length === 0;
 
   // Find currently selected table object
-  const selectedTable: PosTableItem | undefined = useMemo(() => {
-    const match = tables.find((t) => t.id === selectedTableId);
-    if (!match) return undefined;
-    if (isDineIn && !isDineInActiveStatus(match.status)) return undefined;
-    return match;
-  }, [tables, selectedTableId, isDineIn]);
+  const selectedTableMatch = tables.find((t) => t.id === selectedTableId);
+  const selectedTable: PosTableItem | undefined =
+    !selectedTableMatch || (isDineIn && !isDineInActiveStatus(selectedTableMatch.status))
+      ? undefined
+      : selectedTableMatch;
 
   // Routed dine-in/[tableId] always opens the menu (incl. Tables → available tables).
   if (activeOrderTable) {

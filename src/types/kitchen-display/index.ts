@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 export type KitchenPriority = 'HIGH' | 'NORMAL';
 export type KitchenOrderStatus = 'new' | 'preparing' | 'ready' | 'served';
 export type DishCategory = 'Starters' | 'Mains' | 'Drinks' | 'Desserts';

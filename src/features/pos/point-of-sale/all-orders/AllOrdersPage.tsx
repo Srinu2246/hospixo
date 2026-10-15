@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -91,40 +91,50 @@ export function AllOrdersPage() {
   }, [filteredOrders]);
 
   // Action handlers
-  const handleAddItems = (order: PosOrderItem) => {
-    const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
+  const handleAddItems = useCallback(
+    (order: PosOrderItem) => {
+      const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
 
-    // Derive base flow URL dynamically from the current pathname to preserve branch/tenant prefixes
-    // e.g. /indiranagar/pos/captain-flow/all-orders -> /indiranagar/pos/captain-flow
-    const baseFlow = pathname ? pathname.replace(/\/all-orders(\/.*)?$/, '') : '/pos/point-of-sale';
+      // Derive base flow URL dynamically from the current pathname to preserve branch/tenant prefixes
+      // e.g. /indiranagar/pos/captain-flow/all-orders -> /indiranagar/pos/captain-flow
+      const baseFlow = pathname
+        ? pathname.replace(/\/all-orders(\/.*)?$/, '')
+        : '/pos/point-of-sale';
 
-    const isCaptain = baseFlow.includes('captain-flow');
+      const isCaptain = baseFlow.includes('captain-flow');
 
-    // Parse table from reference (e.g. "Table T4" -> "t-4")
-    const tableMatch = order.reference.match(/Table\s*(T\d+|[A-Za-z0-9_-]+)/i);
-    const tableParam = tableMatch ? tableMatch[1].toLowerCase().replace(/^t(\d+)$/, 't-$1') : null;
+      // Parse table from reference (e.g. "Table T4" -> "t-4")
+      const tableMatch = order.reference.match(/Table\s*(T\d+|[A-Za-z0-9_-]+)/i);
+      const tableParam = tableMatch
+        ? tableMatch[1].toLowerCase().replace(/^t(\d+)$/, 't-$1')
+        : null;
 
-    let targetUrl = '';
-    if (isCaptain) {
-      if (order.type === 'dine-in' && tableParam) {
-        targetUrl = `${baseFlow}/tables?orderId=${cleanOrderNumber}`;
+      let targetUrl = '';
+      if (isCaptain) {
+        if (order.type === 'dine-in' && tableParam) {
+          targetUrl = `${baseFlow}/tables?orderId=${cleanOrderNumber}`;
+        } else {
+          targetUrl = `${baseFlow}/order-menu?orderId=${cleanOrderNumber}`;
+        }
+      } else if (order.type === 'dine-in' && tableParam) {
+        targetUrl = `${baseFlow}/dine-in/${tableParam}?orderId=${cleanOrderNumber}`;
       } else {
-        targetUrl = `${baseFlow}/order-menu?orderId=${cleanOrderNumber}`;
+        targetUrl = `${baseFlow}/takeaway?orderId=${cleanOrderNumber}`;
       }
-    } else if (order.type === 'dine-in' && tableParam) {
-      targetUrl = `${baseFlow}/dine-in/${tableParam}?orderId=${cleanOrderNumber}`;
-    } else {
-      targetUrl = `${baseFlow}/takeaway?orderId=${cleanOrderNumber}`;
-    }
 
-    router.push(targetUrl);
-  };
+      router.push(targetUrl);
+    },
+    [pathname, router],
+  );
 
-  const handleSettle = (order: PosOrderItem) => {
-    const basePath = pathname ? pathname.replace(/\/+$/, '') : '/pos/point-of-sale/all-orders';
-    const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
-    router.push(`${basePath}/${cleanOrderNumber}`);
-  };
+  const handleSettle = useCallback(
+    (order: PosOrderItem) => {
+      const basePath = pathname ? pathname.replace(/\/+$/, '') : '/pos/point-of-sale/all-orders';
+      const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
+      router.push(`${basePath}/${cleanOrderNumber}`);
+    },
+    [pathname, router],
+  );
 
   const handleDownloadReport = () => {
     // Report download placeholder
@@ -282,7 +292,7 @@ export function AllOrdersPage() {
         ),
       },
     ],
-    [],
+    [handleAddItems, handleSettle],
   );
 
   return (

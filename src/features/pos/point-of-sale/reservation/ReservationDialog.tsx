@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
@@ -142,7 +142,7 @@ export function ReservationDialog({
   const [errors, setErrors] = useState<{ fullName?: string; phone?: string }>({});
 
   // Reset form to defaults or initial prefill data
-  const resetForm = () => {
+  const applyFormValues = () => {
     if (initialData) {
       setFullName(initialData.guest ?? '');
       if (initialData.phone) {
@@ -177,16 +177,21 @@ export function ReservationDialog({
     setErrors({});
   };
 
-  // Synchronize prefill values whenever dialog opens or initialData changes
-  useEffect(() => {
-    if (open) {
-      resetForm();
-    }
-  }, [open, initialData]);
+  const formSyncKey = open
+    ? `open:${initialData?.guest ?? ''}:${initialData?.phone ?? ''}:${initialData?.guestCount ?? ''}`
+    : 'closed';
+  const [appliedSyncKey, setAppliedSyncKey] = useState(formSyncKey);
+  if (open && formSyncKey !== appliedSyncKey) {
+    setAppliedSyncKey(formSyncKey);
+    applyFormValues();
+  }
+  if (!open && appliedSyncKey !== 'closed') {
+    setAppliedSyncKey('closed');
+  }
 
   // Handle dialog close with reset
   const handleClose = () => {
-    resetForm();
+    applyFormValues();
     onClose();
   };
 

@@ -80,10 +80,11 @@ function renderCategoryPill(category: DishCategory) {
 export function KitchenOrderCard({
   order,
   onStartPreparing,
-  onRecall,
+  onRecall: _onRecall,
   onMarkReady,
   onServe,
 }: Readonly<KitchenOrderCardProps>) {
+  void _onRecall;
   const isHighPriority = order.priority === 'HIGH';
 
   return (

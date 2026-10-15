@@ -46,6 +46,7 @@ import {
   useCreateSection,
   useFloors,
 } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
@@ -74,27 +75,25 @@ export function FloorSetupScreen() {
 
   const [nameError, setNameError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
+  const footerTarget = useAppShellFooterTarget();
 
   const step: WizardStep | null = isWizardStep(route.step) ? route.step : null;
   const created = floors.find((floor) => floor.id === draft.createdId) ?? null;
   const floorTitle = details.name.trim() || 'Ground Floor';
+  const needsFloorName = Boolean(ready && step && step !== 'floor' && !details.name.trim());
+  const successWithoutFloor = Boolean(ready && route.step === 'success' && !created);
 
   useEffect(() => {
-    setFooterTarget(document.getElementById('app-shell-footer'));
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    if (route.step === 'success' && !created) {
+    if (successWithoutFloor) {
       openStep('hub');
       return;
     }
-    if (step && step !== 'floor' && !details.name.trim()) {
-      setNameError('Enter a floor name.');
+    if (needsFloorName) {
       openStep('floor');
     }
-  }, [created, details.name, openStep, ready, route.step, step]);
+  }, [needsFloorName, openStep, successWithoutFloor]);
+
+  const displayNameError = needsFloorName ? 'Enter a floor name.' : nameError;
 
   function openCreate() {
     setNameError(null);
@@ -322,7 +321,7 @@ export function FloorSetupScreen() {
           {step === 'floor' ? (
             <FloorCreationStep
               details={details}
-              nameError={nameError}
+              nameError={displayNameError}
               onChange={(next) => save({ ...draft, details: next })}
             />
           ) : null}

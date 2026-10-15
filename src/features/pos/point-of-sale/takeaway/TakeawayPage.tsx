@@ -135,14 +135,14 @@ export function TakeawayPage({
         return detail.reference;
       }
     }
-    const match = pathname?.match(/\/tables\/([^/?]+)/i);
+    const match = pathname?.match(/\/(?:tables|dine-in)\/([^/?]+)/i);
     if (match?.[1]) {
       const id = match[1];
       const numMatch = id.match(/\d+/);
       return numMatch ? `Table ${numMatch[0]}` : `Table ${id.toUpperCase()}`;
     }
     return null;
-  }, [table?.name, effectiveOrderId, pathname]);
+  }, [table, effectiveOrderId, pathname]);
 
   // Filter items according to search text and selected category
   const filteredMenuItems = useMemo(() => {

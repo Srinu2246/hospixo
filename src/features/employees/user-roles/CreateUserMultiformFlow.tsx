@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
@@ -16,11 +16,7 @@ import type {
   RoleTemplateItem,
   ScopeType,
 } from '@/types/user-roles';
-import {
-  ROLE_TEMPLATES,
-  COMPANY_ROLE_TEMPLATES,
-  BRANCH_ROLE_TEMPLATES,
-} from '@/lib/mocks/employees/multiform.mocks';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { useCreateUserStore } from '@/stores/createUserStore';
 
 import {
@@ -48,12 +44,13 @@ const WIZARD_STEPS = [
 
 export function CreateUserMultiformFlow({
   initialStep,
-  initialTemplateId,
+  initialTemplateId: _initialTemplateId,
   scope,
   companyName = 'VJITVI',
   onExit,
   onUserCreated,
 }: Readonly<CreateUserMultiformFlowProps>) {
+  void _initialTemplateId;
   const router = useRouter();
   const pathname = usePathname() || '';
 
@@ -95,11 +92,17 @@ export function CreateUserMultiformFlow({
 
   const currentStep = getStepFromPathname() || storeStep || 'template';
 
-  // Synchronize store with current step and scope
-  useEffect(() => {
+  // Synchronize store with current step and scope (render-time adjust)
+  const [syncedScope, setSyncedScope] = useState(resolvedScope);
+  const [syncedStep, setSyncedStep] = useState(currentStep);
+  if (resolvedScope !== syncedScope) {
+    setSyncedScope(resolvedScope);
     setScope(resolvedScope);
+  }
+  if (currentStep !== syncedStep) {
+    setSyncedStep(currentStep);
     setStep(currentStep);
-  }, [resolvedScope, currentStep, setScope, setStep]);
+  }
 
   // Toast feedback state
   const [toastFeedback, setToastFeedback] = useState<{
@@ -129,12 +132,7 @@ export function CreateUserMultiformFlow({
 
   const baseRoute = getBaseRoute();
 
-  // Portal container for page footer rendered outside <main>
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setFooterTarget(document.getElementById('app-shell-footer'));
-  }, []);
+  const footerTarget = useAppShellFooterTarget();
 
   // Navigate to step route helper
   const navigateToStep = (targetStep: CreateUserStep) => {

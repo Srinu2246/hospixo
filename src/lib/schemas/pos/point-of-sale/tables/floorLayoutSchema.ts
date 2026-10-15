@@ -30,7 +30,6 @@ export const posFloorLayoutListSchema = z.object({
 
 export type PosFloorSection = z.infer<typeof posFloorSectionSchema>;
 export type PosFloorLayoutItem = z.infer<typeof posFloorLayoutItemSchema>;
-type PosFloorLayoutList = z.infer<typeof posFloorLayoutListSchema>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

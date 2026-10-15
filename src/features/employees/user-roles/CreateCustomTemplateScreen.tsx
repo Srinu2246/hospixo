@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -18,6 +18,7 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { colors } from '@/lib/theme/mui/colors';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 
 import { customTemplateSchema, type CustomTemplateFormValues } from '@/lib/schemas/user-roles';
 import {
@@ -113,18 +114,13 @@ export function CreateCustomTemplateScreen({
     setToastFeedback({ open: true, message, severity });
   };
 
-  // Sticky footer portal container
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    setFooterTarget(document.getElementById('app-shell-footer'));
-  }, []);
+  const footerTarget = useAppShellFooterTarget();
 
   // Form Management
   const {
     control,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<CustomTemplateFormValues>({
     resolver: zodResolver(customTemplateSchema),
@@ -136,7 +132,7 @@ export function CreateCustomTemplateScreen({
     },
   });
 
-  const selectedPreset = watch('preset');
+  const selectedPreset = useWatch({ control, name: 'preset' });
 
   const handleBack = () => {
     if (onBack) {
@@ -217,7 +213,7 @@ export function CreateCustomTemplateScreen({
   // Form Submission
   const onSubmit = (data: CustomTemplateFormValues) => {
     const newTemplate = {
-      id: `tpl-custom-${Date.now()}`,
+      id: `tpl-custom-${crypto.randomUUID()}`,
       title: data.templateName,
       description: data.description || 'Custom configured role template',
       icon: 'restaurant' as const,

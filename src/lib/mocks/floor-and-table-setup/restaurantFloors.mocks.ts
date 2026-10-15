@@ -103,7 +103,7 @@ function routeFloor(request: MockRequest, branchId: number, parts: string[]): un
     return ok(archiveRecord(current, request.body), 'Floor archived');
   }
   if (parts[1] === 'restore' && request.method === 'POST') {
-    return ok(restoreRecord(current, request.body), 'Floor restored');
+    return ok(restoreRecord(current), 'Floor restored');
   }
   if (parts[1] !== 'sections') return undefined;
 
@@ -134,7 +134,7 @@ function routeFloor(request: MockRequest, branchId: number, parts: string[]): un
     return ok(archiveRecord(currentSection, request.body), 'Section archived');
   }
   if (parts[3] === 'restore' && request.method === 'POST') {
-    return ok(restoreRecord(currentSection, request.body), 'Section restored');
+    return ok(restoreRecord(currentSection), 'Section restored');
   }
   if (parts[3] === 'floor-map' && request.method === 'GET') {
     return ok(floorMap(branchId), 'Floor map retrieved');
@@ -194,7 +194,7 @@ function routeTables(
     return ok(archiveRecord(currentTable, request.body), 'Table archived');
   }
   if (parts[1] === 'restore' && request.method === 'POST') {
-    return ok(restoreRecord(currentTable, request.body), 'Table restored');
+    return ok(restoreRecord(currentTable), 'Table restored');
   }
   return undefined;
 }
@@ -433,7 +433,7 @@ function restoreRecord<
     archived_reason: string | null;
     updated_at: string;
   },
->(current: T, _body: unknown): T {
+>(current: T): T {
   current.status = 'active';
   current.archived_at = null;
   current.archived_reason = null;

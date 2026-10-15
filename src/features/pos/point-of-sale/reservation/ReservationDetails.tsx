@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -40,6 +40,14 @@ export function ReservationDetails({
   const [reservation, setReservation] = useState<ReservationDetailItem>(
     () => initialData ?? getMockReservationDetail(reservationId),
   );
+  const [sourceKey, setSourceKey] = useState(
+    () => `${reservationId ?? ''}:${initialData ? 'override' : 'mock'}`,
+  );
+  const nextSourceKey = `${reservationId ?? ''}:${initialData ? 'override' : 'mock'}`;
+  if (nextSourceKey !== sourceKey) {
+    setSourceKey(nextSourceKey);
+    setReservation(initialData ?? getMockReservationDetail(reservationId));
+  }
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
@@ -49,11 +57,6 @@ export function ReservationDetails({
   const parentReservationsUrl = pathname
     ? pathname.replace(/\/[^/]+$/, '')
     : '/pos/point-of-sale/reservation';
-
-  // Synchronize state when reservationId or initialData changes
-  useEffect(() => {
-    setReservation(initialData ?? getMockReservationDetail(reservationId));
-  }, [reservationId, initialData]);
 
   // Check In Guest handler
   const handleCheckIn = () => {

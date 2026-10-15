@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -22,6 +22,7 @@ import { MobileNumberInput } from '@/components/shared/form-fields/MobileNumberI
 import { Modal } from '@/components/shared/ui/Modal';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { colors } from '@/lib/theme/mui/colors';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 
 import { staffProfileSchema, type StaffProfileFormValues } from '@/lib/schemas/user-roles';
 import {
@@ -46,8 +47,9 @@ export function EditStaffProfileScreen({
   onBack,
   onSave,
   scope,
-  companyName = 'VJITVI',
+  companyName: _companyName = 'VJITVI',
 }: Readonly<EditStaffProfileScreenProps>) {
+  void _companyName;
   const router = useRouter();
   const pathname = usePathname() || '';
 
@@ -78,11 +80,7 @@ export function EditStaffProfileScreen({
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
 
-  // Sticky footer portal container
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    setFooterTarget(document.getElementById('app-shell-footer'));
-  }, []);
+  const footerTarget = useAppShellFooterTarget();
 
   // Toast feedback state
   const [toastFeedback, setToastFeedback] = useState<{
@@ -104,7 +102,6 @@ export function EditStaffProfileScreen({
     control,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<StaffProfileFormValues>({
     resolver: zodResolver(staffProfileSchema),
@@ -122,7 +119,8 @@ export function EditStaffProfileScreen({
     },
   });
 
-  const userStatusValue = watch('userStatus');
+  const userStatusValue = useWatch({ control, name: 'userStatus' });
+  const countryCodeValue = useWatch({ control, name: 'countryCode' });
 
   const handleBack = () => {
     if (onBack) {
@@ -377,7 +375,7 @@ export function EditStaffProfileScreen({
                     placeholder="(555) 123-4567"
                     phoneNumber={field.value}
                     onPhoneNumberChange={field.onChange}
-                    countryCode={watch('countryCode')}
+                    countryCode={countryCodeValue}
                     onCountryCodeChange={(code) => setValue('countryCode', code)}
                     disabled={isReadOnly}
                     error={Boolean(errors.phoneNumber)}

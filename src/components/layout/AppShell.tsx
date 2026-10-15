@@ -30,6 +30,11 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down(screen.tablet), { noSsr: true });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [navPathname, setNavPathname] = useState(pathname);
+  if (pathname !== navPathname) {
+    setNavPathname(pathname);
+    setMobileOpen(false);
+  }
 
   const role = storeRole || initialSession?.role || '';
   const context = storeRole ? storeContext : (initialSession?.context ?? {});
@@ -43,10 +48,6 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
     }
     hydrateSession();
   }, [hydrateSession, initialSession, setSession, storeRole]);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   const toast = (
     <Toast
