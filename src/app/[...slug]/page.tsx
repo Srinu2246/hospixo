@@ -22,6 +22,8 @@ import {
 import { DashboardScreen } from '@/features/dashboard';
 import { FloorSetupScreen } from '@/features/management/floor-and-table-setup';
 import { KitchenDisplayScreen } from '@/features/kitchen-display';
+import { MenuCreationLayout } from '@/features/menu';
+import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
 
 interface CatchAllPageProps {
   params: Promise<{
@@ -368,6 +370,20 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.includes('kitchen-display') ||
       path.includes('kitchen-kds'),
     render: () => <KitchenDisplayScreen />,
+  },
+
+  // 14. Menu Creation: .../menu/menu-creation (company | branch-manager | organization)
+  {
+    name: 'Menu Creation',
+    match: (path) => path.endsWith('menu/menu-creation') || path.endsWith('menu-creation'),
+    render: (path) => {
+      const scope: MenuCreationScope = path.startsWith('company')
+        ? 'company'
+        : path.startsWith('branch')
+          ? 'branch'
+          : 'organization';
+      return <MenuCreationLayout scope={scope} />;
+    },
   },
 ];
 
