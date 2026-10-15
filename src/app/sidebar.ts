@@ -995,6 +995,7 @@ export function normalizeRoleKey(role: string): string {
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
   if (normalized.includes('waiter') || normalized.includes('captain')) return 'waiter';
+  if (normalized.includes('platform_support')) return 'platform_support';
   if (normalized.includes('branch')) return 'branch_manager';
   if (normalized.includes('company')) return 'company';
   if (normalized.includes('org')) return 'organization';

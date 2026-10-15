@@ -31,8 +31,9 @@ export default async function CompanyAllBranchesRoute({
       ? queryCompanyId
       : (session?.account?.company_id ?? session?.context.companyId);
   // Organisation users drill in from the sidebar company; that id lives in the client store.
+  const authScope = session?.account?.scope ?? '';
   const initialBranches =
-    companyId != null ? await readBranches(organizationId, companyId) : undefined;
+    companyId != null ? await readBranches(organizationId, companyId, role, authScope) : undefined;
 
   return (
     <BranchesPage
@@ -47,10 +48,15 @@ export default async function CompanyAllBranchesRoute({
 async function readBranches(
   organizationId: number | undefined,
   companyId: number,
+  role: string,
+  authScope: string,
 ): Promise<BranchListItem[] | undefined> {
   try {
-    return await loadBranchDirectory(organizationId, companyId, (path, params) =>
-      serverApi.get(path, params),
+    return await loadBranchDirectory(
+      organizationId,
+      companyId,
+      (path, params) => serverApi.get(path, params),
+      { role, authScope, scope: 'company' },
     );
   } catch {
     return undefined;

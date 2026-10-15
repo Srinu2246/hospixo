@@ -31,6 +31,10 @@ function unwrapCompanies(payload: unknown): Record<string, unknown>[] {
 
   if (!isRecord(unwrapped)) return [];
 
+  if (Array.isArray(unwrapped.companies)) {
+    return unwrapped.companies.filter(isRecord);
+  }
+
   for (const key of ['items', 'companies', 'results', 'result', 'rows', 'data'] as const) {
     const value = unwrapped[key];
     if (Array.isArray(value)) return value.filter(isRecord);

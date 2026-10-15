@@ -19,7 +19,8 @@ export default async function OrganizationBranchesRoute() {
   }
 
   const organizationId = session?.account?.org_id ?? session?.context.organizationId;
-  const initialBranches = await readBranches(organizationId);
+  const authScope = session?.account?.scope ?? '';
+  const initialBranches = await readBranches(organizationId, role, authScope);
 
   return (
     <BranchesPage
@@ -32,10 +33,15 @@ export default async function OrganizationBranchesRoute() {
 
 async function readBranches(
   organizationId: number | undefined,
+  role: string,
+  authScope: string,
 ): Promise<BranchListItem[] | undefined> {
   try {
-    return await loadBranchDirectory(organizationId, undefined, (path, params) =>
-      serverApi.get(path, params),
+    return await loadBranchDirectory(
+      organizationId,
+      undefined,
+      (path, params) => serverApi.get(path, params),
+      { role, authScope, scope: 'organization' },
     );
   } catch {
     return undefined;

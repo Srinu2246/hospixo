@@ -42,11 +42,14 @@ export function DashboardScreen({
   const organizationId = useSidebarStore(
     (state) => state.account?.org_id ?? state.context.organizationId,
   );
-  const companyId = useSidebarStore((state) => state.context.companyId);
-  const directory = useDashboardDirectory(
-    organizationId,
-    currentLevel === 'company' ? companyId : undefined,
+  const companyId = useSidebarStore(
+    (state) => state.context.companyId ?? state.account?.company_id ?? undefined,
   );
+  const directoryCompanyId = currentLevel === 'organization' ? undefined : companyId;
+  const directory = useDashboardDirectory(organizationId, {
+    companyId: directoryCompanyId,
+    dashboardLevel: currentLevel,
+  });
   const companies = directory.data?.companies ?? [];
   const branches = directory.data?.branches ?? [];
 

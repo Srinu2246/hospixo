@@ -62,7 +62,7 @@ export function BranchesPage({
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
   const orgId = organizationId ?? accountOrgId;
   const scopedCompanyId = scope === 'company' ? (companyId ?? contextCompanyId) : undefined;
-  const branches = useOrganizationBranches(orgId, scopedCompanyId, initialBranches);
+  const branches = useOrganizationBranches(orgId, scopedCompanyId, initialBranches, scope);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EntityStatusFilter>('all');
 

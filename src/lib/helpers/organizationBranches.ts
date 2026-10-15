@@ -44,8 +44,18 @@ export async function loadBranchDirectory(
   organizationId: number | undefined,
   companyId: number | undefined,
   get: GetJson,
+  context?: {
+    role?: string | null;
+    authScope?: string | null;
+    scope?: 'organization' | 'company' | 'branch';
+  },
 ): Promise<BranchListItem[]> {
-  const companies = await loadOrganizationCompanies(organizationId, get).catch(() => []);
+  const companies = await loadOrganizationCompanies(organizationId, get, {
+    role: context?.role,
+    authScope: context?.authScope,
+    companyId,
+    scope: context?.scope ?? (companyId != null ? 'company' : 'organization'),
+  }).catch(() => []);
   const branches = await loadOrganizationBranches(organizationId, companies, get, companyId);
   const namesById = new Map(companies.map((company) => [String(company.id), company.name]));
 
