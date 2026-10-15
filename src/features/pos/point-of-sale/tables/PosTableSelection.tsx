@@ -1,40 +1,36 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Box, Typography, Stack } from '@mui/material';
-import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
-import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
-import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
-import { Plus, ChevronDown } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Box, Stack, Typography } from '@mui/material';
+import { Plus } from 'lucide-react';
 
-import { FilterBar } from '@/components/shared/form-fields/FilterBar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import { SearchBar } from '@/components/shared/form-fields/SearchBar';
-import { FilterChips } from '@/components/shared/form-fields/FilterChips';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
+import { FilterBar } from '@/components/shared/form-fields/FilterBar';
+import { FilterChips } from '@/components/shared/form-fields/FilterChips';
+import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
-import { StatusChip } from '@/components/shared/ui/StatusChip';
+import { Loading } from '@/components/shared/ui/Loading';
 import { Toast } from '@/components/shared/ui/Toast';
 import {
   ReservationDialog,
   type NewReservationFormData,
 } from '@/features/pos/point-of-sale/reservation/ReservationDialog';
+import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway/TakeawayPage';
+import { useFloorSections } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { usePosFloorLayout } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorLayout';
+import { usePosFloorMap } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorMap';
+import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
 import {
   DINE_IN_STATUS_FILTERS,
   DINE_IN_TABLE_STATUSES,
   POS_FLOOR_TABS,
-  POS_SECTIONS,
   POS_STATUS_FILTERS,
-  POS_TABLES_DATA,
   type PosTableItem,
   type PosTableStatus,
 } from '@/lib/mocks/pos/usePosTables.mocks';
-import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
 import { colors } from '@/lib/theme/mui/colors';
-import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway/TakeawayPage';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { PosFloorTableCard } from './PosFloorTableCard';
 
@@ -52,6 +48,17 @@ function isDineInActiveStatus(status: PosTableStatus) {
   return DINE_IN_TABLE_STATUSES.includes(status);
 }
 
+function matchesFloorAndSection(
+  table: PosTableItem,
+  activeFloor: string,
+  activeSection: string,
+  hasSections: boolean,
+) {
+  if (activeFloor && table.floorId !== activeFloor) return false;
+  if (hasSections && activeSection && table.sectionId !== activeSection) return false;
+  return true;
+}
+
 export interface PosTableSelectionProps {
   isDineIn?: boolean;
   onTableSelect?: (table: PosTableItem) => void;
@@ -59,10 +66,11 @@ export interface PosTableSelectionProps {
   initialTableId?: string;
 }
 
+/** Tables / Dine-in floor plan: filters, grid, and order handoff. */
 export function PosTableSelection({
   isDineIn = false,
   onTableSelect,
-  initialSelectedTableId = 't-4',
+  initialSelectedTableId = '',
   initialTableId,
 }: Readonly<PosTableSelectionProps> = {}) {
   const router = useRouter();
@@ -74,12 +82,12 @@ export function PosTableSelection({
   const floorsQuery = usePosFloorLayout(branchId);
   const floors = useMemo(() => floorsQuery.data ?? [], [floorsQuery.data]);
 
-  const [tables, setTables] = useState<PosTableItem[]>(POS_TABLES_DATA);
+  const [tableOverrides, setTableOverrides] = useState<Record<string, Partial<PosTableItem>>>({});
   const [activeFloor, setActiveFloor] = useState(POS_FLOOR_TABS[0]?.id ?? '');
-  const [activeSection, setActiveSection] = useState(POS_SECTIONS[0]?.id ?? '');
+  const [activeSection, setActiveSection] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedTableId, setSelectedTableId] = useState<string>(initialSelectedTableId);
+  const [selectedTableId, setSelectedTableId] = useState(initialSelectedTableId);
   const [manualActiveTable, setManualActiveTable] = useState<PosTableItem | null>(null);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -92,19 +100,29 @@ export function PosTableSelection({
     [floors],
   );
 
-  const sectionOptions = useMemo(() => {
-    const selected = floors.find((floor) => String(floor.id) === activeFloor);
-    if (selected?.sections.length) {
-      return selected.sections.map((section) => ({
-        id: String(section.id),
-        label: section.name,
-      }));
-    }
-    if (floors.length === 0) return POS_SECTIONS;
-    return [];
-  }, [floors, activeFloor]);
+  const numericFloorId = /^\d+$/.test(activeFloor) ? Number(activeFloor) : undefined;
+  const sectionsQuery = useFloorSections(branchId, numericFloorId);
 
-  // Keep floor / section selection in sync with the floors API payload (render-time adjust).
+  const sectionOptions = useMemo(
+    () =>
+      (sectionsQuery.data ?? [])
+        .filter((section) => section.active)
+        .map((section) => ({ id: section.id, label: section.name })),
+    [sectionsQuery.data],
+  );
+
+  const numericSectionId = /^\d+$/.test(activeSection) ? Number(activeSection) : undefined;
+  const floorMapQuery = usePosFloorMap(branchId, numericFloorId, numericSectionId);
+  const isSingleSection = sectionOptions.length === 1;
+  const canFetchFloorMap =
+    typeof branchId === 'number' &&
+    typeof numericFloorId === 'number' &&
+    typeof numericSectionId === 'number';
+  const isTablesLoading =
+    floorsQuery.isLoading ||
+    sectionsQuery.isLoading ||
+    (canFetchFloorMap && (floorMapQuery.isPending || floorMapQuery.isFetching));
+
   const resolvedFloor =
     floorTabs.length === 0 || floorTabs.some((tab) => tab.id === activeFloor)
       ? activeFloor
@@ -121,40 +139,21 @@ export function PosTableSelection({
     setActiveSection(resolvedSection);
   }
 
-  // Reservation confirmation handler
-  const handleConfirmReservation = (data: NewReservationFormData) => {
-    // Find target table: current selectedTable if available/not occupied, otherwise first available table
-    const targetTable =
-      (selectedTable && selectedTable.status !== 'occupied' ? selectedTable : null) ||
-      tables.find((t) => t.status === 'available');
+  const tables = useMemo(() => {
+    const baseTables = floorMapQuery.isSuccess ? (floorMapQuery.data ?? []) : [];
+    return baseTables.map((table) => {
+      const override = tableOverrides[table.id];
+      return override ? { ...table, ...override } : table;
+    });
+  }, [floorMapQuery.isSuccess, floorMapQuery.data, tableOverrides]);
 
-    if (targetTable) {
-      setTables((prev) =>
-        prev.map((t) =>
-          t.id === targetTable.id
-            ? {
-                ...t,
-                status: 'reserved',
-                guests: data.guestCount,
-                time: data.time,
-                message: `Reserved: ${data.guest}`,
-                waiter: data.guest,
-              }
-            : t,
-        ),
-      );
-      setSelectedTableId(targetTable.id);
-      setToastMessage(
-        `✓ Table ${targetTable.name} successfully reserved for ${data.guest} (${data.guestCount} guests) at ${data.time}!`,
-      );
-    } else {
-      setToastMessage(
-        `✓ Reservation confirmed for ${data.guest} (${data.guestCount} guests) on ${data.date} at ${data.time}!`,
-      );
-    }
-
-    setIsReservationOpen(false);
-  };
+  const resolvedSelectedId =
+    selectedTableId && tables.some((table) => table.id === selectedTableId)
+      ? selectedTableId
+      : (tables[0]?.id ?? '');
+  if (resolvedSelectedId !== selectedTableId) {
+    setSelectedTableId(resolvedSelectedId);
+  }
 
   const dineInBasePath = useMemo(() => {
     if (!pathname) return '/pos/point-of-sale/dine-in';
@@ -172,7 +171,6 @@ export function PosTableSelection({
     return base.replace(/\/dine-in(?:\/.*)?$/, '/tables');
   }, [pathname]);
 
-  // Order URLs live under dine-in/[tableId] so refresh keeps the menu.
   const routeTableId = isDineIn ? (initialTableId ?? getTableIdFromPathname(pathname)) : null;
   const activeOrderTable = useMemo(() => {
     if (routeTableId) {
@@ -186,11 +184,42 @@ export function PosTableSelection({
     return manualActiveTable;
   }, [routeTableId, tables, manualActiveTable]);
 
-  /**
-   * POS Tables → /dine-in/[tableId]?from=tables (refresh-safe, Send to KOT).
-   * Dine In → /dine-in/[tableId] (Serve).
-   * Captain → menu in place (no dine-in route).
-   */
+  const selectedTableMatch = tables.find((t) => t.id === selectedTableId);
+  const selectedTable: PosTableItem | undefined =
+    !selectedTableMatch || (isDineIn && !isDineInActiveStatus(selectedTableMatch.status))
+      ? undefined
+      : selectedTableMatch;
+
+  const handleConfirmReservation = (data: NewReservationFormData) => {
+    const targetTable =
+      (selectedTable && selectedTable.status !== 'occupied' ? selectedTable : null) ||
+      tables.find((t) => t.status === 'available');
+
+    if (targetTable) {
+      setTableOverrides((prev) => ({
+        ...prev,
+        [targetTable.id]: {
+          status: 'reserved',
+          guests: data.guestCount,
+          time: data.time,
+          message: `Reserved: ${data.guest}`,
+          waiter: data.guest,
+        },
+      }));
+      setSelectedTableId(targetTable.id);
+      setToastMessage(
+        `✓ Table ${targetTable.name} successfully reserved for ${data.guest} (${data.guestCount} guests) at ${data.time}!`,
+      );
+    } else {
+      setToastMessage(
+        `✓ Reservation confirmed for ${data.guest} (${data.guestCount} guests) on ${data.date} at ${data.time}!`,
+      );
+    }
+
+    setIsReservationOpen(false);
+  };
+
+  /** Tables → dine-in?from=tables; Dine In → dine-in; Captain → in-place menu. */
   const handleOpenTableMenu = (t: PosTableItem) => {
     setSelectedTableId(t.id);
     onTableSelect?.(t);
@@ -214,47 +243,36 @@ export function PosTableSelection({
     router.push(fromTables || !isDineIn ? tablesBasePath : dineInBasePath);
   };
 
-  // Serve items order handler for active table
   const handleServeOrder = (servedTable: PosTableItem, items: CartItem[]) => {
     const totalAmount = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-    setTables((prev) =>
-      prev.map((t) =>
-        t.id === servedTable.id
-          ? {
-              ...t,
-              status: 'occupied',
-              amount: `Rs ${totalAmount.toLocaleString('en-IN')}`,
-              time: 'Just now',
-              guests: t.guests ?? 2,
-              waiter: t.waiter ?? 'Server 1',
-            }
-          : t,
-      ),
-    );
+    setTableOverrides((prev) => ({
+      ...prev,
+      [servedTable.id]: {
+        status: 'occupied',
+        amount: `Rs ${totalAmount.toLocaleString('en-IN')}`,
+        time: 'Just now',
+        guests: servedTable.guests ?? 2,
+        waiter: servedTable.waiter ?? 'Server 1',
+      },
+    }));
   };
 
-  // Dine-in pool: reserved / occupied / billing only (before search & chip filters)
+  const hasSections = sectionOptions.length > 0;
+
   const dineInEligibleTables = useMemo(() => {
     if (!isDineIn) return tables;
-    return tables.filter((table) => {
-      if (!isDineInActiveStatus(table.status)) return false;
-      if (activeFloor && table.floorId !== activeFloor) return false;
-      if (sectionOptions.length > 0 && activeSection && table.sectionId !== activeSection) {
-        return false;
-      }
-      return true;
-    });
-  }, [isDineIn, tables, activeFloor, activeSection, sectionOptions.length]);
+    return tables.filter(
+      (table) =>
+        isDineInActiveStatus(table.status) &&
+        matchesFloorAndSection(table, activeFloor, activeSection, hasSections),
+    );
+  }, [isDineIn, tables, activeFloor, activeSection, hasSections]);
 
-  // Filter tables based on search, floor, section, and status filter
   const filteredTables = useMemo(() => {
     const source = isDineIn ? dineInEligibleTables : tables;
     return source.filter((table) => {
-      if (!isDineIn) {
-        if (activeFloor && table.floorId !== activeFloor) return false;
-        if (sectionOptions.length > 0 && activeSection && table.sectionId !== activeSection) {
-          return false;
-        }
+      if (!isDineIn && !matchesFloorAndSection(table, activeFloor, activeSection, hasSections)) {
+        return false;
       }
 
       if (statusFilter && statusFilter !== 'all' && statusFilter !== 'filter') {
@@ -277,21 +295,13 @@ export function PosTableSelection({
     tables,
     activeFloor,
     activeSection,
-    sectionOptions.length,
+    hasSections,
     statusFilter,
     searchQuery,
   ]);
 
   const hasNoDineInTables = isDineIn && dineInEligibleTables.length === 0;
 
-  // Find currently selected table object
-  const selectedTableMatch = tables.find((t) => t.id === selectedTableId);
-  const selectedTable: PosTableItem | undefined =
-    !selectedTableMatch || (isDineIn && !isDineInActiveStatus(selectedTableMatch.status))
-      ? undefined
-      : selectedTableMatch;
-
-  // Routed dine-in/[tableId] always opens the menu (incl. Tables → available tables).
   if (activeOrderTable) {
     const allowMenu =
       !isDineIn ||
@@ -326,11 +336,7 @@ export function PosTableSelection({
         overflow: 'hidden',
       }}
     >
-      {/* ------------------------------------------------------------------ */}
-      {/* 1. Top Section: Header & Filters (Fixed at top, flexShrink: 0)     */}
-      {/* ------------------------------------------------------------------ */}
       <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {/* Row 1: Title + Floor Tabs + Section Dropdown + Action */}
         <Box
           sx={{
             display: 'flex',
@@ -340,7 +346,6 @@ export function PosTableSelection({
             gap: 2,
           }}
         >
-          {/* Left: Title + Floor FilterBar + Section Dropdown */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
             <Typography
               variant="h5"
@@ -357,7 +362,7 @@ export function PosTableSelection({
             <FilterBar
               items={floorTabs}
               value={activeFloor}
-              onChange={(val) => setActiveFloor(val)}
+              onChange={setActiveFloor}
               variant="segmented"
               size="medium"
             />
@@ -366,12 +371,12 @@ export function PosTableSelection({
               <Dropdown
                 size="medium"
                 value={activeSection}
-                onChange={(val) => setActiveSection(val)}
+                onChange={setActiveSection}
                 options={sectionOptions}
-                disabled={floorsQuery.isLoading}
+                disabled={sectionsQuery.isLoading || isSingleSection}
                 sx={{
                   height: 40,
-                  minWidth: 125,
+                  minWidth: 150,
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontWeight: 600,
@@ -382,7 +387,6 @@ export function PosTableSelection({
             ) : null}
           </Box>
 
-          {/* Reservation stays on the Tables floor plan, not Dine In */}
           {!isDineIn ? (
             <ActionButton
               variant="primary"
@@ -409,12 +413,35 @@ export function PosTableSelection({
             message={
               floorsQuery.error instanceof Error
                 ? floorsQuery.error.message
-                : 'The floors and sections request failed.'
+                : 'The floors request failed.'
             }
           />
         ) : null}
 
-        {/* Row 2: SearchBar + FilterChips + Status Legend */}
+        {sectionsQuery.isError ? (
+          <AlertMessage
+            variant="error"
+            title="Unable to load sections"
+            message={
+              sectionsQuery.error instanceof Error
+                ? sectionsQuery.error.message
+                : 'The sections request failed.'
+            }
+          />
+        ) : null}
+
+        {floorMapQuery.isError ? (
+          <AlertMessage
+            variant="error"
+            title="Unable to load floor map"
+            message={
+              floorMapQuery.error instanceof Error
+                ? floorMapQuery.error.message
+                : 'The floor map request failed.'
+            }
+          />
+        ) : null}
+
         <Box
           sx={{
             display: 'flex',
@@ -424,12 +451,11 @@ export function PosTableSelection({
             gap: 2,
           }}
         >
-          {/* Left: SearchBar + FilterChips */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', flex: 1 }}>
             <SearchBar
               placeholder="Find a table..."
               value={searchQuery}
-              onChange={(val: string) => setSearchQuery(val)}
+              onChange={setSearchQuery}
               onClear={() => setSearchQuery('')}
               showClear
               width={{ xs: '100%', sm: 260 }}
@@ -439,11 +465,10 @@ export function PosTableSelection({
             <FilterChips
               items={isDineIn ? DINE_IN_STATUS_FILTERS : POS_STATUS_FILTERS}
               value={statusFilter}
-              onChange={(val) => setStatusFilter(val)}
+              onChange={setStatusFilter}
             />
           </Box>
 
-          {/* Right: Status Color Legend */}
           <Stack direction="row" spacing={2.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
             {!isDineIn ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -475,9 +500,6 @@ export function PosTableSelection({
         </Box>
       </Box>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* 2. Middle Section: Scrollable Tables Grid (Only this area scrolls) */}
-      {/* ------------------------------------------------------------------ */}
       <Box
         sx={{
           flex: 1,
@@ -485,12 +507,8 @@ export function PosTableSelection({
           overflowY: 'auto',
           overflowX: 'hidden',
           pr: 0.5,
-          '&::-webkit-scrollbar': {
-            width: 6,
-          },
-          '&::-webkit-scrollbar-track': {
-            bgcolor: 'transparent',
-          },
+          '&::-webkit-scrollbar': { width: 6 },
+          '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
           '&::-webkit-scrollbar-thumb': {
             bgcolor: (theme) =>
               theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : colors.gray.light,
@@ -498,7 +516,9 @@ export function PosTableSelection({
           },
         }}
       >
-        {hasNoDineInTables ? (
+        {isTablesLoading ? (
+          <Loading message="Loading tables..." fullPage={false} sx={{ minHeight: 280 }} />
+        ) : hasNoDineInTables ? (
           <Box
             sx={{
               display: 'flex',
@@ -565,265 +585,6 @@ export function PosTableSelection({
         )}
       </Box>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* 3. Bottom Section: Selected Table Action Bar (Fixed at bottom)     */}
-      {/* ------------------------------------------------------------------ */}
-      {selectedTable && !hasNoDineInTables ? (
-        <Box
-          sx={{
-            flexShrink: 0,
-            bgcolor: (theme) => theme.palette.background.paper,
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: '12px',
-            px: { xs: 2, sm: 3 },
-            py: 1.5,
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 2,
-            boxShadow: (theme) =>
-              theme.palette.mode === 'dark'
-                ? '0 -4px 20px rgba(0, 0, 0, 0.5)'
-                : '0 4px 20px rgba(0, 0, 0, 0.05)',
-            boxSizing: 'border-box',
-          }}
-        >
-          {/* Left Details: Selected Table, Guests, Waiter, Running, Open For */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3.5, flexWrap: 'wrap' }}>
-            {/* Selected Table Name & Status */}
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontSize: '0.6875rem',
-                  fontWeight: 700,
-                  color: 'text.secondary',
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  display: 'block',
-                  mb: 0.25,
-                }}
-              >
-                SELECTED TABLE
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', color: 'text.primary' }}>
-                  {selectedTable.name}
-                </Typography>
-                <StatusChip
-                  status={selectedTable.status}
-                  label={selectedTable.status.toUpperCase()}
-                  showDot
-                  size="small"
-                />
-              </Box>
-            </Box>
-
-            {/* Guests */}
-            {selectedTable.guests !== undefined && (
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    color: 'text.secondary',
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                    display: 'block',
-                    mb: 0.25,
-                  }}
-                >
-                  GUESTS
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <GroupOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                  <Typography
-                    sx={{ fontWeight: 700, fontSize: '0.9375rem', color: 'text.primary' }}
-                  >
-                    {selectedTable.guests}
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-
-            {/* Waiter */}
-            {selectedTable.waiter && (
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    color: 'text.secondary',
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                    display: 'block',
-                    mb: 0.25,
-                  }}
-                >
-                  WAITER
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <PersonOutlineOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                  <Typography
-                    sx={{ fontWeight: 700, fontSize: '0.9375rem', color: 'text.primary' }}
-                  >
-                    {selectedTable.waiter}
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-
-            {/* Running Bill */}
-            {selectedTable.amount && (
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    color: 'text.secondary',
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                    display: 'block',
-                    mb: 0.25,
-                  }}
-                >
-                  RUNNING
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <ReceiptLongOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                  <Typography
-                    sx={{ fontWeight: 700, fontSize: '0.9375rem', color: 'text.primary' }}
-                  >
-                    {selectedTable.amount}
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-
-            {/* Open For */}
-            {selectedTable.time && (
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    color: 'text.secondary',
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                    display: 'block',
-                    mb: 0.25,
-                  }}
-                >
-                  OPEN FOR
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <AccessTimeOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                  <Typography
-                    sx={{ fontWeight: 700, fontSize: '0.9375rem', color: 'text.primary' }}
-                  >
-                    {selectedTable.time.includes('min')
-                      ? selectedTable.time
-                      : `${selectedTable.time} min`}
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-          </Box>
-
-          {/* Right Action Buttons */}
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-            <ActionButton
-              variant="primary"
-              size="medium"
-              startIcon={<Plus size={18} />}
-              onClick={() => {
-                if (selectedTable) handleOpenTableMenu(selectedTable);
-              }}
-              sx={{
-                height: 40,
-                px: 2.25,
-                borderRadius: '8px',
-                fontWeight: 600,
-              }}
-            >
-              Add Items
-            </ActionButton>
-
-            {!isDineIn && selectedTable.status === 'available' ? (
-              <ActionButton
-                variant="outlined"
-                size="medium"
-                onClick={() => setIsReservationOpen(true)}
-                sx={{
-                  height: 40,
-                  px: 2,
-                  borderRadius: '8px',
-                  borderColor: 'divider',
-                  color: 'text.primary',
-                  fontWeight: 600,
-                }}
-              >
-                Reserve
-              </ActionButton>
-            ) : null}
-
-            <ActionButton
-              variant="outlined"
-              size="medium"
-              endIcon={<ChevronDown size={16} />}
-              sx={{
-                height: 40,
-                px: 2,
-                borderRadius: '8px',
-                borderColor: 'divider',
-                color: 'text.primary',
-                fontWeight: 600,
-              }}
-            >
-              Transfer
-            </ActionButton>
-
-            <ActionButton
-              variant="outlined"
-              size="medium"
-              sx={{
-                height: 40,
-                px: 2,
-                borderRadius: '8px',
-                borderColor: 'divider',
-                color: 'text.primary',
-                fontWeight: 600,
-              }}
-            >
-              Merge
-            </ActionButton>
-
-            <ActionButton
-              variant="outlined"
-              size="medium"
-              sx={{
-                height: 40,
-                px: 2.25,
-                borderRadius: '8px',
-                borderColor: 'divider',
-                color: 'text.primary',
-                fontWeight: 600,
-              }}
-            >
-              Generate Bill
-            </ActionButton>
-          </Stack>
-        </Box>
-      ) : null}
-
-      {/* Table Reservation Dialog Modal */}
       <ReservationDialog
         open={isReservationOpen}
         onClose={() => setIsReservationOpen(false)}
@@ -832,7 +593,6 @@ export function PosTableSelection({
         initialData={{ guestCount: selectedTable?.guests || 2 }}
       />
 
-      {/* Global Notification Toast */}
       <Toast
         open={Boolean(toastMessage)}
         message={toastMessage}
