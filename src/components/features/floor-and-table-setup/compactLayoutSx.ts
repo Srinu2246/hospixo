@@ -84,6 +84,28 @@ export const compactFilterDropdownSx = {
   '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
 } as const;
 
+/** Sort + Status filters on one row (floors list mobile/tablet). */
+export const filterRowGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr 1fr', md: '1fr 1fr' },
+  gap: compactMuiSpacing.footerButtonGap,
+  width: '100%',
+  '& > .MuiFormControl-root': { minWidth: 0 },
+} as const;
+
+export const listPageTitleSx = {
+  fontWeight: 800,
+  fontSize: { xs: '1.15rem', md: '1.25rem' },
+  lineHeight: 1.25,
+} as const;
+
+export const listPageSubtitleSx = {
+  color: 'text.secondary',
+  fontSize: '0.8125rem',
+  mt: 0.25,
+  lineHeight: 1.45,
+} as const;
+
 /** Room for portaled footer above the fold on mobile/tablet. */
 export const pageBottomClearanceSx = {
   pb: { xs: 2, sm: 2.5 },
