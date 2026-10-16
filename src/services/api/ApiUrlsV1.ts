@@ -48,12 +48,14 @@ const ApiUrlsV1 = {
     kitchenDisplay: resource('/v1/operations/kitchen-display'),
   },
 
-  employees: {
-    userRoles: resource('/v1/employees/user-roles'),
-    companyUserRoles: resource('/v1/company/employees/user-roles'),
-    companyTemplates: resource('/v1/company/employees/templates'),
-    branchUserRoles: resource('/v1/branch/employees/user-roles'),
-    branchTemplates: resource('/v1/branch/employees/templates'),
+  /** Live Swagger user APIs; feature UI is under `features/employees/user-roles`. */
+  users: resource('/v1/users'),
+  roles: {
+    ...resource('/v1/roles'),
+    templates: '/v1/roles/templates',
+  },
+  permissions: {
+    grouped: '/v1/permissions/grouped',
   },
   dashboard: {
     organization: resource('/v1/dashboard/organization'),
@@ -77,6 +79,33 @@ const ApiUrlsV1 = {
       branchKitchenStatusPath(branchId, orderId),
   },
 };
+
+export function userAssignmentsPath(userId: number | string): string {
+  return `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/assignments`;
+}
+
+export function userStatusPath(userId: number | string): string {
+  return `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/status`;
+}
+
+export function userRolesPath(userId: number | string): string {
+  return `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/roles`;
+}
+
+export function userRolePath(userId: number | string, userRoleId: number | string): string {
+  return `${userRolesPath(userId)}/${encodeURIComponent(String(userRoleId))}`;
+}
+
+export function userRolePermissionsPath(
+  userId: number | string,
+  userRoleId: number | string,
+): string {
+  return `${userRolePath(userId, userRoleId)}/permissions`;
+}
+
+export function rolePermissionsPath(roleId: number | string): string {
+  return `${ApiUrlsV1.roles.detail(String(roleId))}/permissions`;
+}
 
 export function branchKitchenBoardPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/kitchen-board`;

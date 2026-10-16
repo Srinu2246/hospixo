@@ -1,9 +1,16 @@
-import type {
-  UserRoleItem,
-  UserRoleStatsData,
-  RoleTemplateItem,
-  PermissionCategory,
-  CreateUserFormValues,
+import { z } from 'zod';
+
+import {
+  permissionCategorySchema,
+  roleTemplateItemSchema,
+  userRoleListSchema,
+  userRoleStatsDataSchema,
+  type UserRoleItem,
+  type UserRoleStatsData,
+  type RoleTemplateItem,
+  type PermissionCategory,
+  type CreateUserFormValues,
+  DEFAULT_CREATE_USER_FORM_VALUES,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { HttpMethod, QueryParams } from '@/services/api/types';
 
@@ -11,32 +18,32 @@ import type { HttpMethod, QueryParams } from '@/services/api/types';
 // 1. Stats Data
 // ============================================================================
 
-export const INITIAL_USER_ROLE_STATS: UserRoleStatsData = {
+const INITIAL_USER_ROLE_STATS: UserRoleStatsData = userRoleStatsDataSchema.parse({
   totalUsers: 124,
   activeNow: 118,
   pendingInvites: 6,
   userRoles: 14,
-};
+});
 
-export const COMPANY_USER_ROLE_STATS: UserRoleStatsData = {
+const COMPANY_USER_ROLE_STATS: UserRoleStatsData = userRoleStatsDataSchema.parse({
   totalUsers: 48,
   activeNow: 44,
   pendingInvites: 4,
   userRoles: 8,
-};
+});
 
-export const BRANCH_USER_ROLE_STATS: UserRoleStatsData = {
+const BRANCH_USER_ROLE_STATS: UserRoleStatsData = userRoleStatsDataSchema.parse({
   totalUsers: 18,
   activeNow: 16,
   pendingInvites: 2,
   userRoles: 4,
-};
+});
 
 // ============================================================================
 // 2. Filter Options & Lists
 // ============================================================================
 
-export const ROLE_OPTIONS = [
+const ROLE_OPTIONS = [
   'Company Manager',
   'Branch Manager',
   'Inventory',
@@ -54,7 +61,7 @@ export const ROLE_OPTIONS = [
   'General Manager',
 ] as const;
 
-export const COMPANY_ROLE_OPTIONS = [
+const COMPANY_ROLE_OPTIONS = [
   'Branch Manager',
   'Restaurant Manager',
   'POS Counter',
@@ -70,7 +77,7 @@ export const COMPANY_ROLE_OPTIONS = [
   'Shift Supervisor',
 ] as const;
 
-export const BRANCH_ROLE_OPTIONS = [
+const BRANCH_ROLE_OPTIONS = [
   'Captain',
   'POS Counter',
   'Kitchen Staff',
@@ -81,7 +88,7 @@ export const BRANCH_ROLE_OPTIONS = [
   'Barista',
 ] as const;
 
-export const BRANCH_OPTIONS = [
+const BRANCH_OPTIONS = [
   'Downtown HQ',
   'Westside Cafe',
   'Airport Branch',
@@ -90,28 +97,28 @@ export const BRANCH_OPTIONS = [
   'City Center Grill',
 ] as const;
 
-export const COMPANY_BRANCH_OPTIONS = [
+const COMPANY_BRANCH_OPTIONS = [
   'Downtown Branch',
   'Westside Cafe',
   'Airport Branch',
   'Eastgate Outlet',
 ] as const;
 
-export const BRANCH_BRANCH_OPTIONS = ['Downtown Branch'] as const;
+const BRANCH_BRANCH_OPTIONS = ['Downtown Branch'] as const;
 
-export const STATUS_OPTIONS = [
+const STATUS_OPTIONS = [
   { id: 'active', label: 'Active' },
   { id: 'invited', label: 'Invited' },
   { id: 'disabled', label: 'Disabled' },
 ] as const;
 
-export const DEFAULT_COMPANIES: readonly string[] = [
+const DEFAULT_COMPANIES: readonly string[] = [
   'VJITVI',
   'Apollo Healthcare',
   'Hospixo Group',
 ] as const;
 
-export const DEFAULT_BRANCHES: readonly string[] = [
+const DEFAULT_BRANCHES: readonly string[] = [
   'Downtown Branch',
   'Westside Cafe',
   'Airport Branch',
@@ -122,7 +129,7 @@ export const DEFAULT_BRANCHES: readonly string[] = [
 // 3. User Mock Records
 // ============================================================================
 
-export const INITIAL_USERS: UserRoleItem[] = [
+const INITIAL_USERS_RAW = [
   {
     id: 'usr-1',
     name: 'Marcus Wright',
@@ -300,15 +307,19 @@ export const INITIAL_USERS: UserRoleItem[] = [
     createdAt: '2024-02-20',
     company: 'VJITVI',
   },
-];
+] as const;
 
-export const COMPANY_INITIAL_USERS: UserRoleItem[] = INITIAL_USERS.map((u) => ({
-  ...u,
-  branch: u.branch.replace(' HQ', ' Branch'),
-  company: 'VJITVI',
-}));
+export const INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(INITIAL_USERS_RAW);
 
-export const BRANCH_INITIAL_USERS: UserRoleItem[] = [
+const COMPANY_INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(
+  INITIAL_USERS.map((u) => ({
+    ...u,
+    branch: u.branch.replace(' HQ', ' Branch'),
+    company: 'VJITVI',
+  })),
+);
+
+const BRANCH_INITIAL_USERS_RAW = [
   {
     id: 'usr-branch-1',
     name: 'Marco Rossi',
@@ -387,13 +398,15 @@ export const BRANCH_INITIAL_USERS: UserRoleItem[] = [
     company: 'VJITVI',
     scope: 'branch',
   },
-];
+] as const;
+
+const BRANCH_INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(BRANCH_INITIAL_USERS_RAW);
 
 // ============================================================================
 // 4. Role Templates & Functions
 // ============================================================================
 
-export const ROLE_TEMPLATES: RoleTemplateItem[] = [
+const ROLE_TEMPLATES_RAW = [
   {
     id: 'tpl-company-mgr',
     title: 'Company Manager',
@@ -429,9 +442,13 @@ export const ROLE_TEMPLATES: RoleTemplateItem[] = [
     icon: 'kitchen',
     roleName: 'Kitchen Staff',
   },
-];
+] as const;
 
-export const COMPANY_ROLE_TEMPLATES: RoleTemplateItem[] = [
+const roleTemplateListSchema = z.array(roleTemplateItemSchema);
+
+const ROLE_TEMPLATES: RoleTemplateItem[] = roleTemplateListSchema.parse(ROLE_TEMPLATES_RAW);
+
+export const COMPANY_ROLE_TEMPLATES: RoleTemplateItem[] = roleTemplateListSchema.parse([
   {
     id: 'tpl-restaurant-mgr',
     title: 'Restaurant Manager',
@@ -464,17 +481,17 @@ export const COMPANY_ROLE_TEMPLATES: RoleTemplateItem[] = [
     roleName: 'Kitchen Staff',
     scope: 'company',
   },
-];
+]);
 
-export function addRoleTemplate(template: RoleTemplateItem): void {
+function addRoleTemplate(template: RoleTemplateItem): void {
   ROLE_TEMPLATES.push(template);
 }
 
-export function addCompanyRoleTemplate(template: RoleTemplateItem): void {
+function addCompanyRoleTemplate(template: RoleTemplateItem): void {
   COMPANY_ROLE_TEMPLATES.push(template);
 }
 
-export const BRANCH_ROLE_TEMPLATES: RoleTemplateItem[] = [
+const BRANCH_ROLE_TEMPLATES: RoleTemplateItem[] = roleTemplateListSchema.parse([
   {
     id: 'tpl-branch-pos-counter',
     title: 'POS Counter',
@@ -502,9 +519,9 @@ export const BRANCH_ROLE_TEMPLATES: RoleTemplateItem[] = [
     scope: 'branch',
     branch: 'Downtown Branch',
   },
-];
+]);
 
-export function addBranchRoleTemplate(template: RoleTemplateItem): void {
+function addBranchRoleTemplate(template: RoleTemplateItem): void {
   BRANCH_ROLE_TEMPLATES.push(template);
 }
 
@@ -512,21 +529,12 @@ export function addBranchRoleTemplate(template: RoleTemplateItem): void {
 // 5. Multi-Form Initial Values & Permission Categories
 // ============================================================================
 
-export const INITIAL_USER_FORM_VALUES: CreateUserFormValues = {
-  firstName: '',
-  lastName: '',
-  phoneNumber: '',
-  email: '',
-  username: '',
-  password: '',
-  company: '',
-  branch: '',
-  role: '',
-  sendInviteImmediately: true,
-  personalMessage: 'Welcome to the team! Here is your access to Hospixo.',
-};
+/** @deprecated Prefer `DEFAULT_CREATE_USER_FORM_VALUES` from userRolesSchema. */
+const INITIAL_USER_FORM_VALUES: CreateUserFormValues = DEFAULT_CREATE_USER_FORM_VALUES;
 
-export const INITIAL_PERMISSION_CATEGORIES: PermissionCategory[] = [
+const permissionCategoryListSchema = z.array(permissionCategorySchema);
+
+const INITIAL_PERMISSION_CATEGORIES: PermissionCategory[] = permissionCategoryListSchema.parse([
   {
     id: 'companies',
     title: 'Companies',
@@ -728,9 +736,9 @@ export const INITIAL_PERMISSION_CATEGORIES: PermissionCategory[] = [
       },
     ],
   },
-];
+]);
 
-export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
+const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = permissionCategoryListSchema.parse([
   {
     id: 'dashboard',
     title: 'Dashboard',
@@ -809,13 +817,12 @@ export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
       },
     ],
   },
-];
+]);
 
-export const COMPANY_PERMISSION_CATEGORIES: PermissionCategory[] =
-  DEFAULT_STAFF_PROFILE_PERMISSIONS;
-export const BRANCH_PERMISSION_CATEGORIES: PermissionCategory[] = DEFAULT_STAFF_PROFILE_PERMISSIONS;
+const COMPANY_PERMISSION_CATEGORIES: PermissionCategory[] = DEFAULT_STAFF_PROFILE_PERMISSIONS;
+const BRANCH_PERMISSION_CATEGORIES: PermissionCategory[] = DEFAULT_STAFF_PROFILE_PERMISSIONS;
 
-export const DEFAULT_CUSTOM_TEMPLATE_PERMISSIONS: PermissionCategory[] = [
+const DEFAULT_CUSTOM_TEMPLATE_PERMISSIONS: PermissionCategory[] = [
   {
     id: 'user_roles_mgmt',
     title: 'User & Roles Management',
@@ -932,7 +939,7 @@ export const DEFAULT_CUSTOM_TEMPLATE_PERMISSIONS: PermissionCategory[] = [
   },
 ];
 
-export const DEFAULT_STAFF_PROFILE = {
+const DEFAULT_STAFF_PROFILE = {
   id: 'usr-marco',
   firstName: 'Marco',
   lastName: 'Rossi',

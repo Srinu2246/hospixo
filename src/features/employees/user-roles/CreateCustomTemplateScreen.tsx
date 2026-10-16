@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
-import { useForm, Controller, useWatch } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -18,16 +18,14 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { colors } from '@/lib/theme/mui/colors';
-import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 
-import { customTemplateSchema, type CustomTemplateFormValues } from '@/lib/schemas/user-roles';
 import {
-  DEFAULT_CUSTOM_TEMPLATE_PERMISSIONS,
-  addRoleTemplate,
-  addCompanyRoleTemplate,
-  addBranchRoleTemplate,
-} from '@/lib/mocks/employees/multiform.mocks';
-import type { PermissionCategory, ScopeType } from '@/types/user-roles';
+  customTemplateSchema,
+  type CustomTemplateFormValues,
+  type PermissionCategory,
+  type ScopeType,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import { useCreateCustomRole, useGroupedPermissions } from '@/lib/hooks/employees/user-roles';
 import { PermissionGroupsGrid } from '@/components/features/user-roles';
 
 export interface CreateCustomTemplateScreenProps {
@@ -66,11 +64,15 @@ const PRESET_OPTIONS: readonly PresetOption[] = [
   },
 ];
 
+/**
+ * CreateCustomTemplatePage Component
+ *
+ * Page-level screen for authoring new role templates with preset permissions.
+ */
 export function CreateCustomTemplateScreen({
   onBack,
   onSaveTemplate,
   scope,
-  companyName = 'VJITVI',
 }: Readonly<CreateCustomTemplateScreenProps>) {
   const router = useRouter();
   const pathname = usePathname() || '';
@@ -88,16 +90,20 @@ export function CreateCustomTemplateScreen({
     if (stripped) return stripped;
     if (resolvedScope === 'company') return '/company/employees/users-and-roles';
     if (resolvedScope === 'branch') return '/branch-manager/employees/users-and-roles';
-    return pathname.startsWith('/users-and-roles')
-      ? '/users-and-roles'
-      : '/organization/employees/users-and-roles';
+    return '/organization/employees/users-and-roles';
   };
   const baseRoute = getBaseRoute();
 
   // Template permissions state
-  const [categories, setCategories] = useState<PermissionCategory[]>(
-    DEFAULT_CUSTOM_TEMPLATE_PERMISSIONS,
-  );
+  const groupedPermissions = useGroupedPermissions();
+  const createCustomRole = useCreateCustomRole();
+  const [categories, setCategories] = useState<PermissionCategory[]>([]);
+
+  useEffect(() => {
+    if (groupedPermissions.data?.length) {
+      setCategories(groupedPermissions.data);
+    }
+  }, [groupedPermissions.data]);
 
   // Toast feedback state
   const [toastFeedback, setToastFeedback] = useState<{
@@ -114,13 +120,18 @@ export function CreateCustomTemplateScreen({
     setToastFeedback({ open: true, message, severity });
   };
 
-  const footerTarget = useAppShellFooterTarget();
+  // Sticky footer portal container
+  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setFooterTarget(document.getElementById('app-shell-footer'));
+  }, []);
 
   // Form Management
   const {
     control,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CustomTemplateFormValues>({
     resolver: zodResolver(customTemplateSchema),
@@ -132,7 +143,7 @@ export function CreateCustomTemplateScreen({
     },
   });
 
-  const selectedPreset = useWatch({ control, name: 'preset' });
+  const selectedPreset = watch('preset');
 
   const handleBack = () => {
     if (onBack) {
@@ -147,7 +158,6 @@ export function CreateCustomTemplateScreen({
     setValue('preset', presetId);
 
     if (presetId === 'full_read') {
-      // Enable all view/read permissions, disable others
       setCategories((prev) =>
         prev.map((cat) => ({
           ...cat,
@@ -158,7 +168,6 @@ export function CreateCustomTemplateScreen({
         })),
       );
     } else if (presetId === 'standard_manager') {
-      // Enable typical manager permissions
       setCategories((prev) =>
         prev.map((cat) => ({
           ...cat,
@@ -169,7 +178,6 @@ export function CreateCustomTemplateScreen({
         })),
       );
     } else if (presetId === 'view_only') {
-      // Only view orders & reports
       setCategories((prev) =>
         prev.map((cat) => ({
           ...cat,
@@ -211,31 +219,15 @@ export function CreateCustomTemplateScreen({
   };
 
   // Form Submission
-  const onSubmit = (data: CustomTemplateFormValues) => {
-    const newTemplate = {
-      id: `tpl-custom-${crypto.randomUUID()}`,
-      title: data.templateName,
-      description: data.description || 'Custom configured role template',
-      icon: 'restaurant' as const,
-      roleName: data.templateName,
-      scope: resolvedScope,
-      company: companyName,
-    };
-
-    if (resolvedScope === 'branch') {
-      addBranchRoleTemplate(newTemplate);
-    } else if (resolvedScope === 'company') {
-      addCompanyRoleTemplate(newTemplate);
-    }
-    addRoleTemplate(newTemplate);
-
-    if (onSaveTemplate) {
-      onSaveTemplate(data, categories);
-    }
-    showToast(`Role template "${data.templateName}" created successfully!`, 'success');
-    setTimeout(() => {
+  const onSubmit = async (data: CustomTemplateFormValues) => {
+    try {
+      await createCustomRole.mutateAsync({ values: data, categories });
+      onSaveTemplate?.(data, categories);
+      showToast(`Role template "${data.templateName}" created successfully!`, 'success');
       handleBack();
-    }, 500);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to create role.', 'error');
+    }
   };
 
   return (
@@ -303,7 +295,7 @@ export function CreateCustomTemplateScreen({
         </Box>
       </Box>
 
-      {/* Main Content Card (Standard 24px padding via Card) */}
+      {/* Main Content Card */}
       <Card
         variant="outlined"
         padding={3}
@@ -320,11 +312,8 @@ export function CreateCustomTemplateScreen({
         }}
       >
         <form onSubmit={handleSubmit(onSubmit)} id="custom-template-form">
-          {/* ============================================================== */}
-          {/* SECTION 1: Template Information                                */}
-          {/* ============================================================== */}
+          {/* SECTION 1: Template Information */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            {/* Template Name */}
             <Controller
               name="templateName"
               control={control}
@@ -343,7 +332,6 @@ export function CreateCustomTemplateScreen({
               )}
             />
 
-            {/* Description */}
             <Controller
               name="description"
               control={control}
@@ -362,9 +350,7 @@ export function CreateCustomTemplateScreen({
             />
           </Box>
 
-          {/* ============================================================== */}
-          {/* SECTION 2: Configure Permissions & Presets                     */}
-          {/* ============================================================== */}
+          {/* SECTION 2: Configure Permissions & Presets */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 4 }}>
             <Box>
               <Typography
@@ -469,7 +455,6 @@ export function CreateCustomTemplateScreen({
               })}
             </Box>
 
-            {/* Permissions Subtitle */}
             <Typography
               sx={{
                 fontSize: '0.9375rem',
@@ -481,7 +466,7 @@ export function CreateCustomTemplateScreen({
               Permissions
             </Typography>
 
-            {/* Reusable Permission Groups 2-Column Grid */}
+            {/* Reusable Permission Groups Grid */}
             <PermissionGroupsGrid
               categories={categories}
               onTogglePermission={handleTogglePermission}
@@ -492,9 +477,7 @@ export function CreateCustomTemplateScreen({
         </form>
       </Card>
 
-      {/* ============================================================== */}
-      {/* STICKY FOOTER BAR (Stuck to bottom of viewport)                */}
-      {/* ============================================================== */}
+      {/* STICKY FOOTER BAR */}
       {(() => {
         const stickyFooterContent = (
           <Box
@@ -569,7 +552,6 @@ export function CreateCustomTemplateScreen({
         );
       })()}
 
-      {/* Reusable Toast Notification */}
       <Toast
         open={toastFeedback.open}
         message={toastFeedback.message}
@@ -579,3 +561,5 @@ export function CreateCustomTemplateScreen({
     </Box>
   );
 }
+
+// Re-export for full backwards compatibility

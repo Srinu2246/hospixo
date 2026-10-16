@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import type {
-  CreateUserStep,
-  CreateUserFormValues,
-  RoleTemplateItem,
-  PermissionCategory,
-  ScopeType,
+import {
+  DEFAULT_CREATE_USER_FORM_VALUES,
+  type CreateUserStep,
+  type CreateUserFormValues,
+  type RoleTemplateItem,
+  type PermissionCategory,
+  type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
-import { INITIAL_USER_FORM_VALUES } from '@/lib/mocks/employees/useUserRoles.mocks';
 
 export interface CreateUserState {
   scope: ScopeType;
@@ -36,7 +36,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
   scope: 'company',
   step: 'template',
   selectedTemplate: null,
-  formValues: { ...INITIAL_USER_FORM_VALUES },
+  formValues: { ...DEFAULT_CREATE_USER_FORM_VALUES },
   categories: [],
   errors: {},
   isSubmitting: false,
@@ -125,9 +125,10 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
         step: 'template',
         selectedTemplate: null,
         formValues: {
-          ...INITIAL_USER_FORM_VALUES,
-          branch: scopeToUse === 'branch' ? 'Downtown Branch' : INITIAL_USER_FORM_VALUES.branch,
-          role: scopeToUse === 'branch' ? 'Captain' : INITIAL_USER_FORM_VALUES.role,
+          ...DEFAULT_CREATE_USER_FORM_VALUES,
+          branch:
+            scopeToUse === 'branch' ? 'Downtown Branch' : DEFAULT_CREATE_USER_FORM_VALUES.branch,
+          role: scopeToUse === 'branch' ? 'Captain' : DEFAULT_CREATE_USER_FORM_VALUES.role,
         },
         categories: [],
         errors: {},

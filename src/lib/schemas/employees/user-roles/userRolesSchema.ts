@@ -10,15 +10,6 @@ export type ScopeType = z.infer<typeof scopeTypeSchema>;
 export const userStatusSchema = z.enum(['active', 'invited', 'disabled', 'inactive']);
 export type UserStatus = z.infer<typeof userStatusSchema>;
 
-export const createUserStepSchema = z.enum([
-  'template',
-  'user-form',
-  'permissions',
-  'review',
-  'success',
-]);
-export type CreateUserStep = z.infer<typeof createUserStepSchema>;
-
 // ============================================================================
 // 2. User Role Item & Stats Schemas
 // ============================================================================
@@ -41,6 +32,8 @@ export const userRoleItemSchema = z.object({
 
 export type UserRoleItem = z.infer<typeof userRoleItemSchema>;
 
+export const userRoleListSchema = z.array(userRoleItemSchema);
+
 export const userRoleStatsDataSchema = z.object({
   totalUsers: z.number(),
   activeNow: z.number(),
@@ -58,90 +51,10 @@ export const userRoleFilterValuesSchema = z.object({
   company: z.string().optional(),
 });
 
-export type UserRoleFilterValues = z.infer<typeof userRoleFilterValuesSchema>;
+type UserRoleFilterValues = z.infer<typeof userRoleFilterValuesSchema>;
 
 // ============================================================================
-// 3. User Role Form Schemas
-// ============================================================================
-
-export const userRoleFormSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
-  role: z.string().min(1, 'Please select a role'),
-  branch: z.string().min(1, 'Please select a branch'),
-  status: userStatusSchema,
-  company: z.string().optional(),
-});
-
-export type UserRoleFormValues = z.infer<typeof userRoleFormSchema>;
-export { userRoleFormSchema as userRoleSchema };
-
-// ============================================================================
-// 4. Create User Multi-Form Flow Schema
-// ============================================================================
-
-const createUserMultiformFieldsSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  phoneNumber: z.string().min(6, 'Please enter a valid phone number'),
-  email: z.string().email('Please enter a valid email address'),
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  company: z.string(),
-  branch: z.string(),
-  role: z.string(),
-  sendInviteImmediately: z.boolean(),
-  personalMessage: z.string(),
-});
-
-function isMissingAssignment(value: string): boolean {
-  return !value.trim() || value.trim() === '—';
-}
-
-/** Step-one validation: branch is required only for branch-scoped roles (or branch wizard scope). */
-export function buildCreateUserStepOneSchema(
-  catalog: readonly RoleCatalogItem[],
-  wizardScope?: ScopeType,
-) {
-  return createUserMultiformFieldsSchema.superRefine((data, ctx) => {
-    if (isMissingAssignment(data.company)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Please select a company',
-        path: ['company'],
-      });
-    }
-    if (isMissingAssignment(data.role)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Please select a role',
-        path: ['role'],
-      });
-    }
-
-    const roleCode = resolveRoleCode(data.role, catalog);
-    const needsBranch = roleCode
-      ? roleRequiresBranchId(roleCode, catalog)
-      : wizardScope === 'branch';
-
-    if (needsBranch && isMissingAssignment(data.branch)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Please select a branch',
-        path: ['branch'],
-      });
-    }
-  });
-}
-
-export type CreateUserMultiformValues = z.infer<typeof createUserMultiformFieldsSchema>;
-export type CreateUserFormValues = CreateUserMultiformValues;
-
-/** Default step-one schema when role catalog / wizard scope are unavailable. */
-export const createUserMultiformSchema = buildCreateUserStepOneSchema([], 'branch');
-
-// ============================================================================
-// 5. Permissions & Role Templates Schemas
+// 3. Permissions & Role Templates (API / view models)
 // ============================================================================
 
 export const permissionItemSchema = z.object({
@@ -151,7 +64,7 @@ export const permissionItemSchema = z.object({
   enabled: z.boolean(),
 });
 
-export type PermissionItem = z.infer<typeof permissionItemSchema>;
+type PermissionItem = z.infer<typeof permissionItemSchema>;
 
 export const permissionCategorySchema = z.object({
   id: z.string(),
@@ -175,35 +88,8 @@ export const roleTemplateItemSchema = z.object({
 
 export type RoleTemplateItem = z.infer<typeof roleTemplateItemSchema>;
 
-export const customTemplateSchema = z.object({
-  templateName: z.string().min(1, 'Template name is required'),
-  description: z.string().optional(),
-  preset: z.enum(['full_read', 'standard_manager', 'view_only', 'custom']),
-});
-
-export type CustomTemplateFormValues = z.infer<typeof customTemplateSchema>;
-
 // ============================================================================
-// 6. Staff Profile Schema
-// ============================================================================
-
-export const staffProfileSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Please enter a valid email address'),
-  phoneNumber: z.string().min(6, 'Please enter a valid phone number'),
-  countryCode: z.string(),
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().optional(),
-  userStatus: z.boolean(),
-  roleName: z.string().min(1, 'Role name is required'),
-  roleDescription: z.string().optional(),
-});
-
-export type StaffProfileFormValues = z.infer<typeof staffProfileSchema>;
-
-// ============================================================================
-// 7. Live Backend Contracts, Request Schemas & API Mappers
+// 4. Live Backend Contracts, Request Schemas & API Mappers
 // ============================================================================
 
 /** POST /v1/users request body (live backend contract). */
@@ -358,29 +244,34 @@ export function parseRoleTemplates(payload: unknown): RoleTemplateItem[] {
 export function parseGroupedPermissions(payload: unknown): PermissionCategory[] {
   const unwrapped = unwrapEnvelope(payload);
   const groups = extractPermissionGroups(unwrapped);
-  return groups.flatMap((group) => {
+  const categories = groups.flatMap((group, groupIndex) => {
     if (!isRecord(group)) return [];
-    const mapped = mapPermissionGroup(group);
+    const mapped = mapPermissionGroup(group, groupIndex);
     const parsed = permissionCategorySchema.safeParse(mapped);
     return parsed.success ? [parsed.data] : [];
   });
+  return ensureUniqueCategoryIds(categories);
 }
 
-function mapPermissionGroup(raw: Record<string, unknown>): PermissionCategory {
+function mapPermissionGroup(raw: Record<string, unknown>, groupIndex: number): PermissionCategory {
+  const title = text(raw.title) ?? text(raw.name) ?? text(raw.label) ?? 'Permissions';
+  const categoryId = readPermissionGroupId(raw, title, groupIndex);
+
   const permissionsRaw = raw.permissions ?? raw.items ?? raw.children ?? [];
   const permissions = Array.isArray(permissionsRaw)
-    ? permissionsRaw.flatMap((entry) => {
+    ? permissionsRaw.flatMap((entry, permissionIndex) => {
         if (!isRecord(entry)) return [];
+        const name =
+          text(entry.display_name) ??
+          text(entry.displayName) ??
+          text(entry.name) ??
+          text(entry.label) ??
+          text(entry.title) ??
+          'Permission';
         return [
           {
-            id: String(entry.id ?? entry.key ?? entry.code ?? entry.name ?? 'permission'),
-            name:
-              text(entry.display_name) ??
-              text(entry.displayName) ??
-              text(entry.name) ??
-              text(entry.label) ??
-              text(entry.title) ??
-              'Permission',
+            id: readPermissionItemId(entry, name, categoryId, permissionIndex),
+            name,
             description: text(entry.description) ?? '',
             enabled: Boolean(entry.enabled ?? entry.granted ?? entry.active ?? false),
           },
@@ -389,10 +280,72 @@ function mapPermissionGroup(raw: Record<string, unknown>): PermissionCategory {
     : [];
 
   return {
-    id: String(raw.id ?? raw.key ?? raw.code ?? raw.title ?? 'group'),
-    title: text(raw.title) ?? text(raw.name) ?? text(raw.label) ?? 'Permissions',
+    id: categoryId,
+    title,
     permissions,
   };
+}
+
+function readPermissionGroupId(
+  raw: Record<string, unknown>,
+  title: string,
+  groupIndex: number,
+): string {
+  for (const key of ['id', 'key', 'code', 'name', 'title', 'label', 'group_key', 'groupKey']) {
+    const value = raw[key];
+    if (value == null || !String(value).trim()) continue;
+    const id = String(value);
+    if (!isPlaceholderPermissionId(id)) return id;
+  }
+  const slug = title
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+  return slug ? `${slug}-${groupIndex}` : `group-${groupIndex}`;
+}
+
+function ensureUniqueCategoryIds(categories: PermissionCategory[]): PermissionCategory[] {
+  const seen = new Map<string, number>();
+  return categories.map((category, index) => {
+    const base = category.id.trim() || `group-${index}`;
+    const used = seen.get(base) ?? 0;
+    seen.set(base, used + 1);
+    if (used === 0) return category;
+    return { ...category, id: `${base}-${used}` };
+  });
+}
+
+function isPlaceholderPermissionId(id: string): boolean {
+  const normalized = id.trim().toLowerCase();
+  return (
+    normalized === 'group' ||
+    normalized === 'groups' ||
+    normalized === 'permission' ||
+    normalized === 'permissions' ||
+    normalized === 'category' ||
+    normalized === 'categories' ||
+    normalized === 'item' ||
+    normalized === 'items'
+  );
+}
+
+function readPermissionItemId(
+  entry: Record<string, unknown>,
+  name: string,
+  categoryId: string,
+  permissionIndex: number,
+): string {
+  for (const key of ['id', 'key', 'code', 'name', 'permission_key', 'permissionKey']) {
+    const value = entry[key];
+    if (value != null && String(value).trim()) return String(value);
+  }
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+  return slug ? `${categoryId}-${slug}` : `${categoryId}-permission-${permissionIndex}`;
 }
 
 export function resolveRoleCode(
@@ -429,6 +382,126 @@ export function roleRequiresBranchId(
   if (!role?.scope) return false;
   return role.scope === 'branch';
 }
+
+// ============================================================================
+// Form validations (React Hook Form / Zod)
+// ============================================================================
+
+export const createUserStepSchema = z.enum([
+  'template',
+  'user-form',
+  'permissions',
+  'review',
+  'success',
+]);
+export type CreateUserStep = z.infer<typeof createUserStepSchema>;
+
+export const userRoleFormSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Please enter a valid email address'),
+  role: z.string().min(1, 'Please select a role'),
+  branch: z.string().min(1, 'Please select a branch'),
+  status: userStatusSchema,
+  company: z.string().optional(),
+});
+
+export type UserRoleFormValues = z.infer<typeof userRoleFormSchema>;
+
+const createUserMultiformFieldsSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  phoneNumber: z.string().min(6, 'Please enter a valid phone number'),
+  email: z.string().email('Please enter a valid email address'),
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  company: z.string(),
+  branch: z.string(),
+  role: z.string(),
+  sendInviteImmediately: z.boolean(),
+  personalMessage: z.string(),
+});
+
+function isMissingAssignment(value: string): boolean {
+  return !value.trim() || value.trim() === '—';
+}
+
+export function buildCreateUserStepOneSchema(
+  catalog: readonly RoleCatalogItem[],
+  wizardScope?: ScopeType,
+) {
+  return createUserMultiformFieldsSchema.superRefine((data, ctx) => {
+    if (isMissingAssignment(data.company)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Please select a company',
+        path: ['company'],
+      });
+    }
+    if (isMissingAssignment(data.role)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Please select a role',
+        path: ['role'],
+      });
+    }
+
+    const roleCode = resolveRoleCode(data.role, catalog);
+    const needsBranch = roleCode
+      ? roleRequiresBranchId(roleCode, catalog)
+      : wizardScope === 'branch';
+
+    if (needsBranch && isMissingAssignment(data.branch)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Please select a branch',
+        path: ['branch'],
+      });
+    }
+  });
+}
+
+export type CreateUserMultiformValues = z.infer<typeof createUserMultiformFieldsSchema>;
+export type CreateUserFormValues = CreateUserMultiformValues;
+
+/** Default wizard form state (client UI only — not API mock data). */
+export const DEFAULT_CREATE_USER_FORM_VALUES: CreateUserFormValues = {
+  firstName: '',
+  lastName: '',
+  phoneNumber: '',
+  email: '',
+  username: '',
+  password: '',
+  company: '',
+  branch: '',
+  role: '',
+  sendInviteImmediately: true,
+  personalMessage: 'Welcome to the team! Here is your access to Hospixo.',
+};
+
+export const createUserMultiformSchema = buildCreateUserStepOneSchema([], 'branch');
+
+export const customTemplateSchema = z.object({
+  templateName: z.string().min(1, 'Template name is required'),
+  description: z.string().optional(),
+  preset: z.enum(['full_read', 'standard_manager', 'view_only', 'custom']),
+});
+
+export type CustomTemplateFormValues = z.infer<typeof customTemplateSchema>;
+
+export const staffProfileSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Please enter a valid email address'),
+  phoneNumber: z.string().min(6, 'Please enter a valid phone number'),
+  countryCode: z.string(),
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  password: z.string().optional(),
+  userStatus: z.boolean(),
+  roleName: z.string().min(1, 'Role name is required'),
+  roleDescription: z.string().optional(),
+});
+
+export type StaffProfileFormValues = z.infer<typeof staffProfileSchema>;
 
 export function buildCreateUserRequest(
   values: CreateUserMultiformValues,

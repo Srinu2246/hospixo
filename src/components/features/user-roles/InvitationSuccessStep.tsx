@@ -10,7 +10,7 @@ import { Card } from '@/components/shared/ui/Card';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
-import type { CreateUserFormValues } from '@/types/user-roles';
+import type { CreateUserFormValues } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface InvitationSuccessStepProps {
   formValues: CreateUserFormValues;
@@ -26,7 +26,7 @@ export function InvitationSuccessStep({
   const fullName = `${formValues.firstName || 'Sarah'} ${formValues.lastName || 'Chen'}`.trim();
   const email = formValues.email || 'sarah.chen@example.com';
   const role = formValues.role || 'Branch Manager';
-  const branch = formValues.branch || 'Downtown Branch';
+  const branch = formValues.branch || '—';
 
   return (
     <Box
