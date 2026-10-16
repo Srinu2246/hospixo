@@ -2,15 +2,15 @@
 
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
 import Container from '@mui/material/Container';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useSearchParams } from 'next/navigation';
 
-import { guestMenuCopy } from '@/features/floor-table-setup/config/guest-menu';
-import { usePublicRestaurantMenu } from '@/features/floor-table-setup/hooks/use-public-restaurant-menu';
-import { parsePositiveIntId } from '@/features/floor-table-setup/lib/parse-public-menu-ids';
+import { Loading } from '@/components/shared/ui/Loading';
+import { guestMenuCopy } from '@/lib/helpers/floor-and-table-setup/guestMenuCopy';
+import { parsePositiveIntId } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
+import { usePublicRestaurantMenu } from '@/lib/hooks/floor-and-table-setup/usePublicRestaurantMenu';
 
 function readMenuQuery(searchParams: URLSearchParams): Partial<{
   branch_id: number;
@@ -45,14 +45,10 @@ export function GuestMenuScreen() {
   }
 
   if (isPending) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress aria-label={guestMenuCopy.loading} />
-      </Box>
-    );
+    return <Loading message={guestMenuCopy.loading} fullPage />;
   }
 
-  if (isError || !data) {
+  if (isError) {
     return (
       <Container maxWidth="sm" sx={{ py: 4 }}>
         <Alert severity="error">
@@ -62,74 +58,71 @@ export function GuestMenuScreen() {
     );
   }
 
-  const { location, menu, currency, categories } = data;
+  if (!data?.categories.length) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 4 }}>
+        <Alert severity="info">{guestMenuCopy.emptyCategories}</Alert>
+      </Container>
+    );
+  }
 
   return (
-    <Container maxWidth="md" sx={{ py: 3, pb: 6 }}>
-      <Stack spacing={3}>
+    <Container maxWidth="sm" sx={{ py: 3 }}>
+      <Stack spacing={2}>
         <Box>
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 700 }}>
-            {menu.name}
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {data.menu.name}
           </Typography>
-          {menu.description ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {menu.description}
-            </Typography>
-          ) : null}
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             {guestMenuCopy.locationLabel(
-              location.branch_name,
-              location.floor_name,
-              location.section_name,
+              data.location.branch_name,
+              data.location.floor_name,
+              data.location.section_name,
             )}
           </Typography>
+          {data.menu.description ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {data.menu.description}
+            </Typography>
+          ) : null}
         </Box>
 
-        {categories.length === 0 ? (
-          <Alert severity="info">{guestMenuCopy.emptyCategories}</Alert>
-        ) : (
-          categories.map((category) => (
-            <Box key={`${category.display_order}-${category.name}`}>
-              <Typography variant="h6" component="h2" sx={{ mb: 1, fontWeight: 600 }}>
-                {category.name}
-              </Typography>
-              {category.description ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                  {category.description}
-                </Typography>
-              ) : null}
-              <Stack spacing={1.5}>
-                {category.items.map((item) => (
-                  <Box
-                    key={item.name}
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 2,
-                      py: 1,
-                      borderBottom: 1,
-                      borderColor: 'divider',
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {item.name}
-                      </Typography>
-                      {item.description ? (
-                        <Typography variant="body2" color="text.secondary">
-                          {item.description}
-                        </Typography>
-                      ) : null}
-                    </Box>
-                    <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>
-                      {currency} {item.effective_price}
+        {data.categories.map((category) => (
+          <Box key={category.name}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+              {category.name}
+            </Typography>
+            <Stack spacing={1.5}>
+              {category.items.map((item) => (
+                <Box
+                  key={`${category.name}-${item.name}`}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 2,
+                    py: 0.5,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {item.name}
                     </Typography>
+                    {item.description ? (
+                      <Typography variant="caption" color="text.secondary">
+                        {item.description}
+                      </Typography>
+                    ) : null}
                   </Box>
-                ))}
-              </Stack>
-            </Box>
-          ))
-        )}
+                  <Typography variant="body2" sx={{ fontWeight: 600, flexShrink: 0 }}>
+                    {data.currency} {item.effective_price}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+        ))}
       </Stack>
     </Container>
   );

@@ -8,10 +8,10 @@ import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 
-import { sectionQrCopy } from '@/features/floor-table-setup/config/section-qr';
-import { useSectionGuestMenuUrl } from '@/features/floor-table-setup/hooks/use-section-guest-menu-url';
-import { useSectionQrImage } from '@/features/floor-table-setup/hooks/use-section-qr-image';
-import type { SectionGuestMenuTarget } from '@/features/floor-table-setup/types/section-guest-menu';
+import { sectionQrCopy } from '@/lib/helpers/floor-and-table-setup/sectionQrCopy';
+import type { SectionGuestMenuTarget } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
+import { useSectionGuestMenuUrl } from '@/lib/hooks/floor-and-table-setup/useSectionGuestMenuUrl';
+import { useSectionQrImage } from '@/lib/hooks/floor-and-table-setup/useSectionQrImage';
 
 import styles from './section-qr.module.css';
 

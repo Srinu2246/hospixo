@@ -1,5 +1,14 @@
-import { parsePositiveIntId } from '@/features/floor-table-setup/lib/parse-public-menu-ids';
-import type { SectionGuestMenuTarget } from '@/features/floor-table-setup/types/section-guest-menu';
+export type SectionGuestMenuTarget = Readonly<{
+  id: string;
+  name?: string;
+}>;
+
+export function parsePositiveIntId(value: string | number | null | undefined): number | null {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.trunc(n);
+}
 
 export function slugifyOutletLabel(value: string): string {
   const slug = value

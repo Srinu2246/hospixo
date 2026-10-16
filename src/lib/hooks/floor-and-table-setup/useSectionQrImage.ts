@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 export const sectionQrImageQueryKey = (menuUrl: string | null) =>
-  ['floor-table-setup', 'section-qr', menuUrl] as const;
+  ['floor-and-table-setup', 'section-qr', menuUrl] as const;
 
 async function generateSectionQrDataUrl(menuUrl: string): Promise<string> {
   const QRCode = (await import('qrcode')).default;

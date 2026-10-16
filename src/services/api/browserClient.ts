@@ -9,8 +9,6 @@ type BrowserRequestOptions = {
   params?: QueryParams;
   body?: unknown;
   signal?: AbortSignal;
-  /** When false, 401 does not force navigation to /login (optional UI fetches). */
-  redirectOnUnauthorized?: boolean;
 };
 
 let redirectingToLogin = false;
@@ -76,12 +74,7 @@ async function request<T>(
   try {
     return await readResponse<T>(response);
   } catch (error) {
-    if (
-      error instanceof ApiError &&
-      error.status === 401 &&
-      !isAuthPath(endpoint) &&
-      options.redirectOnUnauthorized !== false
-    ) {
+    if (error instanceof ApiError && error.status === 401 && !isAuthPath(endpoint)) {
       redirectToLoginAfterUnauthorized();
     }
     throw error;
@@ -89,13 +82,8 @@ async function request<T>(
 }
 
 export const api = {
-  get<T>(
-    endpoint: string,
-    params?: QueryParams,
-    signal?: AbortSignal,
-    options?: Pick<BrowserRequestOptions, 'redirectOnUnauthorized'>,
-  ): Promise<T> {
-    return request<T>('GET', endpoint, { params, signal, ...options });
+  get<T>(endpoint: string, params?: QueryParams, signal?: AbortSignal): Promise<T> {
+    return request<T>('GET', endpoint, { params, signal });
   },
 
   post<T>(endpoint: string, body?: unknown, signal?: AbortSignal): Promise<T> {

@@ -16,6 +16,7 @@
     "format:check": "prettier --check .",
     "cspell": "cspell .",
     "knip": "knip",
+    "pre-commit": "lint-staged && knip && cspell",
     "codequality": "pnpm lint && pnpm typecheck && pnpm format:check && pnpm cspell && pnpm knip",
     "prepare": "husky"
   },

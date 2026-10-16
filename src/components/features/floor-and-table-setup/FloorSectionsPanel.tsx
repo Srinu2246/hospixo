@@ -22,18 +22,9 @@ import type {
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { useCreateTable } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { SectionQrDialog } from '@/components/features/floor-and-table-setup/SectionQrDialog';
+import type { SectionGuestMenuTarget } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import dynamic from 'next/dynamic';
-
-import type { SectionGuestMenuTarget } from '@/features/floor-table-setup/types/section-guest-menu';
-
-const SectionQrDialog = dynamic(
-  () =>
-    import('@/features/floor-table-setup/components/section-qr/section-qr-dialog').then(
-      (mod) => mod.SectionQrDialog,
-    ),
-  { ssr: false },
-);
 import { ApiError } from '@/services/api/types';
 import { useToastStore } from '@/stores/toastStore';
 

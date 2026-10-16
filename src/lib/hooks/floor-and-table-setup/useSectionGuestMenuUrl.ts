@@ -2,19 +2,20 @@
 
 import { useMemo } from 'react';
 
-import { guestMenuCopy } from '@/features/floor-table-setup/config/guest-menu';
-import { buildSectionGuestMenuUrl } from '@/features/floor-table-setup/lib/build-section-guest-menu-url';
-import { parsePositiveIntId } from '@/features/floor-table-setup/lib/parse-public-menu-ids';
-import type { SectionGuestMenuTarget } from '@/features/floor-table-setup/types/section-guest-menu';
-import { pickActiveBranchMenuAssignment } from '@/features/menu/lib/resolve-active-branch-assignment';
+import {
+  buildSectionGuestMenuUrl,
+  parsePositiveIntId,
+  type SectionGuestMenuTarget,
+} from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
+import { pickActiveBranchMenuAssignment } from '@/lib/helpers/menu/pickActiveBranchMenuAssignment';
 import { useBranchMenusQuery } from '@/lib/hooks/menu/use-branch-menus-query';
+import { guestMenuCopy } from '@/lib/helpers/floor-and-table-setup/guestMenuCopy';
 
 type UseSectionGuestMenuUrlInput = Readonly<{
   section: SectionGuestMenuTarget | null;
   outletLabel: string;
   outletId?: string | null;
   floorId: string | null;
-  /** Numeric branch id used for menu assignment APIs and guest-menu query params. */
   branchId: string | number | null;
 }>;
 
