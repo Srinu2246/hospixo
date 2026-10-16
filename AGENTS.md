@@ -1,3 +1,463 @@
+# Project Coding Rules
+
+New screens follow the Point of Sale (POS) feature. Copy that shape. Do not invent a second layout for hospital modules.
+
+Reference implementation:
+
+- Routes: `src/app/pos/point-of-sale/` and `src/app/pos/captain-flow/`
+- Screens: `src/features/pos/point-of-sale/`
+- Hooks: `src/lib/hooks/pos/point-of-sale/`
+- Schemas: `src/lib/schemas/pos/point-of-sale/`
+- Endpoint catalog: `src/services/api/ApiUrlsV1.ts`
+- Shared UI: `src/components/shared/`
+- Mock data: `src/lib/mocks/pos/`
+
+## 1. Stack
+
+- Next.js 14.2.25 (App Router), React 18.3, TypeScript strict
+- MUI v9 + Emotion
+- TanStack React Query v5 for server data
+- React Hook Form v7 + Zod v4 for validated forms
+- Zustand v5 for client-only UI state
+- pnpm 11. Dev server: `pnpm dev` on port 3004
+- Path alias: `@/*` → `src/*`
+
+## 2. Folder map
+
+```text
+src/
+├── app/
+│   ├── layout.tsx
+│   ├── sidebar.ts               # Navigation and permission catalog
+│   ├── api/v1/[...path]/route.ts # Protected route in front of the backend
+│   └── <module>/<screen>/page.tsx # Screen routes. No screen UI.
+├── features/
+│   └── <domain>/<module>/
+│       ├── <screen>/            # One folder per screen
+│       │   ├── <Screen>.tsx
+│       │   └── index.ts         # Public barrel
+│       └── components/          # UI shared by screens in this module
+├── components/
+│   ├── layout/                  # App shell
+│   └── shared/
+│       ├── app/                 # Sidebar, top navbar
+│       ├── ui/                  # Cards, grids, modals, chips
+│       ├── form-fields/         # Inputs, dropdowns, filters, buttons
+│       └── <widget-group>/      # Widgets reused by more than one module
+├── lib/
+│   ├── theme/mui/               # Color, spacing, type, shape tokens
+│   ├── helpers/                 # Pure functions used app-wide
+│   ├── mocks/<domain>/          # Mock rows and their view types
+│   ├── hooks/<domain>/<module>/ # Hooks, same nesting as features/
+│   └── schemas/<domain>/<module>/ # Zod schemas, same nesting as features/
+├── services/api/                # Endpoint catalog and HTTP clients
+│   ├── ApiUrlsV1.ts             # Only place endpoint paths are defined
+│   ├── serverClient.ts          # Server-only backend client
+│   ├── browserClient.ts         # Browser client used by TanStack Query
+│   └── types.ts                 # Shared error type and response reader
+├── providers/                   # Theme and React Query providers
+├── stores/                      # Zustand. Client UI state only
+└── types/                       # Models shared by more than one domain
+```
+
+POS today maps to that tree as `features/pos/point-of-sale/<screen>/`. Captain Flow does not get its own feature copy. Its routes render the same POS screens with different props.
+
+## 3. Where a file goes
+
+Put the file in the narrowest folder that still lets every caller import it.
+
+| What you are adding                      | Where it goes                                             | POS example                                                          |
+| ---------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
+| URL entry                                | `src/app/<module>/<screen>/page.tsx`                      | `src/app/pos/point-of-sale/due-payments/page.tsx`                    |
+| Screen UI                                | `src/features/<domain>/<module>/<screen>/`                | `due-payments/DuePaymentsPage.tsx`                                   |
+| Dialog or card used by one screen        | Same screen folder                                        | `reservation/ReservationDialog.tsx`                                  |
+| UI used by several screens in one module | `features/<domain>/<module>/components/`                  | `point-of-sale/components/PaymentMethodSection.tsx`                  |
+| UI used by more than one module          | `src/components/shared/ui/` or `form-fields/`             | `DataGrid`, `Input`, `Modal`                                         |
+| Shell chrome                             | `src/components/shared/app/` and `src/components/layout/` | `Sidebar`, `AppShell`                                                |
+| Mock rows and view types                 | `src/lib/mocks/<domain>/<name>.mocks.ts`                  | `usePosDuePayments.mocks.ts`                                         |
+| Pure helper for one screen               | `<screen>/helpers/`                                       | status color lookup next to the dashboard                            |
+| Pure helper used app-wide                | `src/lib/helpers/`                                        | `posStatusHelpers.ts`                                                |
+| Hook for one screen                      | `src/lib/hooks/<domain>/<module>/<screen>/useThing.ts`    | `lib/hooks/pos/point-of-sale/reservation/useReservationFilters.ts`   |
+| Hook shared in one module                | `src/lib/hooks/<domain>/<module>/useThing.ts`             | `lib/hooks/pos/point-of-sale/usePosCart.ts`                          |
+| Hook used app-wide                       | `src/lib/hooks/useThing.ts`                               | `lib/hooks/useDebouncedValue.ts`                                     |
+| Zod schema for one form                  | `src/lib/schemas/<domain>/<module>/<screen>/`             | `lib/schemas/pos/point-of-sale/reservation/reservationFormSchema.ts` |
+| Zod schema shared in one module          | `src/lib/schemas/<domain>/<module>/`                      | `lib/schemas/pos/point-of-sale/paymentFormSchema.ts`                 |
+| Zod schema used app-wide                 | `src/lib/schemas/`                                        | `lib/schemas/phoneSchema.ts`                                         |
+| Client UI state                          | `src/stores/`                                             | `sidebarStore`, `themeStore`                                         |
+| Endpoint path                            | `src/services/api/ApiUrlsV1.ts`                           | `ApiUrlsV1.pos.pointOfSale.reservation`                              |
+| Server fetch                             | `src/services/api/serverClient.ts`                        | `serverApi.get` in a Server Component                                |
+| Browser fetch                            | `src/lib/hooks/api/`                                      | `useApiQuery`, `useApiMutation`                                      |
+| Nav item or permission                   | `src/app/sidebar.ts`                                      | POS and Captain Flow entries                                         |
+
+Promote a file only after a second caller needs it. A reservation dialog that only reservations use stays in `reservation/`. A payment block used by takeaway, dine-in, and orders moves to `point-of-sale/components/`.
+
+## 4. How to add a screen
+
+Follow the due-payments and dine-in screens.
+
+1. Add a route folder whose path matches the URL.
+2. Keep `page.tsx` as a server component that renders one feature screen and passes route data in.
+3. Build the screen in `src/features/.../<screen>/` as a named export with `'use client'` when it uses state, events, or browser APIs.
+4. Add `index.ts` that re-exports the public component and its props type.
+5. Read lists and option sets from `src/lib/mocks/<domain>/`.
+6. Put hooks in `src/lib/hooks/<domain>/<module>/<screen>/` and Zod schemas in `src/lib/schemas/<domain>/<module>/<screen>/`. Match the feature path.
+7. Build the layout from `src/components/shared/ui` and `form-fields` before writing a new primitive.
+8. Register the route in `src/app/sidebar.ts` when it belongs in navigation.
+
+Route:
+
+```tsx
+import { DuePaymentsPage } from '@/features/pos/point-of-sale/due-payments';
+
+export default function PosDuePaymentsPage() {
+  return <DuePaymentsPage />;
+}
+```
+
+Dynamic and query params stay in the route and are passed as props:
+
+```tsx
+import { DineInPage } from '@/features/pos/point-of-sale/dine-in';
+
+interface PosDineInTableRouteProps {
+  params: { tableId: string };
+}
+
+export default function PosDineInTableRoute({ params }: PosDineInTableRouteProps) {
+  return <DineInPage initialTableId={params.tableId} />;
+}
+```
+
+Checkout and success URLs reuse the same screen with a step prop. They do not duplicate the screen.
+
+```tsx
+import { OrderSettle } from '@/features/pos/point-of-sale/all-orders';
+
+export default function TakeawayCheckoutPage() {
+  return <OrderSettle initialStep="checkout" />;
+}
+```
+
+A second flow reuses the screen:
+
+```tsx
+import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
+
+export default function CaptainFlowTablesPage() {
+  return <PosTableSelection isDineIn={false} />;
+}
+```
+
+## 5. How to write a feature screen
+
+- One screen component per file. PascalCase file name matches the export (`DuePaymentsPage.tsx`).
+- Named export is required. The barrel re-exports it. Pages import from the folder (`@/features/pos/point-of-sale/due-payments`), not from a deep relative path.
+- Props are an exported interface. Comment each prop when the name is not obvious. Type the props parameter as `Readonly<Props>` when the component takes props.
+- Put a short file comment that lists the sections of the screen.
+- Keep filtering, dialog open state, and row selection in the screen with `useState`. When that logic is reused or the screen file is hard to scan, move it to `src/lib/hooks/<domain>/<module>/<screen>/`.
+- Do not fetch with raw `fetch` inside the screen. Use a mock module until the API exists. Initial data comes from `serverApi` in the route. Search, filters, pagination, and background refresh go through `useApiQuery`.
+- Do not copy list data into a Zustand store.
+
+```tsx
+'use client';
+
+export interface DineInPageProps {
+  initialTableId?: string;
+}
+
+export function DineInPage({ initialTableId }: Readonly<DineInPageProps> = {}) {
+  return <PosTableSelection isDineIn initialTableId={initialTableId} />;
+}
+```
+
+```ts
+export * from './DineInPage';
+```
+
+Local pieces of that screen (dialogs, row cards, cancel confirms) live in the same folder and are exported from the same `index.ts` when another screen in the module needs them.
+
+## 6. Shared components
+
+Search these before adding a component:
+
+- `src/components/shared/ui/` — `Card`, `DataGrid`, `Modal`, `StatusChip`, `AlertMessage`, `Toast`, `Loading`, `Breadcrumbs`, `CardItemSection`
+- `src/components/shared/form-fields/` — `Input`, `Dropdown`, `SearchBar`, `FilterBar`, `FilterChips`, `CalendarPicker`, `MobileNumberInput`, `ActionButton`, `Tabs`
+- `src/components/shared/restaurant-menu/` — menu card and order summary used by more than one POS flow
+- `src/features/pos/point-of-sale/components/` — order review, payment method, ordered items, ready-order card, success receipt
+
+A shared component:
+
+- Lives in its own PascalCase file
+- Exports a props interface and a named function
+- Accepts `sx` for layout overrides from the caller
+- Uses MUI primitives and theme tokens
+- Has no knowledge of a single screen's route
+
+Screen-specific column renderers stay in the screen. The grid itself stays in `DataGrid`.
+
+## 7. Hooks
+
+Every hook lives under `src/lib/hooks/`. The folders mirror `src/features/`.
+
+```text
+src/features/pos/point-of-sale/reservation/ReservationList.tsx
+src/lib/hooks/pos/point-of-sale/reservation/useReservationFilters.ts
+src/lib/hooks/pos/point-of-sale/usePosCart.ts
+src/lib/hooks/useDebouncedValue.ts
+```
+
+| Scope                         | Path                                                   |
+| ----------------------------- | ------------------------------------------------------ |
+| One screen                    | `src/lib/hooks/<domain>/<module>/<screen>/useThing.ts` |
+| Several screens in one module | `src/lib/hooks/<domain>/<module>/useThing.ts`          |
+| More than one domain          | `src/lib/hooks/useThing.ts`                            |
+
+Rules:
+
+- Do not add `hooks/` inside `src/features/` or a top-level `src/hooks/`.
+- The file name matches the function: `useReservationFilters.ts` exports `useReservationFilters`.
+- A hook returns data and handlers. It does not return JSX.
+- Import with the `@/` alias: `@/lib/hooks/pos/point-of-sale/reservation/useReservationFilters`.
+- Add `index.ts` in a screen or module folder when that folder exports more than one hook.
+- Server lists use React Query (`useQuery`, `useMutation`) inside the hook. Query keys include the domain and the params.
+- Do not wrap React Query results in Zustand.
+
+## 8. Schemas and forms
+
+Validated forms use React Hook Form and Zod. Every schema lives under `src/lib/schemas/`. The folders mirror `src/features/`, the same way hooks do.
+
+```text
+src/features/pos/point-of-sale/reservation/ReservationDialog.tsx
+src/lib/schemas/pos/point-of-sale/reservation/reservationFormSchema.ts
+```
+
+| Scope                         | Path                                                         |
+| ----------------------------- | ------------------------------------------------------------ |
+| One screen                    | `src/lib/schemas/<domain>/<module>/<screen>/<name>Schema.ts` |
+| Several screens in one module | `src/lib/schemas/<domain>/<module>/<name>Schema.ts`          |
+| More than one domain          | `src/lib/schemas/<name>Schema.ts`                            |
+
+```ts
+import { z } from 'zod';
+
+export const reservationFormSchema = z.object({
+  guest: z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z.string().min(8, 'Enter a valid phone number'),
+  guestCount: z.number().int().min(1).max(10),
+});
+
+export type ReservationFormValues = z.infer<typeof reservationFormSchema>;
+```
+
+- Do not add `schemas/` inside `src/features/`.
+- The schema file exports the schema and `z.infer` type. Components do not re-declare that type by hand.
+- Shared field widgets stay in `src/components/shared/form-fields/`. The schema stays in `src/lib/schemas/`.
+- Import with the `@/` alias: `@/lib/schemas/pos/point-of-sale/reservation/reservationFormSchema`.
+- A schema used by two screens in the same module moves up to `src/lib/schemas/<domain>/<module>/`.
+- A schema used by two domains moves up to `src/lib/schemas/`.
+
+## 9. Types, mocks, and helpers
+
+Until an endpoint exists, the view model and the rows live together:
+
+```text
+src/lib/mocks/pos/usePosDuePayments.mocks.ts
+```
+
+That file exports the item type, status unions, option lists, and `MOCK_*` constants. The screen imports from that file. Re-export the mock from the screen barrel only when other screens import the screen folder for that data.
+
+When the API exists:
+
+- The response schema in `src/lib/schemas/<domain>/<module>/<screen>/` is the only model. The mock rows, the hook, and the screen all use `z.infer` from it.
+- Update the mock rows so `schema.parse(MOCK_ROWS)` succeeds. Do not keep a separate mock interface once that schema exists.
+- Register the `ApiUrlsV1` path in `src/services/api/handler.ts` with those mock rows.
+- The React Query hook in `src/lib/hooks/<domain>/<module>/<screen>/` calls `useApiQuery` or `useApiMutation`.
+- The live screen imports the hook, not the mock file. `pnpm run start-mocked` still serves those rows through `handler.ts`.
+
+Pure functions:
+
+- No JSX, no `fetch`, no `localStorage`.
+- Screen-only helpers go in `<screen>/helpers/`.
+- Helpers used by more than one screen go in `src/lib/helpers/` and are exported from `src/lib/helpers/index.ts`.
+
+## 10. Data and API
+
+Endpoint paths exist only in `ApiUrlsV1` from `src/services/api/ApiUrlsV1.ts`. The object follows `src/features/<domain>/<module>/<screen>`. Captain Flow uses the POS paths. Do not add a second path list, and do not add a new route file per endpoint. `src/app/api/v1/[...path]/route.ts` already forwards every path in the catalog.
+
+```text
+Server Component → serverApi → backend
+Client hook → useApiQuery / useApiMutation → /api/v1 → serverApi → backend
+```
+
+### How to write one API
+
+1. Add the path in `ApiUrlsV1` with `resource()`. Nest it like the feature folder.
+2. Load the first view in the route with `serverApi` and pass it as `initialData`.
+3. Put the screen hook in `src/lib/hooks/<domain>/<module>/<screen>/`. It calls `useApiQuery` or `useApiMutation`. Do not put that hook in `src/features/` or `src/services/api/`.
+4. Put one Zod schema in `src/lib/schemas/<domain>/<module>/<screen>/`. That schema is the API response and the mock row. Do not add a second response type.
+5. Register the path in `src/services/api/handler.ts` and point it at the mock rows. `pnpm run start-mocked` reads that file.
+6. The hook, the schema, and the mock use the same domain, module, and screen folders as the feature.
+
+```text
+src/features/pos/point-of-sale/reservation/ReservationList.tsx
+src/lib/hooks/pos/point-of-sale/reservation/useReservations.ts
+src/lib/schemas/pos/point-of-sale/reservation/reservationSchema.ts
+src/lib/mocks/pos/usePosReservations.mocks.ts
+src/services/api/handler.ts
+```
+
+The mock file imports the schema and checks every row with it. The screen and the hook use `z.infer` from that same schema.
+
+```ts
+export const reservationSchema = z.object({
+  id: z.string(),
+  guestName: z.string(),
+  guestCount: z.number().int(),
+  status: z.enum(['confirmed', 'checked-in', 'cancelled']),
+});
+
+export const reservationListSchema = z.array(reservationSchema);
+export type Reservation = z.infer<typeof reservationSchema>;
+```
+
+```ts
+export const MOCK_RESERVATIONS = reservationListSchema.parse([
+  { id: 'res-1', guestName: 'Amanda Sterling', guestCount: 2, status: 'confirmed' },
+]);
+```
+
+```ts
+[ApiUrlsV1.pos.pointOfSale.reservation.list]: MOCK_RESERVATIONS,
+```
+
+`resource('/v1/pos/point-of-sale/reservation')` creates:
+
+| Call                     | Method | Path                                    |
+| ------------------------ | ------ | --------------------------------------- |
+| `reservation.list`       | GET    | `/v1/pos/point-of-sale/reservation`     |
+| `reservation.create`     | POST   | same URL                                |
+| `reservation.detail(id)` | GET    | `/v1/pos/point-of-sale/reservation/:id` |
+| `reservation.update(id)` | PUT    | same item URL                           |
+| `reservation.remove(id)` | DELETE | same item URL                           |
+
+A one-off action is a string beside the resource, such as `cancel: '/v1/pos/point-of-sale/reservation/cancel'`.
+
+```ts
+reservation: resource('/v1/pos/point-of-sale/reservation'),
+```
+
+First paint, in the route:
+
+```tsx
+import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
+import { serverApi } from '@/services/api/serverClient';
+import { ReservationList } from '@/features/pos/point-of-sale/reservation';
+
+export default async function PosReservationPage() {
+  const reservations = await serverApi.get(ApiUrlsV1.pos.pointOfSale.reservation.list);
+  return <ReservationList initialReservations={reservations} />;
+}
+```
+
+Search and filters, in the screen:
+
+```tsx
+const reservations = useApiQuery({
+  path: ApiUrlsV1.pos.pointOfSale.reservation.list,
+  params: { search, page, pageSize },
+  initialData: initialReservations,
+});
+```
+
+Create, then refresh the list:
+
+```tsx
+const createReservation = useApiMutation({
+  path: ApiUrlsV1.pos.pointOfSale.reservation.create,
+  method: 'POST',
+  invalidatePath: ApiUrlsV1.pos.pointOfSale.reservation.list,
+});
+
+createReservation.mutate({ guest, phone, guestCount });
+```
+
+Update with `method: 'PUT'` and `reservation.update(id)`. Delete with `method: 'DELETE'` and `reservation.remove(id)`.
+
+### API rules
+
+- `API_BASE_URL` and `API_SECRET` are server environment variables. Do not prefix them with `NEXT_PUBLIC_`.
+- Auth routes live on `ApiUrlsV1.auth`. Login, register, forgot password, and reset password are public. A successful login stores the session in an httpOnly cookie and removes the token from the response. Every other route requires that cookie.
+- `serverApi` in `src/services/api/serverClient.ts` is the only code that calls the backend. It sends `API_SECRET` itself and strips sensitive fields before returning data.
+- `pnpm dev` leaves screens as they are. A screen that still imports `src/lib/mocks` keeps rendering that mock. A screen that calls `serverApi` or `useApiQuery` uses the real API.
+- `pnpm run start-mocked` sets `API_MOCK=true`. `src/services/api/handler.ts` then returns mock data for every integrated path, including ones that already call the API. Do not branch on that flag inside a screen. Every new `ApiUrlsV1` path gets an entry in `handler.ts` in the same change.
+- One schema describes the API response and the mock. After adding an endpoint, update `src/lib/schemas/<domain>/<module>/<screen>/` and parse the mock rows with that schema so both shapes stay the same.
+- The browser client never accepts an absolute URL and never attaches `API_SECRET`. Do not call `fetch` with the backend URL from a screen.
+- A Server Action is appropriate when a form should submit without a client hook. The action calls `serverApi` and imports its path from `ApiUrlsV1`.
+- The screen reads `isPending`, `isError`, and `error` and renders `Loading` or `AlertMessage`.
+- Every API hook lives under `src/lib/hooks/`. A hook for one screen is `src/lib/hooks/<domain>/<module>/<screen>/useThing.ts`. A hook shared by screens in that module moves up to `src/lib/hooks/<domain>/<module>/`. Do not add `hooks/` inside `src/features/`.
+- Every API schema lives under `src/lib/schemas/`. A schema for one screen is `src/lib/schemas/<domain>/<module>/<screen>/<name>Schema.ts`. A schema shared by screens in that module moves up to `src/lib/schemas/<domain>/<module>/`. Do not add `schemas/` inside `src/features/` or `src/services/`.
+- Do not copy server results into Zustand. Zustand stays limited to sidebar and theme state.
+
+## 11. Styling
+
+- Use MUI `Box`, `Stack`, `Typography`, and `sx`.
+- Import colors from `@/lib/theme/mui/colors`. Spacing uses the theme scale (`p: 2`, `gap: 1.5`).
+- Icons come from `lucide-react` or a direct `@mui/icons-material/<IconName>` import.
+- New colors go into `src/lib/theme/mui/colors.ts` before they are used in a component.
+- Do not add a global CSS file for a screen.
+
+## 12. Imports and names
+
+Import order:
+
+1. React and Next
+2. External packages (`@mui/*`, `lucide-react`)
+3. `@/` aliases
+4. Relative imports of files in the same screen folder
+
+Use `@/`. Do not write `../../../../`.
+
+| Kind           | Pattern                        | Example                    |
+| -------------- | ------------------------------ | -------------------------- |
+| Component file | PascalCase                     | `ReservationList.tsx`      |
+| Hook file      | camelCase starting with `use`  | `useReservationFilters.ts` |
+| Schema file    | camelCase ending with `Schema` | `reservationFormSchema.ts` |
+| Mock file      | camelCase ending with `.mocks` | `usePosOrders.mocks.ts`    |
+| Helper file    | camelCase                      | `posStatusHelpers.ts`      |
+| Constants      | UPPER_SNAKE_CASE               | `MOCK_DUE_PAYMENTS`        |
+| Route folder   | kebab-case URL segment         | `due-payments/page.tsx`    |
+
+## 13. App shell
+
+`src/app/layout.tsx` wraps every page with `AppProvider` and `AppShell`. Do not mount a second sidebar or navbar inside a feature screen.
+
+`src/app/sidebar.ts` owns the menu tree and permission strings. A new screen that should appear in the menu gets an entry there. Role checks read that catalog. They are not hardcoded inside the screen.
+
+The root `<html>` keeps `suppressHydrationWarning`.
+
+## 14. Quality bar for every screen
+
+Each screen handles:
+
+- Loading
+- Error, with an `AlertMessage`
+- Empty list
+- The success path
+- A layout that still works when the sidebar is collapsed
+
+Before finishing:
+
+```bash
+pnpm typecheck
+pnpm lint
+```
+
+Run `pnpm codequality` before a commit. It runs lint, typecheck, Prettier, cspell, and knip.
+
+**Git hooks:** `.husky/pre-commit` runs `lint-staged`, then **`pnpm knip`** and **`pnpm cspell`**. Unused files/exports (knip) or spelling issues block the commit until fixed.
+
+Remove temporary `console.log` calls. Comments explain a non-obvious layout or business rule, not the next line of code.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
@@ -7,763 +467,3 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
-
-# Project Coding Rules
-
-## 1. Project Overview
-
-This project is a production-ready Next.js application built with strict typing, atomic theme tokens, centralized networking, and modern dev tooling:
-
-- **Next.js 16.3.8** (App Router)
-- **React 19.2.8** + **React Compiler** (`reactCompiler: true` in `next.config.ts`, `babel-plugin-react-compiler`)
-- **TypeScript 5.9+** (strict mode enabled)
-- **MUI v9** (`@mui/material`, `@mui/icons-material`) + **Emotion** (`@emotion/react`, `@emotion/styled`)
-- **TanStack React Query v5** (`@tanstack/react-query`)
-- **React Hook Form v7** (`react-hook-form`) + **Zod v4** (`zod`, `@hookform/resolvers`)
-- **Zustand v5** (`zustand`)
-- **pnpm 11+** (`pnpm@11.22.0`)
-- **ESLint 9** (Flat Config), **Prettier 3**, **CSpell 10**, **Knip 6**, **Husky + lint-staged**
-- **LocatorJS / TreeLocatorJS** (`@locator/webpack-loader`, `@locator/babel-jsx`, `@treelocator/runtime`)
-- **Dev Server:** Port 3003 with Webpack (`pnpm dev` -> `next dev --webpack -p 3003`)
-
-The codebase must prioritize:
-
-1. Maintainability
-2. Type safety
-3. Reusability
-4. Clear separation of concerns
-5. Consistent UI tokens
-6. Minimal duplication
-7. Production readiness
-8. Fast onboarding
-
----
-
-# 2. General Coding Principles
-
-## 2.1 TypeScript First
-
-- Use TypeScript for all application code.
-- Do not introduce `.js` files unless technically mandatory.
-- Avoid `any`. Use `unknown` when incoming data shape is unverified.
-- Explicitly type public functions, API contracts, hooks, and reusable components.
-- Never bypass type checking with `@ts-ignore`. Prefer `@ts-expect-error` with a reason when unavoidable.
-- Avoid unnecessary type assertions.
-
-Bad:
-
-```ts
-const user = response as any;
-```
-
-Good:
-
-```ts
-const user: UserResponse = response;
-```
-
----
-
-# 3. Folder Architecture
-
-All application source code resides under `src/`. Follow this clear separation of concerns:
-
-```text
-src/
-├── app/                  # Next.js App Router (layout.tsx, page.tsx, globals.css)
-├── config/               # Routes + shell copy (mirrors apps/platform/src/config)
-│   └── shell/            # access-navigation, header-chrome, flow-paths, under-construction
-├── components/           # Reusable generic UI components
-│   ├── common/           # Domain-agnostic shared elements
-│   ├── shell/            # Workspace chrome (access-sidebar, dashboard-topbar, workspace-shell)
-│   ├── layout/           # Legacy re-exports; prefer components/shell
-│   └── ui/               # Core atomic primitives
-├── server/               # Node-only helpers (auth BFF), mirrors apps/platform/src/server
-├── features/             # Business modules sliced by domain
-│   └── <feature-name>/   # Self-contained feature
-│       ├── components/   # Feature-specific UI
-│       ├── hooks/        # Feature-specific hooks
-│       ├── schemas/      # Zod validation schemas
-│       ├── types/        # Feature-specific TypeScript models
-│       └── utils/        # Feature-specific helpers
-├── services/             # Centralized external communication
-│   └── api/
-│       ├── api.ts        # Primary centralized API client (request, tokens, methods)
-│       ├── http.ts       # Low-level fetch wrapper
-│       ├── endpoints/    # Domain-specific API endpoint modules
-│       └── types.ts      # HTTP and API contracts (ApiError, QueryParams, ApiResponse)
-├── providers/            # Application-wide context providers
-│   ├── AppProvider.tsx   # MUI ThemeProvider, CssBaseline, QueryProvider, dev log filters
-│   └── QueryProvider.tsx # TanStack React Query QueryClientProvider
-├── lib/                  # Shared configurations and design system tokens
-│   └── theme/
-│       └── mui/          # Centralized MUI theme tokens
-│           ├── colors.ts       # Semantic color definitions
-│           ├── spacing.ts      # Base 8px grid unit
-│           ├── shape.ts        # Border radii tokens
-│           ├── breakpoints.ts  # Responsive screen breakpoints
-│           ├── typography.ts   # Font scale and variant definitions
-│           └── theme.ts        # Material-UI theme creation
-├── hooks/                # Cross-cutting, reusable global React hooks
-├── stores/               # Global Zustand stores (client-side only)
-├── types/                # Global shared TypeScript types and models
-└── utils/                # Pure, deterministic shared utility functions
-```
-
----
-
-# 4. Page Rules
-
-Pages must remain thin. Do not place business logic directly inside `src/app/**/page.tsx`.
-
-A page should primarily:
-
-- Compose feature components.
-- Provide page-level metadata.
-- Connect route parameters.
-- Handle route-level suspense or error boundaries.
-
-Bad:
-
-```tsx
-export default function Page() {
-  const [users, setUsers] = useState([]);
-  // 100+ lines of fetching, transformations, state, and complex UI
-}
-```
-
-Good:
-
-```tsx
-export default function UsersPage() {
-  return <UsersScreen />;
-}
-```
-
----
-
-# 5. Components
-
-## 5.1 Component Responsibility
-
-Each component must have a single clear responsibility. Split monolithic components when state, API calls, and markup become mixed.
-
-## 5.2 Reusability
-
-Check existing primitives before writing new ones:
-
-- `components/common/`
-- `components/ui/`
-- `features/<feature>/components/`
-
-## 5.3 Props
-
-Pass only what the component needs. Avoid passing giant nested objects when a few primitive fields suffice.
-
----
-
-# 6. React Rules
-
-- **React Compiler Active:** The project uses `reactCompiler: true` (`babel-plugin-react-compiler`). Do not clutter code with manual `useMemo` or `useCallback` unless handling external dependencies or non-standard reference stability requirements.
-- **No Unnecessary Effects:** Derive values directly during render instead of synchronizing state inside `useEffect`.
-- **External Store Subscription:** When reading from browser storage (`localStorage`), use React's `useSyncExternalStore` (see pattern in `src/app/page.tsx`) rather than triggering state updates inside `useEffect`.
-- **Component Purity:** Keep components deterministic and avoid side effects in render.
-
----
-
-# 7. Next.js Rules
-
-- Default to React Server Components (RSC).
-- Add `'use client'` only when browser APIs, event listeners, or client hooks (`useState`, `useSyncExternalStore`) are required.
-- Keep client component leaves small; do not mark entire page subtrees as client components.
-- Always use `next/link` for internal navigation and `next/image` for images.
-- Root layout `<html>` in `src/app/layout.tsx` must keep `suppressHydrationWarning` to prevent hydration mismatches caused by browser extensions and dev inspection tools (TreeLocator).
-
----
-
-# 8. API Architecture
-
-All HTTP requests must flow through the centralized API client in `src/services/api/api.ts`. Never call raw `fetch()` directly in UI components.
-
-## 8.1 API Client (`api`)
-
-- **Methods:** `api.get<T>()`, `api.post<T>()`, `api.put<T>()`, `api.patch<T>()`, `api.delete<T>()`
-- **Token Management:**
-  - `api.setToken(token)`: Persists authorization token to `localStorage`.
-  - `api.getToken()`: Reads token (`token`, `accessToken`, `auth_token`).
-  - `api.removeToken()`: Clears stored auth tokens.
-- **Automatic Bearer Injection:** Outgoing requests automatically include `Authorization: Bearer <token>` when a token is present.
-- **Automatic 401 Purge:** Clears stored tokens on HTTP 401 Unauthorized responses.
-- **Query & Body Handling:** Automatically serializes query parameters (`QueryParams`) and handles both JSON payloads and `FormData` (omits `Content-Type` for multipart boundary generation).
-- **Base URL:** Driven by `process.env.NEXT_PUBLIC_API_BASE_URL` with client fallback.
-- **Feature Endpoints:** Group calls into domain modules (`src/services/api/endpoints/` or `features/<feature>/api/`):
-
-```ts
-import { api } from '@/services/api/api';
-import type { QueryParams } from '@/services/api/types';
-import type { User, CreateUserPayload } from '@/types/user';
-
-export const usersApi = {
-  getUsers: (params?: QueryParams) => api.get<User[]>('/users', params),
-  getUserById: (id: string) => api.get<User>(`/users/${id}`),
-  createUser: (payload: CreateUserPayload) => api.post<User>('/users', payload),
-  deleteUser: (id: string) => api.delete<void>(`/users/${id}`),
-};
-```
-
----
-
-# 9. API Types
-
-Centralize shared HTTP contracts in `src/services/api/types.ts`:
-
-- `HttpMethod`, `QueryParams`, `ApiResponse<T>`, `ApiErrorResponse`, `HttpRequestConfig`
-- Normalized `ApiError` class containing `status`, `message`, and parsed error `details`.
-
-Place domain data models in `src/types/` or feature-level `types/`.
-
----
-
-# 10. TanStack React Query
-
-Use TanStack React Query v5 for all server state (fetching, caching, mutations, refetching).
-
-- Standard query client configuration lives in `src/providers/QueryProvider.tsx`:
-  - `staleTime: 60 * 1000` (60s)
-  - `gcTime: 5 * 60 * 1000` (5min)
-  - `refetchOnWindowFocus: false`
-  - `retry: 1`
-- **Rule:** Do NOT copy server data into Zustand stores.
-
----
-
-# 11. Zustand
-
-Use Zustand v5 strictly for shared client-only state:
-
-- Navigation state, sidebar toggles, UI modal queues.
-- Multi-step form drafts before submission.
-- User display preferences.
-
-Define stores in `src/stores/`. Keep stores focused; do not create monolithic stores.
-
----
-
-# 12. Forms
-
-Use **React Hook Form v7** with **Zod v4** via `@hookform/resolvers/zod`.
-
-- Place validation schemas in `features/<feature>/schemas/` or `src/lib/schemas/`.
-- Derive TypeScript form types directly from schemas:
-
-```ts
-import { z } from 'zod';
-
-export const userFormSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-});
-
-export type UserFormValues = z.infer<typeof userFormSchema>;
-```
-
----
-
-# 13. MUI Rules
-
-MUI v9 is the primary component library.
-
-- Use built-in MUI primitives (`Box`, `Stack`, `Typography`, `Button`, `Paper`, `Card`, `Container`, `Divider`, `Alert`, `Chip`).
-- Use the `sx` prop for style overrides instead of raw CSS classes.
-- Root provider hierarchy in `src/providers/AppProvider.tsx` wraps children with:
-  `ThemeProvider` -> `CssBaseline` -> `QueryProvider`.
-
----
-
-# 14. Theme Rules
-
-All styling tokens must be imported from `src/lib/theme/mui/`:
-
-- `colors.ts`: Semantic color palette tokens.
-- `spacing.ts`: Base grid unit `spacing = 8` (8px). Use MUI `sx` multipliers (`p: 2` = 16px, `gap: 3` = 24px).
-- `shape.ts`: Border radii (`shape.borderRadius = 8`).
-- `breakpoints.ts`: Breakpoint values (`xs: 0, sm: 600, md: 900, lg: 1200, xl: 1536`).
-- `typography.ts`: Standard font scales (`Arial, Helvetica, sans-serif`, `button: { textTransform: 'none' }`).
-- `theme.ts`: Custom theme assembly using `createTheme()`.
-
----
-
-# 15. Color Structure
-
-In **components**, prefer MUI `theme.palette` and `color="text.*"` (see §41.5) so light/dark follow `AppProvider`. Use `src/lib/theme/mui/colors.ts` when **building the theme** or for static design tokens — not as hard-coded text/background colors in feature screens.
-
-Use semantic color keys defined in `src/lib/theme/mui/colors.ts`:
-
-```ts
-colors.primary.default; // '#1976D2' (light: '#42A5F5', dark: '#1565C0')
-colors.secondary.default; // '#9C27B0'
-colors.success.default; // '#2E7D32'
-colors.info.default; // '#0288D1'
-colors.warning.default; // '#ED6C02'
-colors.danger.default; // '#D32F2F' (maps to theme error)
-colors.surface.default; // '#FFFFFF' (light: '#F5F5F5', dark: '#1E1E1E')
-colors.background.light; // '#FAFAFA'
-colors.text.primary; // '#212121'
-colors.text.secondary; // '#757575'
-colors.border.default; // '#E0E0E0'
-colors.divider.default; // '#E0E0E0'
-```
-
-Never hard-code random hex codes directly in components.
-
----
-
-# 16. Styling
-
-- Rely on MUI theme tokens and the `sx` prop.
-- Avoid repeating arbitrary inline style objects.
-- Promote frequently repeated layouts to `components/layout/` or `components/ui/`.
-
----
-
-# 17. Constants
-
-Store shared immutable configuration in `src/lib/constants/` using `UPPER_SNAKE_CASE`:
-
-- Route definitions
-- Storage keys (`TOKEN_STORAGE_KEY`)
-- Pagination defaults (`DEFAULT_PAGE_SIZE = 10`)
-
----
-
-# 18. Utility Functions
-
-Pure, deterministic functions belong in `src/utils/` or `src/lib/utils/`.
-
-- Utilities must have single responsibility and zero hidden side effects.
-- Always write descriptive function names (`formatCurrency`, `slugifyText`).
-
----
-
-# 19. Hooks
-
-Reusable React state logic belongs in:
-
-- `src/hooks/` (cross-cutting application hooks)
-- `src/features/<feature>/hooks/` (feature-scoped hooks)
-
-Keep hooks focused and composable (`useUserPermissions`, `useDebouncedSearch`).
-
----
-
-# 20. Error Handling
-
-- Never swallow errors silently in empty `catch` blocks.
-- Normalize network errors through `ApiError` in `src/services/api/types.ts`.
-- Surface meaningful user feedback with MUI `Alert` or dedicated feedback components.
-
----
-
-# 21. Async Code
-
-- Prefer `async`/`await` over promise chains.
-- Handle pending and rejected states explicitly.
-- For server queries and mutations, rely on React Query's `isPending`, `isError`, and `error` states.
-
----
-
-# 22. Naming Conventions
-
-## Files
-
-- Components: `PascalCase.tsx` (`UserProfile.tsx`, `DashboardCard.tsx`)
-- Utilities, hooks, services: `camelCase.ts` (`formatDate.ts`, `useAuth.ts`, `api.ts`)
-- Type declarations: `camelCase.ts` or `PascalCase.ts` (`types.ts`, `user.ts`)
-
-## Components
-
-- PascalCase: `UserProfile`, `AppProvider`, `QueryProvider`
-
-## Functions & Hooks
-
-- camelCase: `getUserProfile()`, `useSyncExternalStore()`, `formatCurrency()`
-
-## Constants
-
-- UPPER_SNAKE_CASE: `TOKEN_STORAGE_KEY`, `DEFAULT_PAGE_SIZE`
-
----
-
-# 23. Import Rules
-
-Keep imports organized in order:
-
-1. External dependencies (`react`, `next/*`, `@mui/*`, `@tanstack/*`)
-2. Internal path aliases (`@/components`, `@/features`, `@/services`, `@/lib`, `@/types`)
-3. Relative imports (`./UserCard`, `../types`)
-
-Never use deep relative traversal (`../../../../`). Always prefer path aliases (`@/*`).
-
----
-
-# 24. Avoid Circular Dependencies
-
-Maintain unidirectional data and module flow. Avoid cycles (`A -> B -> C -> A`). If cycles emerge, extract common contracts into `types/` or `utils/`.
-
----
-
-# 25. Security
-
-- Never commit API keys, private credentials, or secrets.
-- Never expose private keys with `NEXT_PUBLIC_` prefixes.
-- Validate all external and form inputs using Zod.
-
----
-
-# 26. Environment Variables
-
-- Access environment variables centrally through `process.env`.
-- Public frontend variables must be prefixed with `NEXT_PUBLIC_` (e.g. `NEXT_PUBLIC_API_BASE_URL`).
-
----
-
-# 27. Accessibility
-
-- Use semantic HTML elements or corresponding MUI components (`Button` instead of clickable `div`).
-- Include descriptive `aria-label` tags for icon-only buttons.
-- Maintain sufficient visual color contrast against background surfaces.
-
----
-
-# 28. Performance
-
-- Leverage React Server Components for non-interactive layout trees.
-- Let React Compiler optimize re-render lifecycles automatically.
-- Optimize images using `next/image`.
-- Keep bundle sizes small by importing specific icons from `@mui/icons-material/<IconName>`.
-
----
-
-# 29. LocatorJS / TreeLocatorJS
-
-LocatorJS provides source code navigation during development.
-
-- **Dev Tooling:** Uses `@locator/webpack-loader`, `@locator/babel-jsx`, and `@treelocator/runtime`.
-- **Webpack Required:** Runs with Webpack on port 3003 (`next dev --webpack -p 3003`).
-- **Console Filter:** Non-fatal `[LocatorJS]` dev console errors are suppressed in `src/providers/AppProvider.tsx` to prevent the Next.js dev error overlay from triggering.
-- **Babel Config:** Uses `.babelrc` strictly to configure `module:@locator/babel-jsx` in development. Do not add extraneous Babel plugins.
-
----
-
-# 30. Logging
-
-- Remove temporary `console.log` statements before committing code.
-- Use structured logging or `console.error` only for legitimate exceptional conditions.
-
----
-
-# 31. Comments
-
-Write comments that explain the **why**, not the obvious **what**. Avoid leaving commented-out legacy code blocks.
-
----
-
-# 32. Business Logic
-
-Business logic must not be scattered inside UI components. Maintain the layered architecture:
-
-```text
-UI Component -> Custom Hook -> Service/Store -> Centralized API (api.ts)
-```
-
----
-
-# 33. No Duplicate Logic
-
-Before writing a new utility, helper, or component:
-
-1. Search the existing codebase.
-2. Reuse or extend existing utilities.
-3. Keep shared functions pure and well-typed.
-
----
-
-# 34. Dependency Rules
-
-Before adding a new dependency:
-
-- Verify whether existing libraries (`MUI`, `React Query`, `Zod`, `Zustand`) already provide the solution.
-- Verify compatibility with React 19, Next.js 16, and React Compiler.
-- Prefer lightweight, well-maintained packages.
-
----
-
-# 35. Production Readiness
-
-Always consider all UI and data states:
-
-- Loading state
-- Error state
-- Empty state
-- Success state
-- Mobile and desktop responsive layouts
-
----
-
-# 36. Code Quality Commands
-
-Always run quality checks before finishing tasks or committing changes:
-
-```bash
-# Development server (port 3003 with Webpack)
-pnpm dev
-
-# Build verification
-pnpm build
-
-# Static checks
-pnpm lint           # ESLint 9 checks
-pnpm typecheck      # TypeScript compilation check
-pnpm format:check   # Prettier format check
-pnpm format         # Prettier auto-format
-pnpm cspell         # Spell checker
-pnpm knip           # Unused files, dependencies & export analysis
-
-# All-in-one check
-pnpm codequality
-```
-
----
-
-# 37. Formatting
-
-Use **Prettier**. Format files using `pnpm format` and check with `pnpm format:check`. Do not introduce conflicting formatting styles.
-
----
-
-# 38. Git Rules
-
-- Commit with conventional, descriptive commit messages:
-  - `feat: add user profile view`
-  - `fix: handle expired auth token in api client`
-  - `refactor: extract mui color tokens`
-- Husky runs `lint-staged` on pre-commit (`eslint --fix`, `prettier --write`).
-- Never commit `.env`, `.env.local`, `.next/`, or `node_modules/`.
-
----
-
-# 39. Change Discipline
-
-When modifying existing code:
-
-1. Understand the existing pattern first.
-2. Make the smallest safe, focused change.
-3. Preserve existing functionality and architecture.
-4. Run static checks (`pnpm typecheck`, `pnpm lint`).
-
----
-
-# 40. AI Coding Rules
-
-When developing with AI assistance:
-
-- Inspect existing files and directory structure before generating new code.
-- Follow established project conventions and file locations.
-- Use `@/` path aliases; never generate deep relative imports.
-- Reuse centralized MUI tokens and `src/services/api/api.ts`.
-- Avoid adding unneeded third-party libraries.
-
----
-
-# 41. Workspace Feature Module + API Recipe (Reference)
-
-Use this when **adding or migrating any workspace feature** (profile, dashboard, users & roles, etc.) from `hospixo-frontend/apps/platform`. The same layers apply whether the screen uses session-only data or full CRUD against the backend.
-
-## 41.1 End-to-end architecture (never skip layers)
-
-```text
-Browser UI (screen)
-  → feature hook (useQuery / useMutation / local UI state)
-    → client API module (fetch same-origin /api/... only)
-      → Next.js BFF route (app/api/.../route.ts)
-        → server API helper (lib/api/*.ts) + session token
-          → BACKEND (NEXT_PUBLIC_API_BASE_URL / api/v1/...)
-```
-
-**Hard rules**
-
-- UI components and screens **must not** call `BACKEND_API_URL`, `api/v1`, or raw backend hosts.
-- UI **must not** embed `fetch('/api/...')` inline — use a feature `api/` module or shared `lib/*` BFF client (see §41.4).
-- BFF routes **must** read the httpOnly session (`requireAccessToken`, `getServerToken`, `getServerAuthSession`) and forward `Authorization: Bearer` to `lib/api/*`.
-- Secrets stay on the server; browser sees only `{ success, data, message }` JSON from `/api/*`.
-- **Exception:** cookie session auth helpers in `src/lib/auth.ts` (`login`, `logout`, `fetchCurrentUser` → `/api/auth/*`) — same-origin BFF, not `services/api/api.ts`.
-- **`services/api/api.ts`:** use for token-in-localStorage flows when applicable; workspace BFF + cookie session is the primary pattern for tenant app features today.
-
-## 41.2 Feature folder layout (all API-backed features)
-
-```text
-src/features/<feature-name>/
-├── index.ts                    # Public exports only (screens/widgets shell needs)
-├── config/                     # Copy, labels, static UI defaults
-├── types/                      # View models + DTO types (types only)
-├── schemas/                    # Zod (optional; query/body validation)
-├── api/                        # Client: fetch /api/... + parse response (see dashboard)
-│   ├── <resource>.ts           # Browser-safe fetchers + Zod/envelope parse
-│   └── <resource>.server.ts    # Node-only: called from app/api routes (optional)
-├── lib/                        # Pure mappers, formatters, build-* (no fetch)
-├── hooks/                      # useQuery, useMutation, UI orchestration ('use client')
-└── components/
-    └── <feature>-screen.tsx    # Main screen (+ private sections in same file when small)
-
-src/app/(workspace)/<route>/page.tsx     # metadata + compose screen (+ SSR load if needed)
-src/app/api/<resource>/route.ts          # BFF: GET/POST/PUT/PATCH/DELETE
-src/lib/api/<resource>.ts                # Backend HTTP (server-only)
-src/lib/<feature>-api-route.ts           # Shared BFF helpers (auth, scope, jsonOk) — when reused
-```
-
-| Layer                 | Responsibility                                                                            |
-| --------------------- | ----------------------------------------------------------------------------------------- |
-| `page.tsx`            | Metadata, route params, optional `await load*()` for SSR seed — **no** JSX business logic |
-| `*-screen.tsx`        | MUI markup, loading/error/empty; calls hooks only                                         |
-| `hooks/`              | React Query keys, `queryFn`/`mutationFn`, dialog state, form drafts                       |
-| `api/*.ts` (client)   | `fetch('/api/...', { credentials: 'same-origin' })`, envelope parse, Zod                  |
-| `api/*.server.ts`     | Heavy server aggregation for BFF (dashboard pattern)                                      |
-| `lib/build-*.ts`      | Map `AuthUser` or API DTO → UI model (pure functions)                                     |
-| `app/api/**/route.ts` | Thin: auth gate → call `lib/api` → `jsonOk` / error mapper                                |
-| `types/`              | TypeScript models — **no** runtime logic (validators live in `schemas/` or `api/`)        |
-
-Prefer **fewer files** (one `*-screen.tsx`, one `hooks/use-<feature>.ts`) until reuse forces a split.
-
-## 41.3 Three data patterns (pick one per screen)
-
-### A — Session identity only (no feature BFF yet)
-
-**Example:** `features/profile` (My Profile).
-
-- Read `useAuth().user` (session + `GET /api/auth/me`).
-- Map with `lib/build-*.ts`.
-- Mutations must still go through BFF when wired — local `useState` alone is not production persistence.
-
-### B — Client fetch + BFF + optional SSR seed (users & roles)
-
-**Examples:** users list, edit staff, invitations.
-
-- **Client:** `src/lib/users.ts`, `src/lib/roles.ts` — typed helpers calling `/api/users`, `/api/roles`, …
-- **BFF:** `src/app/api/users/route.ts`, `src/app/api/users/[userId]/route.ts`, …
-- **Backend:** `src/lib/api/users.ts`
-- **BFF shared:** `src/lib/users-api-route.ts` (`requireAccessToken`, `jsonOk`, scope helpers)
-- **Page:** server `load*PageData()` in `lib/*-server.ts`, pass `initialData` to screen; client refetches via `lib/users` when needed.
-- **UI loading:** in-screen `UsersListPageSkeleton` or equivalent — avoid new skeleton files per feature.
-
-### C — React Query + feature `api/` + BFF (dashboard)
-
-**Example:** `features/dashboard`.
-
-- **Client module:** `features/dashboard/api/organisation-dashboard.ts` — `fetchOrganisationDashboard()`, Zod on response, stable query string builder.
-- **Server module:** `features/dashboard/api/organisation-dashboard.server.ts` — used by BFF route only.
-- **BFF:** `app/api/dashboard/organisation/route.ts` → calls `.server.ts`.
-- **Hook:** `features/dashboard/hooks/organisation-dashboard.ts` — `useQuery`, exported `queryKey` factory, optional SSR `initialData` hydration.
-
-For **new** features with ongoing refetch/mutations, **prefer pattern C** unless the codebase already uses a `lib/<resource>.ts` client (pattern B) for that domain.
-
-## 41.4 Adding a new API surface (checklist)
-
-1. **Types** — `src/types/<domain>.ts` or `features/<feature>/types/` for request/response shapes.
-2. **Backend client (server only)** — `src/lib/api/<resource>.ts` using existing `apiFetch` / paths in `src/lib/api/paths.ts`.
-3. **BFF route** — `src/app/api/<resource>/route.ts` (and dynamic segments as needed):
-   - Auth: `requireAccessToken()` or session helper from existing `*-api-route.ts`.
-   - Call `lib/api/*`; return `jsonOk(data)` / mapped errors (`usersApiError`, `ApiRequestError`).
-   - Document mapping in a file header comment (see `app/api/users/[userId]/route.ts`).
-4. **Client API module** — either:
-   - `features/<feature>/api/<resource>.ts` (preferred for new work), or
-   - extend `src/lib/<resource>.ts` if the domain already uses pattern B.
-5. **Hook** — `useQuery` / `useMutation` in `features/<feature>/hooks/`; export stable `queryKey` arrays.
-6. **Screen** — consume hook; show loading via **existing** skeleton; errors via MUI `Alert`.
-7. **Mutations** — invalidate/refetch query keys on success; never leave success UI-only without API call when backend exists.
-
-```ts
-// features/<feature>/api/example.ts (client)
-export async function fetchExample(id: string): Promise<ExampleDto> {
-  const res = await fetch(`/api/example/${encodeURIComponent(id)}`, {
-    credentials: 'same-origin',
-  });
-  // parse { success, data, message } envelope — same as lib/users.ts
-}
-
-// features/<feature>/hooks/use-example.ts
-export const exampleQueryKey = (id: string) => ['example', id] as const;
-
-export function useExample(id: string) {
-  return useQuery({
-    queryKey: exampleQueryKey(id),
-    queryFn: () => fetchExample(id),
-  });
-}
-```
-
-## 41.5 Workspace route registration
-
-1. Add path in `src/config/routes.ts`.
-2. Add to `workspaceDedicatedPaths` in `src/config/shell/workspace-nav-pages.ts` (avoid catch-all “under construction”).
-3. Update shell/mobile nav hrefs when the feature has a nav entry.
-
-## 41.6 Loading, errors, and skeletons
-
-- Reuse **`UsersListPageSkeleton`** (or an existing feature skeleton) inside the screen.
-- Do **not** add feature-specific shimmer components or extra `loading.tsx` unless a route already standardizes on one (e.g. staff list `loading.tsx` wrapping the shared skeleton).
-- Handle `isPending` / `isError` / empty data on the screen (§35).
-
-## 41.7 MUI styling and light/dark theme
-
-- New workspace screens: **MUI v9** + `sx` (§13–16).
-- Use `theme.palette` and `color="text.*"` — not fixed light-only hex from `colors.ts` in components (§15).
-- Muted surfaces: CSS vars from `src/styles/theme-tokens.css` (`var(--muted)`, `var(--border)`, …) for `.dark` compatibility.
-
-## 41.8 Scope and exports
-
-- One feature per change — no drive-by edits in other features.
-- `features/<name>/index.ts` — export only shell-facing entry points.
-
-## 41.9 Pre-merge checklist
-
-- [ ] Thin `page.tsx`; logic in feature hook + `api/` + BFF
-- [ ] No direct backend URL from browser
-- [ ] BFF authenticated; errors mapped to user-safe messages
-- [ ] React Query (or documented SSR+client pattern) for server state
-- [ ] Loading / error / empty on screen; dark theme checked
-- [ ] `pnpm typecheck` and `pnpm lint`
-
-## 41.10 Reference implementations
-
-| Pattern                   | Where to look                                                                                           |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Session + mapper UI       | `features/profile`, `lib/build-user-profile.ts`, `app/(workspace)/profile/page.tsx`                     |
-| BFF + `lib/*` client      | `lib/users.ts`, `app/api/users/route.ts`, `lib/api/users.ts`, `lib/users-api-route.ts`                  |
-| Feature `api/` + RQ + BFF | `features/dashboard/api/`, `hooks/organisation-dashboard.ts`, `app/api/dashboard/organisation/route.ts` |
-| SSR seed + client refresh | `lib/users-server.ts`, `users-list-page.tsx`                                                            |
-
----
-
-# 42. Final Rule
-
-Prefer:
-
-```text
-Simple
-Typed
-Reusable
-Predictable
-Testable
-Maintainable
-```
-
-Over:
-
-```text
-Complex
-Duplicated
-Over-engineered
-Implicit
-Hard-coded
-Tightly coupled
-```

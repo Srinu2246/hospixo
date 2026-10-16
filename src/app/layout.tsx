@@ -1,37 +1,31 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
-import { Inter } from 'next/font/google';
+import { cookies } from 'next/headers';
 
-import { themeInitScript } from '@/lib/theme/theme-init-script';
+import { readShellSession } from '@/lib/auth/shell-session';
 import { AppProvider } from '@/providers/AppProvider';
-
-import './globals.css';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  display: 'swap',
-});
+import { MuiCacheProvider } from '@/providers/MuiCacheProvider';
+import { AppShell } from '@/components/layout/AppShell';
 
 export const metadata: Metadata = {
   title: 'Hospixo Platform',
   description: 'Application',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = readShellSession(await cookies());
+
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeInitScript }}
-        />
-        <AppProvider>{children}</AppProvider>
+        <MuiCacheProvider>
+          <AppProvider>
+            <AppShell initialSession={session}>{children}</AppShell>
+          </AppProvider>
+        </MuiCacheProvider>
       </body>
     </html>
   );

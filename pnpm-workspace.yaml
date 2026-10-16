@@ -1,3 +1,10 @@
+overrides:
+  '@types/react': 19.3.0
+  '@types/react-dom': 19.3.0
+
 allowBuilds:
   sharp: false
   unrs-resolver: false
+minimumReleaseAgeExclude:
+  - react-dom@19.2.9
+  - react@19.2.9

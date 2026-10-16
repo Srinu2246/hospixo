@@ -1,1 +1,0 @@
-export { FloorToolbar } from './toolbar';

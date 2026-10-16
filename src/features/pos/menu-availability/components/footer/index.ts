@@ -1,1 +1,0 @@
-export { MenuAvailabilityFooter } from './footer';

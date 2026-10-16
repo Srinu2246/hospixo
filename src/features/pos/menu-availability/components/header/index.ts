@@ -1,1 +1,0 @@
-export { MenuAvailabilityHeader } from './header';
