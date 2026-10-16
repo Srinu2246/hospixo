@@ -15,8 +15,12 @@
     "@babel/preset-typescript",
     "@locator/babel-jsx",
     "@locator/webpack-loader",
-    "@treelocator/runtime"
+    "@treelocator/runtime",
+    "lint-staged"
   ],
+  "ignoreIssues": {
+    ".husky/**": ["unlisted", "binaries"]
+  },
   "rules": {
     "files": "error",
     "exports": "error",
