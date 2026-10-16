@@ -109,7 +109,6 @@ export function ProgressBar({
         sx={{
           display: 'flex',
           alignItems: 'flex-start',
-          justifyContent: 'space-between',
           width: '100%',
           position: 'relative',
         }}
@@ -118,109 +117,108 @@ export function ProgressBar({
           const isCompleted = index < activeStep;
           const isActive = index === activeStep;
           const isClickable = Boolean(onStepClick && (isCompleted || isActive));
-
-          // Connective line to next step
           const hasNext = index < steps.length - 1;
-          const nextIsReached = index < activeStep;
 
           return (
-            <React.Fragment key={step.id || step.label}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  position: 'relative',
-                  zIndex: 2,
-                  cursor: isClickable ? 'pointer' : 'default',
-                  userSelect: 'none',
-                }}
-                onClick={() => {
-                  if (isClickable && onStepClick) {
-                    onStepClick(index);
-                  }
-                }}
-              >
-                {/* Step Circle Badge */}
-                <Box
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.8125rem',
-                    fontWeight: 700,
-                    transition: 'all 0.2s ease',
-                    bgcolor: isCompleted
-                      ? colors.success.default
-                      : isActive
-                        ? colors.primary.default
-                        : (theme) =>
-                            theme.palette.mode === 'dark'
-                              ? colors.surface.darkMuted
-                              : colors.surface.default,
-                    color: isCompleted || isActive ? colors.white.default : colors.text.disabled,
-                    border: '2px solid',
-                    borderColor: (theme) =>
-                      isCompleted
-                        ? colors.success.default
-                        : isActive
-                          ? colors.primary.default
-                          : theme.palette.mode === 'dark'
-                            ? theme.palette.divider
-                            : colors.border.default,
-                    boxShadow: isActive ? `0 0 0 4px ${colors.sidebar.badgeBg}` : 'none',
-                  }}
-                >
-                  {isCompleted ? (
-                    <CheckIcon sx={{ fontSize: 18, color: colors.white.default }} />
-                  ) : (
-                    <span>{index + 1}</span>
-                  )}
-                </Box>
-
-                {/* Step Label */}
-                <Typography
-                  sx={{
-                    mt: 1,
-                    fontSize: '0.75rem',
-                    fontWeight: isActive || isCompleted ? 600 : 500,
-                    color: isActive
-                      ? colors.primary.default
-                      : isCompleted
-                        ? 'text.primary'
-                        : 'text.secondary',
-                    textAlign: 'center',
-                    whiteSpace: 'nowrap',
-                    transition: 'color 0.2s ease',
-                  }}
-                >
-                  {step.label}
-                </Typography>
-              </Box>
-
-              {/* Connecting Progress Line */}
+            <Box
+              key={step.id || step.label}
+              sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                position: 'relative',
+                cursor: isClickable ? 'pointer' : 'default',
+                userSelect: 'none',
+              }}
+              onClick={() => {
+                if (isClickable && onStepClick) {
+                  onStepClick(index);
+                }
+              }}
+            >
+              {/* Connecting Progress Line to Next Step */}
               {hasNext && (
                 <Box
                   sx={{
-                    flex: 1,
+                    position: 'absolute',
+                    top: 16, // Center aligned with the 32px badge
+                    left: '50%',
+                    right: '-50%',
                     height: 2,
-                    mx: 1.5,
-                    mt: '15px', // Center with 32px circle
+                    transform: 'translateY(-50%)',
                     bgcolor: (theme) =>
-                      nextIsReached
+                      isCompleted
                         ? colors.success.default
-                        : theme.palette.mode === 'dark'
-                          ? theme.palette.divider
-                          : colors.border.default,
+                        : isActive
+                          ? theme.palette.mode === 'dark'
+                            ? 'rgba(99, 102, 241, 0.4)'
+                            : '#C7D2FE'
+                          : theme.palette.mode === 'dark'
+                            ? theme.palette.divider
+                            : colors.border.default,
                     transition: 'background-color 0.3s ease',
                     zIndex: 1,
                   }}
                 />
               )}
-            </React.Fragment>
+
+              {/* Step Circle Badge */}
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.8125rem',
+                  fontWeight: 700,
+                  transition: 'all 0.2s ease',
+                  position: 'relative',
+                  zIndex: 2,
+                  bgcolor: isCompleted
+                    ? colors.success.default
+                    : isActive
+                      ? colors.primary.default
+                      : (theme) =>
+                          theme.palette.mode === 'dark' ? colors.surface.darkMuted : '#FFFFFF',
+                  color: isCompleted || isActive ? colors.white.default : '#94A3B8',
+                  border: '2px solid',
+                  borderColor: (theme) =>
+                    isCompleted
+                      ? colors.success.default
+                      : isActive
+                        ? colors.primary.default
+                        : theme.palette.mode === 'dark'
+                          ? theme.palette.divider
+                          : colors.border.default,
+                  boxShadow: isActive ? '0 2px 6px rgba(51, 84, 244, 0.25)' : 'none',
+                }}
+              >
+                {isCompleted ? (
+                  <CheckIcon sx={{ fontSize: 18, color: colors.white.default }} />
+                ) : (
+                  <span>{index + 1}</span>
+                )}
+              </Box>
+
+              {/* Step Label */}
+              <Typography
+                sx={{
+                  mt: 1,
+                  fontSize: { xs: '0.6875rem', sm: '0.75rem' },
+                  fontWeight: isActive || isCompleted ? 600 : 500,
+                  color: isActive || isCompleted ? 'text.secondary' : 'text.disabled',
+                  textAlign: 'center',
+                  whiteSpace: { xs: 'normal', sm: 'nowrap' },
+                  px: 0.5,
+                  transition: 'color 0.2s ease',
+                }}
+              >
+                {step.label}
+              </Typography>
+            </Box>
           );
         })}
       </Box>

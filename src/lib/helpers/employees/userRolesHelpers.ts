@@ -5,6 +5,7 @@ import type { CompanyListItem } from '@/lib/schemas/organization/companies/compa
 import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import {
   roleRequiresBranchId,
+  unwrapEnvelope,
   type CreateUserRequestContext,
   type RoleCatalogItem,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
@@ -208,9 +209,30 @@ export async function resolveCreateUserRequestContext(
     );
   }
 
-  if (needsBranch && branchId == null && names.branch?.trim()) {
+  if (branchId == null && names.branch?.trim()) {
     const branchName = names.branch.trim();
     branchId = normalizeId(branches.find((branch) => branch.name === branchName)?.id);
+  }
+
+  if (companyId == null && branchId != null) {
+    const matchedBranch = branches.find((branch) => normalizeId(branch.id) === branchId);
+    if (matchedBranch?.companyId != null) {
+      companyId = normalizeId(matchedBranch.companyId);
+    }
+  }
+
+  if (companyId == null && names.branch?.trim()) {
+    const matchedBranch = branches.find((branch) => branch.name === names.branch?.trim());
+    if (matchedBranch?.companyId != null) {
+      companyId = normalizeId(matchedBranch.companyId);
+    }
+  }
+
+  if (!names.company?.trim() && companyId != null) {
+    const matchedCompany = companies.find((c) => normalizeId(c.id) === companyId);
+    if (matchedCompany?.name) {
+      names.company = matchedCompany.name;
+    }
   }
 
   if (companyId == null) {
@@ -237,4 +259,130 @@ function normalizeId(value: unknown): number | undefined {
     if (Number.isFinite(parsed)) return parsed;
   }
   return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function extractAssignedPermissionKeys(payload: unknown): Set<string> {
+  const keys = new Set<string>();
+  const unwrapped = unwrapEnvelope(payload);
+
+  const addCandidate = (val: unknown) => {
+    if (typeof val === 'string' && val.trim()) {
+      keys.add(val.trim());
+      keys.add(val.trim().toLowerCase());
+    } else if (typeof val === 'number') {
+      keys.add(String(val));
+    }
+  };
+
+  const processItem = (item: unknown) => {
+    if (typeof item === 'string' || typeof item === 'number') {
+      addCandidate(item);
+      return;
+    }
+    if (!isRecord(item)) return;
+
+    const isExplicitlyDisabled =
+      item.enabled === false ||
+      item.granted === false ||
+      item.active === false ||
+      item.is_granted === false ||
+      item.isGranted === false;
+
+    if (isExplicitlyDisabled) return;
+
+    for (const prop of [
+      'id',
+      'key',
+      'code',
+      'permission',
+      'permission_id',
+      'permissionId',
+      'permission_code',
+      'permissionCode',
+      'permission_key',
+      'permissionKey',
+      'name',
+    ] as const) {
+      if (item[prop] !== undefined && item[prop] !== null) {
+        addCandidate(item[prop]);
+      }
+    }
+
+    for (const childProp of ['permissions', 'items', 'children'] as const) {
+      if (Array.isArray(item[childProp])) {
+        for (const child of item[childProp] as unknown[]) {
+          processItem(child);
+        }
+      }
+    }
+  };
+
+  if (Array.isArray(unwrapped)) {
+    for (const item of unwrapped) {
+      processItem(item);
+    }
+  } else if (isRecord(unwrapped)) {
+    for (const listProp of [
+      'permissions',
+      'items',
+      'data',
+      'results',
+      'rows',
+      'effective_permissions',
+      'effectivePermissions',
+      'permission_codes',
+      'permissionCodes',
+      'inherited_permission_codes',
+      'inheritedPermissionCodes',
+    ] as const) {
+      if (Array.isArray(unwrapped[listProp])) {
+        for (const item of unwrapped[listProp] as unknown[]) {
+          processItem(item);
+        }
+      }
+    }
+    for (const [k, v] of Object.entries(unwrapped)) {
+      if (v === true) {
+        addCandidate(k);
+      }
+    }
+  }
+
+  return keys;
+}
+
+export function autoEnableRolePermissions(
+  categories: readonly PermissionCategory[],
+  assignedKeys: Set<string>,
+): PermissionCategory[] {
+  if (assignedKeys.size === 0) return [...categories];
+
+  return categories.map((category) => {
+    return {
+      ...category,
+      permissions: category.permissions.map((perm) => {
+        const candidateCode =
+          'code' in perm && typeof (perm as Record<string, unknown>).code === 'string'
+            ? ((perm as Record<string, unknown>).code as string)
+            : undefined;
+        const isAssigned =
+          assignedKeys.has(perm.id) ||
+          assignedKeys.has(perm.id.toLowerCase()) ||
+          assignedKeys.has(perm.name) ||
+          assignedKeys.has(perm.name.toLowerCase()) ||
+          (candidateCode
+            ? assignedKeys.has(candidateCode) || assignedKeys.has(candidateCode.toLowerCase())
+            : false);
+
+        return {
+          ...perm,
+          enabled: isAssigned,
+        };
+      }),
+    };
+  });
 }

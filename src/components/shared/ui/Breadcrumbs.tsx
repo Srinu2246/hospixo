@@ -20,6 +20,7 @@ export interface BreadcrumbItem {
 
 export type BreadcrumbsSize = 'small' | 'medium' | 'large';
 export type BreadcrumbsVariant = 'default' | 'title';
+export type BreadcrumbsDivider = 'dotted' | 'solid' | 'none';
 
 export interface BreadcrumbsProps {
   items: readonly BreadcrumbItem[]; // Ordered list of breadcrumb items
@@ -28,6 +29,9 @@ export interface BreadcrumbsProps {
   variant?: BreadcrumbsVariant; // Visual variant: 'default' (classic nav) or 'title' (prominent heading)
   chip?: ReactNode; // Shortcut for a trailing status badge/chip after the active item
   ariaLabel?: string; // Accessible nav label (default: 'breadcrumb')
+  divider?: BreadcrumbsDivider | boolean; // Visual bottom divider: 'dotted' | 'solid' | 'none'
+  dividerColor?: string; // Optional custom color for divider (defaults to primary blue #3354F4 for dotted)
+  borderBottom?: boolean | string; // Direct borderBottom support (e.g. true, 'dotted', '1.5px dotted #3354F4')
   sx?: SxProps<Theme>; // Root navigation container style overrides
   linkSx?: SxProps<Theme>; // Clickable breadcrumb item style overrides
   activeSx?: SxProps<Theme>; // Active/current breadcrumb item style overrides
@@ -71,6 +75,9 @@ export function Breadcrumbs({
   variant = 'default',
   chip,
   ariaLabel = 'breadcrumb',
+  divider,
+  dividerColor,
+  borderBottom,
   sx,
   linkSx,
   activeSx,
@@ -81,6 +88,19 @@ export function Breadcrumbs({
 
   const config = SIZE_CONFIG[size];
   const isTitleVariant = variant === 'title';
+
+  const isDotted = borderBottom === 'dotted' || divider === 'dotted';
+  const isSolid =
+    borderBottom === 'solid' || borderBottom === true || divider === 'solid' || divider === true;
+
+  const resolvedBorderBottom =
+    typeof borderBottom === 'string' && borderBottom !== 'dotted' && borderBottom !== 'solid'
+      ? borderBottom
+      : isSolid
+        ? `1px solid ${dividerColor || 'rgba(0, 0, 0, 0.12)'}`
+        : isDotted
+          ? `1.5px dotted ${dividerColor || colors.primary.default}`
+          : undefined;
 
   // Default separator using Lucide ChevronRight
   const defaultSeparator = (
@@ -110,6 +130,12 @@ export function Breadcrumbs({
       sx={{
         display: 'flex',
         alignItems: 'center',
+        width: '100%',
+        ...(resolvedBorderBottom
+          ? {
+              borderBottom: resolvedBorderBottom,
+            }
+          : {}),
         ...((sx as object) || {}),
       }}
     >
@@ -229,8 +255,12 @@ export function Breadcrumbs({
                   aria-current={isActive ? 'page' : undefined}
                   sx={{
                     fontSize: resolvedFontSize,
-                    fontWeight: isBold ? 800 : 500,
-                    color: isBold || isActive ? 'text.primary' : 'text.secondary',
+                    fontWeight: isBold ? 800 : isActive ? 600 : 500,
+                    color: isActive
+                      ? colors.primary.default
+                      : isBold
+                        ? 'text.primary'
+                        : 'text.secondary',
                     letterSpacing: isBold ? '-0.02em' : 'normal',
                     lineHeight: 1.2,
                     ...((activeSx as object) || {}),
