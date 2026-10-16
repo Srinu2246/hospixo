@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -21,6 +21,7 @@ import { Input } from '@/components/shared/form-fields/Input';
 import { MobileNumberInput } from '@/components/shared/form-fields/MobileNumberInput';
 import { Modal } from '@/components/shared/ui/Modal';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { colors } from '@/lib/theme/mui/colors';
 
 import {
@@ -78,23 +79,23 @@ export function EditStaffProfileScreen({
   };
   const baseRoute = getBaseRoute();
   const [mode, setMode] = useState<'view' | 'edit'>(initialMode);
+  const remoteCategories = staffProfile.categories;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
+  const [syncedRemoteCategories, setSyncedRemoteCategories] =
+    useState<PermissionCategory[]>(remoteCategories);
 
-  useEffect(() => {
-    if (staffProfile.categories.length > 0) {
-      setCategories(staffProfile.categories);
+  if (remoteCategories !== syncedRemoteCategories) {
+    setSyncedRemoteCategories(remoteCategories);
+    if (remoteCategories.length > 0) {
+      setCategories(remoteCategories);
     }
-  }, [staffProfile.categories]);
+  }
 
   // Deactivation confirmation modal state
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
 
-  // Sticky footer portal container
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    setFooterTarget(document.getElementById('app-shell-footer'));
-  }, []);
+  const footerTarget = useAppShellFooterTarget();
 
   // Toast feedback state
   const [toastFeedback, setToastFeedback] = useState<{
@@ -116,7 +117,6 @@ export function EditStaffProfileScreen({
     control,
     handleSubmit,
     setValue,
-    watch,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<StaffProfileFormValues>({
@@ -141,7 +141,8 @@ export function EditStaffProfileScreen({
     }
   }, [userProfile, reset]);
 
-  const userStatusValue = watch('userStatus');
+  const userStatusValue = useWatch({ control, name: 'userStatus' });
+  const countryCodeValue = useWatch({ control, name: 'countryCode' });
 
   const handleBack = () => {
     if (onBack) {
@@ -445,7 +446,7 @@ export function EditStaffProfileScreen({
                   <MobileNumberInput
                     label="PHONE NUMBER"
                     required
-                    countryCode={watch('countryCode') || '+91'}
+                    countryCode={countryCodeValue || '+91'}
                     onCountryCodeChange={(code) => setValue('countryCode', code)}
                     placeholder="98765 43210"
                     phoneNumber={field.value}

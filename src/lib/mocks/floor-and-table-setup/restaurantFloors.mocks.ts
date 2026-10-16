@@ -1,5 +1,5 @@
 import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
-import { mapPosFloorMapToTables } from '@/lib/schemas/pos/point-of-sale/tables/floorMapSchema';
+import { mergeSectionTablesWithOpenOrders } from '@/lib/schemas/pos/point-of-sale/tables/openOrdersSchema';
 import { ApiError, type HttpMethod, type QueryParams } from '@/services/api/types';
 
 type MockRequest = {
@@ -82,92 +82,88 @@ const tables: TableRecord[] = [
   table(112, 66, 92, 49, 'T12', 2, 3),
 ];
 
-/** POS occupancy extras keyed by table id for floor-map responses. */
-const POS_TABLE_LIVE: Record<
-  number,
+/**
+ * Open dine-in orders for GET /v1/branches/{branch_id}/orders.
+ * Same table ids as the floor catalog above.
+ */
+const MOCK_OPEN_ORDERS = [
   {
-    is_occupied: boolean;
-    order_id?: number | null;
-    order_number?: string | null;
-    guest_count?: number | null;
-    order_status?: string | null;
-    kitchen_badge?: string | null;
-    grand_total?: number | null;
-    payment_status?: string | null;
-  }
-> = {
-  103: { is_occupied: false, payment_status: null },
-  104: {
-    is_occupied: true,
-    order_id: 501,
+    id: 501,
+    public_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
     order_number: 'ORD-104',
+    order_type: 'dine_in',
+    table_id: 104,
+    table_name: 'T2',
+    floor_id: 59,
+    section_id: 93,
     guest_count: 4,
-    order_status: 'in_progress',
+    status: 'in_progress',
     kitchen_badge: 'preparing',
+    payment_status: 'pending',
     grand_total: 1250,
-    payment_status: 'pending',
+    opened_at: '2026-10-16T17:56:22.140Z',
   },
-  105: { is_occupied: false, payment_status: null },
-  106: {
-    is_occupied: true,
-    order_id: 502,
+  {
+    id: 502,
+    public_id: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
     order_number: 'ORD-106',
+    order_type: 'dine_in',
+    table_id: 106,
+    table_name: 'T4',
+    floor_id: 59,
+    section_id: 93,
     guest_count: 3,
-    order_status: 'in_progress',
+    status: 'in_progress',
     kitchen_badge: 'ordering',
+    payment_status: 'pending',
     grand_total: 882,
-    payment_status: 'pending',
+    opened_at: '2026-10-16T17:40:00.000Z',
   },
-  107: {
-    is_occupied: false,
-    order_status: 'reserved',
-    kitchen_badge: 'reserved',
-    guest_count: 2,
-    payment_status: 'reserved',
-  },
-  108: { is_occupied: false, payment_status: null },
-  109: {
-    is_occupied: false,
-    kitchen_badge: 'cleaning',
-    order_status: null,
-    payment_status: null,
-  },
-  110: {
-    is_occupied: false,
-    order_status: 'reserved',
-    kitchen_badge: 'reserved',
-    guest_count: 5,
-    payment_status: 'reserved',
-  },
-  101: { is_occupied: false, payment_status: null },
-  102: {
-    is_occupied: true,
-    order_id: 503,
+  {
+    id: 503,
+    public_id: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
     order_number: 'ORD-102',
+    order_type: 'dine_in',
+    table_id: 102,
+    table_name: 'T10',
+    floor_id: 66,
+    section_id: 92,
     guest_count: 2,
-    order_status: 'billing',
+    status: 'billing',
     kitchen_badge: 'ready',
-    grand_total: 920,
     payment_status: 'billing',
+    grand_total: 920,
+    opened_at: '2026-10-16T16:20:00.000Z',
   },
-  111: {
-    is_occupied: true,
-    order_id: 504,
+  {
+    id: 504,
+    public_id: '6ba7b811-9dad-11d1-80b4-00c04fd430c8',
     order_number: 'ORD-111',
+    order_type: 'dine_in',
+    table_id: 111,
+    table_name: 'T11',
+    floor_id: 66,
+    section_id: 92,
     guest_count: 4,
-    order_status: 'in_progress',
+    status: 'in_progress',
     kitchen_badge: 'preparing',
-    grand_total: 1120,
     payment_status: 'pending',
+    grand_total: 1120,
+    opened_at: '2026-10-16T18:05:00.000Z',
   },
-  112: { is_occupied: false, payment_status: null },
-};
+];
 
 let nextId = 200;
 
 const FLOOR_PATH = /^\/v1\/branches\/(\d+)\/floors(?:\/(.*))?$/;
+const BRANCH_ORDERS_PATH = /^\/v1\/branches\/(\d+)\/orders$/;
 
 export function resolveRestaurantFloorMock(request: MockRequest): unknown | undefined {
+  const ordersMatch = BRANCH_ORDERS_PATH.exec(request.path);
+  if (ordersMatch?.[1] && request.method === 'GET') {
+    return openOrdersList(Number(ordersMatch[1]), request.params);
+  }
+
   const match = FLOOR_PATH.exec(request.path);
   if (!match?.[1]) return undefined;
 
@@ -464,6 +460,7 @@ function moveTable(current: TableRecord, body: unknown): TableRecord {
   return current;
 }
 
+/** Floor-setup floor-map (catalog only). POS live status comes from open orders. */
 function floorMap(branchId: number, floorId?: number, sectionId?: number) {
   return {
     branch_id: branchId,
@@ -490,38 +487,78 @@ function floorMap(branchId: number, floorId?: number, sectionId?: number) {
             is_default: entry.is_default,
             tables: tables
               .filter((tableItem) => tableItem.section_id === entry.id)
-              .map((tableItem) => {
-                const live = POS_TABLE_LIVE[tableItem.id] ?? { is_occupied: false };
-                return {
-                  id: tableItem.id,
-                  public_id: tableItem.public_id,
-                  name: tableItem.name,
-                  capacity: tableItem.capacity,
-                  sort_order: tableItem.sort_order,
-                  status: tableItem.status,
-                  active_qr: null,
-                  combination_id: null,
-                  is_combined: false,
-                  combined_capacity: null,
-                  member_table_ids: [],
-                  is_occupied: live.is_occupied,
-                  order_id: live.order_id ?? null,
-                  order_number: live.order_number ?? null,
-                  guest_count: live.guest_count ?? null,
-                  order_status: live.order_status ?? null,
-                  kitchen_badge: live.kitchen_badge ?? null,
-                  grand_total: live.grand_total ?? null,
-                  payment_status: live.payment_status ?? null,
-                };
-              }),
+              .map((tableItem) => ({
+                id: tableItem.id,
+                public_id: tableItem.public_id,
+                name: tableItem.name,
+                capacity: tableItem.capacity,
+                sort_order: tableItem.sort_order,
+                status: tableItem.status,
+              })),
           })),
       })),
   };
 }
 
-/** Legacy POS list endpoints share the same floor-map table source. */
+/** Legacy POS list endpoints: section tables merged with open dine-in orders. */
 export function getMockPosTablesData(branchId = 49): PosTableItem[] {
-  return mapPosFloorMapToTables(floorMap(branchId));
+  return floors
+    .filter((floor) => floor.branch_id === branchId)
+    .flatMap((floor) =>
+      sections
+        .filter((section) => section.floor_id === floor.id)
+        .flatMap((section) =>
+          mergeSectionTablesWithOpenOrders(
+            tables.filter((table) => table.section_id === section.id),
+            MOCK_OPEN_ORDERS.filter((order) => order.section_id === section.id),
+            floor.id,
+            section.id,
+          ),
+        ),
+    );
+}
+
+/** GET /v1/branches/{branch_id}/orders — returns the mock rows as stored. */
+function openOrdersList(branchId: number, params?: QueryParams) {
+  const status = typeof params?.status === 'string' ? params.status : 'open';
+  const orderType = typeof params?.order_type === 'string' ? params.order_type : undefined;
+  const floorId = queryNumber(params, 'floor_id');
+  const sectionId = queryNumber(params, 'section_id');
+  const page = queryNumber(params, 'page') ?? 1;
+  const pageSize = queryNumber(params, 'page_size') ?? 15;
+  const branchTableIds = new Set(
+    tables.filter((table) => table.branch_id === branchId).map((table) => table.id),
+  );
+
+  const items =
+    status === 'open'
+      ? MOCK_OPEN_ORDERS.filter((order) => {
+          if (!branchTableIds.has(order.table_id)) return false;
+          if (orderType && order.order_type !== orderType) return false;
+          if (floorId != null && order.floor_id !== floorId) return false;
+          if (sectionId != null && order.section_id !== sectionId) return false;
+          return true;
+        })
+      : [];
+
+  return {
+    success: true,
+    data: {
+      items,
+      total: items.length,
+      page,
+      page_size: pageSize,
+    },
+    message: 'OK',
+    request_id: 'mock-branch-orders',
+  };
+}
+
+function queryNumber(params: QueryParams | undefined, key: string): number | undefined {
+  const value = params?.[key];
+  if (value == null || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function archiveRecord<

@@ -9,8 +9,6 @@ import {
   resolveCreateUserRequestContext,
   type CreateUserIdHints,
 } from '@/lib/helpers/employees/userRolesHelpers';
-import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
-import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import {
   enrichUserListRoles,
   parseGroupedPermissions,
@@ -497,11 +495,6 @@ export function useGroupedPermissions() {
 // ---------------------------------------------------------------------------
 // Company / branch directory for create-user forms
 // ---------------------------------------------------------------------------
-
-type EmployeeDirectory = {
-  companies: CompanyListItem[];
-  branches: BranchListItem[];
-};
 
 export function useEmployeeDirectory(organizationId?: number, companyId?: number) {
   return useQuery({
