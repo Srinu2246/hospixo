@@ -161,6 +161,16 @@ export function restaurantMenuItemsPath(): string {
   return ApiUrlsV1.restaurant.menuItems.list;
 }
 
+/** GET /v1/restaurant/menu/items/{item_id} */
+export function restaurantMenuItemPath(itemId: number | string): string {
+  return ApiUrlsV1.restaurant.menuItems.detail(String(itemId));
+}
+
+/** POST /v1/restaurant/menu/items/{item_id}/deactivate */
+export function restaurantMenuItemDeactivatePath(itemId: number | string): string {
+  return `${restaurantMenuItemPath(itemId)}/deactivate`;
+}
+
 export function restaurantFloorsPath(branchId: number): string {
   return `${ApiUrlsV1.restaurant.branches}/${branchId}/floors`;
 }

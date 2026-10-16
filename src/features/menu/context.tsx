@@ -21,9 +21,10 @@ import {
   type MenuCreationViewMode,
   type MenuPageConfig,
 } from '@/lib/schemas/menu/menuCreationSchema';
-import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
+import { toCatalogDietary, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import { useMenuCategories } from '@/lib/hooks/menu/useMenuCategories';
-import { useMenuItems } from '@/lib/hooks/menu/useMenuItems';
+import { useDeactivateMenuItem, useMenuItems } from '@/lib/hooks/menu/useMenuItems';
+import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 
 /* -------------------------------------------------------------------------- */
 /* Menu Creation                                                              */
@@ -59,50 +60,14 @@ export interface MenuCreationContextValue {
   toggleCategoryStatus: (categoryId: string) => void;
   addItem: (data: CreateMenuItemFormValues) => void;
   updateItem: (id: string, data: CreateMenuItemFormValues) => void;
-  deleteItem: (id: string) => void;
+  /** Soft-delete via POST .../items/{id}/deactivate */
+  deleteItem: (id: string) => Promise<void>;
+  isDeletingItem?: boolean;
 }
 
 const MenuCreationContext = createContext<MenuCreationContextValue | null>(null);
 
 const MENU_LIST_PARAMS = { page_size: 100 } as const;
-
-function toCatalogDietary(dietary: MenuItemResponse['dietary_type']): MenuCatalogItem['dietary'] {
-  if (dietary === 'non_veg') return 'Non-Veg';
-  if (dietary === 'egg') return 'Egg';
-  if (dietary === 'vegan') return 'Vegan';
-  return 'Veg';
-}
-
-function toCatalogItem(
-  item: MenuItemResponse,
-  categoryNameById: Map<string, string>,
-): MenuCatalogItem {
-  const orderTypes: string[] = [];
-  if (item.allow_dine_in) orderTypes.push('Dine In');
-  if (item.allow_takeaway) orderTypes.push('Take Away');
-  if (item.allow_delivery) orderTypes.push('Delivery');
-
-  const tags = item.tags.map((tag) => tag.name);
-  if (item.is_favorite) tags.push('Set As Favorite');
-  if (item.is_combo) tags.push('Set As Combo');
-
-  const primaryImage = item.images.find((image) => image.is_primary) ?? item.images[0];
-
-  return {
-    id: String(item.id),
-    name: item.name,
-    categoryId: String(item.category_id),
-    categoryName: categoryNameById.get(String(item.category_id)) ?? 'Uncategorized',
-    basePrice: item.base_price,
-    dietary: toCatalogDietary(item.dietary_type),
-    status: item.status === 'active' ? 'Available' : 'Inactive',
-    code: item.code ?? undefined,
-    description: item.description ?? undefined,
-    imageUrl: primaryImage?.url ?? undefined,
-    orderTypes,
-    tags,
-  };
-}
 
 export function MenuCreationProvider({
   pageConfig,
@@ -125,6 +90,7 @@ export function MenuCreationProvider({
 
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
   const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
+  const deactivateMenuItem = useDeactivateMenuItem();
 
   const apiCategories = categoriesQuery.data?.items;
   const apiItems = itemsQuery.data?.items;
@@ -158,7 +124,7 @@ export function MenuCreationProvider({
 
   const items: MenuCatalogItem[] = useMemo(() => {
     if (localItems.length > 0) return localItems;
-    return (apiItems ?? []).map((item) => toCatalogItem(item, categoryNameById));
+    return (apiItems ?? []).map((item) => toMenuCatalogItem(item, categoryNameById));
   }, [apiItems, categoryNameById, localItems]);
 
   // Seed selection once API items arrive for view/edit deep links.
@@ -294,8 +260,18 @@ export function MenuCreationProvider({
           window.history.pushState({ view: 'view-item', itemId: item.id }, '', url.toString());
         }
       },
-      deleteItem: (id: string) => {
-        setLocalItems(items.filter((item) => item.id !== id));
+      deleteItem: async (id: string) => {
+        const itemId = Number(id);
+        if (!Number.isFinite(itemId) || itemId <= 0) {
+          throw new Error('Invalid menu item id');
+        }
+
+        await deactivateMenuItem.mutateAsync(itemId);
+
+        setLocalItems((prev) => {
+          const source = prev.length > 0 ? prev : items;
+          return source.filter((item) => item.id !== id);
+        });
         setSelectedItem(null);
         setViewMode('list');
         if (typeof window !== 'undefined') {
@@ -305,6 +281,7 @@ export function MenuCreationProvider({
           window.history.pushState({}, '', `${url.pathname}${url.search}`);
         }
       },
+      isDeletingItem: deactivateMenuItem.isPending,
       backToList: () => {
         setSelectedItem(null);
         setViewMode('list');
@@ -405,6 +382,7 @@ export function MenuCreationProvider({
       itemsError,
       refetchCategories,
       refetchItems,
+      deactivateMenuItem,
     ],
   );
 
