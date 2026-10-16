@@ -1,8 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import TakeoutDiningIcon from '@mui/icons-material/TakeoutDining';
 import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
@@ -14,9 +22,11 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
+import { useToastStore } from '@/stores/toastStore';
 import {
   BRANCH_STAT_CARDS,
   BRANCH_EXPENSES,
@@ -32,23 +42,83 @@ import {
 import { DashboardStatCard } from '../shared/DashboardStatCard';
 import { QuickHelpCard } from '../shared/QuickHelpCard';
 
-export function BranchSalesDashboard() {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5, width: '100%', pb: 4 }}>
-      {/* 1. Top 4 Stat Cards */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' },
-          gap: 2.5,
-        }}
-      >
-        {BRANCH_STAT_CARDS.map((stat) => (
-          <DashboardStatCard key={stat.id} stat={stat} />
-        ))}
-      </Box>
+const DATE_OPTIONS = [
+  'Today',
+  'Yesterday',
+  'This Week (Mon - Sun)',
+  'Last 7 Days (28 Jun - 4 Jul 2025)',
+  'This Month',
+  'Last Month',
+  'Custom Range...',
+];
 
-      {/* 2. Sub-section Header: Sales Statistics with Date & Refresh Button */}
+const PERIOD_OPTIONS = ['Today', 'Yesterday', 'Last 7 Days', 'This Month'];
+
+export interface BranchSalesDashboardProps {
+  onExportClick?: () => void;
+}
+
+export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDashboardProps> = {}) {
+  const [selectedDateRange, setSelectedDateRange] = useState<string>(
+    BRANCH_SALES_SUMMARY.dateRange,
+  );
+  const [dateMenuAnchor, setDateMenuAnchor] = useState<HTMLElement | null>(null);
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState('2025-06-28');
+  const [customEndDate, setCustomEndDate] = useState('2025-07-04');
+
+  const [chartPeriod, setChartPeriod] = useState('Today');
+  const [chartMenuAnchor, setChartMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const [onlinePeriod, setOnlinePeriod] = useState('Today');
+  const [onlineMenuAnchor, setOnlineMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const [expensesPeriod, setExpensesPeriod] = useState('Today');
+  const [expensesMenuAnchor, setExpensesMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const handleExport = () => {
+    if (onExportClick) {
+      onExportClick();
+    } else {
+      useToastStore.getState().show('Exporting sales statistics data to CSV/Excel...', 'info');
+    }
+  };
+
+  const handleRefresh = () => {
+    useToastStore.getState().show('Refreshing branch dashboard data...', 'info');
+  };
+
+  const handleDateSelect = (option: string) => {
+    setDateMenuAnchor(null);
+    if (option === 'Custom Range...') {
+      setCustomDialogOpen(true);
+      return;
+    }
+    setSelectedDateRange(option);
+    useToastStore.getState().show(`Filtered sales statistics for ${option}`, 'info');
+  };
+
+  const handleApplyCustomDate = () => {
+    if (customStartDate && customEndDate) {
+      const formatted = `${customStartDate} to ${customEndDate}`;
+      setSelectedDateRange(formatted);
+      useToastStore.getState().show(`Filtered sales statistics for ${formatted}`, 'success');
+    }
+    setCustomDialogOpen(false);
+  };
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: { xs: 2.5, sm: 3, md: 3.5 },
+        width: '100%',
+        pb: 4,
+      }}
+    >
+      {/* 1. Sub-section Header: Sales Statistics with Date & Refresh/Export Button */}
+      {/* Appears first up to 1050px (order: 1); sub-header below stats on desktop > 1050px (order: 2) */}
       <Box
         sx={{
           display: 'flex',
@@ -57,6 +127,10 @@ export function BranchSalesDashboard() {
           flexWrap: 'wrap',
           gap: 2,
           pt: 0.5,
+          order: 1,
+          '@media (min-width: 1051px)': {
+            order: 2,
+          },
         }}
       >
         <Typography
@@ -64,7 +138,7 @@ export function BranchSalesDashboard() {
           component="h2"
           sx={{
             fontWeight: 700,
-            fontSize: '1.25rem',
+            fontSize: { xs: '1.25rem', sm: '1.375rem' },
             color: 'text.primary',
             letterSpacing: '-0.015em',
           }}
@@ -73,9 +147,11 @@ export function BranchSalesDashboard() {
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Working Date Selection Button */}
           <ButtonBase
+            onClick={(e) => setDateMenuAnchor(e.currentTarget)}
             sx={{
-              px: 1.75,
+              px: { xs: 1.25, sm: 1.75 },
               py: 0.85,
               borderRadius: '8px',
               border: '1px solid',
@@ -88,15 +164,137 @@ export function BranchSalesDashboard() {
               display: 'flex',
               alignItems: 'center',
               gap: 1,
+              transition: 'border-color 0.15s ease',
+              '&:hover': {
+                borderColor: colors.primary.default,
+              },
             }}
           >
             <CalendarMonthOutlinedIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-            {BRANCH_SALES_SUMMARY.dateRange}
+            {selectedDateRange}
             <KeyboardArrowDownIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
           </ButtonBase>
 
+          {/* Date Options Menu */}
+          <Menu
+            anchorEl={dateMenuAnchor}
+            open={Boolean(dateMenuAnchor)}
+            onClose={() => setDateMenuAnchor(null)}
+            slotProps={{
+              paper: {
+                sx: {
+                  borderRadius: '10px',
+                  minWidth: 230,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                },
+              },
+            }}
+          >
+            {DATE_OPTIONS.map((range) => (
+              <MenuItem
+                key={range}
+                selected={range === selectedDateRange}
+                onClick={() => handleDateSelect(range)}
+                sx={{ fontSize: '0.8125rem' }}
+              >
+                {range}
+              </MenuItem>
+            ))}
+          </Menu>
+
+          {/* Custom Date Range Picker Dialog */}
+          <Dialog
+            open={customDialogOpen}
+            onClose={() => setCustomDialogOpen(false)}
+            slotProps={{
+              paper: {
+                sx: { borderRadius: '14px', p: 1, minWidth: { xs: 300, sm: 380 } },
+              },
+            }}
+          >
+            <DialogTitle sx={{ fontWeight: 700, fontSize: '1.125rem' }}>
+              Select Custom Date Range
+            </DialogTitle>
+            <DialogContent
+              sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}
+            >
+              <TextField
+                label="Start Date"
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="End Date"
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                fullWidth
+                size="small"
+              />
+            </DialogContent>
+            <DialogActions sx={{ pb: 1.5, px: 2 }}>
+              <Button
+                onClick={() => setCustomDialogOpen(false)}
+                color="inherit"
+                sx={{ fontSize: '0.8125rem' }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleApplyCustomDate}
+                variant="contained"
+                sx={{ fontSize: '0.8125rem' }}
+              >
+                Apply
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Export Data Button - visible on all responsive devices up to 1050px (mobile + tablet) */}
           <ButtonBase
+            onClick={handleExport}
             sx={{
+              display: 'inline-flex',
+              '@media (min-width: 1051px)': {
+                display: 'none',
+              },
+              px: { xs: 1.25, sm: 1.75 },
+              py: 0.85,
+              borderRadius: '8px',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(79, 70, 229, 0.2)' : '#EEF2FF',
+              color: '#4F46E5',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              alignItems: 'center',
+              gap: 0.75,
+              border: '1px solid',
+              borderColor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(79, 70, 229, 0.3)' : '#E0E7FF',
+              transition: 'background-color 0.15s ease',
+              '&:hover': {
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark' ? 'rgba(79, 70, 229, 0.3)' : '#E0E7FF',
+              },
+            }}
+          >
+            <DescriptionOutlinedIcon sx={{ fontSize: 18, color: '#4F46E5' }} />
+            Export Data
+          </ButtonBase>
+
+          {/* Refresh Button - visible above 1050px on desktop */}
+          <ButtonBase
+            onClick={handleRefresh}
+            sx={{
+              display: 'none',
+              '@media (min-width: 1051px)': {
+                display: 'inline-flex',
+              },
               p: 0.85,
               borderRadius: '8px',
               border: '1px solid',
@@ -116,19 +314,49 @@ export function BranchSalesDashboard() {
         </Box>
       </Box>
 
-      {/* 3. Middle Row: 3 Visual Analysis Cards */}
+      {/* 2. Top 4 Stat Cards */}
+      {/* 2x2 grid up to 1050px; 4 columns on desktop above 1050px */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr 1fr' },
-          gap: 2.5,
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(2, 1fr)' },
+          gap: { xs: 1.5, sm: 2, md: 2.5 },
+          order: 2,
+          '@media (min-width: 1051px)': {
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            order: 1,
+          },
         }}
       >
-        {/* Card 1: Channel Orders Chart */}
+        {BRANCH_STAT_CARDS.map((stat) => (
+          <DashboardStatCard key={stat.id} stat={stat} />
+        ))}
+      </Box>
+
+      {/* 3. Middle Row: 3 Visual Analysis Cards */}
+      {/* Desktop > 1050px: 3 cards in 1 row (1.2fr 1fr 1fr) */}
+      {/* Tablet & <= 1050px: Card 1 spans full width, Card 2 and Card 3 are 2 columns side-by-side */}
+      {/* Mobile: All 3 cards stacked (1 column) */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+          gap: { xs: 2, sm: 2.5 },
+          order: 3,
+          '@media (min-width: 1051px)': {
+            gridTemplateColumns: '1.2fr 1fr 1fr',
+          },
+        }}
+      >
+        {/* Card 1: Channel Orders Chart (Sales) */}
         <Card
           variant="outlined"
           padding={3}
           sx={{
+            gridColumn: { xs: '1 / -1', sm: '1 / -1' },
+            '@media (min-width: 1051px)': {
+              gridColumn: 'auto',
+            },
             borderRadius: '12px',
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
@@ -181,6 +409,7 @@ export function BranchSalesDashboard() {
               </Box>
 
               <ButtonBase
+                onClick={(e) => setChartMenuAnchor(e.currentTarget)}
                 sx={{
                   px: 1,
                   py: 0.35,
@@ -198,9 +427,29 @@ export function BranchSalesDashboard() {
                   gap: 0.5,
                 }}
               >
-                Today
+                {chartPeriod}
                 <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
               </ButtonBase>
+              <Menu
+                anchorEl={chartMenuAnchor}
+                open={Boolean(chartMenuAnchor)}
+                onClose={() => setChartMenuAnchor(null)}
+                slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
+              >
+                {PERIOD_OPTIONS.map((p) => (
+                  <MenuItem
+                    key={p}
+                    selected={p === chartPeriod}
+                    onClick={() => {
+                      setChartPeriod(p);
+                      setChartMenuAnchor(null);
+                    }}
+                    sx={{ fontSize: '0.75rem' }}
+                  >
+                    {p}
+                  </MenuItem>
+                ))}
+              </Menu>
             </Box>
           </Box>
 
@@ -431,6 +680,7 @@ export function BranchSalesDashboard() {
               Online orders
             </Typography>
             <ButtonBase
+              onClick={(e) => setOnlineMenuAnchor(e.currentTarget)}
               sx={{
                 px: 1,
                 py: 0.35,
@@ -448,9 +698,29 @@ export function BranchSalesDashboard() {
                 gap: 0.5,
               }}
             >
-              Today
+              {onlinePeriod}
               <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
             </ButtonBase>
+            <Menu
+              anchorEl={onlineMenuAnchor}
+              open={Boolean(onlineMenuAnchor)}
+              onClose={() => setOnlineMenuAnchor(null)}
+              slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
+            >
+              {PERIOD_OPTIONS.map((p) => (
+                <MenuItem
+                  key={p}
+                  selected={p === onlinePeriod}
+                  onClick={() => {
+                    setOnlinePeriod(p);
+                    setOnlineMenuAnchor(null);
+                  }}
+                  sx={{ fontSize: '0.75rem' }}
+                >
+                  {p}
+                </MenuItem>
+              ))}
+            </Menu>
           </Box>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
@@ -553,12 +823,13 @@ export function BranchSalesDashboard() {
         </Card>
       </Box>
 
-      {/* 3. Channel Summary Cards (Dine In, Take Away, Delivery) */}
+      {/* 4. Channel Summary Cards (Dine In, Take Away, Delivery) */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
-          gap: 2.5,
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)', md: 'repeat(3, 1fr)' },
+          gap: { xs: 2, sm: 2.5 },
+          order: 4,
         }}
       >
         {BRANCH_CHANNEL_CARDS.map((channel) => (
@@ -575,19 +846,19 @@ export function BranchSalesDashboard() {
               boxShadow: 'none',
               display: 'flex',
               flexDirection: 'column',
-              gap: 1.5,
+              gap: 1.25,
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box
                   sx={{
+                    display: 'flex',
                     width: 32,
                     height: 32,
                     borderRadius: '8px',
                     bgcolor: (theme) =>
                       theme.palette.mode === 'dark' ? `${channel.color}26` : channel.bgColor,
-                    display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -602,13 +873,31 @@ export function BranchSalesDashboard() {
                     <DeliveryDiningIcon sx={{ fontSize: 18, color: channel.color }} />
                   )}
                 </Box>
-                <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: 'text.primary' }}>
+                <Typography
+                  sx={{
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    color: 'text.primary',
+                  }}
+                >
                   {channel.title}
                 </Typography>
               </Box>
-              <MoreHorizIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
+              <MoreHorizIcon
+                sx={{
+                  display: 'block',
+                  fontSize: 18,
+                  color: colors.text.secondary,
+                }}
+              />
             </Box>
-            <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: 'text.primary' }}>
+            <Typography
+              sx={{
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                fontWeight: 700,
+                color: 'text.primary',
+              }}
+            >
               {channel.amount}
             </Typography>
             <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary }}>
@@ -618,12 +907,20 @@ export function BranchSalesDashboard() {
         ))}
       </Box>
 
-      {/* 4. Bottom Row: Today's Expenses + Leakage + Quick Help */}
+      {/* 5. Bottom Row: Today's Expenses + Leakage + Quick Help */}
+      {/* Desktop: 3 columns (1fr 1fr 1fr) */}
+      {/* Tablet: 2 columns (Left: Expenses spanning 2 rows, Right: Leakage and Quick Help stacked) */}
+      {/* Mobile: 1 column stacked */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
-          gap: 2.5,
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gap: { xs: 2, sm: 2.5 },
+          alignItems: 'start',
+          order: 5,
+          '@media (min-width: 1051px)': {
+            gridTemplateColumns: '1fr 1fr 1fr',
+          },
         }}
       >
         {/* Branch Expenses */}
@@ -631,6 +928,12 @@ export function BranchSalesDashboard() {
           variant="outlined"
           padding={3}
           sx={{
+            gridColumn: { xs: '1', sm: '1' },
+            gridRow: { xs: 'auto', sm: '1 / span 2' },
+            '@media (min-width: 1051px)': {
+              gridColumn: 'auto',
+              gridRow: 'auto',
+            },
             borderRadius: '16px',
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
@@ -656,6 +959,7 @@ export function BranchSalesDashboard() {
               TODAY&apos;S EXPENSES
             </Typography>
             <ButtonBase
+              onClick={(e) => setExpensesMenuAnchor(e.currentTarget)}
               sx={{
                 px: 1,
                 py: 0.35,
@@ -673,9 +977,29 @@ export function BranchSalesDashboard() {
                 gap: 0.5,
               }}
             >
-              Today
+              {expensesPeriod}
               <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
             </ButtonBase>
+            <Menu
+              anchorEl={expensesMenuAnchor}
+              open={Boolean(expensesMenuAnchor)}
+              onClose={() => setExpensesMenuAnchor(null)}
+              slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
+            >
+              {PERIOD_OPTIONS.map((p) => (
+                <MenuItem
+                  key={p}
+                  selected={p === expensesPeriod}
+                  onClick={() => {
+                    setExpensesPeriod(p);
+                    setExpensesMenuAnchor(null);
+                  }}
+                  sx={{ fontSize: '0.75rem' }}
+                >
+                  {p}
+                </MenuItem>
+              ))}
+            </Menu>
           </Box>
 
           <Box
@@ -745,6 +1069,12 @@ export function BranchSalesDashboard() {
           variant="outlined"
           padding={3}
           sx={{
+            gridColumn: { xs: '1', sm: '2' },
+            gridRow: { xs: 'auto', sm: '1' },
+            '@media (min-width: 1051px)': {
+              gridColumn: 'auto',
+              gridRow: 'auto',
+            },
             borderRadius: '16px',
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
@@ -865,13 +1195,25 @@ export function BranchSalesDashboard() {
         </Card>
 
         {/* Quick Help */}
-        <QuickHelpCard
-          idLabel="Outlet ID: 63284"
-          showPocBadge
-          statusText="Online"
-          description="Your dedicated account manager for all operational support and billing queries. Reach out anytime during working hours."
-          availableHours="Available 10:00 AM – 07:00 PM"
-        />
+        <Box
+          sx={{
+            gridColumn: { xs: '1', sm: '2' },
+            gridRow: { xs: 'auto', sm: '2' },
+            height: '100%',
+            '@media (min-width: 1051px)': {
+              gridColumn: 'auto',
+              gridRow: 'auto',
+            },
+          }}
+        >
+          <QuickHelpCard
+            idLabel="Outlet ID: 63284"
+            showPocBadge
+            statusText="Online"
+            description="Your dedicated account manager for all operational support and billing queries. Reach out anytime during working hours."
+            availableHours="Available 10:00 AM – 07:00 PM"
+          />
+        </Box>
       </Box>
     </Box>
   );

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, type ReactNode } from 'react';
+import React, { useMemo, useState, type ReactNode } from 'react';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Box,
@@ -22,7 +23,11 @@ import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import { CircleHelp, FileText, LogOut, PenLine, Shield, UserRound } from 'lucide-react';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import { Check, CircleHelp, FileText, LogOut, PenLine, Shield, UserRound } from 'lucide-react';
+
+import logoLight from '@/assets/app/logo-light.svg';
+import { MOCK_BRANCHES } from '@/lib/mocks/organization/branches.mocks';
 
 import { LogoutModal } from '@/components/shared/app/Logout';
 import { Dropdown, type DropdownOption } from '@/components/shared/form-fields/Dropdown';
@@ -85,6 +90,7 @@ export function TopNavbar({
   // Business rule: show AI Agent and Explore Products for managers/company, hide for waiter
   const showManagementActions = Boolean(normalizedRole) && normalizedRole !== 'waiter';
 
+  // Desktop Outlets: preserved exactly as original
   const outletOptions: DropdownOption<string>[] =
     context.branchId == null
       ? []
@@ -105,7 +111,55 @@ export function TopNavbar({
 
   const pathname = usePathname();
   const isBranchView = pathname?.includes('/branch-manager') || false;
+
+  // Mobile-only: dynamic branch options and labels so mobile topbar is never hardcoded
+  const mobileBranchOptions: DropdownOption<string>[] = useMemo(() => {
+    const baseList: DropdownOption<string>[] = MOCK_BRANCHES.map((b) => ({
+      id: String(b.id),
+      label: b.name,
+    }));
+    if (context.branchId != null) {
+      const idStr = String(context.branchId);
+      if (!baseList.some((o) => o.id === idStr)) {
+        return [
+          {
+            id: idStr,
+            label: context.branchName ?? `Branch ${context.branchId}`,
+          },
+          ...baseList,
+        ];
+      }
+    }
+    return baseList;
+  }, [context.branchId, context.branchName]);
+
+  const mobileSelectedOutletSlug =
+    context.branchId != null ? String(context.branchId) : (mobileBranchOptions[0]?.id ?? '');
+
+  const mobileOutletLabel = useMemo(() => {
+    const found = mobileBranchOptions.find((o) => o.id === mobileSelectedOutletSlug);
+    return found?.label ?? context.branchName ?? 'Downtown Central';
+  }, [mobileBranchOptions, mobileSelectedOutletSlug, context.branchName]);
+
+  const handleMobileOutletChange = (branchId: string, option?: DropdownOption<string>) => {
+    const parsed = Number(branchId);
+    const label = option?.label ?? mobileBranchOptions.find((o) => o.id === branchId)?.label;
+    if (Number.isFinite(parsed)) {
+      setContext({ branchId: parsed, branchName: label });
+    } else {
+      setContext({ branchName: label });
+    }
+  };
+
+  const mobileScopeLabel = useMemo(() => {
+    if (context.branchName || context.branchId || isBranchView) return 'BRANCHES';
+    if (context.companyName || context.companyId) return 'COMPANIES';
+    if (context.organizationName || context.organizationId) return 'ORGANIZATIONS';
+    return 'OUTLETS';
+  }, [context, isBranchView]);
+
   const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
+  const [mobileBranchMenuAnchor, setMobileBranchMenuAnchor] = useState<HTMLElement | null>(null);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
   const closeProfileMenu = () => setProfileAnchor(null);
@@ -125,6 +179,8 @@ export function TopNavbar({
       component="header"
       id="app-top-navbar"
       sx={{
+        position: { [screen.mobile]: 'sticky', [screen.tablet]: 'static' },
+        top: 0,
         height: 64,
         minHeight: 64,
         maxHeight: 64,
@@ -137,22 +193,375 @@ export function TopNavbar({
         borderBottom: '1px solid',
         borderColor: (theme) => theme.palette.divider,
         boxSizing: 'border-box',
-        zIndex: 10,
+        zIndex: 1100,
         transition: 'background-color 0.2s ease, border-color 0.2s ease',
       }}
     >
       {/* ------------------------------------------------------------------ */}
-      {/* Left Section: Outlets Location Dropdown (using Dropdown component)  */}
+      {/* MOBILE ONLY (mweb): Centralized layout matching mobile screenshot  */}
+      {/* - Left: Logo icon                                                  */}
+      {/* - Center: Centralized BRANCHES dropdown                            */}
+      {/* - Right: Notifications + Hamburger menu button                     */}
       {/* ------------------------------------------------------------------ */}
-      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 1 }}>
-        <ActionButton
-          variant="icon"
-          ariaLabel="Open navigation"
-          onClick={onOpenMenu}
-          sx={{ display: { [screen.mobile]: 'inline-flex', [screen.tablet]: 'none' } }}
+      <Box
+        sx={{
+          display: { xs: 'flex', sm: 'none' },
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {/* Mobile Left: Logo icon + Branches beside logo */}
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flexShrink: 1 }}>
+          <Box
+            sx={{
+              width: 38,
+              height: 40,
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              flexShrink: 0,
+            }}
+          >
+            <Image
+              src={logoLight}
+              alt="Hospixo"
+              width={180}
+              height={40}
+              priority
+              style={{
+                minWidth: 180,
+                height: 40,
+                display: 'block',
+              }}
+            />
+          </Box>
+
+          {/* Dynamic Branches / Outlet selector beside logo */}
+          <Box
+            onClick={(e) => setMobileBranchMenuAnchor(e.currentTarget)}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              textAlign: 'left',
+              userSelect: 'none',
+              minWidth: 0,
+              py: 0.5,
+              px: 0.5,
+              borderRadius: '8px',
+              transition: 'background-color 0.15s ease',
+              '&:hover': {
+                bgcolor: 'action.hover',
+              },
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: '0.625rem',
+                fontWeight: 700,
+                color: colors.text.secondary,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                lineHeight: 1.1,
+              }}
+            >
+              {mobileScopeLabel}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, minWidth: 0 }}>
+              <PlaceOutlinedIcon sx={{ fontSize: 16, color: 'text.primary', flexShrink: 0 }} />
+              <Typography
+                sx={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 700,
+                  color: 'text.primary',
+                  lineHeight: 1.2,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: { xs: 150, sm: 220 },
+                }}
+              >
+                {mobileOutletLabel}
+              </Typography>
+              <KeyboardArrowDownIcon
+                sx={{
+                  fontSize: 16,
+                  color: colors.text.secondary,
+                  flexShrink: 0,
+                  transform: mobileBranchMenuAnchor ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.2s ease',
+                }}
+              />
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Mobile Branch Dropdown Menu */}
+        <Menu
+          anchorEl={mobileBranchMenuAnchor}
+          open={Boolean(mobileBranchMenuAnchor)}
+          onClose={() => setMobileBranchMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          slotProps={{
+            paper: {
+              sx: {
+                mt: 1,
+                minWidth: 190,
+                maxWidth: 260,
+                borderRadius: '12px',
+                boxShadow: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? '0 10px 25px -5px rgba(0, 0, 0, 0.6)'
+                    : '0 10px 25px -5px rgba(0, 0, 0, 0.12)',
+                border: '1px solid',
+                borderColor: 'divider',
+              },
+            },
+          }}
         >
-          <MenuOutlinedIcon sx={{ fontSize: 20 }} />
-        </ActionButton>
+          {mobileBranchOptions.map((option) => {
+            const isSelected = option.id === mobileSelectedOutletSlug;
+            return (
+              <MenuItem
+                key={option.id}
+                selected={isSelected}
+                onClick={() => {
+                  handleMobileOutletChange(option.id, option);
+                  setMobileBranchMenuAnchor(null);
+                }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  fontSize: '0.84375rem',
+                  fontWeight: isSelected ? 600 : 400,
+                  py: 1,
+                  px: 1,
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: 'inherit',
+                    fontWeight: 'inherit',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {option.label}
+                </Typography>
+                {isSelected && (
+                  <Check size={16} color={colors.primary.default} style={{ flexShrink: 0 }} />
+                )}
+              </MenuItem>
+            );
+          })}
+        </Menu>
+
+        {/* Mobile Right: Notifications bell & Hamburger menu button */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ActionButton
+            variant="icon"
+            size="medium"
+            ariaLabel="View notifications"
+            onClick={onNotificationClick}
+            sx={{
+              p: 0.75,
+              color: colors.text.secondary,
+              borderRadius: '8px',
+              '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+            }}
+          >
+            <NotificationsNoneOutlinedIcon sx={{ fontSize: 20 }} />
+          </ActionButton>
+          <ActionButton
+            variant="icon"
+            size="medium"
+            ariaLabel="Open navigation"
+            onClick={onOpenMenu}
+            sx={{
+              p: 0.75,
+              borderRadius: '8px',
+              border: '1px solid',
+              borderColor: (theme) => theme.palette.divider,
+              color: 'text.primary',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F3F4F6',
+              '&:hover': {
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : '#E5E7EB',
+              },
+            }}
+          >
+            <MenuOutlinedIcon sx={{ fontSize: 20 }} />
+          </ActionButton>
+        </Box>
+      </Box>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* TABLET ONLY (768px-1023px): Matching tablet screenshot             */}
+      {/* - Left: Branches dropdown (No logo, matching screenshot)           */}
+      {/* - Right: AI Agent, Notifications, Settings, Hamburger button       */}
+      {/* ------------------------------------------------------------------ */}
+      <Box
+        sx={{
+          display: { xs: 'none', sm: 'flex', md: 'none' },
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+        }}
+      >
+        {/* Tablet Left: Branches / Outlet selector */}
+        <Box
+          onClick={(e) => setMobileBranchMenuAnchor(e.currentTarget)}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            textAlign: 'left',
+            userSelect: 'none',
+            minWidth: 0,
+            py: 0.5,
+            px: 0.5,
+            borderRadius: '8px',
+            transition: 'background-color 0.15s ease',
+            '&:hover': {
+              bgcolor: 'action.hover',
+            },
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: '0.625rem',
+              fontWeight: 700,
+              color: colors.text.secondary,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              lineHeight: 1.1,
+            }}
+          >
+            {mobileScopeLabel}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, minWidth: 0 }}>
+            <PlaceOutlinedIcon sx={{ fontSize: 16, color: 'text.primary', flexShrink: 0 }} />
+            <Typography
+              sx={{
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                color: 'text.primary',
+                lineHeight: 1.2,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: 280,
+              }}
+            >
+              {mobileOutletLabel}
+            </Typography>
+            <KeyboardArrowDownIcon
+              sx={{
+                fontSize: 16,
+                color: colors.text.secondary,
+                flexShrink: 0,
+                transform: mobileBranchMenuAnchor ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          </Box>
+        </Box>
+
+        {/* Tablet Right: AI Agent, Notifications, Settings, Hamburger button */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexShrink: 0 }}>
+          {showManagementActions && (
+            <ActionButton
+              variant="outlined"
+              size="medium"
+              startIcon={<HeadsetMicOutlinedIcon sx={{ fontSize: 18 }} />}
+              onClick={onAiAgentClick}
+              sx={{
+                borderRadius: '8px',
+                borderColor: (theme) => theme.palette.divider,
+                color: (theme) => theme.palette.text.primary,
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                px: 1.5,
+                '&:hover': {
+                  borderColor: (theme) => theme.palette.text.secondary,
+                  backgroundColor: 'action.hover',
+                },
+              }}
+            >
+              AI Agent
+            </ActionButton>
+          )}
+
+          <ActionButton
+            variant="icon"
+            size="medium"
+            ariaLabel="View notifications"
+            onClick={onNotificationClick}
+            sx={{
+              p: 0.75,
+              color: colors.text.secondary,
+              borderRadius: '8px',
+              '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+            }}
+          >
+            <NotificationsNoneOutlinedIcon sx={{ fontSize: 20 }} />
+          </ActionButton>
+
+          <ActionButton
+            variant="icon"
+            size="medium"
+            ariaLabel="Open settings"
+            onClick={onSettingsClick}
+            sx={{
+              p: 0.75,
+              color: colors.text.secondary,
+              borderRadius: '8px',
+              '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+            }}
+          >
+            <SettingsOutlinedIcon sx={{ fontSize: 20 }} />
+          </ActionButton>
+
+          <ActionButton
+            variant="icon"
+            size="medium"
+            ariaLabel="Open navigation"
+            onClick={onOpenMenu}
+            sx={{
+              p: 0.75,
+              borderRadius: '8px',
+              border: '1px solid',
+              borderColor: (theme) => theme.palette.divider,
+              color: 'text.primary',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F3F4F6',
+              '&:hover': {
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : '#E5E7EB',
+              },
+            }}
+          >
+            <MenuOutlinedIcon sx={{ fontSize: 20 }} />
+          </ActionButton>
+        </Box>
+      </Box>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* DESKTOP ONLY (>=1024px): Left Section - Outlets Dropdown           */}
+      {/* ------------------------------------------------------------------ */}
+      <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', minWidth: 0, gap: 1 }}>
         <Dropdown
           variant="outlet"
           label="Outlets"
@@ -172,9 +581,16 @@ export function TopNavbar({
       </Box>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Right Section: Action buttons, Theme toggle, and Profile Avatar    */}
+      {/* DESKTOP ONLY (>=1024px): Right Section                             */}
       {/* ------------------------------------------------------------------ */}
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+      <Stack
+        direction="row"
+        spacing={1.5}
+        sx={{
+          display: { xs: 'none', md: 'flex' },
+          alignItems: 'center',
+        }}
+      >
         {/* AI Agent Button */}
         {showManagementActions && (
           <ActionButton

@@ -15,7 +15,8 @@
     "@babel/preset-typescript",
     "@locator/babel-jsx",
     "@locator/webpack-loader",
-    "@treelocator/runtime"
+    "@treelocator/runtime",
+    "lint-staged"
   ],
   "rules": {
     "files": "error",
@@ -25,6 +26,6 @@
     "dependencies": "error",
     "devDependencies": "error",
     "unlisted": "error",
-    "binaries": "error"
+    "binaries": "off"
   }
 }

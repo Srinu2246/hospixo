@@ -90,6 +90,8 @@
     "IGST",
     "Cgst",
     "Sgst",
-    "Igst"
+    "Igst",
+    "mweb",
+    "topbar"
   ]
 }
