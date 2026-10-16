@@ -58,7 +58,10 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
     />
   );
 
-  if (pathname === '/login' || pathname.startsWith('/login/')) {
+  const isMinimalChrome =
+    pathname === '/login' || pathname.startsWith('/login/') || pathname === '/guest-menu';
+
+  if (isMinimalChrome) {
     return (
       <Box sx={{ minHeight: '100vh', width: '100%', bgcolor: 'background.default' }}>
         {children}

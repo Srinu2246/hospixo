@@ -34,6 +34,7 @@ import {
   MOCK_KITCHEN_ORDERS,
   resolveKitchenDisplayMock,
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
+import { MOCK_PUBLIC_RESTAURANT_MENU } from '@/lib/mocks/floor-and-table-setup/publicRestaurantMenu.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
 import type { HttpMethod, QueryParams } from '@/services/api/types';
@@ -103,13 +104,45 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.dashboard.branch.list]: { stats: BRANCH_STAT_CARDS },
   [ApiUrlsV1.organization.companies]: MOCK_COMPANIES,
   [ApiUrlsV1.restaurant.branches]: MOCK_BRANCHES,
+  [ApiUrlsV1.public.restaurantMenu]: {
+    success: true,
+    message: 'OK',
+    data: MOCK_PUBLIC_RESTAURANT_MENU,
+  },
 };
 
 export function isMockApiEnabled(): boolean {
   return process.env.API_MOCK === 'true';
 }
 
+const BRANCH_MENUS_PATH = /^\/v1\/restaurant\/branches\/(\d+)\/menus$/;
+
 export function resolveMock(request: MockRequest): unknown | undefined {
+  const branchMenusMatch = BRANCH_MENUS_PATH.exec(request.path);
+  if (branchMenusMatch && request.method === 'GET') {
+    const branchId = Number(branchMenusMatch[1]);
+    return {
+      success: true,
+      message: 'OK',
+      data: [
+        {
+          id: 1,
+          branch_id: branchId,
+          menu_id: 1,
+          menu_name: 'Dine-In Menu',
+          menu_type: 'dine_in',
+          status: 'active',
+          is_default: true,
+          display_order: 0,
+        },
+      ],
+    };
+  }
+
+  if (request.path === ApiUrlsV1.public.restaurantMenu && request.method === 'GET') {
+    return LIST_MOCKS[ApiUrlsV1.public.restaurantMenu];
+  }
+
   // Floors, sections, tables, and floor-map under /v1/branches/:id/floors/**
   const restaurant = resolveRestaurantFloorMock(request);
   if (restaurant !== undefined) return restaurant;

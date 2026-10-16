@@ -70,7 +70,11 @@ const ApiUrlsV1 = {
   },
   restaurant: {
     branches: '/v1/branches',
+    branchMenuAssignments: '/v1/restaurant/branches',
     preparationStations: '/v1/restaurant/preparation-stations',
+  },
+  public: {
+    restaurantMenu: '/v1/public/restaurant/menu',
   },
   kitchen: {
     kitchenBoard: resource('/v1/kitchen-display'),
@@ -131,6 +135,10 @@ export function organizationCompanyBranchesPath(
   companyId: number | string,
 ): string {
   return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies/${encodeURIComponent(String(companyId))}/branches`;
+}
+
+export function restaurantBranchMenusPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branchMenuAssignments}/${encodeURIComponent(String(branchId))}/menus`;
 }
 
 export function restaurantFloorsPath(branchId: number): string {
@@ -239,7 +247,7 @@ export function restaurantFloorSectionRestorePath(
 
 const ENDPOINT_PREFIXES = collectStaticPaths(ApiUrlsV1);
 
-const PUBLIC_ENDPOINTS = new Set<string>([ApiUrlsV1.auth.login]);
+const PUBLIC_ENDPOINTS = new Set<string>([ApiUrlsV1.auth.login, ApiUrlsV1.public.restaurantMenu]);
 
 export function isPublicEndpoint(path: string): boolean {
   return PUBLIC_ENDPOINTS.has(path);
