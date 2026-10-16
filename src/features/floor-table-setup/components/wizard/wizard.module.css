@@ -140,18 +140,25 @@
 
 .listHeader {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.75rem;
 }
 
 .listHeaderActions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
   gap: 0.65rem;
+  width: 100%;
+}
+
+.listHeaderActions > * {
+  min-width: 0;
+}
+
+.listHeaderActions .primary {
+  width: 100%;
 }
 
 .listCopy {

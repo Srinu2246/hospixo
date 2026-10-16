@@ -11,7 +11,7 @@ type RecentActivityProps = Readonly<{
 
 export function RecentActivity({ items, onViewAll }: RecentActivityProps) {
   return (
-    <section className={styles.card}>
+    <section className={`${styles.card} ${styles.recentActivity}`}>
       <div className={styles.cardHeader}>
         <h2 className={styles.cardTitle}>{floorTableSetupCopy.recentActivity}</h2>
         {onViewAll ? (

@@ -101,6 +101,12 @@ function configTitleForPath(path: string): string {
 
 const navItemByPath = collectNavItems();
 
+/** Sidebar nav entry for a workspace path (used when the catch-all must not 404 a real screen). */
+export function getWorkspaceNavItem(pathname: string): WorkspaceNavPageDef | undefined {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+  return navItemByPath.get(normalized);
+}
+
 const tenantWorkspacePrefixRoots = [
   ...new Set([
     ...Object.values(routes.dashboard),

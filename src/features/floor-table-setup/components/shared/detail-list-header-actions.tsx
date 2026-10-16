@@ -27,6 +27,7 @@ export function DetailListHeaderActions({
   return (
     <div className={wizardStyles.listHeaderActions}>
       <FloorSetupToolbarSelect
+        fullWidth
         value={status}
         aria-label={floorTableSetupCopy.statusLabel}
         onChange={onStatusChange}
