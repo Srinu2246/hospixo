@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 
 import {
@@ -32,6 +34,11 @@ import {
 import { toCatalogTable } from '@/lib/schemas/floor-and-table-setup/floors';
 import { ApiError } from '@/services/api/types';
 import { screen } from '@/lib/theme/mui/breakpoints';
+import {
+  compactFilterDropdownSx,
+  compactMuiSpacing,
+  tableToolbarActionsGridSx,
+} from '@/components/features/floor-and-table-setup/compactLayoutSx';
 import { useToastStore } from '@/stores/toastStore';
 
 type TableStatusFilter = 'all' | 'active' | 'inactive';
@@ -42,25 +49,22 @@ const tableStatusOptions = [
   { id: 'inactive', label: 'Inactive' },
 ] as const;
 
-const listHeaderActionsSx = {
-  display: 'grid',
-  gridTemplateColumns: { [screen.mobile]: '1fr 1fr', [screen.desktop]: 'minmax(9rem, 11rem) auto' },
-  gap: 1.25,
-  width: { [screen.mobile]: '100%', [screen.desktop]: 'auto' },
-  alignItems: 'stretch',
-  '& > .MuiFormControl-root': { minWidth: 0 },
-} as const;
+export type FloorTablesPanelActions = {
+  openAddTable: () => void;
+};
 
 export function FloorTablesPanel({
   tables,
   sections,
   branchId,
   floorId,
+  onRegisterActions,
 }: Readonly<{
   tables: readonly CatalogTable[];
   sections: readonly CatalogSection[];
   branchId?: number;
   floorId?: number;
+  onRegisterActions?: (actions: FloorTablesPanelActions) => void;
 }>) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TableStatusFilter>('all');
@@ -80,10 +84,14 @@ export function FloorTablesPanel({
   const editingTable = tableQuery.data
     ? toCatalogTable(tableQuery.data, editing?.area ?? '')
     : editing;
+  const theme = useTheme();
+  const belowDesktop = useMediaQuery(theme.breakpoints.down('md'));
   const needle = query.trim().toLowerCase();
   const visible = tables.filter((item) => {
-    if (status === 'active' && !item.active) return false;
-    if (status === 'inactive' && item.active) return false;
+    if (belowDesktop) {
+      if (status === 'active' && !item.active) return false;
+      if (status === 'inactive' && item.active) return false;
+    }
     return !needle || item.number.toLowerCase().includes(needle);
   });
   const saving =
@@ -238,20 +246,54 @@ export function FloorTablesPanel({
     }
   }
 
+  function openAddTable() {
+    setEditing({
+      id: `t-${Date.now()}`,
+      number: nextTableNames(tables, 1)[0] ?? 'T001',
+      seats: 4,
+      active: true,
+      reservations: true,
+      sectionId: sections[0]?.id ?? '',
+      area: sections[0]?.name ?? '',
+      shape: 'Square',
+    });
+  }
+
+  useEffect(() => {
+    onRegisterActions?.({ openAddTable });
+  });
+
   return (
-    <Stack spacing={2}>
-      <Stack
-        direction={{ [screen.mobile]: 'column', [screen.desktop]: 'row' }}
-        spacing={1.5}
-        sx={{ alignItems: { [screen.desktop]: 'center' }, justifyContent: 'space-between' }}
-      >
-        <Box>
-          <Typography sx={{ fontWeight: 800 }}>Tables List</Typography>
-          <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-            Manage and view configuration of layout tables
-          </Typography>
-        </Box>
-        <Box sx={listHeaderActionsSx}>
+    <Stack spacing={{ xs: compactMuiSpacing.block, md: 2 }}>
+      <Stack spacing={compactMuiSpacing.block} sx={{ display: { xs: 'flex', md: 'none' } }}>
+        <Stack
+          direction="row"
+          spacing={1.5}
+          sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}
+        >
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem' }}>Tables List</Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', mt: 0.25 }}>
+              View and manage layout tables.
+            </Typography>
+          </Box>
+          <ActionButton
+            startIcon={<Plus size={16} />}
+            onClick={openAddTable}
+            sx={{ flexShrink: 0, height: 44, whiteSpace: 'nowrap' }}
+          >
+            Add Table
+          </ActionButton>
+        </Stack>
+        <Input
+          id="catalog-table-search-mobile"
+          fullWidth
+          placeholder="Search tables..."
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          startIcon={<Search size={16} />}
+        />
+        <Box sx={tableToolbarActionsGridSx}>
           <Dropdown
             placeholder="Status"
             options={tableStatusOptions}
@@ -259,35 +301,57 @@ export function FloorTablesPanel({
             onChange={setStatus}
             size="large"
             minWidth={0}
-            sx={{
-              width: '100%',
-              height: 44,
-              '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
-            }}
+            sx={compactFilterDropdownSx}
           />
           <ActionButton
-            startIcon={<Plus size={16} />}
-            onClick={() =>
-              setEditing({
-                id: `t-${Date.now()}`,
-                number: nextTableNames(tables, 1)[0] ?? 'T001',
-                seats: 4,
-                active: true,
-                reservations: true,
-                sectionId: sections[0]?.id ?? '',
-                area: sections[0]?.name ?? '',
-                shape: 'Square',
-              })
-            }
-            sx={{ width: '100%', height: 44 }}
+            variant="outlined"
+            disabled={saving || tables.length === 0}
+            onClick={() => {
+              void bulkEdit();
+            }}
           >
-            Add Table
+            Bulk Edit
+          </ActionButton>
+          <ActionButton
+            variant="outlined"
+            disabled={saving || sections.length === 0}
+            onClick={() => setBulkOpen(true)}
+          >
+            Bulk Generate
           </ActionButton>
         </Box>
       </Stack>
 
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
-        <Box sx={{ flex: '1 1 0', minWidth: 0, maxWidth: { [screen.desktop]: 280 } }}>
+      <Stack
+        direction="row"
+        spacing={1.5}
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          display: { xs: 'none', md: 'flex' },
+        }}
+      >
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography sx={{ fontWeight: 800 }}>Tables List</Typography>
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+            Manage and view configuration of layout tables
+          </Typography>
+        </Box>
+        <ActionButton startIcon={<Plus size={16} />} onClick={openAddTable}>
+          Add Table
+        </ActionButton>
+      </Stack>
+
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          minWidth: 0,
+          display: { xs: 'none', md: 'flex' },
+        }}
+      >
+        <Box sx={{ flex: '1 1 0', minWidth: 0, maxWidth: 280 }}>
           <Input
             id="catalog-table-search"
             fullWidth
@@ -304,7 +368,7 @@ export function FloorTablesPanel({
           onClick={() => {
             void bulkEdit();
           }}
-          sx={{ flexShrink: 0, height: 44, px: { [screen.mobile]: 1.25, [screen.desktop]: 2 } }}
+          sx={{ flexShrink: 0, height: 44, px: 2 }}
         >
           Bulk Edit
         </ActionButton>
@@ -313,7 +377,7 @@ export function FloorTablesPanel({
           size="large"
           disabled={saving || sections.length === 0}
           onClick={() => setBulkOpen(true)}
-          sx={{ flexShrink: 0, height: 44, px: { [screen.mobile]: 1.25, [screen.desktop]: 2 } }}
+          sx={{ flexShrink: 0, height: 44, px: 2 }}
         >
           Bulk Generate
         </ActionButton>

@@ -7,12 +7,18 @@ import Typography from '@mui/material/Typography';
 import { LayoutGrid, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Modal } from '@/components/shared/ui/Modal';
 import {
   LabeledDropdown,
   StatusRow,
 } from '@/components/features/floor-and-table-setup/SetupFields';
+import {
+  compactFilterDropdownSx,
+  compactMuiSpacing,
+  tableToolbarActionsGridSx,
+} from '@/components/features/floor-and-table-setup/compactLayoutSx';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { filterTables, nextTableStart } from '@/lib/helpers/floorAndTableSetup';
 import type {
@@ -21,6 +27,14 @@ import type {
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 
 const capacityOptions = [1, 2, 4, 6, 8, 10, 12] as const;
+
+type TableStatusFilter = 'all' | 'active' | 'inactive';
+
+const tableStatusOptions = [
+  { id: 'all', label: 'All' },
+  { id: 'active', label: 'Active' },
+  { id: 'inactive', label: 'Inactive' },
+] as const;
 
 export function TableStep({
   tables,
@@ -36,65 +50,93 @@ export function TableStep({
   onBulkEdit: () => void;
 }>) {
   const [query, setQuery] = useState('');
+  const [status, setStatus] = useState<TableStatusFilter>('all');
   const [dialog, setDialog] = useState<'single' | 'bulk' | null>(null);
-  const visible = filterTables(tables, query);
+  const visible = filterTables(tables, query).filter((table) => {
+    if (status === 'active') return table.active;
+    if (status === 'inactive') return !table.active;
+    return true;
+  });
 
   return (
-    <Stack spacing={2}>
-      <Stack
-        direction={{ [screen.mobile]: 'column', [screen.desktop]: 'row' }}
-        spacing={2}
-        sx={{ alignItems: { [screen.desktop]: 'center' }, justifyContent: 'space-between' }}
-      >
-        <Box>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem' }}>Tables List</Typography>
-          <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-            Manage and view configuration of layout tables
-          </Typography>
-        </Box>
-        <ActionButton
-          startIcon={<Plus size={16} />}
-          onClick={() => setDialog('single')}
-          sx={{ width: { [screen.mobile]: '100%', [screen.desktop]: 'auto' } }}
-        >
-          Add Table
-        </ActionButton>
-      </Stack>
-
-      <Stack
-        direction={{ [screen.mobile]: 'column', [screen.desktop]: 'row' }}
-        spacing={1.5}
-        sx={{ alignItems: { [screen.desktop]: 'center' } }}
-      >
-        <Box sx={{ flex: 1, width: '100%', maxWidth: { [screen.desktop]: 320 } }}>
-          <Input
-            id="table-search"
-            placeholder="Search tables..."
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            startIcon={<Search size={16} />}
-          />
-        </Box>
+    <Stack spacing={{ xs: compactMuiSpacing.block, md: 2 }}>
+      <Stack spacing={compactMuiSpacing.block} sx={{ display: { xs: 'flex', md: 'none' } }}>
         <Stack
-          direction={{ [screen.mobile]: 'column', [screen.tablet]: 'row' }}
-          spacing={1}
-          sx={{
-            width: { [screen.mobile]: '100%', [screen.desktop]: 'auto' },
-            ml: { [screen.desktop]: 'auto' },
-          }}
+          direction="row"
+          spacing={1.5}
+          sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}
         >
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem' }}>Tables List</Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', mt: 0.25 }}>
+              View and manage layout tables.
+            </Typography>
+          </Box>
           <ActionButton
-            variant="outlined"
-            onClick={onBulkEdit}
-            sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
+            startIcon={<Plus size={16} />}
+            onClick={() => setDialog('single')}
+            sx={{ flexShrink: 0, height: 44, whiteSpace: 'nowrap' }}
           >
+            Add Table
+          </ActionButton>
+        </Stack>
+        <Input
+          id="table-search-mobile"
+          fullWidth
+          placeholder="Search tables..."
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          startIcon={<Search size={16} />}
+        />
+        <Box sx={tableToolbarActionsGridSx}>
+          <Dropdown
+            placeholder="Status"
+            options={tableStatusOptions}
+            value={status}
+            onChange={setStatus}
+            size="large"
+            minWidth={0}
+            sx={compactFilterDropdownSx}
+          />
+          <ActionButton variant="outlined" onClick={onBulkEdit}>
             Bulk Edit
           </ActionButton>
-          <ActionButton
-            variant="outlined"
-            onClick={() => setDialog('bulk')}
-            sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
-          >
+          <ActionButton variant="outlined" onClick={() => setDialog('bulk')}>
+            Bulk Generate
+          </ActionButton>
+        </Box>
+      </Stack>
+
+      <Stack spacing={2} sx={{ display: { xs: 'none', md: 'flex' } }}>
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Box>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem' }}>Tables List</Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+              Manage and view configuration of layout tables
+            </Typography>
+          </Box>
+          <ActionButton startIcon={<Plus size={16} />} onClick={() => setDialog('single')}>
+            Add Table
+          </ActionButton>
+        </Stack>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+          <Box sx={{ flex: 1, width: '100%', maxWidth: 320 }}>
+            <Input
+              id="table-search"
+              placeholder="Search tables..."
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              startIcon={<Search size={16} />}
+            />
+          </Box>
+          <ActionButton variant="outlined" onClick={onBulkEdit}>
+            Bulk Edit
+          </ActionButton>
+          <ActionButton variant="outlined" onClick={() => setDialog('bulk')}>
             Bulk Generate
           </ActionButton>
         </Stack>
@@ -149,8 +191,8 @@ export function TableStep({
           sx={{
             display: 'grid',
             gridTemplateColumns: {
-              [screen.mobile]: '1fr',
-              [screen.tablet]: '1fr 1fr',
+              [screen.mobile]: 'repeat(2, minmax(0, 1fr))',
+              [screen.tablet]: 'repeat(3, minmax(0, 1fr))',
               [screen.desktop]: 'repeat(3, 1fr)',
               [screen.wide]: 'repeat(5, 1fr)',
             },
@@ -169,7 +211,9 @@ export function TableStep({
               }}
             >
               <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography sx={{ fontWeight: 800 }}>{table.number}</Typography>
+                <Typography sx={{ fontWeight: 800, color: 'primary.main' }}>
+                  {table.number}
+                </Typography>
                 <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
                   <Box
                     sx={{

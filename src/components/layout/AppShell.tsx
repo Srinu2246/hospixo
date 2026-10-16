@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { Sidebar } from '@/components/shared/app/Sidebar';
 import { TopNavbar } from '@/components/shared/app/TopNavbar';
+import { WorkspaceBottomNav } from '@/components/shared/app/WorkspaceBottomNav';
 import { Toast } from '@/components/shared/ui/Toast';
 import type { SidebarSession } from '@/lib/auth/session';
 import { screen } from '@/lib/theme/mui/breakpoints';
@@ -174,7 +175,10 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
             backgroundColor: (theme) => theme.palette.background.default,
             display: 'flex',
             flexDirection: 'column',
-            p: { [screen.mobile]: 2, [screen.desktop]: 3 },
+            p: {
+              [screen.mobile]: '15px 16px 10px',
+              [screen.desktop]: 3,
+            },
             boxSizing: 'border-box',
           }}
         >
@@ -182,7 +186,17 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
         </Box>
 
         {/* Page Action Footer Container (Outside <main>) */}
-        <Box id="app-shell-footer" sx={{ flexShrink: 0, zIndex: 20 }} />
+        <Box
+          id="app-shell-footer"
+          sx={{
+            flexShrink: 0,
+            zIndex: 20,
+            bgcolor: 'background.paper',
+            borderTop: '1px solid',
+            borderColor: 'divider',
+          }}
+        />
+        <WorkspaceBottomNav role={role} context={context} user={user} />
       </Box>
       {toast}
     </Box>

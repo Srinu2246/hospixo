@@ -3,23 +3,7 @@ const nextConfig = {
   reactCompiler: true,
   turbopack: {},
   async redirects() {
-    return [
-      {
-        source: '/branch-manager/management/floor-and-table-setup',
-        destination: '/branch/floor-table-setup',
-        permanent: false,
-      },
-      {
-        source: '/branch-manager/management/floor-and-table-setup/floors/:floorId/sections',
-        destination: '/branch/floor-table-setup/:floorId?tab=sections',
-        permanent: false,
-      },
-      {
-        source: '/branch-manager/management/floor-and-table-setup/floors/:floorId',
-        destination: '/branch/floor-table-setup/:floorId',
-        permanent: false,
-      },
-    ];
+    return [];
   },
   webpack: (config, { dev }) => {
     if (dev) {

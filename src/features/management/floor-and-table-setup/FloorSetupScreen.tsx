@@ -1,19 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
+import {
+  compactMuiSpacing,
+  compactPageRootSx,
+} from '@/components/features/floor-and-table-setup/compactLayoutSx';
+import { StickyActionFooter } from '@/components/features/floor-and-table-setup/StickyActionFooter';
+import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { FloorCatalog } from '@/components/features/floor-and-table-setup/FloorCatalog';
 import { FloorCreationStep } from '@/components/features/floor-and-table-setup/FloorCreationStep';
 import { ReviewStep } from '@/components/features/floor-and-table-setup/ReviewStep';
 import { SectionStep } from '@/components/features/floor-and-table-setup/SectionStep';
 import { SuccessStep } from '@/components/features/floor-and-table-setup/SuccessStep';
 import { TableStep } from '@/components/features/floor-and-table-setup/TableStep';
-import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Tabs } from '@/components/shared/form-fields/Tabs';
 import { FloorDetailScreen } from '@/features/management/floor-and-table-setup/FloorDetailScreen';
 import type {
@@ -47,14 +54,29 @@ import {
   useFloors,
 } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
-import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
+/** Wizard tab titles and matching sticky-footer primary labels. */
+const wizardStepLabel = {
+  floor: 'Floor Creation',
+  section: 'Section Create',
+  table: 'Table Create',
+  review: 'Review',
+} as const;
+
+const wizardFooterPrimaryLabel = {
+  floor: 'Floor Create',
+  section: 'Section Create',
+  table: 'Table Create',
+  review: 'Create Floor',
+  reviewPending: 'Creating Floor',
+} as const;
+
 const wizardTabs = [
-  { value: 'floor', label: 'Floor Creation' },
-  { value: 'section', label: 'Section Creation' },
-  { value: 'table', label: 'Table Creation' },
-  { value: 'review', label: 'Review' },
+  { value: 'floor', label: wizardStepLabel.floor },
+  { value: 'section', label: wizardStepLabel.section },
+  { value: 'table', label: wizardStepLabel.table },
+  { value: 'review', label: wizardStepLabel.review },
 ];
 
 export function FloorSetupScreen() {
@@ -63,9 +85,10 @@ export function FloorSetupScreen() {
   const outlet = branchName || (branchId ? `Branch ${branchId}` : 'this outlet');
   const pathname = usePathname() ?? '';
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { route, draft, ready, save, openStep } = useFloorSetupDraft();
   const { details, sections, tables, floors } = draft;
-  const detail = parseFloorDetailRoute(pathname);
+  const detail = parseFloorDetailRoute(pathname, searchParams.get('tab'));
   const [floorStatus, setFloorStatus] = useState<FloorStatusFilter>('all');
   const floorsQuery = useFloors(branchId, floorStatus);
   const createFloorRequest = useCreateFloor(branchId);
@@ -76,6 +99,8 @@ export function FloorSetupScreen() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const footerTarget = useAppShellFooterTarget();
+  const theme = useTheme();
+  const belowDesktop = useMediaQuery(theme.breakpoints.down('md'));
 
   const step: WizardStep | null = isWizardStep(route.step) ? route.step : null;
   const created = floors.find((floor) => floor.id === draft.createdId) ?? null;
@@ -208,61 +233,82 @@ export function FloorSetupScreen() {
     }
   }
 
+  const showWizardPrimary =
+    step === 'floor' ||
+    (step === 'section' && sections.length > 0) ||
+    (step === 'table' && tables.length > 0) ||
+    step === 'review';
+
+  const wizardPrimaryLabel =
+    step === 'floor'
+      ? wizardFooterPrimaryLabel.floor
+      : step === 'section'
+        ? wizardFooterPrimaryLabel.section
+        : step === 'table'
+          ? wizardFooterPrimaryLabel.table
+          : createFloorRequest.isPending
+            ? wizardFooterPrimaryLabel.reviewPending
+            : wizardFooterPrimaryLabel.review;
+
+  function goBackWizard() {
+    if (!step) return;
+    if (step === 'floor') openStep('hub');
+    else if (step === 'section') openStep('floor');
+    else if (step === 'table') openStep('section');
+    else openStep('table');
+  }
+
+  function goNextWizard() {
+    if (!step) return;
+    if (step === 'floor') goToStep('section');
+    else if (step === 'section') goToStep('table');
+    else if (step === 'table') goToStep('review');
+    else void createFloor();
+  }
+
   const footer = step ? (
-    <Stack
-      component="footer"
-      direction={{ [screen.mobile]: 'column-reverse', [screen.tablet]: 'row' }}
-      spacing={1.5}
-      sx={{
-        width: '100%',
-        bgcolor: 'background.paper',
-        borderTop: '1px solid',
-        borderColor: 'divider',
-        px: { [screen.mobile]: 2, [screen.desktop]: 3 },
-        py: 2,
-        alignItems: { [screen.tablet]: 'center' },
-        justifyContent: 'space-between',
-        boxSizing: 'border-box',
-      }}
-    >
-      <ActionButton
-        variant="outlined"
-        sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
-        onClick={() => {
-          if (step === 'floor') openStep('hub');
-          else if (step === 'section') openStep('floor');
-          else if (step === 'table') openStep('section');
-          else openStep('table');
+    <>
+      <Box sx={{ display: { xs: 'block', md: 'none' }, width: '100%' }}>
+        <StickyActionFooter
+          onBack={goBackWizard}
+          showPrimary={showWizardPrimary}
+          primaryLabel={wizardPrimaryLabel}
+          primaryDisabled={step === 'review' && createFloorRequest.isPending}
+          primaryLoading={step === 'review' && createFloorRequest.isPending}
+          onPrimary={goNextWizard}
+        />
+      </Box>
+      <Stack
+        component="footer"
+        direction="row"
+        spacing={1.5}
+        sx={{
+          display: { xs: 'none', md: 'flex' },
+          width: '100%',
+          bgcolor: 'background.paper',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          px: 3,
+          py: 2,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxSizing: 'border-box',
         }}
       >
-        Back
-      </ActionButton>
-      {step === 'floor' ||
-      (step === 'section' && sections.length > 0) ||
-      (step === 'table' && tables.length > 0) ||
-      step === 'review' ? (
-        <ActionButton
-          disabled={step === 'review' && createFloorRequest.isPending}
-          sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
-          onClick={() => {
-            if (step === 'floor') goToStep('section');
-            else if (step === 'section') goToStep('table');
-            else if (step === 'table') goToStep('review');
-            else void createFloor();
-          }}
-        >
-          {step === 'floor'
-            ? 'Section Creation'
-            : step === 'section'
-              ? 'Update Floor'
-              : step === 'table'
-                ? 'Setup Permissions'
-                : createFloorRequest.isPending
-                  ? 'Creating Floor'
-                  : 'Create Floor'}
+        <ActionButton variant="outlined" onClick={goBackWizard}>
+          Back
         </ActionButton>
-      ) : null}
-    </Stack>
+        {showWizardPrimary ? (
+          <ActionButton
+            disabled={step === 'review' && createFloorRequest.isPending}
+            loading={step === 'review' && createFloorRequest.isPending}
+            onClick={goNextWizard}
+          >
+            {wizardPrimaryLabel}
+          </ActionButton>
+        ) : null}
+      </Stack>
+    </>
   ) : null;
 
   if (detail) {
@@ -279,108 +325,120 @@ export function FloorSetupScreen() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100%', gap: 2.5, pb: 3 }}>
-      {route.step === 'hub' ? (
-        <FloorCatalog
-          floors={floorsQuery.data ?? []}
-          isLoading={floorsQuery.isLoading}
-          error={
-            branchId == null
-              ? 'Select a branch to load floors.'
-              : floorsQuery.isError
-                ? floorsQuery.error.message
-                : null
-          }
-          status={floorStatus}
-          onStatusChange={setFloorStatus}
-          onCreate={openCreate}
-          onOpen={(floor, tab) => router.push(floorDetailHref(route.base, floor.id, tab))}
-        />
-      ) : null}
-
-      {createError ? <Alert severity="error">{createError}</Alert> : null}
-
-      {step ? (
-        <>
-          <Tabs
-            fullWidth={false}
-            tabs={wizardTabs}
-            value={step}
-            onChange={(value) => {
-              if (
-                value === 'floor' ||
-                value === 'section' ||
-                value === 'table' ||
-                value === 'review'
-              ) {
-                goToStep(value);
-              }
-            }}
-            sx={{ flexWrap: 'wrap', width: '100%', rowGap: 0.5 }}
+    <Box sx={compactPageRootSx}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+          width: '100%',
+          gap: { xs: compactMuiSpacing.section, md: 2.5 },
+          pb: { xs: 2, sm: 2.5, md: 3 },
+        }}
+      >
+        {route.step === 'hub' ? (
+          <FloorCatalog
+            floors={floorsQuery.data ?? []}
+            isLoading={floorsQuery.isLoading}
+            error={
+              branchId == null
+                ? 'Select a branch to load floors.'
+                : floorsQuery.isError
+                  ? floorsQuery.error.message
+                  : null
+            }
+            status={floorStatus}
+            onStatusChange={setFloorStatus}
+            onCreate={openCreate}
+            onOpen={(floor, tab) => router.push(floorDetailHref(route.base, floor.id, tab))}
           />
-          {step === 'floor' ? (
-            <FloorCreationStep
-              details={details}
-              nameError={displayNameError}
-              onChange={(next) => save({ ...draft, details: next })}
-            />
-          ) : null}
-          {step === 'section' ? (
-            <SectionStep
-              floorName={floorTitle}
-              sections={sections}
-              tables={tables}
-              onBackToFloor={() => openStep('floor')}
-              onCreate={(input) => saveSection(input)}
-              onUpdate={(id, input) => saveSection(input, id)}
-              onDelete={(id) =>
-                save({
-                  ...draft,
-                  sections: removeSection(sections, id),
-                  tables: unlinkSectionTables(tables, id),
-                })
-              }
-            />
-          ) : null}
-          {step === 'table' ? (
-            <TableStep
-              tables={tables}
-              onGenerate={(input) =>
-                save({
-                  ...draft,
-                  tables: appendTables(
-                    tables,
-                    input,
-                    sections.map((section) => section.id),
-                  ),
-                })
-              }
-              onDelete={(id) => save({ ...draft, tables: removeTable(tables, id) })}
-              onToggleActive={(id) => save({ ...draft, tables: toggleTableActive(tables, id) })}
-              onBulkEdit={() => save({ ...draft, tables: toggleAllTables(tables) })}
-            />
-          ) : null}
-          {step === 'review' ? (
-            <ReviewStep
-              details={withFloorCode(details)}
-              sections={sections}
-              tables={tables}
-              onEdit={goToStep}
-            />
-          ) : null}
-        </>
-      ) : null}
+        ) : null}
 
-      {route.step === 'success' && created ? (
-        <SuccessStep
-          floor={created}
-          outlet={outlet}
-          onHub={() => openStep('hub')}
-          onSetup={() => openSaved(created)}
-        />
-      ) : null}
+        {createError ? <Alert severity="error">{createError}</Alert> : null}
 
-      {footer ? (footerTarget ? createPortal(footer, footerTarget) : footer) : null}
+        {step ? (
+          <>
+            <Tabs
+              fullWidth={false}
+              scrollable={belowDesktop}
+              tabs={wizardTabs}
+              value={step}
+              onChange={(value) => {
+                if (
+                  value === 'floor' ||
+                  value === 'section' ||
+                  value === 'table' ||
+                  value === 'review'
+                ) {
+                  goToStep(value);
+                }
+              }}
+            />
+            {step === 'floor' ? (
+              <FloorCreationStep
+                details={details}
+                nameError={displayNameError}
+                onChange={(next) => save({ ...draft, details: next })}
+              />
+            ) : null}
+            {step === 'section' ? (
+              <SectionStep
+                floorName={floorTitle}
+                sections={sections}
+                tables={tables}
+                onBackToFloor={() => openStep('floor')}
+                onCreate={(input) => saveSection(input)}
+                onUpdate={(id, input) => saveSection(input, id)}
+                onDelete={(id) =>
+                  save({
+                    ...draft,
+                    sections: removeSection(sections, id),
+                    tables: unlinkSectionTables(tables, id),
+                  })
+                }
+              />
+            ) : null}
+            {step === 'table' ? (
+              <TableStep
+                tables={tables}
+                onGenerate={(input) =>
+                  save({
+                    ...draft,
+                    tables: appendTables(
+                      tables,
+                      input,
+                      sections.map((section) => section.id),
+                    ),
+                  })
+                }
+                onDelete={(id) => save({ ...draft, tables: removeTable(tables, id) })}
+                onToggleActive={(id) => save({ ...draft, tables: toggleTableActive(tables, id) })}
+                onBulkEdit={() => save({ ...draft, tables: toggleAllTables(tables) })}
+              />
+            ) : null}
+            {step === 'review' ? (
+              <ReviewStep
+                details={withFloorCode(details)}
+                sections={sections}
+                tables={tables}
+                onEdit={goToStep}
+              />
+            ) : null}
+          </>
+        ) : null}
+
+        {route.step === 'success' && created ? (
+          <SuccessStep
+            floor={created}
+            outlet={outlet}
+            onHub={() => openStep('hub')}
+            onSetup={() => openSaved(created)}
+          />
+        ) : null}
+
+        {footer ? (footerTarget ? createPortal(footer, footerTarget) : footer) : null}
+      </Box>
     </Box>
   );
 }

@@ -7,6 +7,7 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 
+import { compactMuiSpacing } from '@/components/features/floor-and-table-setup/compactLayoutSx';
 import { Dropdown, type DropdownProps } from '@/components/shared/form-fields/Dropdown';
 import { screen } from '@/lib/theme/mui/breakpoints';
 
@@ -21,7 +22,7 @@ export function SetupCard({
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: { [screen.mobile]: '12px', [screen.desktop]: '16px' },
-        p: { [screen.mobile]: 2, [screen.desktop]: 3 },
+        p: { [screen.mobile]: compactMuiSpacing.block, [screen.desktop]: 3 },
         ...sx,
       }}
     >
@@ -58,21 +59,41 @@ export function StatusRow({
   onChange: (checked: boolean) => void;
 }>) {
   return (
-    <Stack
-      direction={{ [screen.mobile]: 'column', [screen.tablet]: 'row' }}
-      sx={{
-        alignItems: { [screen.tablet]: 'center' },
-        justifyContent: 'space-between',
-        gap: 1.5,
-      }}
-    >
-      <Box>
-        <Typography sx={{ fontWeight: 700, fontSize: '0.875rem' }}>{title}</Typography>
-        <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', mt: 0.25 }}>
+    <>
+      <Stack spacing={0.75} sx={{ display: { xs: 'flex', md: 'none' } }}>
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}
+        >
+          <Typography sx={{ fontWeight: 700, fontSize: '0.875rem' }}>{title}</Typography>
+          <Switch
+            checked={checked}
+            onChange={(_event, next) => onChange(next)}
+            color="primary"
+            sx={{ flexShrink: 0, ml: 'auto' }}
+          />
+        </Stack>
+        <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', lineHeight: 1.45 }}>
           {hint}
         </Typography>
-      </Box>
-      <Switch checked={checked} onChange={(_event, next) => onChange(next)} color="primary" />
-    </Stack>
+      </Stack>
+      <Stack
+        direction="row"
+        sx={{
+          display: { xs: 'none', md: 'flex' },
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1.5,
+        }}
+      >
+        <Box>
+          <Typography sx={{ fontWeight: 700, fontSize: '0.875rem' }}>{title}</Typography>
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', mt: 0.25 }}>
+            {hint}
+          </Typography>
+        </Box>
+        <Switch checked={checked} onChange={(_event, next) => onChange(next)} color="primary" />
+      </Stack>
+    </>
   );
 }

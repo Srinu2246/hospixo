@@ -5,7 +5,9 @@ import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Eye, LayoutGrid, Pencil, Plus, QrCode } from 'lucide-react';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+import { Eye, LayoutGrid, Pencil, Plus } from 'lucide-react';
 
 import {
   EditTableDialog,
@@ -25,6 +27,10 @@ import { useCreateTable } from '@/lib/hooks/floor-and-table-setup/useRestaurantF
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { ApiError } from '@/services/api/types';
+import {
+  compactFilterDropdownSx,
+  compactMuiSpacing,
+} from '@/components/features/floor-and-table-setup/compactLayoutSx';
 import { useToastStore } from '@/stores/toastStore';
 
 type SectionStatusFilter = 'all' | 'active' | 'inactive';
@@ -35,13 +41,9 @@ const sectionStatusOptions = [
   { id: 'inactive', label: 'Inactive' },
 ] as const;
 
-const listHeaderActionsSx = {
-  display: 'grid',
-  gridTemplateColumns: { [screen.mobile]: '1fr 1fr', [screen.desktop]: 'minmax(9rem, 11rem) auto' },
-  gap: 1.25,
-  width: { [screen.mobile]: '100%', [screen.desktop]: 'auto' },
-  alignItems: 'stretch',
-  '& > .MuiFormControl-root': { minWidth: 0 },
+const catalogCardHoverSx = {
+  transition: 'border-color 0.15s ease',
+  '&:hover': { borderColor: 'grey.400' },
 } as const;
 
 export function FloorSectionsPanel({
@@ -97,48 +99,71 @@ function SectionList({
   onEdit: (sectionId: string) => void;
   onAdd: () => void;
 }>) {
+  const theme = useTheme();
+  const belowDesktop = useMediaQuery(theme.breakpoints.down('md'));
   const [status, setStatus] = useState<SectionStatusFilter>('all');
-  const visible = sections.filter((section) => {
+  const filtered = sections.filter((section) => {
     if (status === 'all') return true;
     return status === 'active' ? section.active : !section.active;
   });
+  const visible = belowDesktop ? filtered : sections;
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={{ xs: compactMuiSpacing.block, md: 2.5 }}>
+      <Stack spacing={compactMuiSpacing.block} sx={{ display: { xs: 'flex', md: 'none' } }}>
+        <Stack
+          direction="row"
+          spacing={1.5}
+          sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}
+        >
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem' }}>Sections List</Typography>
+            <Typography
+              sx={{ color: 'text.secondary', fontSize: '0.8125rem', mt: 0.25, lineHeight: 1.45 }}
+            >
+              Manage and organize dining zones within this floor
+            </Typography>
+          </Box>
+          <ActionButton
+            startIcon={<Plus size={16} />}
+            size="large"
+            onClick={onAdd}
+            sx={{ flexShrink: 0, minHeight: 44, whiteSpace: 'nowrap' }}
+          >
+            Add Section
+          </ActionButton>
+        </Stack>
+        <Dropdown
+          placeholder="Status"
+          options={sectionStatusOptions}
+          value={status}
+          onChange={setStatus}
+          size="large"
+          minWidth={0}
+          sx={compactFilterDropdownSx}
+        />
+      </Stack>
+
       <Stack
-        direction={{ [screen.mobile]: 'column', [screen.desktop]: 'row' }}
+        direction="row"
         spacing={1.5}
-        sx={{ alignItems: { [screen.desktop]: 'center' }, justifyContent: 'space-between' }}
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          display: { xs: 'none', md: 'flex' },
+        }}
       >
-        <Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography sx={{ fontWeight: 800 }}>Sections List</Typography>
           <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
             Manage and organize dining zones within this floor
           </Typography>
         </Box>
-        <Box sx={listHeaderActionsSx}>
-          <Dropdown
-            placeholder="Status"
-            options={sectionStatusOptions}
-            value={status}
-            onChange={setStatus}
-            size="large"
-            minWidth={0}
-            sx={{
-              width: '100%',
-              height: 44,
-              '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
-            }}
-          />
-          <ActionButton
-            startIcon={<Plus size={16} />}
-            onClick={onAdd}
-            sx={{ width: '100%', height: 44 }}
-          >
-            Add Section
-          </ActionButton>
-        </Box>
+        <ActionButton startIcon={<Plus size={16} />} size="large" onClick={onAdd}>
+          Add Section
+        </ActionButton>
       </Stack>
+
       <Box
         sx={{
           display: 'grid',
@@ -147,14 +172,14 @@ function SectionList({
             [screen.tablet]: '1fr 1fr',
             [screen.wide]: '1fr 1fr 1fr',
           },
-          gap: 1.5,
+          gap: { xs: compactMuiSpacing.block, md: 2 },
         }}
       >
         {visible.length === 0 ? (
           <Typography
             sx={{ color: 'text.secondary', gridColumn: '1 / -1', py: 4, textAlign: 'center' }}
           >
-            No sections match this filter.
+            {belowDesktop ? 'No sections match this filter.' : 'No sections on this floor.'}
           </Typography>
         ) : null}
         {visible.map((section) => (
@@ -171,36 +196,51 @@ function SectionList({
               }
             }}
             sx={{
-              p: 1.75,
-              borderRadius: '14px',
+              p: 2,
+              borderRadius: '16px',
               border: '1px solid',
               borderColor: 'divider',
               bgcolor: 'background.paper',
               cursor: 'pointer',
-              transition: 'border-color 0.15s ease',
-              '&:hover': { borderColor: 'grey.400' },
+              ...catalogCardHoverSx,
             }}
           >
-            <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1 }}>
-              <Typography sx={{ fontWeight: 800 }}>{section.name}</Typography>
+            <Stack
+              direction="row"
+              sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}
+            >
+              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem' }}>{section.name}</Typography>
               <StatusChip
                 label={section.active ? 'Active' : 'Inactive'}
                 variantType={section.active ? 'success' : 'default'}
               />
             </Stack>
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem', mt: 1 }}>
+            <Typography sx={{ color: 'text.secondary', mt: 1, fontSize: '0.875rem' }}>
               {section.tableCount} Tables · {section.seatCount} Seats
             </Typography>
             <Stack
               direction="row"
-              sx={{ justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}
+              sx={{
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mt: 2,
+                pt: 1.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+              }}
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
             >
-              <ActionButton variant="outlined" size="small" startIcon={<QrCode size={14} />}>
-                Download QR
-              </ActionButton>
-              <Stack direction="row" spacing={0.5}>
+              <Typography
+                sx={{ color: 'text.secondary', fontSize: '0.8125rem', minWidth: 0, flex: 1 }}
+              >
+                {section.code || 'No code'}
+              </Typography>
+              <Stack
+                direction="row"
+                spacing={0.5}
+                sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0 }}
+              >
                 <ActionButton
                   variant="icon"
                   size="small"
@@ -216,6 +256,30 @@ function SectionList({
                   onClick={() => onEdit(section.id)}
                 >
                   <Pencil size={15} />
+                </ActionButton>
+              </Stack>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ display: { xs: 'flex', md: 'none' }, flexShrink: 0 }}
+              >
+                <ActionButton
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Eye size={15} />}
+                  onClick={() => onOpen(section.id)}
+                  sx={{ minHeight: 40, px: 1.5 }}
+                >
+                  View
+                </ActionButton>
+                <ActionButton
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Pencil size={15} />}
+                  onClick={() => onEdit(section.id)}
+                  sx={{ minHeight: 40, px: 1.5 }}
+                >
+                  Edit
                 </ActionButton>
               </Stack>
             </Stack>

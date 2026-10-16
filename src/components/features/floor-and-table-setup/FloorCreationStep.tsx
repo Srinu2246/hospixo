@@ -41,7 +41,12 @@ export function FloorCreationStep({
           mb: 2.5,
         }}
       >
-        Floor Creation
+        <Box component="span" sx={{ display: { xs: 'inline', md: 'none' } }}>
+          Floor Details
+        </Box>
+        <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>
+          Floor Creation
+        </Box>
       </Typography>
       <Box
         sx={{
