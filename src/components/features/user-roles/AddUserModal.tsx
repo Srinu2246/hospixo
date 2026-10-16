@@ -9,13 +9,17 @@ import { Modal } from '@/components/shared/ui/Modal';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import { userRoleFormSchema, type UserRoleFormValues } from '@/lib/schemas/user-roles';
 import {
-  ROLE_OPTIONS,
-  BRANCH_OPTIONS,
-  STATUS_OPTIONS,
-} from '@/lib/mocks/employees/useUserRoles.mocks';
-import type { UserRoleItem } from '@/types/user-roles';
+  userRoleFormSchema,
+  type UserRoleFormValues,
+  type UserRoleItem,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
+const STATUS_OPTIONS = [
+  { id: 'active', label: 'Active' },
+  { id: 'invited', label: 'Invited' },
+  { id: 'disabled', label: 'Disabled' },
+  { id: 'inactive', label: 'Inactive' },
+] as const;
 
 export interface AddUserModalProps {
   open: boolean;
@@ -31,8 +35,8 @@ export function AddUserModal({
   onClose,
   onSubmit,
   editUser,
-  roleOptions = ROLE_OPTIONS,
-  branchOptions = BRANCH_OPTIONS,
+  roleOptions = [],
+  branchOptions = [],
 }: Readonly<AddUserModalProps>) {
   const isEditing = Boolean(editUser);
 
@@ -46,8 +50,8 @@ export function AddUserModal({
     defaultValues: {
       name: '',
       email: '',
-      role: roleOptions[0] || ROLE_OPTIONS[0],
-      branch: branchOptions[0] || BRANCH_OPTIONS[0],
+      role: roleOptions[0] ?? 'Staff',
+      branch: branchOptions[0] ?? '—',
       status: 'active',
     },
   });
@@ -65,8 +69,8 @@ export function AddUserModal({
       reset({
         name: '',
         email: '',
-        role: roleOptions[0] || ROLE_OPTIONS[0],
-        branch: branchOptions[0] || BRANCH_OPTIONS[0],
+        role: roleOptions[0] ?? 'Staff',
+        branch: branchOptions[0] ?? '—',
         status: 'active',
       });
     }

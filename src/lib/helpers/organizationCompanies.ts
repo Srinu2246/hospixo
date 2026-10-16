@@ -1,10 +1,10 @@
 import { normalizeRoleKey } from '@/app/sidebar';
-import { organizationCompaniesPath } from '@/services/api/ApiUrlsV1';
+import ApiUrlsV1, { organizationCompaniesPath } from '@/services/api/ApiUrlsV1';
 import {
   parseCompanyList,
   type CompanyListItem,
 } from '@/lib/schemas/organization/companies/companyListSchema';
-import type { QueryParams } from '@/services/api/types';
+import { ApiError, type QueryParams } from '@/services/api/types';
 
 type GetJson = (path: string, params?: QueryParams) => Promise<unknown>;
 
@@ -121,4 +121,31 @@ function dedupeById(items: readonly CompanyListItem[]): CompanyListItem[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** GET /v1/companies/{id} when the list endpoint is forbidden for the current role. */
+export async function loadCompanyById(
+  companyId: number | string,
+  get: GetJson,
+): Promise<CompanyListItem | null> {
+  const detailPath = `${ApiUrlsV1.organization.companies}/${encodeURIComponent(String(companyId))}`;
+
+  for (const path of [detailPath, ApiUrlsV1.organization.companies] as const) {
+    try {
+      const params =
+        path === ApiUrlsV1.organization.companies ? { company_id: companyId } : undefined;
+      const items = parseCompanyList(await get(path, params));
+      const match = items.find((item) => String(item.id) === String(companyId));
+      if (match) return match;
+      if (items.length === 1) return items[0];
+    } catch (error) {
+      if (!isMissingEndpoint(error)) throw error;
+    }
+  }
+
+  return null;
+}
+
+function isMissingEndpoint(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 403 || error.status === 404);
 }

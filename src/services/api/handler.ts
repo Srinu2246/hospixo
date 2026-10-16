@@ -2,13 +2,9 @@ import 'server-only';
 
 import {
   INITIAL_USERS,
-  COMPANY_INITIAL_USERS,
-  BRANCH_INITIAL_USERS,
-} from '@/lib/mocks/employees/useUserRoles.mocks';
-import {
   COMPANY_ROLE_TEMPLATES,
-  BRANCH_ROLE_TEMPLATES,
-} from '@/lib/mocks/employees/multiform.mocks';
+  resolveUserRolesMock,
+} from '@/lib/mocks/employees/useUserRoles.mocks';
 import {
   BRANCH_STAT_CARDS,
   COMPANY_STAT_CARDS,
@@ -96,11 +92,13 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.pos.pointOfSale.takeaway.list]: MOCK_MENU_ITEMS,
   [ApiUrlsV1.pos.pointOfSale.kitchenDisplay.list]: MOCK_KITCHEN_ORDERS,
   [ApiUrlsV1.operations.kitchenDisplay.list]: MOCK_KITCHEN_ORDERS,
-  [ApiUrlsV1.employees.userRoles.list]: INITIAL_USERS,
-  [ApiUrlsV1.employees.companyUserRoles.list]: COMPANY_INITIAL_USERS,
-  [ApiUrlsV1.employees.companyTemplates.list]: COMPANY_ROLE_TEMPLATES,
-  [ApiUrlsV1.employees.branchUserRoles.list]: BRANCH_INITIAL_USERS,
-  [ApiUrlsV1.employees.branchTemplates.list]: BRANCH_ROLE_TEMPLATES,
+  [ApiUrlsV1.users.list]: INITIAL_USERS,
+  [ApiUrlsV1.roles.list]: INITIAL_USERS.map((user, index) => ({
+    id: index + 1,
+    name: user.role,
+  })),
+  [ApiUrlsV1.roles.templates]: COMPANY_ROLE_TEMPLATES,
+  [ApiUrlsV1.permissions.grouped]: [],
   [ApiUrlsV1.dashboard.organization.list]: { stats: ORG_STAT_CARDS },
   [ApiUrlsV1.dashboard.company.list]: { stats: COMPANY_STAT_CARDS },
   [ApiUrlsV1.dashboard.branch.list]: { stats: BRANCH_STAT_CARDS },
@@ -122,6 +120,8 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
   const gstRates = resolveGstRatesMock(request);
   if (gstRates !== undefined) return gstRates;
+  const userRoles = resolveUserRolesMock(request);
+  if (userRoles !== undefined) return userRoles;
 
   const listPath = findListPath(request.path);
   if (!listPath) return undefined;

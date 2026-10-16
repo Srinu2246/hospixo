@@ -11,7 +11,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import type { UserRoleItem, UserStatus } from '@/types/user-roles';
+import type { UserRoleItem, UserStatus } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 export interface UserRowActionsMenuProps {

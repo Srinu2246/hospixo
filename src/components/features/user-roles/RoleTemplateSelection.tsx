@@ -16,12 +16,13 @@ import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import RestaurantMenuOutlinedIcon from '@mui/icons-material/RestaurantMenuOutlined';
 import AddIcon from '@mui/icons-material/Add';
 
-import {
-  ROLE_TEMPLATES,
-  COMPANY_ROLE_TEMPLATES,
-  BRANCH_ROLE_TEMPLATES,
-} from '@/lib/mocks/employees/multiform.mocks';
-import type { RoleTemplateItem, ScopeType } from '@/types/user-roles';
+import { useRoleTemplates } from '@/lib/hooks/employees/user-roles';
+import type {
+  RoleTemplateItem,
+  ScopeType,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Loading } from '@/components/shared/ui/Loading';
 
 export interface RoleTemplateSelectionProps {
   onSelectTemplate: (template: RoleTemplateItem) => void;
@@ -53,12 +54,8 @@ export function RoleTemplateSelection({
   onBackToUsers,
   scope = 'company',
 }: Readonly<RoleTemplateSelectionProps>) {
-  const templates =
-    scope === 'branch'
-      ? BRANCH_ROLE_TEMPLATES
-      : scope === 'company'
-        ? COMPANY_ROLE_TEMPLATES
-        : ROLE_TEMPLATES;
+  const templatesQuery = useRoleTemplates(scope);
+  const templates = templatesQuery.data ?? [];
 
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2.5, pb: 4 }}>
@@ -70,6 +67,11 @@ export function RoleTemplateSelection({
         ]}
         activeSx={{ color: colors.primary.default, fontWeight: 600 }}
       />
+
+      {templatesQuery.isError ? (
+        <AlertMessage variant="error" message="Unable to load role templates." />
+      ) : null}
+      {templatesQuery.isLoading ? <Loading message="Loading templates…" fullPage={false} /> : null}
 
       {/* Header Card with Title and Create Template Button */}
       <Card

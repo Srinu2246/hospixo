@@ -85,21 +85,13 @@ async function request<T>(
 
   const isPublic = isPublicEndpoint(path);
   const isLogout = path === ApiUrlsV1.auth.logout;
-  const usesAccessToken =
-    isLogout ||
-    path === ApiUrlsV1.auth.me ||
-    path === ApiUrlsV1.organization.companies ||
-    path.startsWith(`${ApiUrlsV1.organization.platformOrganizations}/`) ||
-    path.startsWith(`${ApiUrlsV1.organization.platformOrganizationsV2}/`) ||
-    path === ApiUrlsV1.restaurant.branches ||
-    path.startsWith(`${ApiUrlsV1.restaurant.branches}/`);
   const session = isPublic ? undefined : await requireSession();
   const { secret } = getBackendConfig();
   const headers = new Headers({
     Accept: 'application/json',
   });
 
-  if (usesAccessToken && session) {
+  if (session && (isLogout || pathUsesSessionBearer(path))) {
     headers.set('Authorization', `Bearer ${session}`);
   } else if (secret) {
     headers.set('Authorization', `Bearer ${secret}`);
@@ -343,4 +335,20 @@ function isSensitiveKey(key: string): boolean {
 
 function normalizeKey(key: string): string {
   return key.toLowerCase().replace(/[-_\s]/g, '');
+}
+
+/** User-scoped APIs must use the login access token, not API_SECRET. */
+function pathUsesSessionBearer(path: string): boolean {
+  const prefixes = [
+    ApiUrlsV1.auth.me,
+    ApiUrlsV1.users.list,
+    ApiUrlsV1.roles.list,
+    ApiUrlsV1.permissions.grouped,
+    ApiUrlsV1.organization.companies,
+    ApiUrlsV1.organization.platformOrganizations,
+    ApiUrlsV1.organization.platformOrganizationsV2,
+    ApiUrlsV1.restaurant.branches,
+  ];
+
+  return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }

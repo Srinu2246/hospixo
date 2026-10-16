@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
-import type { UserRoleStatsData } from '@/types/user-roles';
+import type { UserRoleStatsData } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface UserRoleStatsProps {
   stats: UserRoleStatsData;
