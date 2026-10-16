@@ -44,12 +44,31 @@ async function rejectUnauthorized(): Promise<never> {
   throw new ApiError('Unauthorized', 401);
 }
 
+function normalizeApiBaseUrl(value: string | undefined): string {
+  if (!value?.trim()) return '';
+  return value
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/docs$/, '');
+}
+
+function resolveApiBaseUrl(): string {
+  return (
+    normalizeApiBaseUrl(process.env.API_BASE_URL) ||
+    normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL) ||
+    normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL)
+  );
+}
+
 function getBackendConfig(): { baseUrl: string; secret: string } {
-  const baseUrl = process.env.API_BASE_URL?.replace(/\/+$/, '') ?? '';
+  const baseUrl = resolveApiBaseUrl();
   const secret = process.env.API_SECRET ?? '';
 
   if (!baseUrl) {
-    throw new ApiError('API is not configured', 503);
+    throw new ApiError(
+      'API is not configured. Set API_BASE_URL (server) or NEXT_PUBLIC_API_URL in .env.local.',
+      503,
+    );
   }
 
   return { baseUrl, secret };
