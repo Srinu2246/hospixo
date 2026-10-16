@@ -1,18 +1,25 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  menuItemsEnvelopeSchema,
+  parseMenuItemList,
+  parseMenuItemRecord,
   type MenuItemListParams,
-  type PagedMenuItemsData,
 } from '@/lib/schemas/menu/menuItemsSchema';
+import { useToastStore } from '@/stores/toastStore';
 import { api } from '@/services/api/browserClient';
-import { restaurantMenuItemsPath } from '@/services/api/ApiUrlsV1';
-import { ApiError } from '@/services/api/types';
+import {
+  restaurantMenuItemDeactivatePath,
+  restaurantMenuItemPath,
+  restaurantMenuItemsPath,
+} from '@/services/api/ApiUrlsV1';
 
 export const menuItemsQueryKey = (params?: MenuItemListParams) =>
   ['restaurant', 'menu-items', params ?? {}] as const;
+
+export const menuItemQueryKey = (itemId: number | undefined) =>
+  ['restaurant', 'menu-item', itemId] as const;
 
 function listParams(params?: MenuItemListParams) {
   return {
@@ -31,13 +38,44 @@ function listParams(params?: MenuItemListParams) {
 export function useMenuItems(params?: MenuItemListParams) {
   return useQuery({
     queryKey: menuItemsQueryKey(params),
-    queryFn: async ({ signal }): Promise<PagedMenuItemsData> => {
+    queryFn: async ({ signal }) => {
       const payload = await api.get(restaurantMenuItemsPath(), listParams(params), signal);
-      const parsed = menuItemsEnvelopeSchema.safeParse(payload);
-      if (!parsed.success || !parsed.data.success || !parsed.data.data) {
-        throw new ApiError('Unexpected menu items response', 502);
-      }
-      return parsed.data.data;
+      return parseMenuItemList(payload);
+    },
+  });
+}
+
+/**
+ * Single menu item.
+ * GET /v1/restaurant/menu/items/{item_id}
+ */
+export function useMenuItem(itemId: number | undefined) {
+  return useQuery({
+    queryKey: menuItemQueryKey(itemId),
+    enabled: typeof itemId === 'number' && Number.isFinite(itemId) && itemId > 0,
+    queryFn: async ({ signal }) => {
+      const payload = await api.get(restaurantMenuItemPath(itemId as number), undefined, signal);
+      return parseMenuItemRecord(payload);
+    },
+  });
+}
+
+/**
+ * Soft-delete / deactivate menu item.
+ * POST /v1/restaurant/menu/items/{item_id}/deactivate
+ */
+export function useDeactivateMenuItem() {
+  const queryClient = useQueryClient();
+  const showToast = useToastStore((state) => state.show);
+
+  return useMutation({
+    mutationFn: async (itemId: number) => {
+      await api.post(restaurantMenuItemDeactivatePath(itemId), {});
+    },
+    onSuccess: async (_data, itemId) => {
+      await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
+      await queryClient.invalidateQueries({ queryKey: menuItemQueryKey(itemId) });
+      showToast('Menu item deleted successfully.', 'success');
     },
   });
 }

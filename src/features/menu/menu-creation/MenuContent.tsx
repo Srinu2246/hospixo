@@ -115,12 +115,14 @@ function MenuListPane() {
     openEditItem,
     openViewItem,
     deleteItem,
+    isDeletingItem,
     items,
     isItemsLoading,
     itemsError,
   } = useMenuCreation();
 
   const [deleteTargetItem, setDeleteTargetItem] = useState<MenuCatalogItem | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}::${sessionFilter}`;
 
   return (
@@ -203,13 +205,32 @@ function MenuListPane() {
         onAddCategory={openCreateCategory}
       />
 
+      {deleteError ? (
+        <AlertMessage
+          variant="error"
+          title="Unable to delete menu item"
+          message={deleteError}
+          sx={{ mt: 1 }}
+        />
+      ) : null}
+
       <DeleteMenuItemModal
         open={Boolean(deleteTargetItem)}
-        onClose={() => setDeleteTargetItem(null)}
-        onConfirm={() => {
-          if (!deleteTargetItem) return;
-          deleteItem(deleteTargetItem.id);
+        loading={Boolean(isDeletingItem)}
+        onClose={() => {
+          if (isDeletingItem) return;
           setDeleteTargetItem(null);
+          setDeleteError(null);
+        }}
+        onConfirm={async () => {
+          if (!deleteTargetItem) return;
+          setDeleteError(null);
+          try {
+            await deleteItem(deleteTargetItem.id);
+            setDeleteTargetItem(null);
+          } catch (error) {
+            setDeleteError(error instanceof Error ? error.message : 'The delete request failed.');
+          }
         }}
         item={deleteTargetItem}
       />
@@ -218,8 +239,16 @@ function MenuListPane() {
 }
 
 function MenuMainPane() {
-  const { viewMode, selectedItem, items, openEditItem, backToList, addCategory, deleteItem } =
-    useMenuCreation();
+  const {
+    viewMode,
+    selectedItem,
+    items,
+    openEditItem,
+    backToList,
+    addCategory,
+    deleteItem,
+    isDeletingItem,
+  } = useMenuCreation();
 
   if (viewMode === 'create-item' || viewMode === 'edit-item') {
     return (
@@ -241,9 +270,9 @@ function MenuMainPane() {
           item={viewItem}
           onBack={backToList}
           onEdit={() => openEditItem(viewItem)}
-          onDelete={() => {
-            deleteItem(viewItem.id);
-            backToList();
+          isDeleting={Boolean(isDeletingItem)}
+          onDelete={async () => {
+            await deleteItem(viewItem.id);
           }}
         />
       </Box>

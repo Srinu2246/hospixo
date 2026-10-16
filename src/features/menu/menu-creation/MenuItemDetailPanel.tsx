@@ -12,52 +12,156 @@ import { alpha } from '@mui/material/styles';
 import { ArrowLeft, Pencil } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
+import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
+import { gstLabelFromItem, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
+import { useMenuItem } from '@/lib/hooks/menu/useMenuItems';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
+import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 import { DeleteMenuItemModal } from './DeleteMenuItemModal';
 import { DietaryIcon } from './DietaryIcon';
 
-const DEFAULT_PANEER_TIKKA_IMG =
+const DEFAULT_ITEM_IMG =
   'https://images.unsplash.com/photo-1567184109411-b28f2700e1e5?w=600&auto=format&fit=crop&q=80';
 
 export interface MenuItemDetailPanelProps {
+  /** List-row item used for id / category fallback while detail loads. */
   item: MenuCatalogItem;
   onBack: () => void;
   onEdit: () => void;
-  onDelete?: () => void;
+  onDelete?: () => void | Promise<void>;
+  /** Disables delete modal actions while deactivate is in flight. */
+  isDeleting?: boolean;
 }
 
 /**
- * Full-fidelity Menu Item Detail screen matching reference design:
- * 1. Breadcrumbs: Home > Menu Creation > View Item
- * 2. Header: Back button, Item name, Starters & Veg badges, Delete and Edit action buttons
- * 3. Basic Details: 3-column key-value grid (Category, Name, Display Name, Code, Price, Profit Margin, GST)
- * 4. Description: Text description paired with food imagery
- * 5. Dietary & Order Type: Checkbox matrices for dietary, order types, and POS channels
- * 6. Tags: Rounded operational tags
- * 7. Side-by-side tables: Quantity / Size Options & Add-Ons
+ * Menu item detail. Loads full record from GET /v1/restaurant/menu/items/{item_id}.
  */
 export function MenuItemDetailPanel({
   item,
   onBack,
   onEdit,
   onDelete,
+  isDeleting = false,
 }: Readonly<MenuItemDetailPanelProps>) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const itemId = Number(item.id);
+  const detailQuery = useMenuItem(Number.isFinite(itemId) && itemId > 0 ? itemId : undefined);
 
-  const handleDeleteConfirm = () => {
-    setDeleteDialogOpen(false);
-    if (onDelete) {
-      onDelete();
-    } else {
+  const handleDeleteConfirm = async () => {
+    if (!onDelete) {
+      setDeleteDialogOpen(false);
       onBack();
+      return;
+    }
+
+    setDeleteError(null);
+    try {
+      await onDelete();
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'The delete request failed.');
     }
   };
 
-  const isVeg = item.dietary === 'Veg' || item.dietary === 'Vegan';
+  if (detailQuery.isLoading) {
+    return (
+      <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', py: 2 }}>
+        <SkeletonLoader count={8} height={56} />
+      </Box>
+    );
+  }
+
+  if (detailQuery.isError) {
+    return (
+      <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', py: 2 }}>
+        <AlertMessage
+          variant="error"
+          title="Unable to load menu item"
+          message={
+            detailQuery.error instanceof Error
+              ? detailQuery.error.message
+              : 'The menu item request failed.'
+          }
+        />
+        <ActionButton variant="outlined" onClick={onBack} sx={{ mt: 2 }}>
+          Back to list
+        </ActionButton>
+      </Box>
+    );
+  }
+
+  const detail = detailQuery.data;
+  const catalog = detail ? toMenuCatalogItem(detail, undefined, item.categoryName) : item;
+
+  return (
+    <MenuItemDetailBody
+      catalog={catalog}
+      detail={detail}
+      onBack={onBack}
+      onEdit={onEdit}
+      deleteDialogOpen={deleteDialogOpen}
+      isDeleting={isDeleting}
+      deleteError={deleteError}
+      onOpenDelete={() => {
+        setDeleteError(null);
+        setDeleteDialogOpen(true);
+      }}
+      onCloseDelete={() => {
+        if (isDeleting) return;
+        setDeleteDialogOpen(false);
+        setDeleteError(null);
+      }}
+      onConfirmDelete={handleDeleteConfirm}
+    />
+  );
+}
+
+function MenuItemDetailBody({
+  catalog,
+  detail,
+  onBack,
+  onEdit,
+  deleteDialogOpen,
+  isDeleting,
+  deleteError,
+  onOpenDelete,
+  onCloseDelete,
+  onConfirmDelete,
+}: Readonly<{
+  catalog: MenuCatalogItem;
+  detail: MenuItemResponse | undefined;
+  onBack: () => void;
+  onEdit: () => void;
+  deleteDialogOpen: boolean;
+  isDeleting: boolean;
+  deleteError: string | null;
+  onOpenDelete: () => void;
+  onCloseDelete: () => void;
+  onConfirmDelete: () => void | Promise<void>;
+}>) {
+  const isVeg = catalog.dietary === 'Veg' || catalog.dietary === 'Vegan';
+  const primaryImage =
+    detail?.images.find((image) => image.is_primary)?.url ??
+    detail?.images[0]?.url ??
+    catalog.imageUrl ??
+    DEFAULT_ITEM_IMG;
+
+  const orderTypes = catalog.orderTypes.length
+    ? catalog.orderTypes
+    : ['Delivery', 'Take Away', 'Dine In'];
+
+  const tags =
+    detail?.tags.map((tag) => tag.name) ??
+    catalog.tags.filter((tag) => tag !== 'Set As Favorite' && tag !== 'Set As Combo');
+
+  const variants = detail?.variants ?? [];
+  const modifiers = detail?.modifier_groups ?? [];
 
   return (
     <Box
@@ -71,44 +175,24 @@ export function MenuItemDetailPanel({
         pb: 6,
       }}
     >
-      {/* 1. Breadcrumbs */}
       <Breadcrumbs
         items={[
-          {
-            label: 'Home',
-            href: '/company/dashboard',
-          },
-          {
-            label: 'Menu Creation',
-            onClick: onBack,
-          },
-          {
-            label: 'View item',
-            active: true,
-          },
+          { label: 'Home', href: '/company/dashboard' },
+          { label: 'Menu Creation', onClick: onBack },
+          { label: 'View item', active: true },
         ]}
         linkSx={{
           color: 'text.primary',
           fontWeight: 500,
-          '&:hover': {
-            color: 'primary.main',
-            textDecoration: 'underline',
-          },
+          '&:hover': { color: 'primary.main', textDecoration: 'underline' },
         }}
-        activeSx={{
-          color: 'primary.main',
-          fontWeight: 600,
-        }}
+        activeSx={{ color: 'primary.main', fontWeight: 600 }}
       />
 
-      {/* 2. Header with Back button, Title & Action buttons */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
-        sx={{
-          justifyContent: 'space-between',
-          alignItems: { sm: 'flex-start' },
-        }}
+        sx={{ justifyContent: 'space-between', alignItems: { sm: 'flex-start' } }}
       >
         <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
           <IconButton
@@ -122,9 +206,7 @@ export function MenuItemDetailPanel({
               borderColor: 'divider',
               bgcolor: 'background.paper',
               color: 'text.primary',
-              '&:hover': {
-                bgcolor: 'action.hover',
-              },
+              '&:hover': { bgcolor: 'action.hover' },
               flexShrink: 0,
               mt: 0.25,
             }}
@@ -144,7 +226,7 @@ export function MenuItemDetailPanel({
                 lineHeight: 1.2,
               }}
             >
-              {item.name}
+              {catalog.name}
             </Typography>
 
             <Stack
@@ -163,7 +245,7 @@ export function MenuItemDetailPanel({
                   fontWeight: 600,
                 }}
               >
-                {item.categoryName}
+                {catalog.categoryName}
               </Box>
 
               <Box
@@ -184,11 +266,15 @@ export function MenuItemDetailPanel({
               >
                 <DietaryIcon
                   type={
-                    item.dietary === 'Non-Veg' ? 'Non-Veg' : item.dietary === 'Egg' ? 'Egg' : 'Veg'
+                    catalog.dietary === 'Non-Veg'
+                      ? 'Non-Veg'
+                      : catalog.dietary === 'Egg'
+                        ? 'Egg'
+                        : 'Veg'
                   }
                   size={14}
                 />
-                <span>{item.dietary}</span>
+                <span>{catalog.dietary}</span>
               </Box>
             </Stack>
           </Box>
@@ -197,7 +283,7 @@ export function MenuItemDetailPanel({
         <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, mt: { xs: 1, sm: 0 } }}>
           <ActionButton
             variant="outlined"
-            onClick={() => setDeleteDialogOpen(true)}
+            onClick={onOpenDelete}
             sx={{
               color: 'error.main',
               borderColor: 'error.main',
@@ -232,14 +318,9 @@ export function MenuItemDetailPanel({
         </Stack>
       </Stack>
 
-      {/* 3. Basic Details Card */}
       <Paper
         variant="outlined"
-        sx={{
-          p: { xs: 2.5, sm: 3 },
-          borderRadius: 2.5,
-          bgcolor: 'background.paper',
-        }}
+        sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 2.5, bgcolor: 'background.paper' }}
       >
         <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem', mb: 2.5 }}>
           Basic Details
@@ -253,114 +334,21 @@ export function MenuItemDetailPanel({
             columnGap: 3,
           }}
         >
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.04em' }}
-            >
-              CATEGORY
-            </Typography>
-            <Typography
-              sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary', mt: 0.5 }}
-            >
-              {item.categoryName}
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.04em' }}
-            >
-              NAME
-            </Typography>
-            <Typography
-              sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary', mt: 0.5 }}
-            >
-              {item.name}
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.04em' }}
-            >
-              ONLINE DISPLAY NAME
-            </Typography>
-            <Typography
-              sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary', mt: 0.5 }}
-            >
-              {item.name} Masala
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.04em' }}
-            >
-              CODE
-            </Typography>
-            <Typography
-              sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary', mt: 0.5 }}
-            >
-              {item.code || 'PNT'}
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.04em' }}
-            >
-              BASE PRICE
-            </Typography>
-            <Typography
-              sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary', mt: 0.5 }}
-            >
-              ₹{item.basePrice}
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.04em' }}
-            >
-              PROFIT MARGIN
-            </Typography>
-            <Typography
-              sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary', mt: 0.5 }}
-            >
-              10%
-            </Typography>
-          </Box>
-
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.04em' }}
-            >
-              GST TYPE
-            </Typography>
-            <Typography
-              sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary', mt: 0.5 }}
-            >
-              5% (Services)
-            </Typography>
-          </Box>
+          <DetailField label="CATEGORY" value={catalog.categoryName} />
+          <DetailField label="NAME" value={catalog.name} />
+          <DetailField label="CODE" value={catalog.code || '—'} />
+          <DetailField label="BASE PRICE" value={`₹${catalog.basePrice}`} />
+          <DetailField
+            label="PROFIT MARGIN"
+            value={detail?.profit_margin_percent != null ? `${detail.profit_margin_percent}%` : '—'}
+          />
+          <DetailField label="GST TYPE" value={detail ? gstLabelFromItem(detail) : '—'} />
         </Box>
       </Paper>
 
-      {/* 4. Description Card */}
       <Paper
         variant="outlined"
-        sx={{
-          p: { xs: 2.5, sm: 3 },
-          borderRadius: 2.5,
-          bgcolor: 'background.paper',
-        }}
+        sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 2.5, bgcolor: 'background.paper' }}
       >
         <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem', mb: 2 }}>
           Description
@@ -372,21 +360,15 @@ export function MenuItemDetailPanel({
           sx={{ alignItems: { md: 'center' }, justifyContent: 'space-between' }}
         >
           <Typography
-            sx={{
-              flex: 1,
-              color: 'text.secondary',
-              fontSize: '0.875rem',
-              lineHeight: 1.65,
-            }}
+            sx={{ flex: 1, color: 'text.secondary', fontSize: '0.875rem', lineHeight: 1.65 }}
           >
-            {item.description ||
-              'Soft cottage cheese cubes marinated in aromatic spices and grilled in a tandoor. Served with mint chutney and fresh onion rings. A classic Indian starter that never goes out of style.'}
+            {catalog.description || 'No description provided.'}
           </Typography>
 
           <Box
             component="img"
-            src={item.imageUrl || DEFAULT_PANEER_TIKKA_IMG}
-            alt={item.name}
+            src={primaryImage}
+            alt={catalog.name}
             sx={{
               width: { xs: '100%', md: 320 },
               height: 180,
@@ -400,14 +382,9 @@ export function MenuItemDetailPanel({
         </Stack>
       </Paper>
 
-      {/* 5. Dietary & Order Type Card */}
       <Paper
         variant="outlined"
-        sx={{
-          p: { xs: 2.5, sm: 3 },
-          borderRadius: 2.5,
-          bgcolor: 'background.paper',
-        }}
+        sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 2.5, bgcolor: 'background.paper' }}
       >
         <Box sx={{ mb: 2.5 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>
@@ -435,28 +412,19 @@ export function MenuItemDetailPanel({
               Dietary Type
             </Typography>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              <Checkbox
-                checked
-                readOnly
-                disableRipple
-                size="small"
-                sx={{
-                  p: 0.5,
-                  cursor: 'default',
-                  color: 'primary.main',
-                  '&.Mui-checked': { color: 'primary.main' },
-                  '&.Mui-disabled': { color: 'primary.main !important' },
-                  '& .MuiSvgIcon-root': { color: 'primary.main !important' },
-                }}
-              />
+              <ReadOnlyCheck checked />
               <DietaryIcon
                 type={
-                  item.dietary === 'Non-Veg' ? 'Non-Veg' : item.dietary === 'Egg' ? 'Egg' : 'Veg'
+                  catalog.dietary === 'Non-Veg'
+                    ? 'Non-Veg'
+                    : catalog.dietary === 'Egg'
+                      ? 'Egg'
+                      : 'Veg'
                 }
                 size={18}
               />
               <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'text.primary' }}>
-                {item.dietary}
+                {catalog.dietary}
               </Typography>
             </Stack>
           </Box>
@@ -471,22 +439,7 @@ export function MenuItemDetailPanel({
               {['Delivery', 'Take Away', 'Dine In'].map((type) => (
                 <FormControlLabel
                   key={type}
-                  control={
-                    <Checkbox
-                      checked
-                      readOnly
-                      disableRipple
-                      size="small"
-                      sx={{
-                        p: 0.5,
-                        cursor: 'default',
-                        color: 'primary.main',
-                        '&.Mui-checked': { color: 'primary.main' },
-                        '&.Mui-disabled': { color: 'primary.main !important' },
-                        '& .MuiSvgIcon-root': { color: 'primary.main !important' },
-                      }}
-                    />
-                  }
+                  control={<ReadOnlyCheck checked={orderTypes.includes(type)} />}
                   label={
                     <Typography
                       sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'text.primary' }}
@@ -507,22 +460,7 @@ export function MenuItemDetailPanel({
               Expose This Item In
             </Typography>
             <FormControlLabel
-              control={
-                <Checkbox
-                  checked
-                  readOnly
-                  disableRipple
-                  size="small"
-                  sx={{
-                    p: 0.5,
-                    cursor: 'default',
-                    color: 'primary.main',
-                    '&.Mui-checked': { color: 'primary.main' },
-                    '&.Mui-disabled': { color: 'primary.main !important' },
-                    '& .MuiSvgIcon-root': { color: 'primary.main !important' },
-                  }}
-                />
-              }
+              control={<ReadOnlyCheck checked={detail?.expose_captain_app ?? true} />}
               label={
                 <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'text.primary' }}>
                   Captain app
@@ -534,44 +472,41 @@ export function MenuItemDetailPanel({
         </Box>
       </Paper>
 
-      {/* 6. Tags Card */}
       <Paper
         variant="outlined"
-        sx={{
-          p: { xs: 2.5, sm: 3 },
-          borderRadius: 2.5,
-          bgcolor: 'background.paper',
-        }}
+        sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 2.5, bgcolor: 'background.paper' }}
       >
         <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem', mb: 2 }}>
           Tags
         </Typography>
 
         <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 1 }}>
-          {['Chef Special', 'Spicy'].map((tag) => (
-            <Box
-              key={tag}
-              sx={{
-                px: 2,
-                py: 0.75,
-                borderRadius: '20px',
-                border: '1px solid',
-                borderColor: 'divider',
-                bgcolor: '#F8FAFC',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                color: 'text.primary',
-              }}
-            >
-              {tag}
-            </Box>
-          ))}
+          {tags.length === 0 ? (
+            <Typography sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>No tags</Typography>
+          ) : (
+            tags.map((tag) => (
+              <Box
+                key={tag}
+                sx={{
+                  px: 2,
+                  py: 0.75,
+                  borderRadius: '20px',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: '#F8FAFC',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  color: 'text.primary',
+                }}
+              >
+                {tag}
+              </Box>
+            ))
+          )}
         </Stack>
       </Paper>
 
-      {/* 7. Bottom Side-by-side Tables: Quantity / Size Options & Add-Ons */}
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5} sx={{ alignItems: 'stretch' }}>
-        {/* Left: Quantity / Size Options */}
         <Paper
           variant="outlined"
           sx={{
@@ -616,39 +551,45 @@ export function MenuItemDetailPanel({
               </Typography>
             </Box>
 
-            {[
-              { size: 'Mini', price: 149, status: 'Active' },
-              { size: 'Single', price: 249, status: 'Active' },
-              { size: 'Double', price: 399, status: 'Active' },
-              { size: 'Family Pack', price: 599, status: 'Active' },
-            ].map((row, idx) => (
-              <Box
-                key={row.size}
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: '1.5fr 1fr 1fr',
-                  alignItems: 'center',
-                  px: 2,
-                  py: 1.25,
-                  borderBottom: idx < 3 ? '1px solid' : 'none',
-                  borderColor: 'divider',
-                }}
-              >
-                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-                  {row.size}
+            {variants.length === 0 ? (
+              <Box sx={{ p: 2 }}>
+                <Typography sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                  No variants
                 </Typography>
-                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-                  ₹{row.price}
-                </Typography>
-                <Box>
-                  <StatusChip label={row.status} variantType="success" size="small" />
-                </Box>
               </Box>
-            ))}
+            ) : (
+              variants.map((row, idx) => (
+                <Box
+                  key={row.id}
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: '1.5fr 1fr 1fr',
+                    alignItems: 'center',
+                    px: 2,
+                    py: 1.25,
+                    borderBottom: idx < variants.length - 1 ? '1px solid' : 'none',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
+                    {row.name}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
+                    ₹{row.final_price}
+                  </Typography>
+                  <Box>
+                    <StatusChip
+                      label={row.status === 'active' ? 'Active' : 'Inactive'}
+                      variantType={row.status === 'active' ? 'success' : 'default'}
+                      size="small"
+                    />
+                  </Box>
+                </Box>
+              ))
+            )}
           </Box>
         </Paper>
 
-        {/* Right: Add-Ons */}
         <Paper
           variant="outlined"
           sx={{
@@ -686,46 +627,94 @@ export function MenuItemDetailPanel({
                 ADD-ON
               </Typography>
               <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: 'text.secondary' }}>
-                PRICE
+                REQUIRED
               </Typography>
             </Box>
 
-            {[
-              { addon: 'Extra Raita', price: 49 },
-              { addon: 'Extra Gravy', price: 69 },
-              { addon: 'Egg', price: 29 },
-            ].map((row, idx) => (
-              <Box
-                key={row.addon}
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: '2fr 1fr',
-                  alignItems: 'center',
-                  px: 2,
-                  py: 1.25,
-                  borderBottom: idx < 2 ? '1px solid' : 'none',
-                  borderColor: 'divider',
-                }}
-              >
-                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-                  {row.addon}
-                </Typography>
-                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-                  ₹{row.price}
+            {modifiers.length === 0 ? (
+              <Box sx={{ p: 2 }}>
+                <Typography sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                  No modifiers
                 </Typography>
               </Box>
-            ))}
+            ) : (
+              modifiers.map((row, idx) => (
+                <Box
+                  key={row.id}
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr',
+                    alignItems: 'center',
+                    px: 2,
+                    py: 1.25,
+                    borderBottom: idx < modifiers.length - 1 ? '1px solid' : 'none',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
+                    {row.modifier_group?.name ?? `Group #${row.modifier_group_id}`}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
+                    {row.modifier_group?.is_required ? 'Yes' : 'No'}
+                  </Typography>
+                </Box>
+              ))
+            )}
           </Box>
         </Paper>
       </Stack>
 
-      {/* Delete Confirmation Modal */}
+      {deleteError ? (
+        <AlertMessage
+          variant="error"
+          title="Unable to delete menu item"
+          message={deleteError}
+          sx={{ mt: 2 }}
+        />
+      ) : null}
+
       <DeleteMenuItemModal
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleDeleteConfirm}
-        item={item}
+        loading={isDeleting}
+        onClose={onCloseDelete}
+        onConfirm={onConfirmDelete}
+        item={catalog}
       />
     </Box>
+  );
+}
+
+function DetailField({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <Box>
+      <Typography
+        variant="caption"
+        sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.04em' }}
+      >
+        {label}
+      </Typography>
+      <Typography sx={{ fontWeight: 600, fontSize: '0.9375rem', color: 'text.primary', mt: 0.5 }}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
+function ReadOnlyCheck({ checked }: Readonly<{ checked: boolean }>) {
+  return (
+    <Checkbox
+      checked={checked}
+      readOnly
+      disableRipple
+      size="small"
+      sx={{
+        p: 0.5,
+        cursor: 'default',
+        color: 'primary.main',
+        '&.Mui-checked': { color: 'primary.main' },
+        '&.Mui-disabled': { color: 'primary.main !important' },
+        '& .MuiSvgIcon-root': { color: checked ? 'primary.main !important' : undefined },
+      }}
+    />
   );
 }

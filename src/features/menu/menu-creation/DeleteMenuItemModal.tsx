@@ -12,8 +12,10 @@ import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 export interface DeleteMenuItemModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   item: MenuCatalogItem | null;
+  /** Disables actions while deactivate request is in flight. */
+  loading?: boolean;
 }
 
 /**
@@ -31,13 +33,14 @@ export function DeleteMenuItemModal({
   onClose,
   onConfirm,
   item,
+  loading = false,
 }: Readonly<DeleteMenuItemModalProps>) {
   if (!item) return null;
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={loading ? () => undefined : onClose}
       showCloseButton={false}
       width={450}
       height="auto"
@@ -52,6 +55,7 @@ export function DeleteMenuItemModal({
           <ActionButton
             variant="outlined"
             onClick={onClose}
+            disabled={loading}
             sx={{
               minWidth: 104,
               height: 40,
@@ -70,7 +74,11 @@ export function DeleteMenuItemModal({
           </ActionButton>
           <ActionButton
             variant="primary"
-            onClick={onConfirm}
+            onClick={() => {
+              void onConfirm();
+            }}
+            loading={loading}
+            disabled={loading}
             sx={{
               minWidth: 124,
               height: 40,

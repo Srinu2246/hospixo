@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { toCatalogDietary, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import type {
   CreateMenuItemFormValues,
   VariantItem,
   ModifierItem,
   MenuCatalogItem,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import type { DietaryType } from '@/features/menu/menu-creation/DietaryIcon';
 
 const DEFAULT_AVAILABLE_TAGS = [
@@ -39,50 +41,71 @@ const DEFAULT_MODIFIERS: ModifierItem[] = [
 
 export interface UseCreateMenuItemProps {
   initialItem?: MenuCatalogItem | null;
+  /** Full GET /items/{id} record — seeds variants, modifiers, GST, margin. */
+  initialDetail?: MenuItemResponse | null;
   onSave?: (data: CreateMenuItemFormValues) => void;
   onBack?: () => void;
 }
 
-export function useCreateMenuItem({ initialItem, onSave, onBack }: UseCreateMenuItemProps = {}) {
+export function useCreateMenuItem({
+  initialItem,
+  initialDetail = null,
+  onSave,
+  onBack,
+}: UseCreateMenuItemProps = {}) {
+  const detailCatalog = initialDetail
+    ? toMenuCatalogItem(initialDetail, undefined, initialItem?.categoryName)
+    : null;
+  const seedItem = detailCatalog ?? initialItem ?? null;
+
+  const detailVariants: VariantItem[] =
+    initialDetail?.variants.map((variant) => ({
+      id: String(variant.id),
+      name: variant.name,
+      price: variant.final_price,
+    })) ?? [];
+
+  const detailModifiers: ModifierItem[] =
+    initialDetail?.modifier_groups.map((group) => ({
+      id: String(group.id),
+      name: group.modifier_group?.name ?? `Group ${group.modifier_group_id}`,
+      price: 0,
+    })) ?? [];
+
   // Form fields
-  const [category, setCategory] = useState(initialItem?.categoryId ?? 'cat_starters');
-  const [name, setName] = useState(initialItem?.name ?? '');
-  const [onlineDisplayName, setOnlineDisplayName] = useState(
-    initialItem
-      ? initialItem.name === 'Paneer Tikka'
-        ? 'Paneer Tikka Masala'
-        : initialItem.name
-      : '',
+  const [category, setCategory] = useState(seedItem?.categoryId ?? '');
+  const [name, setName] = useState(seedItem?.name ?? '');
+  const [onlineDisplayName, setOnlineDisplayName] = useState(seedItem?.name ?? '');
+  const [code, setCode] = useState(seedItem?.code ?? '');
+  const [itemPrice, setItemPrice] = useState(seedItem ? String(seedItem.basePrice) : '');
+  const [profitMargin, setProfitMargin] = useState(
+    initialDetail?.profit_margin_percent != null ? String(initialDetail.profit_margin_percent) : '',
   );
-  const [code, setCode] = useState(initialItem?.code ?? '');
-  const [itemPrice, setItemPrice] = useState(initialItem ? String(initialItem.basePrice) : '');
-  const [profitMargin, setProfitMargin] = useState(initialItem ? '20' : '5%');
-  const [gst, setGst] = useState('5%');
-  const [description, setDescription] = useState(
-    initialItem?.description ||
-      (initialItem?.name === 'Paneer Tikka'
-        ? 'Soft cottage cheese cubes marinated in aromatic spices and grilled in a tandoor. Served with mint chutney and onion rings.'
-        : ''),
+  const [gst, setGst] = useState(
+    initialDetail?.taxes[0]?.gst_rate_id != null ? String(initialDetail.taxes[0].gst_rate_id) : '',
   );
+  const [description, setDescription] = useState(seedItem?.description ?? '');
 
-  // Dietary type: Veg, Non-Veg, Egg
-  const [dietaryType, setDietaryType] = useState<DietaryType>(
-    (initialItem?.dietary as DietaryType) || 'Veg',
-  );
+  const [dietaryType, setDietaryType] = useState<DietaryType>(() => {
+    if (initialDetail) {
+      const mapped = toCatalogDietary(initialDetail.dietary_type);
+      return mapped === 'Vegan' ? 'Veg' : (mapped as DietaryType);
+    }
+    return (seedItem?.dietary as DietaryType) || 'Veg';
+  });
 
-  // Order types: Delivery, Take Away, Dine In
   const [orderTypes, setOrderTypes] = useState<string[]>(
-    initialItem?.orderTypes ?? ['Delivery', 'Take Away', 'Dine In'],
+    seedItem?.orderTypes ?? ['Delivery', 'Take Away', 'Dine In'],
   );
 
-  // Expose this item in: Captain App, Online order, Kiosk, Other
-  const [exposedIn, setExposedIn] = useState<string[]>(['Captain App']);
+  const [exposedIn, setExposedIn] = useState<string[]>(
+    initialDetail ? (initialDetail.expose_captain_app ? ['Captain App'] : []) : ['Captain App'],
+  );
 
-  // Available tags & selected tags
   const [availableTags, setAvailableTags] = useState<string[]>(() => {
     const combined = [...DEFAULT_AVAILABLE_TAGS];
-    if (initialItem?.tags) {
-      for (const t of initialItem.tags) {
+    if (seedItem?.tags) {
+      for (const t of seedItem.tags) {
         if (!combined.includes(t)) {
           combined.push(t);
         }
@@ -91,31 +114,21 @@ export function useCreateMenuItem({ initialItem, onSave, onBack }: UseCreateMenu
     return combined;
   });
 
-  const [selectedTags, setSelectedTags] = useState<string[]>(
-    initialItem?.name === 'Paneer Tikka'
-      ? ['spicy', 'Set As Favorite', 'extra-masala']
-      : (initialItem?.tags ?? ['spicy', 'Set As Favorite', 'extra-masala']),
-  );
+  const [selectedTags, setSelectedTags] = useState<string[]>(seedItem?.tags ?? []);
 
-  // Images & Upload Error State
-  const [images, setImages] = useState<string[]>(
-    initialItem?.imageUrl
-      ? [initialItem.imageUrl]
-      : initialItem?.name === 'Paneer Tikka'
-        ? [
-            'https://images.unsplash.com/photo-1567184109411-b28f2700e1e5?w=600&auto=format&fit=crop&q=80',
-          ]
-        : [],
-  );
+  const [images, setImages] = useState<string[]>(seedItem?.imageUrl ? [seedItem.imageUrl] : []);
   const [uploadError, setUploadError] = useState<{
     fileName: string;
     fileSizeMb?: number;
     message: string;
   } | null>(null);
 
-  // Variants & Modifiers
-  const [variants, setVariants] = useState<VariantItem[]>(DEFAULT_VARIANTS);
-  const [modifiers, setModifiers] = useState<ModifierItem[]>(DEFAULT_MODIFIERS);
+  const [variants, setVariants] = useState<VariantItem[]>(
+    initialDetail ? detailVariants : DEFAULT_VARIANTS,
+  );
+  const [modifiers, setModifiers] = useState<ModifierItem[]>(
+    initialDetail ? detailModifiers : DEFAULT_MODIFIERS,
+  );
 
   // Modals state
   const [isAddVariantOpen, setIsAddVariantOpen] = useState(false);

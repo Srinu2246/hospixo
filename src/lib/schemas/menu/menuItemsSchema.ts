@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { catalogueScopeSchema, statusBasicSchema } from '@/lib/schemas/menu/menuCategoriesSchema';
+import { ApiError } from '@/services/api/types';
 
 const nullableText = z.string().nullable().optional();
 const nullableNumber = z.number().nullable().optional();
@@ -145,6 +146,7 @@ const envelope = <T extends z.ZodType>(data: T) =>
   });
 
 export const menuItemsEnvelopeSchema = envelope(pagedMenuItemsDataSchema);
+export const menuItemDetailEnvelopeSchema = envelope(menuItemResponseSchema);
 
 export const menuItemResponseListSchema = z.array(menuItemResponseSchema);
 
@@ -159,3 +161,20 @@ export type MenuItemListParams = {
   page?: number;
   page_size?: number;
 };
+
+export function parseMenuItemList(payload: unknown): PagedMenuItemsData {
+  const parsed = menuItemsEnvelopeSchema.safeParse(payload);
+  if (!parsed.success || !parsed.data.success || !parsed.data.data) {
+    throw new ApiError('Unexpected menu items response', 502);
+  }
+  return parsed.data.data;
+}
+
+/** GET /api/v1/restaurant/menu/items/{item_id} */
+export function parseMenuItemRecord(payload: unknown): MenuItemResponse {
+  const parsed = menuItemDetailEnvelopeSchema.safeParse(payload);
+  if (!parsed.success || !parsed.data.success || !parsed.data.data) {
+    throw new ApiError('Unexpected menu item response', 502);
+  }
+  return parsed.data.data;
+}
