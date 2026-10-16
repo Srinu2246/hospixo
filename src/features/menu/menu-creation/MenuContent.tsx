@@ -10,7 +10,9 @@ import { Plus, Upload } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Card } from '@/components/shared/ui/Card';
+import { Loading } from '@/components/shared/ui/Loading';
 import { MENU_SESSION_OPTIONS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 
@@ -47,6 +49,8 @@ export function MenuContent() {
     deleteItem,
     items,
     isCategoriesLoading,
+    isItemsLoading,
+    itemsError,
   } = useMenuCreation();
 
   const [deleteTargetItem, setDeleteTargetItem] = useState<MenuCatalogItem | null>(null);
@@ -195,15 +199,29 @@ export function MenuContent() {
               />
             </Stack>
 
-            <MenuItemsTable
-              key={listKey}
-              items={filteredItems}
-              emptyBecauseNoCategories={categories.length === 0}
-              onView={openViewItem}
-              onEdit={openEditItem}
-              onDelete={(item) => setDeleteTargetItem(item)}
-              onAddCategory={pageConfig.canManageCategories ? openCreateCategory : undefined}
-            />
+            {itemsError ? (
+              <AlertMessage
+                variant="error"
+                title="Unable to load menu items"
+                message={
+                  itemsError instanceof Error
+                    ? itemsError.message
+                    : 'The menu items request failed.'
+                }
+              />
+            ) : isItemsLoading && items.length === 0 ? (
+              <Loading message="Loading menu items..." fullPage={false} />
+            ) : (
+              <MenuItemsTable
+                key={listKey}
+                items={filteredItems}
+                emptyBecauseNoCategories={categories.length === 0}
+                onView={openViewItem}
+                onEdit={openEditItem}
+                onDelete={(item) => setDeleteTargetItem(item)}
+                onAddCategory={pageConfig.canManageCategories ? openCreateCategory : undefined}
+              />
+            )}
           </>
         )}
       </Stack>

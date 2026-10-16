@@ -35,7 +35,10 @@ import {
   resolveKitchenDisplayMock,
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
 import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
-import { resolveMenuCategoriesMock } from '@/lib/mocks/menu/useMenuCreation.mocks';
+import {
+  resolveMenuCategoriesMock,
+  resolveMenuItemsMock,
+} from '@/lib/mocks/menu/useMenuCreation.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
 import type { HttpMethod, QueryParams } from '@/services/api/types';
@@ -124,6 +127,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
   const menuCategories = resolveMenuCategoriesMock(request);
   if (menuCategories !== undefined) return menuCategories;
+
+  const menuItems = resolveMenuItemsMock(request);
+  if (menuItems !== undefined) return menuItems;
 
   const userRoles = resolveUserRolesMock(request);
   if (userRoles !== undefined) return userRoles;

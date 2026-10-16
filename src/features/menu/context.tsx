@@ -2,12 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import {
-  AVAILABILITY_CHANNELS,
-  MOCK_AVAILABILITY_CATEGORIES,
-  MOCK_AVAILABILITY_ITEMS,
-} from '@/lib/mocks/menu/useMenuAvailability.mocks';
-import { MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
+import { AVAILABILITY_CHANNELS } from '@/lib/mocks/menu/useMenuAvailability.mocks';
 import type {
   AvailabilityCategory,
   AvailabilityChannel,
@@ -26,7 +21,9 @@ import {
   type MenuCreationViewMode,
   type MenuPageConfig,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import { useMenuCategories } from '@/lib/hooks/menu/useMenuCategories';
+import { useMenuItems } from '@/lib/hooks/menu/useMenuItems';
 
 /* -------------------------------------------------------------------------- */
 /* Menu Creation                                                              */
@@ -46,7 +43,10 @@ export interface MenuCreationContextValue {
   selectedItem: MenuCatalogItem | null;
   isCategoriesLoading?: boolean;
   categoriesError?: Error | null;
+  isItemsLoading?: boolean;
+  itemsError?: Error | null;
   refetchCategories?: () => void;
+  refetchItems?: () => void;
   setActiveCategoryId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setSessionFilter: (sessionId: string) => void;
@@ -64,7 +64,45 @@ export interface MenuCreationContextValue {
 
 const MenuCreationContext = createContext<MenuCreationContextValue | null>(null);
 
-const ACTIVE_CATEGORIES_PARAMS = { status: 'active' as const };
+const MENU_LIST_PARAMS = { page_size: 100 } as const;
+
+function toCatalogDietary(dietary: MenuItemResponse['dietary_type']): MenuCatalogItem['dietary'] {
+  if (dietary === 'non_veg') return 'Non-Veg';
+  if (dietary === 'egg') return 'Egg';
+  if (dietary === 'vegan') return 'Vegan';
+  return 'Veg';
+}
+
+function toCatalogItem(
+  item: MenuItemResponse,
+  categoryNameById: Map<string, string>,
+): MenuCatalogItem {
+  const orderTypes: string[] = [];
+  if (item.allow_dine_in) orderTypes.push('Dine In');
+  if (item.allow_takeaway) orderTypes.push('Take Away');
+  if (item.allow_delivery) orderTypes.push('Delivery');
+
+  const tags = item.tags.map((tag) => tag.name);
+  if (item.is_favorite) tags.push('Set As Favorite');
+  if (item.is_combo) tags.push('Set As Combo');
+
+  const primaryImage = item.images.find((image) => image.is_primary) ?? item.images[0];
+
+  return {
+    id: String(item.id),
+    name: item.name,
+    categoryId: String(item.category_id),
+    categoryName: categoryNameById.get(String(item.category_id)) ?? 'Uncategorized',
+    basePrice: item.base_price,
+    dietary: toCatalogDietary(item.dietary_type),
+    status: item.status === 'active' ? 'Available' : 'Inactive',
+    code: item.code ?? undefined,
+    description: item.description ?? undefined,
+    imageUrl: primaryImage?.url ?? undefined,
+    orderTypes,
+    tags,
+  };
+}
 
 export function MenuCreationProvider({
   pageConfig,
@@ -77,14 +115,25 @@ export function MenuCreationProvider({
   initialItemId?: string;
   children: ReactNode;
 }>) {
-  const categoriesQuery = useMenuCategories(ACTIVE_CATEGORIES_PARAMS);
+  const [localCategories, setLocalCategories] = useState<MenuCategory[]>([]);
+  const [localItems, setLocalItems] = useState<MenuCatalogItem[]>([]);
+  const [viewMode, setViewMode] = useState<MenuCreationViewMode>(initialViewMode);
+  const [selectedItem, setSelectedItem] = useState<MenuCatalogItem | null>(null);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sessionFilter, setSessionFilter] = useState('session-wise');
+
+  const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
+  const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
+
   const apiCategories = categoriesQuery.data?.items;
+  const apiItems = itemsQuery.data?.items;
   const isCategoriesLoading = categoriesQuery.isLoading;
   const categoriesError = categoriesQuery.error;
+  const isItemsLoading = itemsQuery.isLoading || itemsQuery.isFetching;
+  const itemsError = itemsQuery.error;
   const refetchCategories = categoriesQuery.refetch;
-
-  const [localCategories, setLocalCategories] = useState<MenuCategory[]>([]);
-  const [items, setItems] = useState<MenuCatalogItem[]>(MOCK_MENU_ITEMS);
+  const refetchItems = itemsQuery.refetch;
 
   const categories: MenuCategory[] = useMemo(() => {
     if (localCategories.length > 0) {
@@ -99,21 +148,29 @@ export function MenuCreationProvider({
     }));
   }, [apiCategories, localCategories]);
 
-  // Deterministic initial item and category based on props (identical on server and client)
-  const initialItem = useMemo(() => {
-    if (initialViewMode === 'view-item' || initialViewMode === 'edit-item') {
-      return (initialItemId ? items.find((i) => i.id === initialItemId) : null) ?? items[0];
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categories) {
+      map.set(category.id, category.name);
     }
-    return null;
-  }, [initialViewMode, initialItemId, items]);
+    return map;
+  }, [categories]);
 
-  const [viewMode, setViewMode] = useState<MenuCreationViewMode>(initialViewMode);
-  const [selectedItem, setSelectedItem] = useState<MenuCatalogItem | null>(initialItem);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
-    initialItem ? initialItem.categoryId : null,
-  );
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sessionFilter, setSessionFilter] = useState('session-wise');
+  const items: MenuCatalogItem[] = useMemo(() => {
+    if (localItems.length > 0) return localItems;
+    return (apiItems ?? []).map((item) => toCatalogItem(item, categoryNameById));
+  }, [apiItems, categoryNameById, localItems]);
+
+  // Seed selection once API items arrive for view/edit deep links.
+  if (
+    (initialViewMode === 'view-item' || initialViewMode === 'edit-item') &&
+    selectedItem == null &&
+    items.length > 0
+  ) {
+    const match = (initialItemId ? items.find((i) => i.id === initialItemId) : null) ?? items[0];
+    setSelectedItem(match);
+    setActiveCategoryId(match.categoryId);
+  }
 
   // Handle browser back/forward buttons
   useEffect(() => {
@@ -187,8 +244,13 @@ export function MenuCreationProvider({
       selectedItem,
       isCategoriesLoading,
       categoriesError,
+      isItemsLoading,
+      itemsError,
       refetchCategories: () => {
         void refetchCategories();
+      },
+      refetchItems: () => {
+        void refetchItems();
       },
       setActiveCategoryId,
       setSearchQuery,
@@ -233,7 +295,7 @@ export function MenuCreationProvider({
         }
       },
       deleteItem: (id: string) => {
-        setItems((prev) => prev.filter((item) => item.id !== id));
+        setLocalItems(items.filter((item) => item.id !== id));
         setSelectedItem(null);
         setViewMode('list');
         if (typeof window !== 'undefined') {
@@ -298,14 +360,14 @@ export function MenuCreationProvider({
           orderTypes: data.orderTypes,
           tags: data.tags,
         };
-        setItems((prev) => [newItem, ...prev]);
+        setLocalItems([newItem, ...items]);
         setActiveCategoryId(data.category);
         setViewMode('list');
       },
       updateItem: (id: string, data: CreateMenuItemFormValues) => {
         const cat = categories.find((c) => c.id === data.category);
-        setItems((prev) =>
-          prev.map((item) =>
+        setLocalItems(
+          items.map((item) =>
             item.id === id
               ? {
                   ...item,
@@ -339,7 +401,10 @@ export function MenuCreationProvider({
       viewMode,
       isCategoriesLoading,
       categoriesError,
+      isItemsLoading,
+      itemsError,
       refetchCategories,
+      refetchItems,
     ],
   );
 
@@ -396,6 +461,29 @@ function channelsForGroup(group: AvailabilityChannelGroup): AvailabilityChannel[
   return AVAILABILITY_CHANNELS.filter((channel) => channel.group === group || channel.id === 'all');
 }
 
+function toAvailabilityItem(
+  item: MenuItemResponse,
+  categoryNameById: Map<string, string>,
+): AvailabilityItem {
+  const categoryId = String(item.category_id);
+  const isActive = item.status === 'active';
+  return {
+    id: String(item.id),
+    name: item.name,
+    categoryId,
+    categoryName: categoryNameById.get(categoryId) ?? 'Uncategorized',
+    dietary: toCatalogDietary(item.dietary_type),
+    mark: isActive ? 'available' : '86d',
+    visibility: !isActive
+      ? 'hidden'
+      : item.allow_delivery || item.allow_takeaway
+        ? 'online'
+        : 'dine-in',
+    tag: item.tags[0]?.name ?? item.code ?? item.name,
+    isHidden: !isActive,
+  };
+}
+
 export function MenuAvailabilityProvider({
   pageConfig,
   children,
@@ -403,15 +491,52 @@ export function MenuAvailabilityProvider({
   pageConfig: MenuAvailabilityPageConfig;
   children: ReactNode;
 }>) {
-  const [categories] = useState<AvailabilityCategory[]>(MOCK_AVAILABILITY_CATEGORIES);
-  const [baselineItems, setBaselineItems] = useState<AvailabilityItem[]>(MOCK_AVAILABILITY_ITEMS);
-  const [items, setItems] = useState<AvailabilityItem[]>(MOCK_AVAILABILITY_ITEMS);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>('cat_veg_biryani');
+  const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
+  const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
+
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categoriesQuery.data?.items ?? []) {
+      map.set(String(category.id), category.name);
+    }
+    return map;
+  }, [categoriesQuery.data?.items]);
+
+  const apiCategories = useMemo<AvailabilityCategory[]>(
+    () =>
+      (categoriesQuery.data?.items ?? []).map((category) => ({
+        id: String(category.id),
+        name: category.name,
+        displayOrder: category.display_order,
+      })),
+    [categoriesQuery.data?.items],
+  );
+
+  const apiItems = useMemo(
+    () => (itemsQuery.data?.items ?? []).map((item) => toAvailabilityItem(item, categoryNameById)),
+    [itemsQuery.data?.items, categoryNameById],
+  );
+
+  const [localItems, setLocalItems] = useState<AvailabilityItem[] | null>(null);
+  const [baselineItems, setBaselineItems] = useState<AvailabilityItem[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [channelGroup, setChannelGroup] = useState<AvailabilityChannelGroup>('online');
   const [activeChannelId, setActiveChannelId] = useState('mayukha-website');
   const [addonStatus, setAddonStatus] = useState('addon-on');
   const [storeStatus, setStoreStatus] = useState('store-on');
+
+  const categories = apiCategories;
+  const items = localItems ?? apiItems;
+
+  // Keep baseline in sync with the latest API payload until the user edits marks.
+  if (localItems == null && apiItems.length > 0 && baselineItems !== apiItems) {
+    setBaselineItems(apiItems);
+  }
+
+  if (activeCategoryId == null && categories.length > 0) {
+    setActiveCategoryId(categories[0].id);
+  }
 
   const channels = useMemo(() => channelsForGroup(channelGroup), [channelGroup]);
 
@@ -493,16 +618,18 @@ export function MenuAvailabilityProvider({
       setAddonStatus,
       setStoreStatus,
       toggleItemMark: (itemId) => {
-        setItems((prev) =>
-          prev.map((item) => {
+        setLocalItems((prev) => {
+          const source = prev ?? items;
+          return source.map((item) => {
             if (item.id !== itemId) return item;
             const nextMark: ItemAvailabilityMark = item.mark === 'available' ? '86d' : 'available';
             return { ...item, mark: nextMark };
-          }),
-        );
+          });
+        });
       },
       updateAvailability: () => {
         setBaselineItems(items);
+        setLocalItems(items);
       },
     }),
     [

@@ -22,6 +22,8 @@ import {
 
 import { Toast } from '@/components/shared/ui/Toast';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
+import { Loading } from '@/components/shared/ui/Loading';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { OrderSettle } from '@/features/pos/point-of-sale/all-orders/OrderSettle';
 import type { OrderReviewData } from '@/features/pos/point-of-sale/components/OrderReviewSection';
 
@@ -31,10 +33,12 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { MenuItemCard } from '@/components/shared/restaurant-menu/MenuItemCard';
 import { MenuOrderSummaryBar } from '@/components/shared/restaurant-menu/MenuOrderSummaryBar';
 import { colors } from '@/lib/theme/mui/colors';
+import { useMenuCategories } from '@/lib/hooks/menu/useMenuCategories';
+import { useMenuItems } from '@/lib/hooks/menu/useMenuItems';
+import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
 import { getMockOrderSettleDetail } from '@/lib/mocks/pos/usePosOrders.mocks';
 import {
-  MOCK_MENU_ITEMS,
   INITIAL_CART_ITEMS,
   type MenuCategory,
   type PosMenuItem,
@@ -42,13 +46,41 @@ import {
   type CartCustomization,
 } from '@/lib/mocks/pos/usePosMenu.mocks';
 
-const CATEGORY_FILTER_ITEMS: readonly FilterBarItem<MenuCategory>[] = [
-  { id: 'all', label: 'ALL' },
-  { id: 'starters', label: 'STARTERS' },
-  { id: 'mains', label: 'MAINS' },
-  { id: 'desserts', label: 'DESSERTS' },
-  { id: 'beverages', label: 'BEVERAGES' },
-];
+const ACTIVE_MENU_PARAMS = { status: 'active' as const, page_size: 100 };
+
+function toPosMenuItem(item: MenuItemResponse, categoryNameById: Map<string, string>): PosMenuItem {
+  const primaryImage = item.images.find((image) => image.is_primary) ?? item.images[0];
+  const categoryId = String(item.category_id);
+  const categoryName = categoryNameById.get(categoryId) ?? 'Menu';
+
+  const sizes =
+    item.variants.length > 0
+      ? item.variants.map((variant) => ({
+          id: String(variant.id),
+          name: variant.name,
+          price: variant.final_price,
+        }))
+      : [{ id: `base-${item.id}`, name: 'Regular', price: item.base_price }];
+
+  const addOns = item.modifier_groups.flatMap((group) => {
+    const name = group.modifier_group?.name;
+    if (!name) return [];
+    return [{ id: String(group.id), name, price: 0 }];
+  });
+
+  return {
+    id: String(item.id),
+    name: item.name,
+    category: categoryId,
+    categorySection: categoryName.toUpperCase(),
+    basePrice: item.base_price,
+    imageUrl: primaryImage?.url ?? undefined,
+    isPopular: item.is_favorite,
+    sizes,
+    addOns,
+    cookingPreferences: ['Mild', 'Medium', 'Spicy'],
+  };
+}
 
 export interface TakeawayPageProps {
   table?: PosTableItem | null;
@@ -79,6 +111,33 @@ export function TakeawayPage({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const effectiveOrderId = orderId ?? searchParams?.get('orderId');
+
+  const categoriesQuery = useMenuCategories(ACTIVE_MENU_PARAMS);
+  const itemsQuery = useMenuItems(ACTIVE_MENU_PARAMS);
+
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categoriesQuery.data?.items ?? []) {
+      map.set(String(category.id), category.name);
+    }
+    return map;
+  }, [categoriesQuery.data?.items]);
+
+  const categoryFilterItems = useMemo<FilterBarItem<MenuCategory>[]>(
+    () => [
+      { id: 'all', label: 'ALL' },
+      ...(categoriesQuery.data?.items ?? []).map((category) => ({
+        id: String(category.id),
+        label: category.name.toUpperCase(),
+      })),
+    ],
+    [categoriesQuery.data?.items],
+  );
+
+  const menuItems = useMemo(
+    () => (itemsQuery.data?.items ?? []).map((item) => toPosMenuItem(item, categoryNameById)),
+    [itemsQuery.data?.items, categoryNameById],
+  );
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,12 +205,10 @@ export function TakeawayPage({
 
   // Filter items according to search text and selected category
   const filteredMenuItems = useMemo(() => {
-    return MOCK_MENU_ITEMS.filter((item) => {
-      // Category filter
+    return menuItems.filter((item) => {
       if (activeCategory !== 'all' && item.category !== activeCategory) {
         return false;
       }
-      // Search query filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         const matchesName = item.name.toLowerCase().includes(query);
@@ -160,7 +217,7 @@ export function TakeawayPage({
       }
       return true;
     });
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory, menuItems, searchQuery]);
 
   // Group items by category section for display (e.g. BIRYANI'S, STARTERS, etc.)
   const groupedSections = useMemo(() => {
@@ -790,12 +847,27 @@ export function TakeawayPage({
           {/* Category FilterBar */}
           <Box sx={{ mb: 2.5, flexShrink: 0 }}>
             <FilterBar<MenuCategory>
-              items={CATEGORY_FILTER_ITEMS}
+              items={categoryFilterItems}
               value={activeCategory}
               onChange={(cat) => setActiveCategory(cat)}
               size="small"
             />
           </Box>
+
+          {categoriesQuery.isError || itemsQuery.isError ? (
+            <AlertMessage
+              variant="error"
+              title="Unable to load menu"
+              message={
+                (itemsQuery.error instanceof Error
+                  ? itemsQuery.error.message
+                  : categoriesQuery.error instanceof Error
+                    ? categoriesQuery.error.message
+                    : null) ?? 'The menu request failed.'
+              }
+              sx={{ mb: 2 }}
+            />
+          ) : null}
 
           {/* Scrollable Menu Items List */}
           <Box
@@ -828,7 +900,9 @@ export function TakeawayPage({
               },
             }}
           >
-            {groupedSections.length === 0 ? (
+            {categoriesQuery.isLoading || itemsQuery.isLoading ? (
+              <Loading message="Loading menu..." fullPage={false} />
+            ) : groupedSections.length === 0 ? (
               <Box
                 sx={{
                   py: 8,

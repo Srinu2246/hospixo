@@ -151,6 +151,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.MENU_VIEW,
     PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.GST_VIEW,
     PERMISSIONS.POS_SESSIONS_OPEN,
   ],
   waiter: [
@@ -595,20 +596,27 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 3,
+        name: 'GST Rates',
+        href: '/branch-manager/menu/gst-rates',
+        icon: 'percent',
+        permission: PERMISSIONS.GST_VIEW,
+      },
+      {
+        id: 4,
         name: 'Prep Stations',
         href: '/branch-manager/menu/prep-station',
         icon: 'kitchen',
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 4,
+        id: 5,
         name: 'Modifier Groups',
         href: '/branch-manager/menu/modifier-groups',
         icon: 'tune',
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 5,
+        id: 6,
         name: 'Menu Availability',
         href: '/branch-manager/menu/menu-availability',
         icon: 'calendar_today',

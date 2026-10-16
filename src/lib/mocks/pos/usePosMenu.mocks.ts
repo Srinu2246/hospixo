@@ -1,4 +1,5 @@
-export type MenuCategory = 'all' | 'starters' | 'mains' | 'desserts' | 'beverages';
+/** Filter id for dine-in / takeaway category chips (`all` or a category id). */
+export type MenuCategory = string;
 
 export interface ItemSizeOption {
   id: string;
@@ -17,6 +18,7 @@ export type CookingPreference = 'Mild' | 'Medium' | 'Spicy';
 export interface PosMenuItem {
   id: string;
   name: string;
+  /** Restaurant menu category id (stringified). */
   category: MenuCategory;
   categorySection: string;
   basePrice: number;
