@@ -348,6 +348,7 @@ function pathUsesSessionBearer(path: string): boolean {
     ApiUrlsV1.organization.platformOrganizations,
     ApiUrlsV1.organization.platformOrganizationsV2,
     ApiUrlsV1.restaurant.branches,
+    ApiUrlsV1.restaurant.menuCategories.list,
   ];
 
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));

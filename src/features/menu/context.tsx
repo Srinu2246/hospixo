@@ -7,7 +7,7 @@ import {
   MOCK_AVAILABILITY_CATEGORIES,
   MOCK_AVAILABILITY_ITEMS,
 } from '@/lib/mocks/menu/useMenuAvailability.mocks';
-import { MOCK_MENU_CATEGORIES, MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
+import { MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 import type {
   AvailabilityCategory,
   AvailabilityChannel,
@@ -26,6 +26,7 @@ import {
   type MenuCreationViewMode,
   type MenuPageConfig,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import { useMenuCategories } from '@/lib/hooks/menu/useMenuCategories';
 
 /* -------------------------------------------------------------------------- */
 /* Menu Creation                                                              */
@@ -43,6 +44,9 @@ export interface MenuCreationContextValue {
   searchQuery: string;
   sessionFilter: string;
   selectedItem: MenuCatalogItem | null;
+  isCategoriesLoading?: boolean;
+  categoriesError?: Error | null;
+  refetchCategories?: () => void;
   setActiveCategoryId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setSessionFilter: (sessionId: string) => void;
@@ -60,6 +64,8 @@ export interface MenuCreationContextValue {
 
 const MenuCreationContext = createContext<MenuCreationContextValue | null>(null);
 
+const ACTIVE_CATEGORIES_PARAMS = { status: 'active' as const };
+
 export function MenuCreationProvider({
   pageConfig,
   initialViewMode = 'list',
@@ -71,8 +77,27 @@ export function MenuCreationProvider({
   initialItemId?: string;
   children: ReactNode;
 }>) {
-  const [categories, setCategories] = useState<MenuCategory[]>(MOCK_MENU_CATEGORIES);
+  const categoriesQuery = useMenuCategories(ACTIVE_CATEGORIES_PARAMS);
+  const apiCategories = categoriesQuery.data?.items;
+  const isCategoriesLoading = categoriesQuery.isLoading;
+  const categoriesError = categoriesQuery.error;
+  const refetchCategories = categoriesQuery.refetch;
+
+  const [localCategories, setLocalCategories] = useState<MenuCategory[]>([]);
   const [items, setItems] = useState<MenuCatalogItem[]>(MOCK_MENU_ITEMS);
+
+  const categories: MenuCategory[] = useMemo(() => {
+    if (localCategories.length > 0) {
+      return localCategories;
+    }
+    return (apiCategories ?? []).map((c): MenuCategory => ({
+      id: String(c.id),
+      name: c.name,
+      status: c.status === 'active' ? 'Active' : 'Inactive',
+      description: c.description ?? undefined,
+      displayOrder: c.display_order,
+    }));
+  }, [apiCategories, localCategories]);
 
   // Deterministic initial item and category based on props (identical on server and client)
   const initialItem = useMemo(() => {
@@ -160,6 +185,11 @@ export function MenuCreationProvider({
       searchQuery,
       sessionFilter,
       selectedItem,
+      isCategoriesLoading,
+      categoriesError,
+      refetchCategories: () => {
+        void refetchCategories();
+      },
       setActiveCategoryId,
       setSearchQuery,
       setSessionFilter,
@@ -235,17 +265,18 @@ export function MenuCreationProvider({
           status: 'Active',
           displayOrder: categories.length + 1,
         });
-        setCategories((prev) => [...prev, next]);
+        setLocalCategories([...categories, next]);
         setActiveCategoryId(next.id);
         setViewMode('list');
       },
       toggleCategoryStatus: (categoryId) => {
-        setCategories((prev) =>
-          prev.map((category) =>
+        setLocalCategories(
+          categories.map((category) =>
             category.id === categoryId
               ? {
                   ...category,
-                  status: category.status === 'Active' ? 'Inactive' : 'Active',
+                  status: (category.status === 'Active' ? 'Inactive' : 'Active') as
+                    'Active' | 'Inactive',
                 }
               : category,
           ),
@@ -306,6 +337,9 @@ export function MenuCreationProvider({
       sessionFilter,
       selectedItem,
       viewMode,
+      isCategoriesLoading,
+      categoriesError,
+      refetchCategories,
     ],
   );
 
