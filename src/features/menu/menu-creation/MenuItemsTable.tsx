@@ -6,11 +6,12 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Eye, Pencil, Plus, UtensilsCrossed } from 'lucide-react';
+import { Eye, Pencil, Plus, Trash2, UtensilsCrossed } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
+import { TagsGrid } from '@/components/shared/ui/TagsGrid';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 
 const PAGE_SIZE = 8;
@@ -26,7 +27,7 @@ function dietaryVariant(dietary: MenuCatalogItem['dietary']): 'success' | 'dange
 }
 
 function statusVariant(status: MenuCatalogItem['status']): 'success' | 'warning' | 'default' {
-  if (status === 'Available') return 'success';
+  if (status === 'Available' || status === 'Active') return 'success';
   if (status === 'Out of Stock') return 'warning';
   return 'default';
 }
@@ -35,6 +36,7 @@ export interface MenuItemsTableProps {
   items: readonly MenuCatalogItem[];
   onView: (item: MenuCatalogItem) => void;
   onEdit: (item: MenuCatalogItem) => void;
+  onDelete?: (item: MenuCatalogItem) => void;
   onAddCategory?: () => void;
   emptyBecauseNoCategories?: boolean;
 }
@@ -43,6 +45,7 @@ export function MenuItemsTable({
   items,
   onView,
   onEdit,
+  onDelete,
   onAddCategory,
   emptyBecauseNoCategories = false,
 }: Readonly<MenuItemsTableProps>) {
@@ -106,25 +109,16 @@ export function MenuItemsTable({
     {
       field: 'tags',
       headerName: 'Tags',
-      minWidth: 180,
+      minWidth: 80,
+      width: 80,
       sortable: false,
-      renderCell: ({ row }) =>
-        row.tags.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            —
-          </Typography>
-        ) : (
-          <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', gap: 0.75 }}>
-            {row.tags.map((tag) => (
-              <StatusChip key={tag} label={tag} variantType="info" size="small" />
-            ))}
-          </Stack>
-        ),
+      renderCell: ({ row }) => <TagsGrid tags={row.tags} />,
     },
     {
       field: 'status',
       headerName: 'Status',
-      minWidth: 120,
+      minWidth: 100,
+      width: 100,
       sortable: false,
       renderCell: ({ row }) => (
         <StatusChip label={row.status} variantType={statusVariant(row.status)} size="small" />
@@ -133,19 +127,33 @@ export function MenuItemsTable({
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 100,
-      minWidth: 88,
-      align: 'right',
-      headerAlign: 'right',
+      width: 130,
+      minWidth: 120,
+      align: 'center',
+      headerAlign: 'center',
       sortable: false,
       renderCell: ({ row }) => (
-        <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
+        <Stack
+          direction="row"
+          spacing={0.75}
+          sx={{
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+          }}
+        >
           <IconButton
             size="small"
             aria-label={`View ${row.name}`}
             onClick={(event) => {
               event.stopPropagation();
               onView(row);
+            }}
+            sx={{
+              width: 30,
+              height: 30,
+              color: 'text.secondary',
+              '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
             }}
           >
             <Eye size={16} />
@@ -157,9 +165,33 @@ export function MenuItemsTable({
               event.stopPropagation();
               onEdit(row);
             }}
+            sx={{
+              width: 30,
+              height: 30,
+              color: '#2563EB',
+              '&:hover': { bgcolor: 'rgba(37, 99, 235, 0.08)' },
+            }}
           >
             <Pencil size={16} />
           </IconButton>
+          {onDelete ? (
+            <IconButton
+              size="small"
+              aria-label={`Delete ${row.name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(row);
+              }}
+              sx={{
+                width: 30,
+                height: 30,
+                color: '#EF4444',
+                '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.08)' },
+              }}
+            >
+              <Trash2 size={16} />
+            </IconButton>
+          ) : null}
         </Stack>
       ),
     },
@@ -210,6 +242,7 @@ export function MenuItemsTable({
         columns={columns}
         rows={items}
         getRowId={(row) => row.id}
+        onRowClick={(row) => onView(row)}
         pagination
         page={page}
         pageSize={PAGE_SIZE}

@@ -34,7 +34,7 @@ export const MOCK_MENU_ITEMS: MenuCatalogItem[] = menuCatalogItemListSchema.pars
     status: 'Available',
     code: 'PNT',
     orderTypes: ['Dine In', 'Take Away', 'Delivery'],
-    tags: ['chef-special', 'spicy'],
+    tags: ['chef-special', 'spicy', 'Set As Favorite', 'gluten-free'],
     imageUrl:
       'https://images.unsplash.com/photo-1567184109411-b28f2700e1e5?w=600&auto=format&fit=crop&q=80',
     description: 'Grilled cottage cheese with spices.',
@@ -149,6 +149,21 @@ export const MOCK_MENU_ITEMS: MenuCatalogItem[] = menuCatalogItemListSchema.pars
     status: 'Available',
     code: 'VBR',
     orderTypes: ['Dine In', 'Take Away', 'Delivery'],
-    tags: ['spicy', 'Set As Combo'],
+    tags: ['spicy', 'Set As Combo', 'chef-special', 'vegan'],
+  },
+  {
+    id: 'item_011',
+    name: 'Tandoori Roti',
+    categoryId: 'cat_breads',
+    categoryName: 'Breads',
+    basePrice: 29,
+    dietary: 'Veg',
+    status: 'Inactive',
+    code: 'TDR',
+    orderTypes: ['Dine In'],
+    tags: [],
+    imageUrl:
+      'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=600&auto=format&fit=crop&q=80',
+    description: 'Traditional crisp whole wheat flatbread baked in a clay tandoor.',
   },
 ]);

@@ -6,7 +6,13 @@ export const menuCategoryStatusSchema = z.enum(['Active', 'Inactive']);
 
 export const dietaryTypeSchema = z.enum(['Veg', 'Non-Veg', 'Egg', 'Vegan']);
 
-export const menuItemStatusSchema = z.enum(['Available', 'Out of Stock', 'Hidden']);
+export const menuItemStatusSchema = z.enum([
+  'Available',
+  'Out of Stock',
+  'Hidden',
+  'Active',
+  'Inactive',
+]);
 
 export const menuCreationViewModeSchema = z.enum([
   'list',
@@ -52,6 +58,39 @@ export const createCategoryInputSchema = z.object({
   description: z.string().trim().optional(),
 });
 
+export const variantItemSchema = z.object({
+  id: z.string(),
+  name: z.string().trim().min(1, 'Variant name is required'),
+  price: z.number().min(0, 'Price must be positive'),
+});
+
+export const modifierItemSchema = z.object({
+  id: z.string(),
+  name: z.string().trim().min(1, 'Modifier name is required'),
+  price: z.number().min(0, 'Price must be positive'),
+});
+
+export const createMenuItemFormSchema = z.object({
+  category: z.string().trim().min(1, 'Category is required'),
+  name: z.string().trim().min(1, 'Item name is required'),
+  onlineDisplayName: z.string().trim().optional(),
+  code: z.string().trim().min(1, 'Item code is required'),
+  itemPrice: z
+    .union([z.number(), z.string()])
+    .transform((val) => (typeof val === 'string' ? parseFloat(val) || 0 : val))
+    .refine((val) => !isNaN(val) && val >= 0, 'Item price must be 0 or greater'),
+  profitMargin: z.string().trim().optional(),
+  gst: z.string().trim().optional(),
+  description: z.string().trim().optional(),
+  dietaryType: z.enum(['Veg', 'Non-Veg', 'Egg']),
+  orderTypes: z.array(z.string()).min(1, 'Select at least one order type'),
+  exposedIn: z.array(z.string()).default([]),
+  tags: z.array(z.string()).default([]),
+  images: z.array(z.string()).default([]),
+  variants: z.array(variantItemSchema).default([]),
+  modifiers: z.array(modifierItemSchema).default([]),
+});
+
 export const menuCategoryListSchema = z.array(menuCategorySchema);
 export const menuCatalogItemListSchema = z.array(menuCatalogItemSchema);
 
@@ -61,3 +100,6 @@ export type MenuCategory = z.infer<typeof menuCategorySchema>;
 export type MenuCatalogItem = z.infer<typeof menuCatalogItemSchema>;
 export type MenuPageConfig = z.infer<typeof menuPageConfigSchema>;
 export type CreateCategoryInput = z.infer<typeof createCategoryInputSchema>;
+export type VariantItem = z.infer<typeof variantItemSchema>;
+export type ModifierItem = z.infer<typeof modifierItemSchema>;
+export type CreateMenuItemFormValues = z.infer<typeof createMenuItemFormSchema>;

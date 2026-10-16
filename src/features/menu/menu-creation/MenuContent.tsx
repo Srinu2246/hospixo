@@ -1,22 +1,23 @@
 'use client';
 
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Plus, Upload } from 'lucide-react';
 
-import {
-  CreateCategoryForm,
-  CreateMenuItemPlaceholder,
-  MenuItemDetailPanel,
-  MenuItemsTable,
-} from '@/components/features/menu/menu-creation';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
-import { useMenuCreation } from '@/features/menu/context';
 import { MENU_SESSION_OPTIONS } from '@/lib/mocks/menu/useMenuCreation.mocks';
+import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 
+import { useMenuCreation } from '@/features/menu/context';
+import { CreateCategoryForm } from './CreateCategoryForm';
+import { CreateMenuItemScreen } from './CreateMenuItemScreen';
+import { DeleteMenuItemModal } from './DeleteMenuItemModal';
+import { MenuItemDetailPanel } from './MenuItemDetailPanel';
+import { MenuItemsTable } from './MenuItemsTable';
 import { MenuSidebar } from './MenuSidebar';
 
 /**
@@ -41,33 +42,13 @@ export function MenuContent() {
     openViewItem,
     backToList,
     addCategory,
+    deleteItem,
+    items,
   } = useMenuCreation();
 
+  const [deleteTargetItem, setDeleteTargetItem] = useState<MenuCatalogItem | null>(null);
+
   const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}::${sessionFilter}`;
-
-  if (viewMode === 'create-item' || viewMode === 'edit-item') {
-    return (
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <CreateMenuItemPlaceholder
-          mode={viewMode === 'edit-item' ? 'edit' : 'create'}
-          item={selectedItem}
-          onBack={backToList}
-        />
-      </Box>
-    );
-  }
-
-  if (viewMode === 'view-item' && selectedItem) {
-    return (
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <MenuItemDetailPanel
-          item={selectedItem}
-          onBack={backToList}
-          onEdit={() => openEditItem(selectedItem)}
-        />
-      </Box>
-    );
-  }
 
   return (
     <Box
@@ -93,7 +74,27 @@ export function MenuContent() {
           overflow: 'hidden',
         }}
       >
-        {viewMode === 'create-category' ? (
+        {viewMode === 'create-item' || viewMode === 'edit-item' ? (
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: { xs: 1, sm: 2 } }}>
+            <CreateMenuItemScreen
+              mode={viewMode === 'edit-item' ? 'edit' : 'create'}
+              initialItem={selectedItem}
+              onBack={backToList}
+            />
+          </Box>
+        ) : viewMode === 'view-item' && (selectedItem ?? items[0]) ? (
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: { xs: 1, sm: 2 } }}>
+            <MenuItemDetailPanel
+              item={selectedItem ?? items[0]}
+              onBack={backToList}
+              onEdit={() => openEditItem(selectedItem ?? items[0])}
+              onDelete={() => {
+                deleteItem((selectedItem ?? items[0]).id);
+                backToList();
+              }}
+            />
+          </Box>
+        ) : viewMode === 'create-category' ? (
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             <CreateCategoryForm onCancel={backToList} onSubmit={addCategory} />
           </Box>
@@ -172,11 +173,25 @@ export function MenuContent() {
               emptyBecauseNoCategories={categories.length === 0}
               onView={openViewItem}
               onEdit={openEditItem}
+              onDelete={(item) => setDeleteTargetItem(item)}
               onAddCategory={pageConfig.canManageCategories ? openCreateCategory : undefined}
             />
           </>
         )}
       </Stack>
+
+      {/* Delete Confirmation Modal reused across list and view screens */}
+      <DeleteMenuItemModal
+        open={Boolean(deleteTargetItem)}
+        onClose={() => setDeleteTargetItem(null)}
+        onConfirm={() => {
+          if (deleteTargetItem) {
+            deleteItem(deleteTargetItem.id);
+            setDeleteTargetItem(null);
+          }
+        }}
+        item={deleteTargetItem}
+      />
     </Box>
   );
 }
