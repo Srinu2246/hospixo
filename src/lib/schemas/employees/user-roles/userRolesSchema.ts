@@ -43,16 +43,6 @@ export const userRoleStatsDataSchema = z.object({
 
 export type UserRoleStatsData = z.infer<typeof userRoleStatsDataSchema>;
 
-export const userRoleFilterValuesSchema = z.object({
-  search: z.string(),
-  role: z.string(),
-  branch: z.string(),
-  status: z.string(),
-  company: z.string().optional(),
-});
-
-type UserRoleFilterValues = z.infer<typeof userRoleFilterValuesSchema>;
-
 // ============================================================================
 // 3. Permissions & Role Templates (API / view models)
 // ============================================================================
@@ -63,8 +53,6 @@ export const permissionItemSchema = z.object({
   description: z.string(),
   enabled: z.boolean(),
 });
-
-type PermissionItem = z.infer<typeof permissionItemSchema>;
 
 export const permissionCategorySchema = z.object({
   id: z.string(),

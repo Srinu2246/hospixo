@@ -65,7 +65,7 @@ export function CreateUserStepOne({
   const roleOptions = useMemo(() => {
     const names = (Array.isArray(roleCatalog) ? roleCatalog : []).map((role) => role.name);
     return names.length > 0 ? names : ['Staff'];
-  }, [rolesQuery.data]);
+  }, [roleCatalog]);
   const companyOptions = useMemo(
     () => (directory.data?.companies ?? []).map((company) => company.name),
     [directory.data?.companies],
@@ -87,13 +87,7 @@ export function CreateUserStepOne({
   const lockedCompanyLabel = resolvedCompanyLabel || formValues.company || '—';
 
   // Established React Hook Form v7 pattern with Zod v4 resolver
-  const {
-    control,
-    handleSubmit,
-    setValue,
-    reset,
-    formState: { errors },
-  } = useForm<CreateUserFormValues>({
+  const { control, handleSubmit, setValue, reset } = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserMultiformSchema),
     defaultValues: formValues,
     mode: 'onBlur',

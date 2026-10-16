@@ -119,6 +119,11 @@ export function branchKitchenStatusPath(
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders/${encodeURIComponent(String(orderId))}/kitchen-status`;
 }
 
+/** GET /v1/branches/{branch_id}/orders */
+export function branchOrdersPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders`;
+}
+
 /** GET /v2/platform/organizations/{organization_id}/companies */
 export function organizationCompaniesPath(organizationId: number | string): string {
   return ApiUrlsV1.organization.platformOrganizationCompaniesV2.replace(

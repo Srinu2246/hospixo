@@ -6,6 +6,8 @@ export interface PosTableItem {
   floorId: string;
   sectionId: string;
   status: PosTableStatus;
+  /** Seat count from the table catalog. */
+  capacity?: number;
   amount?: string;
   guests?: number;
   waiter?: string;
