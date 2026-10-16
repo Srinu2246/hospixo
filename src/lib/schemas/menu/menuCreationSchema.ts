@@ -91,7 +91,6 @@ export const createMenuItemFormSchema = z.object({
   modifiers: z.array(modifierItemSchema).default([]),
 });
 
-export const menuCategoryListSchema = z.array(menuCategorySchema);
 export const menuCatalogItemListSchema = z.array(menuCatalogItemSchema);
 
 export type MenuCreationScope = z.infer<typeof menuCreationScopeSchema>;
