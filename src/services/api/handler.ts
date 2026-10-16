@@ -16,7 +16,6 @@ import {
   POS_LIVE_ORDERS,
   POS_METRIC_CARDS,
 } from '@/lib/mocks/pos/usePosDashboard.mocks';
-import { MOCK_MENU_ITEMS } from '@/lib/mocks/pos/usePosMenu.mocks';
 import { MOCK_POS_ORDERS, MOCK_READY_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
 import { MOCK_RESERVATIONS } from '@/lib/mocks/pos/usePosReservations.mocks';
 import {
@@ -36,6 +35,7 @@ import {
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
 import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
 import {
+  MOCK_MENU_ITEMS,
   resolveMenuCategoriesMock,
   resolveMenuItemsMock,
 } from '@/lib/mocks/menu/useMenuCreation.mocks';
