@@ -111,7 +111,7 @@ export function FloorTableSetupPage({
       if (isCompactLayout) {
         return (
           <Stack
-            spacing={3}
+            spacing={2.5}
             sx={{ flex: 1, justifyContent: 'center', alignItems: 'center', py: 4 }}
           >
             <Box

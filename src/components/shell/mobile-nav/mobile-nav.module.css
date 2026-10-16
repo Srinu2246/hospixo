@@ -71,12 +71,15 @@
   z-index: 50;
 }
 
-@media (max-width: 900px) {
+/* Match workspace mobile/tablet chrome (`workspace-mobile.module.css` max-width: 1199px). */
+@media (max-width: 1199px) {
   .overlay {
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 40;
+    z-index: calc(var(--workspace-mobile-drawer-z, 55) - 10);
+    height: var(--workspace-mobile-drawer-height, 100dvh);
+    max-height: var(--workspace-mobile-drawer-height, 100dvh);
     background: color-mix(in srgb, var(--foreground) 45%, transparent);
     opacity: 0;
     pointer-events: none;
@@ -100,20 +103,30 @@
     position: fixed;
     top: 0;
     bottom: 0;
-    height: 100vh;
-    max-height: 100dvh;
+    left: 0;
+    box-sizing: border-box;
+    height: var(--workspace-mobile-drawer-height, 100dvh);
+    min-height: var(--workspace-mobile-drawer-height, 100dvh);
+    max-height: var(--workspace-mobile-drawer-height, 100dvh);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    z-index: var(--workspace-mobile-drawer-z, 55);
     transition: transform 0.2s ease;
   }
 
-  /* Default drawer — slides in from the left (settings, POS). */
-  .drawer:not(.drawerRight) {
+  /* Access / admin sidebar — slides in from the left. */
+  .drawerLeft {
     left: 0;
     right: auto;
     transform: translateX(-100%);
     box-shadow: 8px 0 24px color-mix(in srgb, var(--foreground) 18%, transparent);
   }
 
-  /* Workspace drawer — slides in from the right (Users & Roles menu). */
+  .drawerLeft.drawerOpen {
+    transform: translateX(0);
+  }
+
+  /* Optional: slides in from the right (e.g. Users & Roles). */
   .drawerRight {
     right: 0;
     left: auto;
@@ -121,7 +134,7 @@
     box-shadow: -8px 0 24px color-mix(in srgb, var(--foreground) 18%, transparent);
   }
 
-  .drawerOpen {
+  .drawerRight.drawerOpen {
     transform: translateX(0);
   }
 }

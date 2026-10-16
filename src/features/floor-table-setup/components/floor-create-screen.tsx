@@ -38,15 +38,15 @@ export function FloorCreateScreen() {
 
   if (!branchId) {
     return (
-      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 640, mx: 'auto' }}>
+      <Box sx={{ p: { xs: 2, md: 2.5 }, maxWidth: 640, mx: 'auto' }}>
         <Alert severity="warning">{floorTableSetupCopy.branchRequired}</Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 640, mx: 'auto', width: '100%' }}>
-      <Stack spacing={3}>
+    <Box sx={{ p: { xs: 2, md: 2.5 }, maxWidth: 640, mx: 'auto', width: '100%' }}>
+      <Stack spacing={2.5}>
         <Button
           component={Link}
           href={routes.dashboard.floors}
@@ -56,7 +56,7 @@ export function FloorCreateScreen() {
           Back to floors
         </Button>
 
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 700 }}>
             {floorTableSetupCopy.createTitle}
           </Typography>

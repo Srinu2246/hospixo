@@ -112,9 +112,8 @@
   }
 }
 
-/* Hide workspace sidebar + topbar when POS compact shell is active (mobile/tablet). */
+/* Hide desktop topbar when POS compact shell is active; sidebar stays in DOM for mobile drawer. */
 @media (max-width: 1023px) {
-  html[data-pos-compact-chrome] [data-access-chrome='sidebar'],
   html[data-pos-compact-chrome] [data-access-chrome='topbar'] {
     display: none !important;
   }

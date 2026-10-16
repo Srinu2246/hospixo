@@ -197,7 +197,7 @@ export function FloorTableSetupScreen() {
 
   if (!branchId) {
     return (
-      <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 960, mx: 'auto' }}>
+      <Box sx={{ p: { xs: 2, md: 2.5 }, maxWidth: 960, mx: 'auto' }}>
         <Alert severity="warning">{floorTableSetupCopy.branchRequired}</Alert>
       </Box>
     );
@@ -264,8 +264,8 @@ export function FloorTableSetupScreen() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 960, mx: 'auto', width: '100%' }}>
-      <Stack spacing={3}>
+    <Box sx={{ p: { xs: 2, md: 2.5 }, maxWidth: 960, mx: 'auto', width: '100%' }}>
+      <Stack spacing={2.5}>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}

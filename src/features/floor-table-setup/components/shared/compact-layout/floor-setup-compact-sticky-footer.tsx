@@ -3,7 +3,10 @@
 import type { ReactNode } from 'react';
 import Stack from '@mui/material/Stack';
 
-import { compactTouchButtonSx } from '@/features/floor-table-setup/components/shared/compact-layout/compact-layout-sx';
+import {
+  compactMuiSpacing,
+  compactTouchButtonSx,
+} from '@/features/floor-table-setup/components/shared/compact-layout/compact-layout-sx';
 
 type FloorSetupCompactStickyFooterProps = Readonly<{
   back: ReactNode;
@@ -16,7 +19,7 @@ export function FloorSetupCompactStickyFooter({
   primary,
 }: FloorSetupCompactStickyFooterProps) {
   return (
-    <Stack direction="row" spacing={1.5} sx={{ width: '100%' }}>
+    <Stack direction="row" spacing={compactMuiSpacing.footerButtonGap} sx={{ width: '100%' }}>
       <Stack sx={compactTouchButtonSx}>{back}</Stack>
       <Stack sx={compactTouchButtonSx}>{primary}</Stack>
     </Stack>

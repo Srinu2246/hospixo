@@ -2,6 +2,19 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 export const COMPACT_CONTENT_MAX_WIDTH = 720;
 
+/**
+ * Compact MUI spacing (8px grid): legacy 24px→20px (3→2.5), legacy 20px→16px (2.5→2).
+ */
+export const compactMuiSpacing = {
+  section: 2.5,
+  block: 2,
+  dialogPaddingX: 2.5,
+  stickyHeaderPt: 2,
+  stickyHeaderPb: 2.5,
+  stickyFooterPy: 2,
+  footerButtonGap: 1.25,
+} as const;
+
 /** Root shell: centered column; horizontal inset comes from workspace `mainPadding`. */
 export const compactPageRootSx: SxProps<Theme> = {
   display: 'flex',
@@ -19,7 +32,7 @@ export const compactScrollMainSx: SxProps<Theme> = {
   minHeight: 0,
   display: 'flex',
   flexDirection: 'column',
-  gap: 2,
+  gap: compactMuiSpacing.block,
   width: '100%',
   pb: 1,
 };
@@ -30,8 +43,8 @@ export const compactStickyHeaderSx: SxProps<Theme> = {
   top: 0,
   zIndex: 11,
   bgcolor: 'background.default',
-  pt: 1.5,
-  pb: 1,
+  pt: compactMuiSpacing.stickyHeaderPt,
+  pb: compactMuiSpacing.stickyHeaderPb,
   borderBottom: 1,
   borderColor: 'divider',
 };
@@ -44,7 +57,7 @@ export const compactStickyFooterSx: SxProps<Theme> = {
   bgcolor: 'background.default',
   borderTop: 1,
   borderColor: 'divider',
-  py: 1.5,
+  py: compactMuiSpacing.stickyFooterPy,
   mt: 'auto',
 };
 

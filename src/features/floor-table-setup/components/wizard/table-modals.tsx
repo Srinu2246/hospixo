@@ -237,7 +237,7 @@ function TableModalForm({
         </DialogTitle>
 
         <DialogContent dividers>
-          <Stack spacing={2.5}>
+          <Stack spacing={2}>
             {sections.length > 0 ? (
               <TextField
                 select
@@ -382,7 +382,7 @@ function TableModalForm({
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, py: 2, width: isCompactLayout ? '100%' : undefined }}>
+        <DialogActions sx={{ px: 2.5, py: 2, width: isCompactLayout ? '100%' : undefined }}>
           {isCompactLayout ? (
             <FloorSetupCompactStickyFooter back={cancelButton} primary={submitButton} />
           ) : (

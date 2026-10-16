@@ -41,7 +41,7 @@ export function SectionCreationStep({
 
   if (isCompactLayout && sections.length === 0 && !query) {
     return (
-      <Stack spacing={3} sx={{ flex: 1, justifyContent: 'center', alignItems: 'center', py: 4 }}>
+      <Stack spacing={2.5} sx={{ flex: 1, justifyContent: 'center', alignItems: 'center', py: 4 }}>
         <Box
           sx={{
             width: 72,

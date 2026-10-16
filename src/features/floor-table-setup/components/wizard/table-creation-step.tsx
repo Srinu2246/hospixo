@@ -83,7 +83,7 @@ export function TableCreationStep({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 3,
+            gap: 2.5,
             py: 4,
           }}
         >

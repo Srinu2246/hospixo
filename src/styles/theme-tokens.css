@@ -20,7 +20,11 @@
   --workspace-canvas: #f8fafc;
   --workspace-header: oklch(1 0 0);
   --workspace-surface-subtle: oklch(0.968 0.007 247.896);
+  --workspace-mobile-topbar-height: 3.75rem;
   --workspace-mobile-bottom-nav-height: 4rem;
+  /** Full viewport height for mobile/tablet access drawer (≤1199px). */
+  --workspace-mobile-drawer-height: 100dvh;
+  --workspace-mobile-drawer-z: 55;
 
   --dashboard-surface: #ffffff;
   --dashboard-surface-muted: #f1f5f9;

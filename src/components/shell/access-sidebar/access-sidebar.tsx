@@ -167,10 +167,12 @@ export function AccessSidebar({
     <aside
       className={cn(
         styles.sidebar,
-        collapsed && styles.sidebarCollapsed,
+        collapsed && !open && styles.sidebarCollapsed,
         mobileNavStyles.drawer,
+        mobileNavStyles.drawerLeft,
         open && mobileNavStyles.drawerOpen,
       )}
+      data-drawer-open={open ? 'true' : 'false'}
       data-access-chrome="sidebar"
       data-collapsed={collapsed ? 'true' : 'false'}
     >

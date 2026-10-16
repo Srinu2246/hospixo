@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
+import { compactMuiSpacing } from '@/features/floor-table-setup/components/shared/compact-layout/compact-layout-sx';
+
 type FloorSetupCompactPageHeaderProps = Readonly<{
   title: string;
   subtitle?: string;
@@ -22,7 +24,7 @@ export function FloorSetupCompactPageHeader({
         flexDirection: 'row',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
-        gap: 1.5,
+        gap: compactMuiSpacing.block,
         width: '100%',
       }}
     >

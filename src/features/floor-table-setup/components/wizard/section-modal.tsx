@@ -190,7 +190,7 @@ function SectionModalForm({
           <DialogContent>
             <Stack spacing={2}>{fields}</Stack>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2, pt: 0, width: '100%' }}>
+          <DialogActions sx={{ px: 2.5, pb: 2, pt: 0, width: '100%' }}>
             <FloorSetupCompactStickyFooter
               back={
                 <Button

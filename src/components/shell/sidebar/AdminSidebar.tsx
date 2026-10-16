@@ -25,7 +25,12 @@ export default function AdminSidebar({ open = false, onClose }: AdminSidebarProp
 
   return (
     <aside
-      className={cn(styles.sidebar, mobileNavStyles.drawer, open && mobileNavStyles.drawerOpen)}
+      className={cn(
+        styles.sidebar,
+        mobileNavStyles.drawer,
+        mobileNavStyles.drawerLeft,
+        open && mobileNavStyles.drawerOpen,
+      )}
     >
       <div className={styles.header}>
         <AdminNavLink

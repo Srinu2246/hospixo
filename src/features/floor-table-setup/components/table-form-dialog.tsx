@@ -84,7 +84,7 @@ export function TableFormDialog({
         })}
       >
         <DialogContent>
-          <Stack spacing={2.5} sx={{ pt: 0.5 }}>
+          <Stack spacing={2} sx={{ pt: 0.5 }}>
             <TextField
               {...register('name')}
               label="Table name / number"
@@ -179,7 +179,7 @@ export function TableFormDialog({
             </FormControl>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
+        <DialogActions sx={{ px: 2.5, pb: 2 }}>
           <Button onClick={handleClose} disabled={isPending}>
             Cancel
           </Button>

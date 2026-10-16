@@ -156,11 +156,20 @@ export function isTenantWorkspacePath(pathname: string): boolean {
   );
 }
 
+const floorTableSetupDetailPath = /^\/branch\/floor-table-setup\/[^/]+$/;
+
 export function resolveWorkspaceNavPage(pathname: string): WorkspaceNavPageDef | undefined {
   const normalized = pathname.replace(/\/$/, '') || '/';
 
   if (workspaceDedicatedPaths.has(normalized)) {
     return undefined;
+  }
+
+  if (floorTableSetupDetailPath.test(normalized)) {
+    const segment = normalized.split('/').pop();
+    if (segment && segment !== 'create') {
+      return undefined;
+    }
   }
 
   const explicit: UnderConstructionRouteDef | undefined = getUnderConstructionRoute(normalized);

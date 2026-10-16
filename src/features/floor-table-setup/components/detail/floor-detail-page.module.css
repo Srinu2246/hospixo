@@ -108,7 +108,7 @@
 }
 
 .card {
-  padding: 1.35rem 1.4rem;
+  padding: 1.35rem 1rem;
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   background: var(--card);
