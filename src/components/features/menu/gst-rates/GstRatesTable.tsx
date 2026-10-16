@@ -47,43 +47,43 @@ export function GstRatesTable({ rates, onCreate, onView }: Readonly<GstRatesTabl
       sortable: true,
     },
     {
-      field: 'cgst',
+      field: 'cgst_rate',
       headerName: 'CGST',
       minWidth: 90,
       sortable: true,
-      renderCell: ({ row }) => formatPercent(row.cgst),
+      renderCell: ({ row }) => formatPercent(row.cgst_rate),
     },
     {
-      field: 'sgst',
+      field: 'sgst_rate',
       headerName: 'SGST',
       minWidth: 90,
       sortable: true,
-      renderCell: ({ row }) => formatPercent(row.sgst),
+      renderCell: ({ row }) => formatPercent(row.sgst_rate),
     },
     {
-      field: 'igst',
+      field: 'igst_rate',
       headerName: 'IGST',
       minWidth: 90,
       sortable: true,
-      renderCell: ({ row }) => formatPercent(row.igst),
+      renderCell: ({ row }) => formatPercent(row.igst_rate),
     },
     {
-      field: 'total',
+      field: 'total_rate',
       headerName: 'Total',
       minWidth: 90,
       sortable: true,
       renderCell: ({ row }) => (
         <Typography variant="body2" sx={{ fontWeight: 700 }}>
-          {formatPercent(row.total)}
+          {formatPercent(row.total_rate)}
         </Typography>
       ),
     },
     {
-      field: 'effectiveFrom',
+      field: 'effective_from',
       headerName: 'Effective From',
       minWidth: 130,
       sortable: true,
-      renderCell: ({ row }) => formatEffectiveDate(row.effectiveFrom),
+      renderCell: ({ row }) => formatEffectiveDate(row.effective_from),
     },
     {
       field: 'actions',
