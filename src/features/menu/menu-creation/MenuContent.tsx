@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Box from '@mui/material/Box';
+import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Plus, Upload } from 'lucide-react';
@@ -9,6 +10,7 @@ import { Plus, Upload } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
+import { Card } from '@/components/shared/ui/Card';
 import { MENU_SESSION_OPTIONS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 
@@ -44,6 +46,7 @@ export function MenuContent() {
     addCategory,
     deleteItem,
     items,
+    isCategoriesLoading,
   } = useMenuCreation();
 
   const [deleteTargetItem, setDeleteTargetItem] = useState<MenuCatalogItem | null>(null);
@@ -62,7 +65,32 @@ export function MenuContent() {
         alignItems: 'stretch',
       }}
     >
-      <MenuSidebar />
+      {isCategoriesLoading && categories.length === 0 ? (
+        <Card
+          component="aside"
+          variant="outlined"
+          sx={{
+            width: { xs: '100%', md: 240 },
+            flexShrink: 0,
+            alignSelf: 'stretch',
+            height: { md: '100%' },
+            p: 1.5,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.25,
+          }}
+        >
+          <Skeleton variant="text" width={70} height={18} />
+          <Skeleton variant="rounded" height={36} />
+          <Skeleton variant="rounded" height={36} />
+          <Skeleton variant="rounded" height={36} />
+          <Skeleton variant="rounded" height={36} />
+          <Skeleton variant="rounded" height={36} />
+          <Skeleton variant="rounded" height={36} sx={{ mt: 'auto' }} />
+        </Card>
+      ) : (
+        <MenuSidebar />
+      )}
 
       <Stack
         spacing={2}
