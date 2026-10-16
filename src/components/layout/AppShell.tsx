@@ -5,13 +5,11 @@ import { usePathname } from 'next/navigation';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { Sidebar } from '@/components/shared/app/Sidebar';
 import { TopNavbar } from '@/components/shared/app/TopNavbar';
-import { BottomNavbar } from '@/components/shared/app/BottomNavbar';
 import { Toast } from '@/components/shared/ui/Toast';
 import type { SidebarSession } from '@/lib/auth/session';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useToastStore } from '@/stores/toastStore';
-import { useIsApplication } from '@/lib/hooks/useIsApplication';
 type AppShellProps = {
   children: React.ReactNode;
   initialSession?: SidebarSession | null;
@@ -31,7 +29,6 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
   const clearToast = useToastStore((state) => state.clear);
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down(screen.desktop), { noSsr: true });
-  const isApp = useIsApplication();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navPathname, setNavPathname] = useState(pathname);
   if (pathname !== navPathname) {
@@ -183,9 +180,6 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
             display: 'flex',
             flexDirection: 'column',
             p: { [screen.mobile]: 2, [screen.desktop]: 3 },
-            pb: isApp
-              ? { [screen.mobile]: 9, [screen.tablet]: 3, [screen.desktop]: 3 }
-              : { [screen.mobile]: 2, [screen.tablet]: 3, [screen.desktop]: 3 },
             boxSizing: 'border-box',
           }}
         >
@@ -195,9 +189,6 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
         {/* Page Action Footer Container (Outside <main>) */}
         <Box id="app-shell-footer" sx={{ flexShrink: 0, zIndex: 20 }} />
       </Box>
-
-      {/* Bottom Navigation Bar for Mobile: only for application, not for mweb */}
-      {isApp ? <BottomNavbar user={user} /> : null}
       {toast}
     </Box>
   );
