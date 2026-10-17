@@ -42,8 +42,6 @@ export const menuAvailabilityPageConfigSchema = z.object({
   syncLabel: z.string().min(1),
 });
 
-export const availabilityCategoryListSchema = z.array(availabilityCategorySchema);
-export const availabilityItemListSchema = z.array(availabilityItemSchema);
 export const availabilityChannelListSchema = z.array(availabilityChannelSchema);
 
 export type MenuAvailabilityScope = z.infer<typeof menuAvailabilityScopeSchema>;

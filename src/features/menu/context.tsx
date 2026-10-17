@@ -1,13 +1,8 @@
 'use client';
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import {
-  AVAILABILITY_CHANNELS,
-  MOCK_AVAILABILITY_CATEGORIES,
-  MOCK_AVAILABILITY_ITEMS,
-} from '@/lib/mocks/menu/useMenuAvailability.mocks';
-import { MOCK_MENU_CATEGORIES, MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
+import { AVAILABILITY_CHANNELS } from '@/lib/mocks/menu/useMenuAvailability.mocks';
 import type {
   AvailabilityCategory,
   AvailabilityChannel,
@@ -20,17 +15,22 @@ import {
   createCategoryInputSchema,
   menuCategorySchema,
   type CreateCategoryInput,
+  type CreateMenuItemFormValues,
   type MenuCatalogItem,
   type MenuCategory,
   type MenuCreationViewMode,
   type MenuPageConfig,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import { toCatalogDietary, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
+import { useMenuCategories } from '@/lib/hooks/menu/useMenuCategories';
+import { useDeactivateMenuItem, useMenuItems } from '@/lib/hooks/menu/useMenuItems';
+import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 
 /* -------------------------------------------------------------------------- */
 /* Menu Creation                                                              */
 /* -------------------------------------------------------------------------- */
 
-interface MenuCreationContextValue {
+export interface MenuCreationContextValue {
   pageConfig: MenuPageConfig;
   viewMode: MenuCreationViewMode;
   categories: MenuCategory[];
@@ -42,6 +42,12 @@ interface MenuCreationContextValue {
   searchQuery: string;
   sessionFilter: string;
   selectedItem: MenuCatalogItem | null;
+  isCategoriesLoading?: boolean;
+  categoriesError?: Error | null;
+  isItemsLoading?: boolean;
+  itemsError?: Error | null;
+  refetchCategories?: () => void;
+  refetchItems?: () => void;
   setActiveCategoryId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setSessionFilter: (sessionId: string) => void;
@@ -52,24 +58,121 @@ interface MenuCreationContextValue {
   backToList: () => void;
   addCategory: (input: CreateCategoryInput) => void;
   toggleCategoryStatus: (categoryId: string) => void;
+  addItem: (data: CreateMenuItemFormValues) => void;
+  updateItem: (id: string, data: CreateMenuItemFormValues) => void;
+  /** Soft-delete via POST .../items/{id}/deactivate */
+  deleteItem: (id: string) => Promise<void>;
+  isDeletingItem?: boolean;
 }
 
 const MenuCreationContext = createContext<MenuCreationContextValue | null>(null);
 
+const MENU_LIST_PARAMS = { page_size: 100 } as const;
+
 export function MenuCreationProvider({
   pageConfig,
+  initialViewMode = 'list',
+  initialItemId,
   children,
 }: Readonly<{
   pageConfig: MenuPageConfig;
+  initialViewMode?: MenuCreationViewMode;
+  initialItemId?: string;
   children: ReactNode;
 }>) {
-  const [viewMode, setViewMode] = useState<MenuCreationViewMode>('list');
-  const [categories, setCategories] = useState<MenuCategory[]>(MOCK_MENU_CATEGORIES);
-  const [items] = useState<MenuCatalogItem[]>(MOCK_MENU_ITEMS);
+  const [localCategories, setLocalCategories] = useState<MenuCategory[]>([]);
+  const [localItems, setLocalItems] = useState<MenuCatalogItem[]>([]);
+  const [viewMode, setViewMode] = useState<MenuCreationViewMode>(initialViewMode);
+  const [selectedItem, setSelectedItem] = useState<MenuCatalogItem | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sessionFilter, setSessionFilter] = useState('session-wise');
-  const [selectedItem, setSelectedItem] = useState<MenuCatalogItem | null>(null);
+
+  const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
+  const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
+  const deactivateMenuItem = useDeactivateMenuItem();
+
+  const apiCategories = categoriesQuery.data?.items;
+  const apiItems = itemsQuery.data?.items;
+  const isCategoriesLoading = categoriesQuery.isLoading;
+  const categoriesError = categoriesQuery.error;
+  const isItemsLoading = itemsQuery.isLoading || itemsQuery.isFetching;
+  const itemsError = itemsQuery.error;
+  const refetchCategories = categoriesQuery.refetch;
+  const refetchItems = itemsQuery.refetch;
+
+  const categories: MenuCategory[] = useMemo(() => {
+    if (localCategories.length > 0) {
+      return localCategories;
+    }
+    return (apiCategories ?? []).map((c): MenuCategory => ({
+      id: String(c.id),
+      name: c.name,
+      status: c.status === 'active' ? 'Active' : 'Inactive',
+      description: c.description ?? undefined,
+      displayOrder: c.display_order,
+    }));
+  }, [apiCategories, localCategories]);
+
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categories) {
+      map.set(category.id, category.name);
+    }
+    return map;
+  }, [categories]);
+
+  const items: MenuCatalogItem[] = useMemo(() => {
+    if (localItems.length > 0) return localItems;
+    return (apiItems ?? []).map((item) => toMenuCatalogItem(item, categoryNameById));
+  }, [apiItems, categoryNameById, localItems]);
+
+  // Seed selection once API items arrive for view/edit deep links.
+  if (
+    (initialViewMode === 'view-item' || initialViewMode === 'edit-item') &&
+    selectedItem == null &&
+    items.length > 0
+  ) {
+    const match = (initialItemId ? items.find((i) => i.id === initialItemId) : null) ?? items[0];
+    setSelectedItem(match);
+    setActiveCategoryId(match.categoryId);
+  }
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      const itemId = urlParams.get('itemId');
+      if (viewParam === 'create-item') {
+        setSelectedItem(null);
+        setViewMode('create-item');
+      } else if (viewParam === 'edit-item') {
+        const item = (itemId ? items.find((i) => i.id === itemId) : null) ?? items[0];
+        setSelectedItem(item);
+        if (item) setActiveCategoryId(item.categoryId);
+        setViewMode('edit-item');
+      } else if (viewParam === 'view-item') {
+        const item = (itemId ? items.find((i) => i.id === itemId) : null) ?? items[0];
+        setSelectedItem(item);
+        if (item) setActiveCategoryId(item.categoryId);
+        setViewMode('view-item');
+      } else if (viewParam === 'create-category') {
+        setViewMode('create-category');
+      } else if (
+        window.location.pathname.endsWith('/create-menu-item') ||
+        window.location.pathname.endsWith('/menu-creation/create')
+      ) {
+        setViewMode('create-item');
+      } else {
+        setSelectedItem(null);
+        setViewMode('list');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [items]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -105,25 +208,92 @@ export function MenuCreationProvider({
       searchQuery,
       sessionFilter,
       selectedItem,
+      isCategoriesLoading,
+      categoriesError,
+      isItemsLoading,
+      itemsError,
+      refetchCategories: () => {
+        void refetchCategories();
+      },
+      refetchItems: () => {
+        void refetchItems();
+      },
       setActiveCategoryId,
       setSearchQuery,
       setSessionFilter,
-      openCreateCategory: () => setViewMode('create-category'),
+      openCreateCategory: () => {
+        setViewMode('create-category');
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('view', 'create-category');
+          window.history.pushState({ view: 'create-category' }, '', url.toString());
+        }
+      },
       openCreateItem: () => {
         setSelectedItem(null);
         setViewMode('create-item');
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('view', 'create-item');
+          window.history.pushState({ view: 'create-item' }, '', url.toString());
+        }
       },
       openEditItem: (item) => {
         setSelectedItem(item);
+        setActiveCategoryId(item.categoryId);
         setViewMode('edit-item');
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('view', 'edit-item');
+          url.searchParams.set('itemId', item.id);
+          window.history.pushState({ view: 'edit-item', itemId: item.id }, '', url.toString());
+        }
       },
       openViewItem: (item) => {
         setSelectedItem(item);
+        setActiveCategoryId(item.categoryId);
         setViewMode('view-item');
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('view', 'view-item');
+          url.searchParams.set('itemId', item.id);
+          window.history.pushState({ view: 'view-item', itemId: item.id }, '', url.toString());
+        }
       },
+      deleteItem: async (id: string) => {
+        const itemId = Number(id);
+        if (!Number.isFinite(itemId) || itemId <= 0) {
+          throw new Error('Invalid menu item id');
+        }
+
+        await deactivateMenuItem.mutateAsync(itemId);
+
+        setLocalItems((prev) => {
+          const source = prev.length > 0 ? prev : items;
+          return source.filter((item) => item.id !== id);
+        });
+        setSelectedItem(null);
+        setViewMode('list');
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('view');
+          url.searchParams.delete('itemId');
+          window.history.pushState({}, '', `${url.pathname}${url.search}`);
+        }
+      },
+      isDeletingItem: deactivateMenuItem.isPending,
       backToList: () => {
         setSelectedItem(null);
         setViewMode('list');
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('view');
+          url.searchParams.delete('itemId');
+          const cleanPath = url.pathname
+            .replace(/\/create-menu-item$/, '/menu-creation')
+            .replace(/\/create$/, '');
+          window.history.pushState({}, '', `${cleanPath}${url.search}`);
+        }
       },
       addCategory: (input) => {
         const parsed = createCategoryInputSchema.parse(input);
@@ -134,21 +304,65 @@ export function MenuCreationProvider({
           status: 'Active',
           displayOrder: categories.length + 1,
         });
-        setCategories((prev) => [...prev, next]);
+        setLocalCategories([...categories, next]);
         setActiveCategoryId(next.id);
         setViewMode('list');
       },
       toggleCategoryStatus: (categoryId) => {
-        setCategories((prev) =>
-          prev.map((category) =>
+        setLocalCategories(
+          categories.map((category) =>
             category.id === categoryId
               ? {
                   ...category,
-                  status: category.status === 'Active' ? 'Inactive' : 'Active',
+                  status: (category.status === 'Active' ? 'Inactive' : 'Active') as
+                    'Active' | 'Inactive',
                 }
               : category,
           ),
         );
+      },
+      addItem: (data: CreateMenuItemFormValues) => {
+        const cat = categories.find((c) => c.id === data.category);
+        const newItem: MenuCatalogItem = {
+          id: `item_${Date.now()}`,
+          name: data.name,
+          categoryId: data.category,
+          categoryName: cat?.name ?? 'Starters',
+          basePrice: data.itemPrice,
+          dietary: data.dietaryType as 'Veg' | 'Non-Veg' | 'Egg',
+          status: 'Available',
+          code: data.code,
+          description: data.description,
+          imageUrl: data.images[0] ?? undefined,
+          orderTypes: data.orderTypes,
+          tags: data.tags,
+        };
+        setLocalItems([newItem, ...items]);
+        setActiveCategoryId(data.category);
+        setViewMode('list');
+      },
+      updateItem: (id: string, data: CreateMenuItemFormValues) => {
+        const cat = categories.find((c) => c.id === data.category);
+        setLocalItems(
+          items.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  name: data.name,
+                  categoryId: data.category,
+                  categoryName: cat?.name ?? item.categoryName,
+                  basePrice: data.itemPrice,
+                  dietary: data.dietaryType as 'Veg' | 'Non-Veg' | 'Egg',
+                  code: data.code,
+                  description: data.description,
+                  imageUrl: data.images[0] ?? item.imageUrl,
+                  orderTypes: data.orderTypes,
+                  tags: data.tags,
+                }
+              : item,
+          ),
+        );
+        setViewMode('list');
       },
     }),
     [
@@ -162,6 +376,13 @@ export function MenuCreationProvider({
       sessionFilter,
       selectedItem,
       viewMode,
+      isCategoriesLoading,
+      categoriesError,
+      isItemsLoading,
+      itemsError,
+      refetchCategories,
+      refetchItems,
+      deactivateMenuItem,
     ],
   );
 
@@ -180,7 +401,7 @@ export function useMenuCreation(): MenuCreationContextValue {
 /* Menu Availability                                                          */
 /* -------------------------------------------------------------------------- */
 
-interface MenuAvailabilityContextValue {
+export interface MenuAvailabilityContextValue {
   pageConfig: MenuAvailabilityPageConfig;
   categories: AvailabilityCategory[];
   items: AvailabilityItem[];
@@ -218,6 +439,29 @@ function channelsForGroup(group: AvailabilityChannelGroup): AvailabilityChannel[
   return AVAILABILITY_CHANNELS.filter((channel) => channel.group === group || channel.id === 'all');
 }
 
+function toAvailabilityItem(
+  item: MenuItemResponse,
+  categoryNameById: Map<string, string>,
+): AvailabilityItem {
+  const categoryId = String(item.category_id);
+  const isActive = item.status === 'active';
+  return {
+    id: String(item.id),
+    name: item.name,
+    categoryId,
+    categoryName: categoryNameById.get(categoryId) ?? 'Uncategorized',
+    dietary: toCatalogDietary(item.dietary_type),
+    mark: isActive ? 'available' : '86d',
+    visibility: !isActive
+      ? 'hidden'
+      : item.allow_delivery || item.allow_takeaway
+        ? 'online'
+        : 'dine-in',
+    tag: item.tags[0]?.name ?? item.code ?? item.name,
+    isHidden: !isActive,
+  };
+}
+
 export function MenuAvailabilityProvider({
   pageConfig,
   children,
@@ -225,15 +469,52 @@ export function MenuAvailabilityProvider({
   pageConfig: MenuAvailabilityPageConfig;
   children: ReactNode;
 }>) {
-  const [categories] = useState<AvailabilityCategory[]>(MOCK_AVAILABILITY_CATEGORIES);
-  const [baselineItems, setBaselineItems] = useState<AvailabilityItem[]>(MOCK_AVAILABILITY_ITEMS);
-  const [items, setItems] = useState<AvailabilityItem[]>(MOCK_AVAILABILITY_ITEMS);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>('cat_veg_biryani');
+  const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
+  const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
+
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categoriesQuery.data?.items ?? []) {
+      map.set(String(category.id), category.name);
+    }
+    return map;
+  }, [categoriesQuery.data?.items]);
+
+  const apiCategories = useMemo<AvailabilityCategory[]>(
+    () =>
+      (categoriesQuery.data?.items ?? []).map((category) => ({
+        id: String(category.id),
+        name: category.name,
+        displayOrder: category.display_order,
+      })),
+    [categoriesQuery.data?.items],
+  );
+
+  const apiItems = useMemo(
+    () => (itemsQuery.data?.items ?? []).map((item) => toAvailabilityItem(item, categoryNameById)),
+    [itemsQuery.data?.items, categoryNameById],
+  );
+
+  const [localItems, setLocalItems] = useState<AvailabilityItem[] | null>(null);
+  const [baselineItems, setBaselineItems] = useState<AvailabilityItem[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [channelGroup, setChannelGroup] = useState<AvailabilityChannelGroup>('online');
   const [activeChannelId, setActiveChannelId] = useState('mayukha-website');
   const [addonStatus, setAddonStatus] = useState('addon-on');
   const [storeStatus, setStoreStatus] = useState('store-on');
+
+  const categories = apiCategories;
+  const items = localItems ?? apiItems;
+
+  // Keep baseline in sync with the latest API payload until the user edits marks.
+  if (localItems == null && apiItems.length > 0 && baselineItems !== apiItems) {
+    setBaselineItems(apiItems);
+  }
+
+  if (activeCategoryId == null && categories.length > 0) {
+    setActiveCategoryId(categories[0].id);
+  }
 
   const channels = useMemo(() => channelsForGroup(channelGroup), [channelGroup]);
 
@@ -315,16 +596,18 @@ export function MenuAvailabilityProvider({
       setAddonStatus,
       setStoreStatus,
       toggleItemMark: (itemId) => {
-        setItems((prev) =>
-          prev.map((item) => {
+        setLocalItems((prev) => {
+          const source = prev ?? items;
+          return source.map((item) => {
             if (item.id !== itemId) return item;
             const nextMark: ItemAvailabilityMark = item.mark === 'available' ? '86d' : 'available';
             return { ...item, mark: nextMark };
-          }),
-        );
+          });
+        });
       },
       updateAvailability: () => {
         setBaselineItems(items);
+        setLocalItems(items);
       },
     }),
     [

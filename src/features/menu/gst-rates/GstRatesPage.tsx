@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
+import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -12,18 +14,11 @@ import { Plus } from 'lucide-react';
 import { CreateGstRateForm, GstRatesTable } from '@/components/features/menu/gst-rates';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
-import { MOCK_GST_RATES } from '@/lib/mocks/menu/useGstRates.mocks';
-import {
-  createGstRateInputSchema,
-  gstRateSchema,
-  type CreateGstRateInput,
-  type GstRate,
-} from '@/lib/schemas/menu/gstRatesSchema';
+import { useCreateGstRate, useGstRate, useGstRates } from '@/lib/hooks/menu/useGstRates';
+import type { CreateGstRateBody } from '@/lib/schemas/menu/gstRatesSchema';
+import { ApiError } from '@/services/api/types';
 
 type GstRatesMode = 'list' | 'create' | 'view';
-
-/** In-memory mock list for this session (survives list↔create remounts; resets on full refresh). */
-let sessionRates: GstRate[] = MOCK_GST_RATES;
 
 function parseGstRatesPath(pathname: string): {
   basePath: string;
@@ -48,54 +43,92 @@ function parseGstRatesPath(pathname: string): {
 
 /**
  * GST Rates for any scope (`/company/...`, `/branch-manager/...`).
- * URL drives list / create / view so refresh keeps the screen.
+ * URL drives list / create / view; data comes from /v1/restaurant/gst-rates.
  */
 export function GstRatesPage() {
   const pathname = usePathname();
   const router = useRouter();
   const { basePath, mode, rateId } = parseGstRatesPath(pathname);
 
-  const [rates, setRates] = useState<GstRate[]>(sessionRates);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
-  const filteredRates = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return rates.filter((rate) => {
-      if (activeOnly && !rate.active) return false;
-      if (!query) return true;
-      return rate.code.toLowerCase().includes(query) || rate.name.toLowerCase().includes(query);
-    });
-  }, [activeOnly, rates, searchQuery]);
+  const numericRateId = rateId && /^\d+$/.test(rateId) ? Number(rateId) : undefined;
 
-  const selectedRate = rateId ? rates.find((rate) => rate.id === rateId) : undefined;
+  const listQuery = useGstRates({
+    code: searchQuery.trim() || undefined,
+    active_only: activeOnly || undefined,
+    page: 1,
+    page_size: 50,
+  });
+  const detailQuery = useGstRate(mode === 'view' ? numericRateId : undefined);
+  const createMutation = useCreateGstRate();
 
   function goToList() {
     router.push(basePath);
   }
 
-  function handleSubmit(input: CreateGstRateInput) {
-    const parsed = createGstRateInputSchema.parse(input);
-    const total = parsed.total ?? Number((parsed.cgst + parsed.sgst + parsed.igst).toFixed(2));
-    const next = gstRateSchema.parse({
-      id: `gst_${Date.now()}`,
-      code: parsed.code,
-      name: parsed.name,
-      cgst: parsed.cgst,
-      sgst: parsed.sgst,
-      igst: parsed.igst,
-      total,
-      effectiveFrom: parsed.effectiveFrom,
-      effectiveTo: parsed.effectiveTo || undefined,
-      active: true,
-    });
-    sessionRates = [next, ...sessionRates];
-    setRates(sessionRates);
-    router.push(basePath);
+  async function handleSubmit(input: CreateGstRateBody) {
+    setCreateError(null);
+    try {
+      await createMutation.mutateAsync(input);
+      router.push(basePath);
+    } catch (error) {
+      setCreateError(
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Could not create GST rate.',
+      );
+    }
   }
 
-  if (mode === 'create' || mode === 'view') {
-    if (mode === 'view' && !selectedRate) {
+  if (mode === 'create') {
+    return (
+      <Box
+        sx={{
+          width: '100%',
+          height: '100%',
+          minHeight: 0,
+          overflow: 'hidden',
+          bgcolor: 'background.default',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1.5,
+        }}
+      >
+        {createError ? <Alert severity="error">{createError}</Alert> : null}
+        <CreateGstRateForm
+          mode="create"
+          submitting={createMutation.isPending}
+          onCancel={goToList}
+          onSubmit={handleSubmit}
+        />
+      </Box>
+    );
+  }
+
+  if (mode === 'view') {
+    if (detailQuery.isPending) {
+      return (
+        <Box
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: 'background.default',
+          }}
+        >
+          <CircularProgress size={28} />
+        </Box>
+      );
+    }
+
+    if (detailQuery.isError || !detailQuery.data) {
       return (
         <Box
           sx={{
@@ -113,7 +146,9 @@ export function GstRatesPage() {
             GST rate not found
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            This rate may have been removed or the link is invalid.
+            {detailQuery.error instanceof Error
+              ? detailQuery.error.message
+              : 'This rate may have been removed or the link is invalid.'}
           </Typography>
           <ActionButton onClick={goToList}>Back to GST Rates</ActionButton>
         </Box>
@@ -131,8 +166,8 @@ export function GstRatesPage() {
         }}
       >
         <CreateGstRateForm
-          mode={mode}
-          rate={selectedRate ?? null}
+          mode="view"
+          rate={detailQuery.data}
           onCancel={goToList}
           onSubmit={handleSubmit}
         />
@@ -230,6 +265,12 @@ export function GstRatesPage() {
         />
       </Stack>
 
+      {listQuery.isError ? (
+        <Alert severity="error" sx={{ flexShrink: 0 }}>
+          {listQuery.error instanceof Error ? listQuery.error.message : 'Could not load GST rates.'}
+        </Alert>
+      ) : null}
+
       <Box
         sx={{
           flex: 1,
@@ -237,13 +278,27 @@ export function GstRatesPage() {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          position: 'relative',
         }}
       >
-        <GstRatesTable
-          rates={filteredRates}
-          onCreate={() => router.push(`${basePath}/create`)}
-          onView={(rate) => router.push(`${basePath}/${rate.id}`)}
-        />
+        {listQuery.isPending ? (
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <CircularProgress size={28} />
+          </Box>
+        ) : (
+          <GstRatesTable
+            rates={listQuery.data?.items ?? []}
+            onCreate={() => router.push(`${basePath}/create`)}
+            onView={(rate) => router.push(`${basePath}/${rate.id}`)}
+          />
+        )}
       </Box>
     </Box>
   );

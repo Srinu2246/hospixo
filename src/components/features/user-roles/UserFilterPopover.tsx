@@ -8,11 +8,7 @@ import Divider from '@mui/material/Divider';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
-import {
-  ROLE_OPTIONS,
-  BRANCH_OPTIONS,
-  STATUS_OPTIONS,
-} from '@/lib/mocks/employees/useUserRoles.mocks';
+const STATUS_FILTER_OPTIONS = ['active', 'invited', 'disabled', 'inactive'] as const;
 
 export interface UserFilterPopoverProps {
   anchorEl: HTMLElement | null;
@@ -40,12 +36,12 @@ export function UserFilterPopover({
   selectedStatus,
   onStatusChange,
   onReset,
-  roleOptions = ROLE_OPTIONS,
-  branchOptions = BRANCH_OPTIONS,
+  roleOptions = [],
+  branchOptions = [],
 }: Readonly<UserFilterPopoverProps>) {
   const roleDropdownOptions = ['All Roles', ...roleOptions];
   const branchDropdownOptions = ['All Branches', ...branchOptions];
-  const statusDropdownOptions = ['All Statuses', ...STATUS_OPTIONS];
+  const statusDropdownOptions = ['All Statuses', ...STATUS_FILTER_OPTIONS];
 
   return (
     <Popover

@@ -1,16 +1,12 @@
 import { create } from 'zustand';
-import type {
-  CreateUserStep,
-  CreateUserFormValues,
-  RoleTemplateItem,
-  PermissionCategory,
-  ScopeType,
-} from '@/types/user-roles';
 import {
-  INITIAL_USER_FORM_VALUES,
-  INITIAL_PERMISSION_CATEGORIES,
-  DEFAULT_STAFF_PROFILE_PERMISSIONS,
-} from '@/lib/mocks/employees/multiform.mocks';
+  DEFAULT_CREATE_USER_FORM_VALUES,
+  type CreateUserStep,
+  type CreateUserFormValues,
+  type RoleTemplateItem,
+  type PermissionCategory,
+  type ScopeType,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface CreateUserState {
   scope: ScopeType;
@@ -40,24 +36,12 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
   scope: 'company',
   step: 'template',
   selectedTemplate: null,
-  formValues: { ...INITIAL_USER_FORM_VALUES },
-  categories: DEFAULT_STAFF_PROFILE_PERMISSIONS,
+  formValues: { ...DEFAULT_CREATE_USER_FORM_VALUES },
+  categories: [],
   errors: {},
   isSubmitting: false,
 
-  setScope: (scope) =>
-    set((state) => ({
-      scope,
-      categories:
-        scope === 'company' || scope === 'branch'
-          ? DEFAULT_STAFF_PROFILE_PERMISSIONS
-          : INITIAL_PERMISSION_CATEGORIES,
-      formValues: {
-        ...state.formValues,
-        branch: scope === 'branch' ? 'Downtown Branch' : state.formValues.branch,
-        role: scope === 'branch' ? 'Captain' : state.formValues.role,
-      },
-    })),
+  setScope: (scope) => set({ scope }),
 
   setStep: (step) => set({ step }),
 
@@ -141,14 +125,12 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
         step: 'template',
         selectedTemplate: null,
         formValues: {
-          ...INITIAL_USER_FORM_VALUES,
-          branch: scopeToUse === 'branch' ? 'Downtown Branch' : INITIAL_USER_FORM_VALUES.branch,
-          role: scopeToUse === 'branch' ? 'Captain' : INITIAL_USER_FORM_VALUES.role,
+          ...DEFAULT_CREATE_USER_FORM_VALUES,
+          branch:
+            scopeToUse === 'branch' ? 'Downtown Branch' : DEFAULT_CREATE_USER_FORM_VALUES.branch,
+          role: scopeToUse === 'branch' ? 'Captain' : DEFAULT_CREATE_USER_FORM_VALUES.role,
         },
-        categories:
-          scopeToUse === 'company' || scopeToUse === 'branch'
-            ? DEFAULT_STAFF_PROFILE_PERMISSIONS
-            : INITIAL_PERMISSION_CATEGORIES,
+        categories: [],
         errors: {},
         isSubmitting: false,
       };

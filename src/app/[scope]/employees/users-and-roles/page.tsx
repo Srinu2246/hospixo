@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
+
 import { UsersAndRolesScreen } from '@/features/employees/user-roles';
+import { parseUserList } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { ScopeType } from '@/types/user-roles';
+import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
+import { serverApi } from '@/services/api/serverClient';
 
 export const metadata: Metadata = {
   title: 'Users & Roles | Hospixo Platform',
@@ -19,5 +23,20 @@ function resolveScope(raw: string): ScopeType {
 
 export default async function ScopedUsersAndRolesPage({ params }: Readonly<ScopeRouteProps>) {
   const resolvedParams = await params;
-  return <UsersAndRolesScreen scope={resolveScope(resolvedParams.scope)} />;
+  const scope = resolveScope(resolvedParams.scope);
+  const initialUserList = await readInitialUserList();
+
+  return <UsersAndRolesScreen scope={scope} initialUserList={initialUserList} />;
+}
+
+async function readInitialUserList() {
+  try {
+    const payload = await serverApi.get<unknown>(ApiUrlsV1.users.list, {
+      page: 1,
+      page_size: 8,
+    });
+    return parseUserList(payload);
+  } catch {
+    return undefined;
+  }
 }

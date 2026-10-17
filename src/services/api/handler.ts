@@ -2,13 +2,9 @@ import 'server-only';
 
 import {
   INITIAL_USERS,
-  COMPANY_INITIAL_USERS,
-  BRANCH_INITIAL_USERS,
-} from '@/lib/mocks/employees/useUserRoles.mocks';
-import {
   COMPANY_ROLE_TEMPLATES,
-  BRANCH_ROLE_TEMPLATES,
-} from '@/lib/mocks/employees/multiform.mocks';
+  resolveUserRolesMock,
+} from '@/lib/mocks/employees/useUserRoles.mocks';
 import {
   BRANCH_STAT_CARDS,
   COMPANY_STAT_CARDS,
@@ -20,7 +16,6 @@ import {
   POS_LIVE_ORDERS,
   POS_METRIC_CARDS,
 } from '@/lib/mocks/pos/usePosDashboard.mocks';
-import { MOCK_MENU_ITEMS } from '@/lib/mocks/pos/usePosMenu.mocks';
 import { MOCK_POS_ORDERS, MOCK_READY_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
 import { MOCK_RESERVATIONS } from '@/lib/mocks/pos/usePosReservations.mocks';
 import {
@@ -38,6 +33,8 @@ import {
   MOCK_KITCHEN_ORDERS,
   resolveKitchenDisplayMock,
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
+import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
+import { MOCK_MENU_CATEGORIES, MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
 import type { HttpMethod, QueryParams } from '@/services/api/types';
@@ -95,16 +92,20 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.pos.pointOfSale.takeaway.list]: MOCK_MENU_ITEMS,
   [ApiUrlsV1.pos.pointOfSale.kitchenDisplay.list]: MOCK_KITCHEN_ORDERS,
   [ApiUrlsV1.operations.kitchenDisplay.list]: MOCK_KITCHEN_ORDERS,
-  [ApiUrlsV1.employees.userRoles.list]: INITIAL_USERS,
-  [ApiUrlsV1.employees.companyUserRoles.list]: COMPANY_INITIAL_USERS,
-  [ApiUrlsV1.employees.companyTemplates.list]: COMPANY_ROLE_TEMPLATES,
-  [ApiUrlsV1.employees.branchUserRoles.list]: BRANCH_INITIAL_USERS,
-  [ApiUrlsV1.employees.branchTemplates.list]: BRANCH_ROLE_TEMPLATES,
+  [ApiUrlsV1.users.list]: INITIAL_USERS,
+  [ApiUrlsV1.roles.list]: INITIAL_USERS.map((user, index) => ({
+    id: index + 1,
+    name: user.role,
+  })),
+  [ApiUrlsV1.roles.templates]: COMPANY_ROLE_TEMPLATES,
+  [ApiUrlsV1.permissions.grouped]: [],
   [ApiUrlsV1.dashboard.organization.list]: { stats: ORG_STAT_CARDS },
   [ApiUrlsV1.dashboard.company.list]: { stats: COMPANY_STAT_CARDS },
   [ApiUrlsV1.dashboard.branch.list]: { stats: BRANCH_STAT_CARDS },
   [ApiUrlsV1.organization.companies]: MOCK_COMPANIES,
   [ApiUrlsV1.restaurant.branches]: MOCK_BRANCHES,
+  [ApiUrlsV1.restaurant.menuCategories.list]: MOCK_MENU_CATEGORIES,
+  [ApiUrlsV1.restaurant.menuItems.list]: MOCK_MENU_ITEMS,
 };
 
 export function isMockApiEnabled(): boolean {
@@ -119,6 +120,12 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   const kitchen = resolveKitchenDisplayMock(request);
   if (kitchen !== undefined) return kitchen;
 
+  const gstRates = resolveGstRatesMock(request);
+  if (gstRates !== undefined) return gstRates;
+
+  const userRoles = resolveUserRolesMock(request);
+  if (userRoles !== undefined) return userRoles;
+
   const listPath = findListPath(request.path);
   if (!listPath) return undefined;
 
@@ -130,14 +137,38 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   }
 
   const payload = LIST_MOCKS[listPath];
-  if (request.path === listPath) return payload;
+  if (request.path === listPath) {
+    if (
+      listPath === ApiUrlsV1.restaurant.menuCategories.list ||
+      listPath === ApiUrlsV1.restaurant.menuItems.list
+    ) {
+      const items = Array.isArray(payload) ? payload : [];
+      return {
+        success: true,
+        data: {
+          items,
+          total: items.length,
+          page: 1,
+          page_size: items.length || 15,
+        },
+        message: 'OK',
+      };
+    }
+    return payload;
+  }
 
   const id = request.path.slice(listPath.length + 1).split('/')[0];
   if (Array.isArray(payload)) {
-    return (
+    const match =
       payload.find((item) => isRecord(item) && String(item.id) === decodeURIComponent(id)) ??
-      payload[0]
-    );
+      payload[0];
+    if (
+      listPath === ApiUrlsV1.restaurant.menuCategories.list ||
+      listPath === ApiUrlsV1.restaurant.menuItems.list
+    ) {
+      return { success: true, data: match, message: 'OK' };
+    }
+    return match;
   }
 
   return payload;

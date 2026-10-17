@@ -222,6 +222,16 @@ function isSidebarItemActive(effectivePathname: string, href?: string): boolean 
     return true;
   }
 
+  // Menu Creation equivalence (/menu/menu-creation matches /menu/create-menu-item and /menu/menu-creation/create)
+  if (
+    cleanHref === '/menu/menu-creation' &&
+    (cleanCurrent === '/menu/create-menu-item' ||
+      cleanCurrent === '/menu/menu-creation/create' ||
+      cleanCurrent.startsWith('/menu/menu-creation'))
+  ) {
+    return true;
+  }
+
   // Nested sub-route match with strict '/' boundary (e.g. /reservation/RES-01 matches /reservation)
   // Avoid matching parent sections (like /pos/point-of-sale) when viewing specific sibling features
   if (

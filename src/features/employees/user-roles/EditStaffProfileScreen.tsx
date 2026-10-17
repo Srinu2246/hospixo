@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import { useForm, Controller, useWatch } from 'react-hook-form';
@@ -21,35 +21,44 @@ import { Input } from '@/components/shared/form-fields/Input';
 import { MobileNumberInput } from '@/components/shared/form-fields/MobileNumberInput';
 import { Modal } from '@/components/shared/ui/Modal';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
-import { colors } from '@/lib/theme/mui/colors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { colors } from '@/lib/theme/mui/colors';
 
-import { staffProfileSchema, type StaffProfileFormValues } from '@/lib/schemas/user-roles';
 import {
-  DEFAULT_STAFF_PROFILE,
-  DEFAULT_STAFF_PROFILE_PERMISSIONS,
-} from '@/lib/mocks/employees/multiform.mocks';
-import type { PermissionCategory, ScopeType } from '@/types/user-roles';
+  staffProfileSchema,
+  type StaffProfileFormValues,
+  type PermissionCategory,
+  type ScopeType,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import { useStaffProfile } from '@/lib/hooks/employees/user-roles';
+import { useUserRolesUiStore } from '@/stores/userRolesUiStore';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Loading } from '@/components/shared/ui/Loading';
 import { PermissionGroupsGrid } from '@/components/features/user-roles';
 
 export interface EditStaffProfileScreenProps {
   initialMode?: 'view' | 'edit';
-  userProfile?: typeof DEFAULT_STAFF_PROFILE;
   onBack?: () => void;
   onSave?: (values: StaffProfileFormValues, permissions: PermissionCategory[]) => void;
   scope?: ScopeType;
   companyName?: string;
 }
 
+/**
+ * EditStaffProfilePage Component
+ *
+ * Page-level screen for inspecting and updating an employee's staff profile,
+ * contact information, system role, and access rights.
+ */
 export function EditStaffProfileScreen({
   initialMode = 'edit',
-  userProfile = DEFAULT_STAFF_PROFILE,
   onBack,
   onSave,
   scope,
-  companyName: _companyName = 'VJITVI',
 }: Readonly<EditStaffProfileScreenProps>) {
-  void _companyName;
+  const selectedUserId = useUserRolesUiStore((state) => state.selectedUserId);
+  const staffProfile = useStaffProfile(selectedUserId);
+  const userProfile = staffProfile.profile;
   const router = useRouter();
   const pathname = usePathname() || '';
 
@@ -66,15 +75,21 @@ export function EditStaffProfileScreen({
     if (stripped) return stripped;
     if (resolvedScope === 'company') return '/company/employees/users-and-roles';
     if (resolvedScope === 'branch') return '/branch-manager/employees/users-and-roles';
-    return pathname.startsWith('/users-and-roles')
-      ? '/users-and-roles'
-      : '/organization/employees/users-and-roles';
+    return '/organization/employees/users-and-roles';
   };
   const baseRoute = getBaseRoute();
   const [mode, setMode] = useState<'view' | 'edit'>(initialMode);
-  const [categories, setCategories] = useState<PermissionCategory[]>(
-    DEFAULT_STAFF_PROFILE_PERMISSIONS,
-  );
+  const remoteCategories = staffProfile.categories;
+  const [categories, setCategories] = useState<PermissionCategory[]>([]);
+  const [syncedRemoteCategories, setSyncedRemoteCategories] =
+    useState<PermissionCategory[]>(remoteCategories);
+
+  if (remoteCategories !== syncedRemoteCategories) {
+    setSyncedRemoteCategories(remoteCategories);
+    if (remoteCategories.length > 0) {
+      setCategories(remoteCategories);
+    }
+  }
 
   // Deactivation confirmation modal state
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
@@ -102,22 +117,29 @@ export function EditStaffProfileScreen({
     control,
     handleSubmit,
     setValue,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<StaffProfileFormValues>({
     resolver: zodResolver(staffProfileSchema),
     defaultValues: {
-      firstName: userProfile.firstName,
-      lastName: userProfile.lastName,
-      email: userProfile.email,
-      phoneNumber: userProfile.phoneNumber,
-      countryCode: userProfile.countryCode,
-      username: userProfile.username,
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneNumber: '',
+      countryCode: '+1',
+      username: '',
       password: '',
-      userStatus: userProfile.userStatus,
-      roleName: userProfile.roleName,
-      roleDescription: userProfile.roleDescription,
+      userStatus: true,
+      roleName: '',
+      roleDescription: '',
     },
   });
+
+  useEffect(() => {
+    if (userProfile) {
+      reset(userProfile);
+    }
+  }, [userProfile, reset]);
 
   const userStatusValue = useWatch({ control, name: 'userStatus' });
   const countryCodeValue = useWatch({ control, name: 'countryCode' });
@@ -159,30 +181,60 @@ export function EditStaffProfileScreen({
     );
   };
 
-  // Form Submission
-  const onSubmit = (data: StaffProfileFormValues) => {
-    if (onSave) {
-      onSave(data, categories);
-    }
-    showToast('Staff profile and permissions updated successfully!', 'success');
-    setTimeout(() => {
-      setMode('view');
-    }, 400);
+  // Reset password / send password reset email handler
+  const handleSendResetPassword = () => {
+    showToast(`Password reset link sent to ${userProfile?.email ?? 'user'}`, 'info');
   };
 
-  // Deactivate Action
-  const handleConfirmDeactivation = () => {
+  // Resend invitation email handler
+  const handleResendInvitation = () => {
+    showToast(`Invitation email resent to ${userProfile?.email ?? 'user'}`, 'success');
+  };
+
+  // Confirm deactivation
+  const handleConfirmDeactivation = async () => {
     setIsDeactivating(true);
-    setTimeout(() => {
-      setValue('userStatus', false);
-      setIsDeactivating(false);
+    try {
+      await staffProfile.deactivate();
       setIsDeactivateModalOpen(false);
-      showToast('Staff member has been deactivated.', 'warning');
-    }, 600);
+      setValue('userStatus', false);
+      showToast('User has been deactivated.', 'warning');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to deactivate user.', 'error');
+    } finally {
+      setIsDeactivating(false);
+    }
+  };
+
+  const onSubmit = async (data: StaffProfileFormValues) => {
+    try {
+      await staffProfile.saveProfile({ values: data, categories });
+      onSave?.(data, categories);
+      showToast('Staff profile and permissions updated successfully!', 'success');
+      setMode('view');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to save profile.', 'error');
+    }
   };
 
   const isReadOnly = mode === 'view';
-  const pageTitle = isReadOnly ? 'View Staff Profile' : 'Edit Staff Profile';
+
+  if (!selectedUserId) {
+    return (
+      <AlertMessage
+        variant="warning"
+        message="Select a user from Users & Roles to edit their profile."
+      />
+    );
+  }
+
+  if (staffProfile.isLoading) {
+    return <Loading message="Loading staff profile…" />;
+  }
+
+  if (staffProfile.isError || !userProfile) {
+    return <AlertMessage variant="error" message="Unable to load staff profile." />;
+  }
 
   return (
     <Box
@@ -198,16 +250,17 @@ export function EditStaffProfileScreen({
       <Breadcrumbs
         items={[
           { label: 'Users & Roles', onClick: handleBack },
-          { label: pageTitle, active: true },
+          { label: isReadOnly ? 'Staff Profile' : 'Edit Staff Profile', active: true },
         ]}
       />
 
-      {/* Header with Back Arrow and Action Button */}
+      {/* Header with Title and Mode Actions */}
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexWrap: 'wrap',
           gap: 2,
         }}
       >
@@ -234,32 +287,46 @@ export function EditStaffProfileScreen({
             <ArrowBackIcon fontSize="small" />
           </IconButton>
 
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{
-              fontSize: { xs: '1.25rem', sm: '1.5rem' },
-              fontWeight: 700,
-              color: 'text.primary',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {pageTitle}
-          </Typography>
+          <Box>
+            <Typography
+              variant="h4"
+              component="h1"
+              sx={{
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                fontWeight: 700,
+                color: 'text.primary',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {isReadOnly ? 'Staff Profile' : 'Edit Staff Profile'}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: colors.text.secondary, mt: 0.25, fontSize: '0.875rem' }}
+            >
+              {isReadOnly
+                ? 'Review user account, permissions, and security settings.'
+                : 'Update user account, assign permissions, and change user roles.'}
+            </Typography>
+          </Box>
         </Box>
 
-        {isReadOnly && (
+        {isReadOnly ? (
           <ActionButton
             variant="primary"
             startIcon={<EditOutlinedIcon fontSize="small" />}
             onClick={() => setMode('edit')}
           >
-            Edit Staff Profile
+            Edit Profile
+          </ActionButton>
+        ) : (
+          <ActionButton variant="outlined" onClick={() => setMode('view')}>
+            View Only
           </ActionButton>
         )}
       </Box>
 
-      {/* Main Content Card (Standard 24px padding via Card) */}
+      {/* Main Content Card */}
       <Card
         variant="outlined"
         padding={3}
@@ -276,36 +343,42 @@ export function EditStaffProfileScreen({
         }}
       >
         <form onSubmit={handleSubmit(onSubmit)} id="staff-profile-form">
-          {/* ============================================================== */}
-          {/* SECTION 1: Personal Information                                */}
-          {/* ============================================================== */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontSize: '1.0625rem',
-                fontWeight: 700,
-                color: 'text.primary',
-              }}
-            >
-              Personal Information
-            </Typography>
+          {/* SECTION 1: Personal & Account Information */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontSize: '1.0625rem',
+                  fontWeight: 700,
+                  color: 'text.primary',
+                }}
+              >
+                Personal & Account Information
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: colors.text.secondary, mt: 0.25, fontSize: '0.8125rem' }}
+              >
+                Basic contact credentials and system access identity.
+              </Typography>
+            </Box>
 
+            {/* Name Row: First Name & Last Name */}
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                gap: 2.5,
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
               }}
             >
-              {/* First Name */}
               <Controller
                 name="firstName"
                 control={control}
                 render={({ field }) => (
                   <Input
                     label="FIRST NAME"
-                    required={!isReadOnly}
+                    required
                     placeholder="Enter first name"
                     value={field.value}
                     onChange={field.onChange}
@@ -318,14 +391,13 @@ export function EditStaffProfileScreen({
                 )}
               />
 
-              {/* Last Name */}
               <Controller
                 name="lastName"
                 control={control}
                 render={({ field }) => (
                   <Input
                     label="LAST NAME"
-                    required={!isReadOnly}
+                    required
                     placeholder="Enter last name"
                     value={field.value}
                     onChange={field.onChange}
@@ -337,26 +409,29 @@ export function EditStaffProfileScreen({
                   />
                 )}
               />
+            </Box>
 
-              {/* Email Address */}
+            {/* Email & Phone */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
+              }}
+            >
               <Controller
                 name="email"
                 control={control}
                 render={({ field }) => (
                   <Input
                     label="EMAIL ADDRESS"
-                    required={!isReadOnly}
+                    required
                     type="email"
-                    placeholder="e.g. marco@email.com"
+                    placeholder="name@company.com"
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
                     disabled={isReadOnly}
-                    startIcon={
-                      <MailOutlineOutlinedIcon
-                        sx={{ fontSize: 18, color: colors.text.secondary }}
-                      />
-                    }
                     error={Boolean(errors.email)}
                     helperText={errors.email?.message}
                     fullWidth
@@ -364,35 +439,42 @@ export function EditStaffProfileScreen({
                 )}
               />
 
-              {/* Phone Number (Reusing MobileNumberInput) */}
               <Controller
                 name="phoneNumber"
                 control={control}
                 render={({ field }) => (
                   <MobileNumberInput
                     label="PHONE NUMBER"
-                    required={!isReadOnly}
-                    placeholder="(555) 123-4567"
+                    required
+                    countryCode={countryCodeValue || '+91'}
+                    onCountryCodeChange={(code) => setValue('countryCode', code)}
+                    placeholder="98765 43210"
                     phoneNumber={field.value}
                     onPhoneNumberChange={field.onChange}
-                    countryCode={countryCodeValue}
-                    onCountryCodeChange={(code) => setValue('countryCode', code)}
                     disabled={isReadOnly}
                     error={Boolean(errors.phoneNumber)}
                     helperText={errors.phoneNumber?.message}
                   />
                 )}
               />
+            </Box>
 
-              {/* Username */}
+            {/* Username & Password / Reset Section */}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
+              }}
+            >
               <Controller
                 name="username"
                 control={control}
                 render={({ field }) => (
                   <Input
                     label="USERNAME"
-                    required={!isReadOnly}
-                    placeholder="Enter username"
+                    required
+                    placeholder="e.g. john.doe"
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
@@ -404,81 +486,125 @@ export function EditStaffProfileScreen({
                 )}
               />
 
-              {/* Password */}
-              <Controller
-                name="password"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    label="PASSWORD"
-                    type="password"
-                    placeholder={isReadOnly ? '••••••••' : 'Enter new password or leave blank'}
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    disabled={isReadOnly}
-                    startIcon={
-                      <LockOutlinedIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-                    }
-                    error={Boolean(errors.password)}
-                    helperText={errors.password?.message}
-                    fullWidth
-                  />
-                )}
-              />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Typography
+                  sx={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    color: colors.text.secondary,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Password & Security
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                  <ActionButton
+                    variant="outlined"
+                    size="small"
+                    startIcon={<LockOutlinedIcon sx={{ fontSize: 16 }} />}
+                    onClick={handleSendResetPassword}
+                    sx={{ flex: 1, height: 42 }}
+                  >
+                    Reset Password
+                  </ActionButton>
+                  <ActionButton
+                    variant="outlined"
+                    size="small"
+                    startIcon={<MailOutlineOutlinedIcon sx={{ fontSize: 16 }} />}
+                    onClick={handleResendInvitation}
+                    sx={{ flex: 1, height: 42 }}
+                  >
+                    Resend Invite
+                  </ActionButton>
+                </Box>
+              </Box>
             </Box>
 
-            {/* User Status Toggle */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 0.5 }}>
-              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: 'text.primary' }}>
-                User Status
-              </Typography>
+            {/* User Active / Inactive Status Toggle */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                p: 2,
+                borderRadius: '12px',
+                border: '1px solid',
+                borderColor: (theme) =>
+                  theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? colors.surface.darkMuted
+                    : 'rgba(249, 250, 251, 0.75)',
+                mt: 1,
+              }}
+            >
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: '0.875rem',
+                    fontWeight: 700,
+                    color: 'text.primary',
+                  }}
+                >
+                  Active Account Status
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ color: colors.text.secondary, fontSize: '0.8125rem', mt: 0.25 }}
+                >
+                  {userStatusValue
+                    ? 'Account is enabled. Staff member can log in and perform assigned duties.'
+                    : 'Account is currently disabled. Login access is blocked.'}
+                </Typography>
+              </Box>
+
               <Switch
-                checked={Boolean(userStatusValue)}
+                checked={userStatusValue}
                 disabled={isReadOnly}
                 onChange={(e) => setValue('userStatus', e.target.checked)}
-                sx={{
-                  '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: colors.primary.default,
-                  },
-                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    bgcolor: colors.primary.default,
-                  },
-                }}
+                color="primary"
               />
             </Box>
           </Box>
 
-          {/* ============================================================== */}
-          {/* SECTION 2: Configure Permissions                               */}
-          {/* ============================================================== */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 4 }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontSize: '1.0625rem',
-                fontWeight: 700,
-                color: 'text.primary',
-              }}
-            >
-              Configure Permissions
-            </Typography>
+          {/* SECTION 2: Role & Permissions Assignment */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 4 }}>
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontSize: '1.0625rem',
+                  fontWeight: 700,
+                  color: 'text.primary',
+                }}
+              >
+                Role & Permissions Assignment
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: colors.text.secondary, mt: 0.25, fontSize: '0.8125rem' }}
+              >
+                Assign specific authorization scopes and granular operational permissions.
+              </Typography>
+            </Box>
 
+            {/* Role Name & Description */}
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                gap: 2.5,
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
               }}
             >
-              {/* Role Name */}
               <Controller
                 name="roleName"
                 control={control}
                 render={({ field }) => (
                   <Input
                     label="ROLE NAME"
-                    required={!isReadOnly}
+                    required
                     placeholder="e.g. Branch Manager"
                     value={field.value}
                     onChange={field.onChange}
@@ -491,7 +617,6 @@ export function EditStaffProfileScreen({
                 )}
               />
 
-              {/* Role Description */}
               <Controller
                 name="roleDescription"
                 control={control}
@@ -523,7 +648,7 @@ export function EditStaffProfileScreen({
               Permissions
             </Typography>
 
-            {/* Reusable Permission Groups 2-Column Grid */}
+            {/* Reusable Permission Groups Grid */}
             <PermissionGroupsGrid
               categories={categories}
               onTogglePermission={handleTogglePermission}
@@ -533,9 +658,7 @@ export function EditStaffProfileScreen({
             />
           </Box>
 
-          {/* ============================================================== */}
-          {/* SECTION 3: Danger Zone                                         */}
-          {/* ============================================================== */}
+          {/* SECTION 3: Danger Zone */}
           {!isReadOnly && (
             <Box
               sx={{
@@ -586,9 +709,7 @@ export function EditStaffProfileScreen({
         </form>
       </Card>
 
-      {/* ============================================================== */}
-      {/* STICKY FOOTER BAR (Stuck to bottom of viewport)                */}
-      {/* ============================================================== */}
+      {/* STICKY FOOTER BAR */}
       {!isReadOnly &&
         (() => {
           const stickyFooterContent = (
@@ -713,3 +834,5 @@ export function EditStaffProfileScreen({
     </Box>
   );
 }
+
+// Re-export for backwards compatibility

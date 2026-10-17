@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
@@ -8,6 +8,7 @@ import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { ProgressBar } from '@/components/shared/ui/ProgressBar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { colors } from '@/lib/theme/mui/colors';
 
 import type {
@@ -15,9 +16,11 @@ import type {
   CreateUserFormValues,
   RoleTemplateItem,
   ScopeType,
-} from '@/types/user-roles';
-import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { useCreateUserStore } from '@/stores/createUserStore';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { mergePermissionCategories } from '@/lib/helpers/employees/userRolesHelpers';
+import { useCreateStaffUser, useGroupedPermissions } from '@/lib/hooks/employees/user-roles';
 
 import {
   RoleTemplateSelection,
@@ -42,15 +45,18 @@ const WIZARD_STEPS = [
   { id: 'step-3', label: 'Review & Save' },
 ] as const;
 
+/**
+ * CreateUserPage Component
+ *
+ * Page-level component orchestrating the step-by-step user invitation and
+ * permission assignment wizard flow across all supported scopes.
+ */
 export function CreateUserMultiformFlow({
   initialStep,
-  initialTemplateId: _initialTemplateId,
   scope,
-  companyName = 'VJITVI',
   onExit,
   onUserCreated,
 }: Readonly<CreateUserMultiformFlowProps>) {
-  void _initialTemplateId;
   const router = useRouter();
   const pathname = usePathname() || '';
 
@@ -77,6 +83,7 @@ export function CreateUserMultiformFlow({
     updateFormField,
     togglePermission,
     toggleCategoryAll,
+    setCategories,
     setIsSubmitting,
     reset,
   } = useCreateUserStore();
@@ -92,17 +99,26 @@ export function CreateUserMultiformFlow({
 
   const currentStep = getStepFromPathname() || storeStep || 'template';
 
-  // Synchronize store with current step and scope (render-time adjust)
-  const [syncedScope, setSyncedScope] = useState(resolvedScope);
-  const [syncedStep, setSyncedStep] = useState(currentStep);
-  if (resolvedScope !== syncedScope) {
-    setSyncedScope(resolvedScope);
+  const groupedPermissions = useGroupedPermissions();
+  const createStaffUser = useCreateStaffUser();
+  const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
+  const accountCompanyId = useSidebarStore((state) => state.account?.company_id ?? undefined);
+  const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
+  const contextOrgId = useSidebarStore((state) => state.context.organizationId);
+  const contextCompanyId = useSidebarStore((state) => state.context.companyId);
+  const contextBranchId = useSidebarStore((state) => state.context.branchId);
+
+  // Synchronize store with current step and scope
+  useEffect(() => {
     setScope(resolvedScope);
-  }
-  if (currentStep !== syncedStep) {
-    setSyncedStep(currentStep);
     setStep(currentStep);
-  }
+  }, [resolvedScope, currentStep, setScope, setStep]);
+
+  useEffect(() => {
+    if (!groupedPermissions.data?.length) return;
+    const current = useCreateUserStore.getState().categories;
+    setCategories(mergePermissionCategories(current, groupedPermissions.data));
+  }, [groupedPermissions.data, setCategories]);
 
   // Toast feedback state
   const [toastFeedback, setToastFeedback] = useState<{
@@ -119,15 +135,13 @@ export function CreateUserMultiformFlow({
     setToastFeedback({ open: true, message, severity });
   };
 
-  // Compute base route (e.g. '/company/employees/users-and-roles' or '/users-and-roles')
+  // Compute base route (e.g. '/company/employees/users-and-roles' or '/organization/employees/users-and-roles')
   const getBaseRoute = () => {
     const stripped = pathname.replace(/\/(template|create|permissions|review|success)$/, '');
     if (stripped) return stripped;
     if (resolvedScope === 'company') return '/company/employees/users-and-roles';
     if (resolvedScope === 'branch') return '/branch-manager/employees/users-and-roles';
-    return pathname.startsWith('/users-and-roles')
-      ? '/users-and-roles'
-      : '/organization/employees/users-and-roles';
+    return '/organization/employees/users-and-roles';
   };
 
   const baseRoute = getBaseRoute();
@@ -174,14 +188,26 @@ export function CreateUserMultiformFlow({
   };
 
   // Final submission handler
-  const handleFinalSubmit = () => {
+  const handleFinalSubmit = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await createStaffUser.mutateAsync({
+        values: formValues,
+        categories,
+        ids: {
+          organizationId: contextOrgId ?? accountOrgId,
+          companyId: contextCompanyId ?? accountCompanyId,
+          branchId: contextBranchId ?? accountBranchId,
+        },
+      });
       onUserCreated?.(formValues);
-      showToast(`Invitation sent successfully to ${formValues.email || 'user'}!`, 'success');
+      showToast(`User ${formValues.email} created successfully.`, 'success');
       navigateToStep('success');
-    }, 600);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to create user.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleRestart = () => {
@@ -300,7 +326,6 @@ export function CreateUserMultiformFlow({
               <CreateUserStepOne
                 onValidSubmit={() => navigateToStep('permissions')}
                 scope={resolvedScope}
-                companyName={companyName}
               />
             )}
 
@@ -380,9 +405,19 @@ export function CreateUserMultiformFlow({
 
               <ActionButton
                 variant="primary"
-                type={currentStep === 'user-form' ? 'submit' : 'button'}
+                type="button"
                 form={currentStep === 'user-form' ? 'create-user-step-one-form' : undefined}
-                onClick={currentStep !== 'user-form' ? handleFooterNext : undefined}
+                onClick={
+                  currentStep === 'user-form'
+                    ? () => {
+                        (
+                          document.getElementById(
+                            'create-user-step-one-form',
+                          ) as HTMLFormElement | null
+                        )?.requestSubmit();
+                      }
+                    : handleFooterNext
+                }
                 loading={isSubmitting}
                 sx={{
                   height: 38,

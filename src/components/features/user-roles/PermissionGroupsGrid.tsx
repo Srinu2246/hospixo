@@ -12,7 +12,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { colors } from '@/lib/theme/mui/colors';
-import type { PermissionCategory } from '@/types/user-roles';
+import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface PermissionGroupsGridProps {
   categories: PermissionCategory[];
@@ -56,7 +56,7 @@ export function PermissionGroupsGrid({
   const leftCategories = categories.slice(0, half);
   const rightCategories = categories.slice(half);
 
-  const renderCategoryCard = (category: PermissionCategory) => {
+  const renderCategoryCard = (category: PermissionCategory, listKey: string) => {
     const isCategoryExpanded = Boolean(expanded[category.id]);
     const totalCount = category.permissions.length;
     const enabledCount = category.permissions.filter((p) => p.enabled).length;
@@ -77,7 +77,7 @@ export function PermissionGroupsGrid({
 
     return (
       <Box
-        key={category.id}
+        key={listKey}
         sx={{
           borderRadius: '10px',
           border: '1px solid',
@@ -227,12 +227,16 @@ export function PermissionGroupsGrid({
     >
       {/* Left Column */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        {leftCategories.map(renderCategoryCard)}
+        {leftCategories.map((category, index) =>
+          renderCategoryCard(category, `left-${category.id}-${index}`),
+        )}
       </Box>
 
       {/* Right Column */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        {rightCategories.map(renderCategoryCard)}
+        {rightCategories.map((category, index) =>
+          renderCategoryCard(category, `right-${category.id}-${index}`),
+        )}
       </Box>
     </Box>
   );

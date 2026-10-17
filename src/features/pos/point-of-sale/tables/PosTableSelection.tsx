@@ -20,7 +20,7 @@ import {
 import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway/TakeawayPage';
 import { useFloorSections } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { usePosFloorLayout } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorLayout';
-import { usePosFloorMap } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorMap';
+import { usePosFloorTables } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorTables';
 import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
 import {
   DINE_IN_STATUS_FILTERS,
@@ -112,16 +112,16 @@ export function PosTableSelection({
   );
 
   const numericSectionId = /^\d+$/.test(activeSection) ? Number(activeSection) : undefined;
-  const floorMapQuery = usePosFloorMap(branchId, numericFloorId, numericSectionId);
+  const floorTablesQuery = usePosFloorTables(branchId, numericFloorId, numericSectionId);
   const isSingleSection = sectionOptions.length === 1;
-  const canFetchFloorMap =
+  const canFetchFloorTables =
     typeof branchId === 'number' &&
     typeof numericFloorId === 'number' &&
     typeof numericSectionId === 'number';
   const isTablesLoading =
     floorsQuery.isLoading ||
     sectionsQuery.isLoading ||
-    (canFetchFloorMap && (floorMapQuery.isPending || floorMapQuery.isFetching));
+    (canFetchFloorTables && (floorTablesQuery.isPending || floorTablesQuery.isFetching));
 
   const resolvedFloor =
     floorTabs.length === 0 || floorTabs.some((tab) => tab.id === activeFloor)
@@ -140,12 +140,12 @@ export function PosTableSelection({
   }
 
   const tables = useMemo(() => {
-    const baseTables = floorMapQuery.isSuccess ? (floorMapQuery.data ?? []) : [];
+    const baseTables = floorTablesQuery.isSuccess ? (floorTablesQuery.data ?? []) : [];
     return baseTables.map((table) => {
       const override = tableOverrides[table.id];
       return override ? { ...table, ...override } : table;
     });
-  }, [floorMapQuery.isSuccess, floorMapQuery.data, tableOverrides]);
+  }, [floorTablesQuery.isSuccess, floorTablesQuery.data, tableOverrides]);
 
   const resolvedSelectedId =
     selectedTableId && tables.some((table) => table.id === selectedTableId)
@@ -430,14 +430,14 @@ export function PosTableSelection({
           />
         ) : null}
 
-        {floorMapQuery.isError ? (
+        {floorTablesQuery.isError ? (
           <AlertMessage
             variant="error"
-            title="Unable to load floor map"
+            title="Unable to load tables"
             message={
-              floorMapQuery.error instanceof Error
-                ? floorMapQuery.error.message
-                : 'The floor map request failed.'
+              floorTablesQuery.error instanceof Error
+                ? floorTablesQuery.error.message
+                : 'The tables request failed.'
             }
           />
         ) : null}

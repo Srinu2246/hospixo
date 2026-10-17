@@ -457,3 +457,13 @@ Run `pnpm codequality` before a commit. It runs lint, typecheck, Prettier, cspel
 **Git hooks:** `.husky/pre-commit` runs `lint-staged`, then **`pnpm knip`** and **`pnpm cspell`**. Unused files/exports (knip) or spelling issues block the commit until fixed.
 
 Remove temporary `console.log` calls. Comments explain a non-obvious layout or business rule, not the next line of code.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

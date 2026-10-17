@@ -7,7 +7,7 @@ import Typography from '@mui/material/Typography';
 import { Card } from '@/components/shared/ui/Card';
 import { Input } from '@/components/shared/form-fields/Input';
 import { colors } from '@/lib/theme/mui/colors';
-import type { PermissionCategory } from '@/types/user-roles';
+import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { PermissionGroupsGrid } from './PermissionGroupsGrid';
 
 export interface ConfigurePermissionsStepTwoProps {

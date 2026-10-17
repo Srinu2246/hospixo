@@ -1,90 +1,20 @@
-import type { UserRoleItem, UserRoleStatsData } from '@/types/user-roles';
+import { z } from 'zod';
 
-export const COMPANY_USER_ROLE_STATS: UserRoleStatsData = {
-  totalUsers: 48,
-  activeNow: 44,
-  pendingInvites: 4,
-  userRoles: 8,
-};
+import {
+  permissionCategorySchema,
+  roleTemplateItemSchema,
+  userRoleListSchema,
+  type UserRoleItem,
+  type RoleTemplateItem,
+  type PermissionCategory,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import type { HttpMethod, QueryParams } from '@/services/api/types';
 
-export const BRANCH_USER_ROLE_STATS: UserRoleStatsData = {
-  totalUsers: 18,
-  activeNow: 16,
-  pendingInvites: 2,
-  userRoles: 4,
-};
+// ============================================================================
+// 3. User Mock Records
+// ============================================================================
 
-export const ROLE_OPTIONS = [
-  'Company Manager',
-  'Branch Manager',
-  'Inventory',
-  'Cashier',
-  'Kitchen Staff',
-  'Staff',
-  'Head Chef',
-  'Sommelier',
-  'Captain',
-  'Waiter',
-  'Barista',
-  'Accountant',
-  'Operations Lead',
-  'Shift Supervisor',
-  'General Manager',
-] as const;
-
-export const COMPANY_ROLE_OPTIONS = [
-  'Branch Manager',
-  'Restaurant Manager',
-  'POS Counter',
-  'Captain',
-  'Kitchen Staff',
-  'Cashier',
-  'Staff',
-  'Head Chef',
-  'Sommelier',
-  'Waiter',
-  'Barista',
-  'Accountant',
-  'Shift Supervisor',
-] as const;
-
-export const BRANCH_ROLE_OPTIONS = [
-  'Captain',
-  'POS Counter',
-  'Kitchen Staff',
-  'Cashier',
-  'Staff',
-  'Head Chef',
-  'Waiter',
-  'Barista',
-] as const;
-
-export const BRANCH_OPTIONS = [
-  'Downtown HQ',
-  'Westside Cafe',
-  'Airport Branch',
-  'Eastgate Outlet',
-  'Northside Bistro',
-  'City Center Grill',
-] as const;
-
-export const COMPANY_BRANCH_OPTIONS = [
-  'Downtown Branch',
-  'Westside Cafe',
-  'Airport Branch',
-  'Eastgate Outlet',
-] as const;
-
-export const BRANCH_BRANCH_OPTIONS = ['Downtown Branch'] as const;
-
-export const STATUS_OPTIONS = [
-  { id: 'active', label: 'Active' },
-  { id: 'invited', label: 'Invited' },
-  { id: 'disabled', label: 'Disabled' },
-] as const;
-
-// Base dataset matching the screenshot exactly
-export const INITIAL_USERS: UserRoleItem[] = [
+const INITIAL_USERS_RAW = [
   {
     id: 'usr-1',
     name: 'Marcus Wright',
@@ -173,7 +103,6 @@ export const INITIAL_USERS: UserRoleItem[] = [
       'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=120&q=80',
     createdAt: '2024-01-08',
   },
-  // Additional mock members to complete realistic multi-page dataset (124 total)
   {
     id: 'usr-9',
     name: 'Lucas Silva',
@@ -263,15 +192,19 @@ export const INITIAL_USERS: UserRoleItem[] = [
     createdAt: '2024-02-20',
     company: 'VJITVI',
   },
-];
+] as const;
 
-export const COMPANY_INITIAL_USERS: UserRoleItem[] = INITIAL_USERS.map((u) => ({
-  ...u,
-  branch: u.branch.replace(' HQ', ' Branch'),
-  company: 'VJITVI',
-}));
+export const INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(INITIAL_USERS_RAW);
 
-export const BRANCH_INITIAL_USERS: UserRoleItem[] = [
+const COMPANY_INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(
+  INITIAL_USERS.map((u) => ({
+    ...u,
+    branch: u.branch.replace(' HQ', ' Branch'),
+    company: 'VJITVI',
+  })),
+);
+
+const BRANCH_INITIAL_USERS_RAW = [
   {
     id: 'usr-branch-1',
     name: 'Marco Rossi',
@@ -350,4 +283,312 @@ export const BRANCH_INITIAL_USERS: UserRoleItem[] = [
     company: 'VJITVI',
     scope: 'branch',
   },
-];
+] as const;
+
+const BRANCH_INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(BRANCH_INITIAL_USERS_RAW);
+
+// ============================================================================
+// 4. Role Templates
+// ============================================================================
+
+const roleTemplateListSchema = z.array(roleTemplateItemSchema);
+
+export const COMPANY_ROLE_TEMPLATES: RoleTemplateItem[] = roleTemplateListSchema.parse([
+  {
+    id: 'tpl-restaurant-mgr',
+    title: 'Restaurant Manager',
+    description: 'Daily store operations and staff',
+    icon: 'restaurant',
+    roleName: 'Restaurant Manager',
+    scope: 'company',
+  },
+  {
+    id: 'tpl-pos-counter',
+    title: 'POS Counter',
+    description: 'Financial approvals and reports',
+    icon: 'pos',
+    roleName: 'POS Counter',
+    scope: 'company',
+  },
+  {
+    id: 'tpl-captain',
+    title: 'Captain',
+    description: 'Read-only access to all system data',
+    icon: 'captain',
+    roleName: 'Captain',
+    scope: 'company',
+  },
+  {
+    id: 'tpl-kitchen-staff',
+    title: 'Kitchen Staff',
+    description: 'Kitchen display and order prep',
+    icon: 'kitchen',
+    roleName: 'Kitchen Staff',
+    scope: 'company',
+  },
+]);
+
+// ============================================================================
+// 5. Permission Categories
+// ============================================================================
+
+const permissionCategoryListSchema = z.array(permissionCategorySchema);
+
+const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = permissionCategoryListSchema.parse([
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    permissions: [
+      {
+        id: 'dashboard.view',
+        name: 'View Dashboard',
+        description: 'Access to the main overview and KPI tiles',
+        enabled: true,
+      },
+      {
+        id: 'dashboard.analytics',
+        name: 'View Analytics',
+        description: 'Detailed charts and data trends analysis',
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: 'user_management',
+    title: 'User Management',
+    permissions: [
+      {
+        id: 'users.create',
+        name: 'Create Users',
+        description: 'Invite and add new members to the system',
+        enabled: true,
+      },
+      {
+        id: 'users.edit',
+        name: 'Edit Users',
+        description: 'Modify existing user details and status',
+        enabled: true,
+      },
+      {
+        id: 'users.delete',
+        name: 'Delete Users',
+        description: 'Remove users permanently from the organization',
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: 'branch_management',
+    title: 'Branch Management',
+    permissions: [
+      {
+        id: 'branches.view',
+        name: 'View Branches',
+        description: 'See details of all connected branch locations',
+        enabled: true,
+      },
+      {
+        id: 'branches.manage',
+        name: 'Manage Branches',
+        description: 'Edit branch info, opening hours, and zones',
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: 'inventory',
+    title: 'Inventory',
+    permissions: [
+      {
+        id: 'inventory.view',
+        name: 'View Inventory',
+        description: 'Monitor stock levels and tracking',
+        enabled: false,
+      },
+      {
+        id: 'inventory.items',
+        name: 'Manage Items',
+        description: 'Add or edit items in the product catalog',
+        enabled: false,
+      },
+    ],
+  },
+]);
+
+// ============================================================================
+// 6. Mock Request Resolver (for serverClient / handler.ts)
+// ============================================================================
+
+type MockRequest = {
+  method: HttpMethod;
+  path: string;
+  params?: QueryParams;
+  body?: unknown;
+};
+
+function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
+  const dataset = [...INITIAL_USERS];
+
+  if (request.method === 'GET') {
+    if (itemId) {
+      return dataset.find((user) => user.id === itemId) ?? dataset[0];
+    }
+    let items = dataset;
+    const search = request.params?.search;
+    if (typeof search === 'string' && search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (user) => user.name.toLowerCase().includes(q) || user.email.toLowerCase().includes(q),
+      );
+    }
+    return items;
+  }
+
+  if (request.method === 'POST') {
+    const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
+      string,
+      unknown
+    >;
+    return {
+      id: `usr-${Date.now()}`,
+      name: `${body.first_name ?? body.firstName ?? ''} ${body.last_name ?? body.lastName ?? ''}`.trim(),
+      email: body.email,
+      role: body.role ?? 'Staff',
+      branch: body.branch_name ?? body.branch ?? 'Downtown Branch',
+      status: 'active',
+    };
+  }
+
+  if (request.method === 'PUT' && itemId) {
+    return { id: itemId, ...(request.body as object) };
+  }
+
+  if (request.method === 'PATCH') {
+    return {
+      id: itemId ?? 'usr-1',
+      status: (request.body as { status?: string })?.status ?? 'active',
+    };
+  }
+
+  if (request.method === 'DELETE') {
+    return { success: true };
+  }
+
+  return { success: true };
+}
+
+export function resolveUserRolesMock(request: MockRequest): unknown | undefined {
+  if (request.path === '/v1/permissions/grouped' && request.method === 'GET') {
+    return DEFAULT_STAFF_PROFILE_PERMISSIONS;
+  }
+
+  if (request.path === '/v1/roles/templates' && request.method === 'GET') {
+    return COMPANY_ROLE_TEMPLATES;
+  }
+
+  if (request.path.startsWith('/v1/roles') && request.method === 'GET') {
+    return INITIAL_USERS.map((user, index) => ({ id: index + 1, name: user.role }));
+  }
+
+  const usersMatch = request.path.match(/^\/v1\/users(?:\/([^/]+))?/);
+  if (usersMatch) {
+    return resolveUsersMock(request, usersMatch[1]);
+  }
+
+  const match = request.path.match(
+    /^\/v1\/(company\/|branch\/)?employees\/user-roles(\/([^/]+))?$/,
+  );
+  if (!match) return undefined;
+
+  const scopePrefix = match[1];
+  const itemId = match[3];
+
+  const getDataset = () => {
+    if (scopePrefix === 'branch/') return [...BRANCH_INITIAL_USERS];
+    if (scopePrefix === 'company/') return [...COMPANY_INITIAL_USERS];
+    return [...INITIAL_USERS];
+  };
+
+  if (request.method === 'GET') {
+    if (itemId) {
+      const found = getDataset().find((u) => u.id === itemId);
+      return found ?? getDataset()[0];
+    }
+
+    let items = getDataset();
+    const search = request.params?.search;
+    if (typeof search === 'string' && search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
+      );
+    }
+    const role = request.params?.role;
+    if (typeof role === 'string' && role) {
+      items = items.filter((u) => u.role === role);
+    }
+    const branch = request.params?.branch;
+    if (typeof branch === 'string' && branch) {
+      items = items.filter((u) => u.branch === branch);
+    }
+    const status = request.params?.status;
+    if (typeof status === 'string' && status) {
+      items = items.filter((u) => u.status === status);
+    }
+
+    return items;
+  }
+
+  if (request.method === 'POST') {
+    const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
+      string,
+      unknown
+    >;
+    const newUser: UserRoleItem = {
+      id: `usr-${Date.now()}`,
+      name:
+        (body.name as string) ||
+        `${body.firstName || ''} ${body.lastName || ''}`.trim() ||
+        'New User',
+      email: (body.email as string) || 'user@hospixo.com',
+      role: (body.role as string) || 'Staff',
+      branch: (body.branch as string) || 'Downtown Branch',
+      status: (body.status as UserRoleItem['status']) || 'invited',
+      company: (body.company as string) || 'VJITVI',
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    return newUser;
+  }
+
+  if (request.method === 'PUT' && itemId) {
+    const body = (
+      request.body && typeof request.body === 'object' ? request.body : {}
+    ) as Partial<UserRoleItem>;
+    return {
+      id: itemId,
+      name: body.name || 'Updated User',
+      email: body.email || 'user@hospixo.com',
+      role: body.role || 'Staff',
+      branch: body.branch || 'Downtown Branch',
+      status: body.status || 'active',
+      createdAt: '2024-01-01',
+    };
+  }
+
+  if (request.method === 'PATCH' && itemId) {
+    const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
+      string,
+      unknown
+    >;
+    return {
+      id: itemId,
+      status: body.status || 'active',
+    };
+  }
+
+  if (request.method === 'DELETE' && itemId) {
+    return { success: true, message: `User ${itemId} deleted successfully.` };
+  }
+
+  return undefined;
+}

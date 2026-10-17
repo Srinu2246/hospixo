@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { Card } from '@/components/shared/ui/Card';
 import { Input } from '@/components/shared/form-fields/Input';
@@ -12,17 +14,17 @@ import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { MobileNumberInput } from '@/components/shared/form-fields/MobileNumberInput';
 import { colors } from '@/lib/theme/mui/colors';
 
-import { createUserMultiformSchema } from '@/lib/schemas/user-roles';
-import { DEFAULT_COMPANIES, DEFAULT_BRANCHES } from '@/lib/mocks/employees/multiform.mocks';
 import {
-  ROLE_OPTIONS,
-  COMPANY_ROLE_OPTIONS,
-  COMPANY_BRANCH_OPTIONS,
-  BRANCH_ROLE_OPTIONS,
-  BRANCH_BRANCH_OPTIONS,
-} from '@/lib/mocks/employees/useUserRoles.mocks';
-import type { CreateUserFormValues, ScopeType } from '@/types/user-roles';
+  createUserMultiformSchema,
+  parseRoleCatalog,
+  type CreateUserFormValues,
+  type ScopeType,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import { useEmployeeDirectory } from '@/lib/hooks/employees/user-roles';
+import { api } from '@/services/api/browserClient';
+import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 import { useCreateUserStore } from '@/stores/createUserStore';
+import { useSidebarStore } from '@/stores/sidebarStore';
 
 export interface CreateUserStepOneProps {
   onValidSubmit?: (values: CreateUserFormValues) => void;
@@ -33,22 +35,56 @@ export interface CreateUserStepOneProps {
 export function CreateUserStepOne({
   onValidSubmit,
   scope,
-  companyName = 'VJITVI',
+  companyName,
 }: Readonly<CreateUserStepOneProps>) {
   const { formValues, updateFormField, setFormValues, scope: storeScope } = useCreateUserStore();
   const currentScope = scope || storeScope || 'company';
-  const roleOptions =
-    currentScope === 'branch'
-      ? BRANCH_ROLE_OPTIONS
-      : currentScope === 'company'
-        ? COMPANY_ROLE_OPTIONS
-        : ROLE_OPTIONS;
-  const branchOptions =
-    currentScope === 'branch'
-      ? BRANCH_BRANCH_OPTIONS
-      : currentScope === 'company'
-        ? COMPANY_BRANCH_OPTIONS
-        : DEFAULT_BRANCHES;
+  const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
+  const accountCompanyId = useSidebarStore((state) => state.account?.company_id ?? undefined);
+  const contextOrgId = useSidebarStore((state) => state.context.organizationId);
+  const contextCompanyId = useSidebarStore((state) => state.context.companyId);
+  const contextCompanyName = useSidebarStore((state) => state.context.companyName);
+  const contextBranchName = useSidebarStore((state) => state.context.branchName);
+  const organizationId = contextOrgId ?? accountOrgId;
+  const directoryCompanyId =
+    currentScope === 'company' || currentScope === 'branch'
+      ? (contextCompanyId ?? accountCompanyId)
+      : undefined;
+  const directory = useEmployeeDirectory(organizationId, directoryCompanyId);
+  const rolesQuery = useQuery({
+    queryKey: ['api', ApiUrlsV1.roles.list, currentScope],
+    queryFn: async ({ signal }) =>
+      parseRoleCatalog(await api.get<unknown>(ApiUrlsV1.roles.list, undefined, signal)),
+    staleTime: 60_000,
+  });
+  const roleCatalog = useMemo(() => {
+    if (Array.isArray(rolesQuery.data)) return rolesQuery.data;
+    if (rolesQuery.data) return parseRoleCatalog(rolesQuery.data);
+    return [];
+  }, [rolesQuery.data]);
+  const roleOptions = useMemo(() => {
+    const names = (Array.isArray(roleCatalog) ? roleCatalog : []).map((role) => role.name);
+    return names.length > 0 ? names : ['Staff'];
+  }, [roleCatalog]);
+  const companyOptions = useMemo(
+    () => (directory.data?.companies ?? []).map((company) => company.name),
+    [directory.data?.companies],
+  );
+  const directoryCompanyName = useMemo(() => {
+    const companies = directory.data?.companies ?? [];
+    const byContext = contextCompanyId
+      ? companies.find((company) => String(company.id) === String(contextCompanyId))?.name
+      : undefined;
+    if (byContext) return byContext;
+    if (companies.length === 1) return companies[0]?.name;
+    return undefined;
+  }, [contextCompanyId, directory.data?.companies]);
+  const resolvedCompanyLabel =
+    contextCompanyName ??
+    directoryCompanyName ??
+    companyName ??
+    (companyOptions.length === 1 ? companyOptions[0] : undefined);
+  const lockedCompanyLabel = resolvedCompanyLabel || formValues.company || '—';
 
   // Established React Hook Form v7 pattern with Zod v4 resolver
   const { control, handleSubmit, setValue, reset } = useForm<CreateUserFormValues>({
@@ -57,10 +93,67 @@ export function CreateUserStepOne({
     mode: 'onBlur',
   });
 
+  const branchOptions = useMemo(() => {
+    const branches = directory.data?.branches ?? [];
+    const activeCompany =
+      currentScope === 'company' ? resolvedCompanyLabel || formValues.company : formValues.company;
+    const filtered =
+      currentScope === 'organization' && activeCompany
+        ? branches.filter((branch) => branch.companyName === activeCompany)
+        : currentScope === 'company' && directoryCompanyId != null
+          ? branches.filter((branch) => String(branch.companyId) === String(directoryCompanyId))
+          : branches;
+    return filtered.map((branch) => branch.name);
+  }, [
+    currentScope,
+    directory.data?.branches,
+    directoryCompanyId,
+    formValues.company,
+    resolvedCompanyLabel,
+  ]);
+  const isBranchLoading = directory.isLoading || (directory.isPending && !directory.data);
+  const lockedBranchLabel = contextBranchName || formValues.branch || branchOptions[0] || '—';
+
   // Keep React Hook Form in sync if store values update externally
   useEffect(() => {
     reset(formValues);
   }, [formValues, reset]);
+
+  useEffect(() => {
+    if (currentScope !== 'company') return;
+    if (!resolvedCompanyLabel || resolvedCompanyLabel === '—') return;
+    if (formValues.company === resolvedCompanyLabel) return;
+    setValue('company', resolvedCompanyLabel, { shouldValidate: true });
+    updateFormField('company', resolvedCompanyLabel);
+  }, [currentScope, formValues.company, resolvedCompanyLabel, setValue, updateFormField]);
+
+  useEffect(() => {
+    if (isBranchLoading) return;
+    if (currentScope === 'branch') {
+      const branchToSet = contextBranchName || branchOptions[0];
+      if (branchToSet && branchToSet !== '—' && formValues.branch !== branchToSet) {
+        setValue('branch', branchToSet, { shouldValidate: true });
+        updateFormField('branch', branchToSet);
+      }
+      return;
+    }
+    if (
+      branchOptions.length > 0 &&
+      (!formValues.branch || !branchOptions.includes(formValues.branch))
+    ) {
+      const firstBranch = branchOptions[0];
+      setValue('branch', firstBranch, { shouldValidate: true });
+      updateFormField('branch', firstBranch);
+    }
+  }, [
+    isBranchLoading,
+    currentScope,
+    contextBranchName,
+    branchOptions,
+    formValues.branch,
+    setValue,
+    updateFormField,
+  ]);
 
   const handleFieldChange = (field: keyof CreateUserFormValues, value: string | boolean) => {
     setValue(field, value as string, { shouldValidate: true, shouldDirty: true });
@@ -276,29 +369,60 @@ export function CreateUserStepOne({
                 >
                   SELECT BRANCH
                 </Typography>
-                <Box
-                  sx={{
-                    height: 40,
-                    borderRadius: '8px',
-                    border: '1px solid',
-                    borderColor: (theme) =>
-                      theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                    bgcolor: (theme) =>
-                      theme.palette.mode === 'dark'
-                        ? 'rgba(255,255,255,0.06)'
-                        : colors.white.default,
-                    px: 1.75,
-                    display: 'flex',
-                    alignItems: 'center',
-                    color: 'text.primary',
-                    fontWeight: 500,
-                    fontSize: '0.875rem',
-                    cursor: 'default',
-                    userSelect: 'none',
-                  }}
-                >
-                  {formValues.branch || 'Downtown Branch'}
-                </Box>
+                {isBranchLoading ? (
+                  <Box
+                    sx={{
+                      height: 40,
+                      borderRadius: '8px',
+                      border: '1px solid',
+                      borderColor: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? theme.palette.divider
+                          : colors.border.default,
+                      bgcolor: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.04)'
+                          : colors.surface.muted,
+                      px: 1.75,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.25,
+                    }}
+                  >
+                    <CircularProgress size={16} sx={{ color: 'primary.main' }} />
+                    <Typography
+                      sx={{ fontSize: '0.875rem', color: colors.text.secondary, fontWeight: 500 }}
+                    >
+                      Loading branch...
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      height: 40,
+                      borderRadius: '8px',
+                      border: '1px solid',
+                      borderColor: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? theme.palette.divider
+                          : colors.border.default,
+                      bgcolor: (theme) =>
+                        theme.palette.mode === 'dark'
+                          ? 'rgba(255,255,255,0.06)'
+                          : colors.white.default,
+                      px: 1.75,
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: 'text.primary',
+                      fontWeight: 500,
+                      fontSize: '0.875rem',
+                      cursor: 'default',
+                      userSelect: 'none',
+                    }}
+                  >
+                    {lockedBranchLabel}
+                  </Box>
+                )}
                 <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, mt: 0.25 }}>
                   The user will only see data for the selected branch.
                 </Typography>
@@ -382,7 +506,7 @@ export function CreateUserStepOne({
                         userSelect: 'none',
                       }}
                     >
-                      {companyName || formValues.company || 'VJITVI'}
+                      {lockedCompanyLabel || '—'}
                     </Box>
                   ) : (
                     <Controller
@@ -390,7 +514,7 @@ export function CreateUserStepOne({
                       control={control}
                       render={({ field }) => (
                         <Dropdown
-                          options={DEFAULT_COMPANIES}
+                          options={companyOptions.length > 0 ? companyOptions : ['—']}
                           value={field.value}
                           onChange={(val) => handleFieldChange('company', val)}
                           sx={{ width: '100%' }}
@@ -419,18 +543,50 @@ export function CreateUserStepOne({
                   >
                     SELECT BRANCH
                   </Typography>
-                  <Controller
-                    name="branch"
-                    control={control}
-                    render={({ field }) => (
-                      <Dropdown
-                        options={branchOptions}
-                        value={field.value}
-                        onChange={(val) => handleFieldChange('branch', val)}
-                        sx={{ width: '100%' }}
-                      />
-                    )}
-                  />
+                  {isBranchLoading ? (
+                    <Box
+                      sx={{
+                        height: 40,
+                        borderRadius: '8px',
+                        border: '1px solid',
+                        borderColor: (theme) =>
+                          theme.palette.mode === 'dark'
+                            ? theme.palette.divider
+                            : colors.border.default,
+                        bgcolor: (theme) =>
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(255,255,255,0.04)'
+                            : colors.surface.muted,
+                        px: 1.75,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.25,
+                      }}
+                    >
+                      <CircularProgress size={16} sx={{ color: 'primary.main' }} />
+                      <Typography
+                        sx={{ fontSize: '0.875rem', color: colors.text.secondary, fontWeight: 500 }}
+                      >
+                        Loading branches...
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Controller
+                      name="branch"
+                      control={control}
+                      render={({ field }) => (
+                        <Dropdown
+                          options={branchOptions.length > 0 ? branchOptions : ['—']}
+                          value={field.value}
+                          onChange={(val) => handleFieldChange('branch', val)}
+                          placeholder={
+                            branchOptions.length === 0 ? 'No branches available' : 'Select branch'
+                          }
+                          sx={{ width: '100%' }}
+                        />
+                      )}
+                    />
+                  )}
                   <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, mt: 0.25 }}>
                     The user will only see data for the selected branch.
                   </Typography>
