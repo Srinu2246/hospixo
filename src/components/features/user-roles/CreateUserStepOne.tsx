@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
@@ -20,9 +19,7 @@ import {
   type CreateUserFormValues,
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
-import { useEmployeeDirectory } from '@/lib/hooks/employees/user-roles';
-import { api } from '@/services/api/browserClient';
-import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
+import { useEmployeeDirectory, useRoleCatalogQuery } from '@/lib/hooks/employees/user-roles';
 import { useCreateUserStore } from '@/stores/createUserStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
@@ -51,12 +48,7 @@ export function CreateUserStepOne({
       ? (contextCompanyId ?? accountCompanyId)
       : undefined;
   const directory = useEmployeeDirectory(organizationId, directoryCompanyId);
-  const rolesQuery = useQuery({
-    queryKey: ['api', ApiUrlsV1.roles.list, currentScope],
-    queryFn: async ({ signal }) =>
-      parseRoleCatalog(await api.get<unknown>(ApiUrlsV1.roles.list, undefined, signal)),
-    staleTime: 60_000,
-  });
+  const rolesQuery = useRoleCatalogQuery(currentScope);
   const roleCatalog = useMemo(() => {
     if (Array.isArray(rolesQuery.data)) return rolesQuery.data;
     if (rolesQuery.data) return parseRoleCatalog(rolesQuery.data);
