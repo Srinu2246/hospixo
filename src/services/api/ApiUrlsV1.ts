@@ -71,6 +71,9 @@ const ApiUrlsV1 = {
   restaurant: {
     branches: '/v1/branches',
     preparationStations: '/v1/restaurant/preparation-stations',
+    gstRates: '/v1/restaurant/gst-rates',
+    menuCategories: resource('/v1/restaurant/menu/categories'),
+    menuItems: resource('/v1/restaurant/menu/items'),
   },
   kitchen: {
     kitchenBoard: resource('/v1/kitchen-display'),
@@ -118,6 +121,11 @@ export function branchKitchenStatusPath(
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders/${encodeURIComponent(String(orderId))}/kitchen-status`;
 }
 
+/** GET /v1/branches/{branch_id}/orders */
+export function branchOrdersPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders`;
+}
+
 /** GET /v2/platform/organizations/{organization_id}/companies */
 export function organizationCompaniesPath(organizationId: number | string): string {
   return ApiUrlsV1.organization.platformOrganizationCompaniesV2.replace(
@@ -131,6 +139,36 @@ export function organizationCompanyBranchesPath(
   companyId: number | string,
 ): string {
   return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies/${encodeURIComponent(String(companyId))}/branches`;
+}
+
+/** GET/POST /v1/restaurant/gst-rates */
+export function restaurantGstRatesPath(): string {
+  return ApiUrlsV1.restaurant.gstRates;
+}
+
+/** GET /v1/restaurant/gst-rates/{gst_rate_id} */
+export function restaurantGstRatePath(gstRateId: number | string): string {
+  return `${restaurantGstRatesPath()}/${encodeURIComponent(String(gstRateId))}`;
+}
+
+/** GET/POST /v1/restaurant/menu/categories */
+export function restaurantMenuCategoriesPath(): string {
+  return ApiUrlsV1.restaurant.menuCategories.list;
+}
+
+/** GET/POST /v1/restaurant/menu/items */
+export function restaurantMenuItemsPath(): string {
+  return ApiUrlsV1.restaurant.menuItems.list;
+}
+
+/** GET /v1/restaurant/menu/items/{item_id} */
+export function restaurantMenuItemPath(itemId: number | string): string {
+  return ApiUrlsV1.restaurant.menuItems.detail(String(itemId));
+}
+
+/** POST /v1/restaurant/menu/items/{item_id}/deactivate */
+export function restaurantMenuItemDeactivatePath(itemId: number | string): string {
+  return `${restaurantMenuItemPath(itemId)}/deactivate`;
 }
 
 export function restaurantFloorsPath(branchId: number): string {

@@ -8,6 +8,7 @@ import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { ProgressBar } from '@/components/shared/ui/ProgressBar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { colors } from '@/lib/theme/mui/colors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 
@@ -32,7 +33,6 @@ import {
   useRoleCatalog,
   useRolePermissions,
 } from '@/lib/hooks/employees/user-roles';
-import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 
 import {
   RoleTemplateSelection,

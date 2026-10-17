@@ -24,18 +24,26 @@ import { FloorSetupScreen } from '@/features/management/floor-and-table-setup';
 import { KitchenDisplayScreen } from '@/features/kitchen-display';
 import { GstRatesPage, MenuAvailabilityLayout, MenuCreationLayout } from '@/features/menu';
 import type { MenuAvailabilityScope } from '@/lib/schemas/menu/menuAvailabilitySchema';
-import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
+import type {
+  MenuCreationScope,
+  MenuCreationViewMode,
+} from '@/lib/schemas/menu/menuCreationSchema';
 
 interface CatchAllPageProps {
   params: Promise<{
     slug: string[];
   }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 interface RouteDefinition {
   name: string;
   match: (path: string, slug: string[]) => boolean;
-  render: (path: string, slug: string[]) => ReactNode;
+  render: (
+    path: string,
+    slug: string[],
+    searchParams?: Record<string, string | string[] | undefined>,
+  ) => ReactNode;
 }
 
 /**
@@ -376,14 +384,40 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
   // 14. Menu Creation: .../menu/menu-creation (company | branch-manager | organization)
   {
     name: 'Menu Creation',
-    match: (path) => path.endsWith('menu/menu-creation') || path.endsWith('menu-creation'),
-    render: (path) => {
+    match: (path) =>
+      path.endsWith('menu/menu-creation') ||
+      path.endsWith('menu-creation') ||
+      path.endsWith('menu/create-menu-item') ||
+      path.endsWith('menu/menu-creation/create'),
+    render: (path, _slug, searchParams) => {
       const scope: MenuCreationScope = path.startsWith('company')
         ? 'company'
         : path.startsWith('branch')
           ? 'branch'
           : 'organization';
-      return <MenuCreationLayout scope={scope} />;
+      let initialViewMode: MenuCreationViewMode = 'list';
+      if (
+        path.endsWith('create-menu-item') ||
+        path.endsWith('menu-creation/create') ||
+        searchParams?.view === 'create-item'
+      ) {
+        initialViewMode = 'create-item';
+      } else if (searchParams?.view === 'edit-item') {
+        initialViewMode = 'edit-item';
+      } else if (searchParams?.view === 'view-item') {
+        initialViewMode = 'view-item';
+      } else if (searchParams?.view === 'create-category') {
+        initialViewMode = 'create-category';
+      }
+      const initialItemId =
+        typeof searchParams?.itemId === 'string' ? searchParams.itemId : undefined;
+      return (
+        <MenuCreationLayout
+          scope={scope}
+          initialViewMode={initialViewMode}
+          initialItemId={initialItemId}
+        />
+      );
     },
   },
 
@@ -409,13 +443,14 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
   },
 ];
 
-export default async function CatchAllPage({ params }: CatchAllPageProps) {
+export default async function CatchAllPage({ params, searchParams }: CatchAllPageProps) {
   const { slug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const path = slug.join('/');
 
   for (const route of ROUTE_REGISTRY) {
     if (route.match(path, slug)) {
-      return route.render(path, slug);
+      return route.render(path, slug, resolvedSearchParams);
     }
   }
 

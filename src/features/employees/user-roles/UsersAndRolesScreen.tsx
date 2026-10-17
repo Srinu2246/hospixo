@@ -22,7 +22,6 @@ import { colors } from '@/lib/theme/mui/colors';
 
 import type {
   UserRoleItem,
-  UserStatus,
   ScopeType,
   UserRoleFormValues,
   ParsedUserList,
@@ -158,11 +157,6 @@ export function UsersAndRolesScreen({
     router.push(`${baseRoute}/template`);
   };
 
-  const handleOpenEditModal = (user: UserRoleItem) => {
-    setEditingUser(user);
-    setIsAddModalOpen(true);
-  };
-
   const handleCloseModal = () => {
     setIsAddModalOpen(false);
     setEditingUser(null);
@@ -220,16 +214,6 @@ export function UsersAndRolesScreen({
     if (selectedUserForAction) {
       deleteUser(selectedUserForAction.id);
       showNotification(`User "${selectedUserForAction.name}" removed.`);
-    }
-    handleCloseActionMenu();
-  };
-
-  const handleToggleStatusFromMenu = () => {
-    if (selectedUserForAction) {
-      const nextStatus: UserStatus =
-        selectedUserForAction.status === 'active' ? 'disabled' : 'active';
-      changeUserStatus(selectedUserForAction.id, nextStatus);
-      showNotification(`Status updated to "${nextStatus}".`);
     }
     handleCloseActionMenu();
   };
