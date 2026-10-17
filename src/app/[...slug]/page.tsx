@@ -22,7 +22,12 @@ import {
 import { DashboardScreen } from '@/features/dashboard';
 import { FloorSetupScreen } from '@/features/management/floor-and-table-setup';
 import { KitchenDisplayScreen } from '@/features/kitchen-display';
-import { GstRatesPage, MenuAvailabilityLayout, MenuCreationLayout } from '@/features/menu';
+import {
+  GstRatesPage,
+  MenuAvailabilityLayout,
+  MenuCreationLayout,
+  MenusPage,
+} from '@/features/menu';
 import type { MenuAvailabilityScope } from '@/lib/schemas/menu/menuAvailabilitySchema';
 import type {
   MenuCreationScope,
@@ -435,7 +440,14 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     },
   },
 
-  // 16. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
+  // 16. Menus (meal sessions): .../menu/menus (company | branch-manager | organization)
+  {
+    name: 'Menus',
+    match: (path) => path.includes('menu/menus'),
+    render: () => <MenusPage />,
+  },
+
+  // 17. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
   {
     name: 'GST Rates',
     match: (path) => path.includes('menu/gst-rates'),
