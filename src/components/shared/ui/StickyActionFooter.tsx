@@ -2,12 +2,6 @@
 
 import Box from '@mui/material/Box';
 
-import {
-  compactTouchButtonSx,
-  stickyFooterActionsGridSx,
-  stickyFooterBackOnlyGridSx,
-  stickyFooterShellSx,
-} from '@/components/features/floor-and-table-setup/compactLayoutSx';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 
 export interface StickyActionFooterProps {
@@ -23,6 +17,11 @@ export interface StickyActionFooterProps {
   primaryType?: 'button' | 'submit';
 }
 
+const touchButtonSx = {
+  minHeight: 44,
+  width: '100%',
+} as const;
+
 export function StickyActionFooter({
   backLabel = 'Back',
   onBack,
@@ -34,21 +33,40 @@ export function StickyActionFooter({
   primaryForm,
   primaryType = 'button',
 }: Readonly<StickyActionFooterProps>) {
-  const gridSx =
-    showPrimary && primaryLabel ? stickyFooterActionsGridSx : stickyFooterBackOnlyGridSx;
+  const showPrimaryAction = showPrimary && primaryLabel;
 
   return (
-    <Box component="footer" sx={stickyFooterShellSx}>
-      <Box sx={gridSx}>
+    <Box
+      component="footer"
+      sx={{
+        width: '100%',
+        bgcolor: 'background.paper',
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        px: { xs: 2, md: 2.5 },
+        py: 2,
+        boxSizing: 'border-box',
+      }}
+    >
+      <Box
+        sx={{
+          display: 'grid',
+          width: '100%',
+          gap: 1.25,
+          gridTemplateColumns: showPrimaryAction ? '2fr 3fr' : '1fr',
+          gridTemplateAreas: showPrimaryAction ? '"back primary"' : '"back"',
+          alignItems: 'stretch',
+        }}
+      >
         <ActionButton
           variant="outlined"
           size="large"
           onClick={onBack}
-          sx={{ ...compactTouchButtonSx, gridArea: 'back' }}
+          sx={{ ...touchButtonSx, gridArea: 'back' }}
         >
           {backLabel}
         </ActionButton>
-        {showPrimary && primaryLabel ? (
+        {showPrimaryAction ? (
           <ActionButton
             type={primaryType}
             form={primaryForm}
@@ -56,7 +74,7 @@ export function StickyActionFooter({
             disabled={primaryDisabled}
             loading={primaryLoading}
             onClick={primaryType === 'button' ? onPrimary : undefined}
-            sx={{ ...compactTouchButtonSx, gridArea: 'primary' }}
+            sx={{ ...touchButtonSx, gridArea: 'primary' }}
           >
             {primaryLabel}
           </ActionButton>

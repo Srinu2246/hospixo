@@ -17,9 +17,11 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Modal } from '@/components/shared/ui/Modal';
-import type {
-  CatalogSection,
-  CatalogTable,
+import {
+  ACTIVE_STATUS_FILTER_OPTIONS,
+  type ActiveStatusFilter,
+  type CatalogSection,
+  type CatalogTable,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import {
   useArchiveTable,
@@ -34,20 +36,23 @@ import {
 import { toCatalogTable } from '@/lib/schemas/floor-and-table-setup/floors';
 import { ApiError } from '@/services/api/types';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import {
-  compactFilterDropdownSx,
-  compactMuiSpacing,
-  tableToolbarActionsGridSx,
-} from '@/components/features/floor-and-table-setup/compactLayoutSx';
 import { useToastStore } from '@/stores/toastStore';
 
-type TableStatusFilter = 'all' | 'active' | 'inactive';
+const compactFilterDropdownSx = {
+  width: '100%',
+  height: 44,
+  '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
+} as const;
 
-const tableStatusOptions = [
-  { id: 'all', label: 'All' },
-  { id: 'active', label: 'Active' },
-  { id: 'inactive', label: 'Inactive' },
-] as const;
+const tableToolbarActionsGridSx = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: 1.25,
+  width: '100%',
+  alignItems: 'stretch',
+  '& > .MuiFormControl-root': { minWidth: 0 },
+  '& .MuiButton-root': { minHeight: 44, width: '100%' },
+} as const;
 
 export type FloorTablesPanelActions = {
   openAddTable: () => void;
@@ -67,7 +72,7 @@ export function FloorTablesPanel({
   onRegisterActions?: (actions: FloorTablesPanelActions) => void;
 }>) {
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<TableStatusFilter>('all');
+  const [status, setStatus] = useState<ActiveStatusFilter>('all');
   const [editing, setEditing] = useState<CatalogTable | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const showToast = useToastStore((state) => state.show);
@@ -264,8 +269,8 @@ export function FloorTablesPanel({
   });
 
   return (
-    <Stack spacing={{ xs: compactMuiSpacing.block, md: 2 }}>
-      <Stack spacing={compactMuiSpacing.block} sx={{ display: { xs: 'flex', md: 'none' } }}>
+    <Stack spacing={{ xs: 2, md: 2 }}>
+      <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
         <Stack
           direction="row"
           spacing={1.5}
@@ -296,7 +301,7 @@ export function FloorTablesPanel({
         <Box sx={tableToolbarActionsGridSx}>
           <Dropdown
             placeholder="Status"
-            options={tableStatusOptions}
+            options={ACTIVE_STATUS_FILTER_OPTIONS}
             value={status}
             onChange={setStatus}
             size="large"

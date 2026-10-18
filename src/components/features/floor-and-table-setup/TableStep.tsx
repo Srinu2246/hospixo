@@ -9,32 +9,31 @@ import { LayoutGrid, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
-import { Modal } from '@/components/shared/ui/Modal';
-import {
-  LabeledDropdown,
-  StatusRow,
-} from '@/components/features/floor-and-table-setup/SetupFields';
-import {
-  compactFilterDropdownSx,
-  compactMuiSpacing,
-  tableToolbarActionsGridSx,
-} from '@/components/features/floor-and-table-setup/compactLayoutSx';
+import { TableGenerateDialog } from '@/components/shared/ui/TableGenerateDialog';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { filterTables, nextTableStart } from '@/lib/helpers/floorAndTableSetup';
-import type {
-  TableDraft,
-  TableGenerateInput,
+import {
+  ACTIVE_STATUS_FILTER_OPTIONS,
+  type ActiveStatusFilter,
+  type TableDraft,
+  type TableGenerateInput,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 
-const capacityOptions = [1, 2, 4, 6, 8, 10, 12] as const;
+const compactFilterDropdownSx = {
+  width: '100%',
+  height: 44,
+  '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
+} as const;
 
-type TableStatusFilter = 'all' | 'active' | 'inactive';
-
-const tableStatusOptions = [
-  { id: 'all', label: 'All' },
-  { id: 'active', label: 'Active' },
-  { id: 'inactive', label: 'Inactive' },
-] as const;
+const tableToolbarActionsGridSx = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: 1.25,
+  width: '100%',
+  alignItems: 'stretch',
+  '& > .MuiFormControl-root': { minWidth: 0 },
+  '& .MuiButton-root': { minHeight: 44, width: '100%' },
+} as const;
 
 export function TableStep({
   tables,
@@ -50,7 +49,7 @@ export function TableStep({
   onBulkEdit: () => void;
 }>) {
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<TableStatusFilter>('all');
+  const [status, setStatus] = useState<ActiveStatusFilter>('all');
   const [dialog, setDialog] = useState<'single' | 'bulk' | null>(null);
   const visible = filterTables(tables, query).filter((table) => {
     if (status === 'active') return table.active;
@@ -59,8 +58,8 @@ export function TableStep({
   });
 
   return (
-    <Stack spacing={{ xs: compactMuiSpacing.block, md: 2 }}>
-      <Stack spacing={compactMuiSpacing.block} sx={{ display: { xs: 'flex', md: 'none' } }}>
+    <Stack spacing={{ xs: 2, md: 2 }}>
+      <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
         <Stack
           direction="row"
           spacing={1.5}
@@ -91,7 +90,7 @@ export function TableStep({
         <Box sx={tableToolbarActionsGridSx}>
           <Dropdown
             placeholder="Status"
-            options={tableStatusOptions}
+            options={ACTIVE_STATUS_FILTER_OPTIONS}
             value={status}
             onChange={setStatus}
             size="large"
@@ -265,7 +264,7 @@ export function TableStep({
         </Box>
       )}
 
-      <TableDialog
+      <TableGenerateDialog
         open={dialog !== null}
         bulk={dialog === 'bulk'}
         start={nextTableStart(tables)}
@@ -275,129 +274,6 @@ export function TableStep({
           setDialog(null);
         }}
       />
-    </Stack>
-  );
-}
-
-function TableDialog({
-  open,
-  bulk,
-  start,
-  onClose,
-  onGenerate,
-}: Readonly<{
-  open: boolean;
-  bulk: boolean;
-  start: string;
-  onClose: () => void;
-  onGenerate: (input: TableGenerateInput) => void;
-}>) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={bulk ? 'Bulk Generate Tables' : 'Create Table'}
-      width={560}
-      height="auto"
-    >
-      {open ? (
-        <TableForm bulk={bulk} start={start} onClose={onClose} onGenerate={onGenerate} />
-      ) : null}
-    </Modal>
-  );
-}
-
-function TableForm({
-  bulk,
-  start,
-  onClose,
-  onGenerate,
-}: Readonly<{
-  bulk: boolean;
-  start: string;
-  onClose: () => void;
-  onGenerate: (input: TableGenerateInput) => void;
-}>) {
-  const [draft, setDraft] = useState<TableGenerateInput>({
-    start,
-    count: bulk ? 10 : 1,
-    seats: 4,
-    reservations: true,
-  });
-
-  return (
-    <Stack
-      component="form"
-      spacing={2.5}
-      onSubmit={(event) => {
-        event.preventDefault();
-        onGenerate(draft);
-      }}
-    >
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { [screen.mobile]: '1fr', [screen.tablet]: '1fr 1fr' },
-          gap: 2,
-        }}
-      >
-        <Input
-          id="table-start"
-          label="Start Number"
-          value={draft.start}
-          onChange={(event) => setDraft({ ...draft, start: event.target.value })}
-        />
-        <LabeledDropdown
-          label="Capacity"
-          options={capacityOptions.map((seats) => ({ id: seats, label: String(seats) }))}
-          value={draft.seats}
-          onChange={(value) => setDraft({ ...draft, seats: value })}
-        />
-      </Box>
-      {bulk ? (
-        <Input
-          id="table-count"
-          label="Number of Tables"
-          type="number"
-          value={String(draft.count)}
-          onChange={(event) => setDraft({ ...draft, count: Number(event.target.value) })}
-        />
-      ) : null}
-      <Box
-        sx={{
-          p: 1.5,
-          borderRadius: '12px',
-          border: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <StatusRow
-          title="Reservations"
-          hint="Set permissions for accepting and managing reservations"
-          checked={draft.reservations}
-          onChange={(reservations) => setDraft({ ...draft, reservations })}
-        />
-      </Box>
-      <Stack
-        direction={{ [screen.mobile]: 'column-reverse', [screen.tablet]: 'row' }}
-        spacing={1.5}
-        sx={{ justifyContent: 'flex-end' }}
-      >
-        <ActionButton
-          variant="outlined"
-          type="button"
-          onClick={onClose}
-          sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
-        >
-          Cancel
-        </ActionButton>
-        <ActionButton
-          type="submit"
-          sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
-        >
-          Generate
-        </ActionButton>
-      </Stack>
     </Stack>
   );
 }

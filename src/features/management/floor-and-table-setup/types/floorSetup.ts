@@ -53,7 +53,25 @@ export type TableGenerateInput = {
 
 export type FloorDetailTab = 'overview' | 'floor' | 'sections' | 'tables' | 'history';
 
-export type FloorStatusFilter = 'all' | 'active' | 'inactive';
+/** Shared active/inactive list filter (floors, sections, tables). */
+export const ActiveStatusFilter = {
+  All: 'all',
+  Active: 'active',
+  Inactive: 'inactive',
+} as const;
+
+export type ActiveStatusFilter = (typeof ActiveStatusFilter)[keyof typeof ActiveStatusFilter];
+
+export const ACTIVE_STATUS_FILTER_OPTIONS: ReadonlyArray<{
+  id: ActiveStatusFilter;
+  label: string;
+}> = [
+  { id: ActiveStatusFilter.All, label: 'All' },
+  { id: ActiveStatusFilter.Active, label: 'Active' },
+  { id: ActiveStatusFilter.Inactive, label: 'Inactive' },
+];
+
+export type FloorStatusFilter = ActiveStatusFilter;
 
 export type FloorSummary = {
   id: string;

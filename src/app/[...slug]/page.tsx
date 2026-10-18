@@ -96,10 +96,7 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
   {
     name: 'Floor and Table Setup',
     match: (path) =>
-      path.endsWith('floor-and-table-setup') ||
-      path.includes('floor-and-table-setup/') ||
-      path.endsWith('floor-table-setup') ||
-      path.includes('floor-table-setup/'),
+      path.endsWith('floor-and-table-setup') || path.includes('floor-and-table-setup/'),
     render: () => <FloorSetupScreen />,
   },
 
@@ -109,7 +106,6 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     match: (path) =>
       !path.includes('cash-shift') &&
       !path.includes('floor-and-table-setup') &&
-      !path.includes('floor-table-setup') &&
       (path.endsWith('/success') ||
         path.endsWith('success') ||
         path.endsWith('/payment-success') ||

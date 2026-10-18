@@ -9,11 +9,7 @@ import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
-import {
-  compactMuiSpacing,
-  compactPageRootSx,
-} from '@/components/features/floor-and-table-setup/compactLayoutSx';
-import { StickyActionFooter } from '@/components/features/floor-and-table-setup/StickyActionFooter';
+import { StickyActionFooter } from '@/components/shared/ui/StickyActionFooter';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { FloorCatalog } from '@/components/features/floor-and-table-setup/FloorCatalog';
 import { FloorCreationStep } from '@/components/features/floor-and-table-setup/FloorCreationStep';
@@ -325,7 +321,18 @@ export function FloorSetupScreen() {
   }
 
   return (
-    <Box sx={compactPageRootSx}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        maxWidth: { xs: '100%', sm: 720, md: '100%' },
+        mx: { xs: 'auto', md: 0 },
+        minHeight: '100%',
+        boxSizing: 'border-box',
+        overflowX: 'hidden',
+      }}
+    >
       <Box
         sx={{
           display: 'flex',
@@ -333,7 +340,7 @@ export function FloorSetupScreen() {
           flex: 1,
           minHeight: 0,
           width: '100%',
-          gap: { xs: compactMuiSpacing.section, md: 2.5 },
+          gap: { xs: 2.5, md: 2.5 },
           pb: { xs: 2, sm: 2.5, md: 3 },
         }}
       >

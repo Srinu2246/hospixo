@@ -11,20 +11,14 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { ChevronLeft } from 'lucide-react';
 
-import {
-  compactMuiSpacing,
-  compactDetailTabsHeaderSx,
-  compactPageRootSx,
-  pageBottomClearanceSx,
-} from '@/components/features/floor-and-table-setup/compactLayoutSx';
 import type { FloorTablesPanelActions } from '@/components/features/floor-and-table-setup/FloorTablesPanel';
-import { StickyActionFooter } from '@/components/features/floor-and-table-setup/StickyActionFooter';
+import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
+import { StickyActionFooter } from '@/components/shared/ui/StickyActionFooter';
 import { FloorSectionsPanel } from '@/components/features/floor-and-table-setup/FloorSectionsPanel';
 import { FloorTablesPanel } from '@/components/features/floor-and-table-setup/FloorTablesPanel';
 import {
   LabeledDropdown,
   SetupCard,
-  StatusRow,
 } from '@/components/features/floor-and-table-setup/SetupFields';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
@@ -290,12 +284,29 @@ export function FloorDetailScreen({
   }
 
   return (
-    <Box sx={compactPageRootSx}>
-      <Stack
-        spacing={{ xs: compactMuiSpacing.block, md: 2.5 }}
-        sx={{ ...pageBottomClearanceSx, pb: { md: 3 } }}
-      >
-        <Box sx={compactDetailTabsHeaderSx}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        maxWidth: { xs: '100%', sm: 720, md: '100%' },
+        mx: { xs: 'auto', md: 0 },
+        minHeight: '100%',
+        boxSizing: 'border-box',
+        overflowX: 'hidden',
+      }}
+    >
+      <Stack spacing={{ xs: 2, md: 2.5 }} sx={{ pb: { xs: 2, sm: 2.5, md: 3 } }}>
+        <Box
+          sx={{
+            position: { xs: 'sticky', md: 'static' },
+            top: { xs: 0, md: 'auto' },
+            zIndex: { xs: 11, md: 'auto' },
+            bgcolor: { xs: 'background.default', md: 'transparent' },
+            pt: { xs: 2, md: 0 },
+            pb: { xs: 2.5, md: 0 },
+          }}
+        >
           <Tabs
             fullWidth={false}
             scrollable={belowDesktop}
@@ -689,7 +700,7 @@ function FloorPanel({
         </Box>
         <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           <Box sx={{ display: { xs: 'block', md: 'none' } }}>
-            <StatusRow
+            <LabeledSwitch
               title="Floor Status"
               hint="Toggle active visibility on checkout POS channels"
               checked={active}
@@ -697,7 +708,7 @@ function FloorPanel({
             />
           </Box>
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-            <StatusRow
+            <LabeledSwitch
               title="Floor Status"
               hint="Inactive floors are archived. Turning a floor back on restores it."
               checked={active}

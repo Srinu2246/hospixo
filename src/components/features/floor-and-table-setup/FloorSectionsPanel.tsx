@@ -14,32 +14,29 @@ import {
   nextTableNames,
   numericId,
 } from '@/components/features/floor-and-table-setup/EditTableDialog';
-import { SetupCard, StatusRow } from '@/components/features/floor-and-table-setup/SetupFields';
+import { SetupCard } from '@/components/features/floor-and-table-setup/SetupFields';
+import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
-import type {
-  CatalogSection,
-  CatalogTable,
+import {
+  ACTIVE_STATUS_FILTER_OPTIONS,
+  type ActiveStatusFilter,
+  type CatalogSection,
+  type CatalogTable,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { useCreateTable } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { ApiError } from '@/services/api/types';
-import {
-  compactFilterDropdownSx,
-  compactMuiSpacing,
-} from '@/components/features/floor-and-table-setup/compactLayoutSx';
 import { useToastStore } from '@/stores/toastStore';
 
-type SectionStatusFilter = 'all' | 'active' | 'inactive';
-
-const sectionStatusOptions = [
-  { id: 'all', label: 'All' },
-  { id: 'active', label: 'Active' },
-  { id: 'inactive', label: 'Inactive' },
-] as const;
+const compactFilterDropdownSx = {
+  width: '100%',
+  height: 44,
+  '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
+} as const;
 
 const catalogCardHoverSx = {
   transition: 'border-color 0.15s ease',
@@ -101,7 +98,7 @@ function SectionList({
 }>) {
   const theme = useTheme();
   const belowDesktop = useMediaQuery(theme.breakpoints.down('md'));
-  const [status, setStatus] = useState<SectionStatusFilter>('all');
+  const [status, setStatus] = useState<ActiveStatusFilter>('all');
   const filtered = sections.filter((section) => {
     if (status === 'all') return true;
     return status === 'active' ? section.active : !section.active;
@@ -109,8 +106,8 @@ function SectionList({
   const visible = belowDesktop ? filtered : sections;
 
   return (
-    <Stack spacing={{ xs: compactMuiSpacing.block, md: 2.5 }}>
-      <Stack spacing={compactMuiSpacing.block} sx={{ display: { xs: 'flex', md: 'none' } }}>
+    <Stack spacing={{ xs: 2, md: 2.5 }}>
+      <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
         <Stack
           direction="row"
           spacing={1.5}
@@ -135,7 +132,7 @@ function SectionList({
         </Stack>
         <Dropdown
           placeholder="Status"
-          options={sectionStatusOptions}
+          options={ACTIVE_STATUS_FILTER_OPTIONS}
           value={status}
           onChange={setStatus}
           size="large"
@@ -172,7 +169,7 @@ function SectionList({
             [screen.tablet]: '1fr 1fr',
             [screen.wide]: '1fr 1fr 1fr',
           },
-          gap: { xs: compactMuiSpacing.block, md: 2 },
+          gap: { xs: 2, md: 2 },
         }}
       >
         {visible.length === 0 ? (
@@ -557,7 +554,7 @@ function SectionEditor({
           />
         </Box>
         <Box sx={{ mt: 2.5 }}>
-          <StatusRow
+          <LabeledSwitch
             title="Floor Status"
             hint="Toggle active visibility on checkout POS channels"
             checked={draft.active}

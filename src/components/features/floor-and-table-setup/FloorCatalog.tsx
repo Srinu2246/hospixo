@@ -7,22 +7,16 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Building2, Eye, Pencil, Plus, Search } from 'lucide-react';
 
-import {
-  compactFilterDropdownSx,
-  compactMuiSpacing,
-  filterRowGridSx,
-  listPageSubtitleSx,
-  listPageTitleSx,
-} from '@/components/features/floor-and-table-setup/compactLayoutSx';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Loading } from '@/components/shared/ui/Loading';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
-import type {
-  FloorSort,
-  FloorStatusFilter,
-  FloorSummary,
+import {
+  ACTIVE_STATUS_FILTER_OPTIONS,
+  type FloorSort,
+  type FloorStatusFilter,
+  type FloorSummary,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { screen } from '@/lib/theme/mui/breakpoints';
 
@@ -30,12 +24,6 @@ const sortOptions = [
   { id: 'recent', label: 'Recently Updated' },
   { id: 'name', label: 'Name' },
   { id: 'tables', label: 'Table count' },
-] as const;
-
-const statusOptions = [
-  { id: 'all', label: 'All' },
-  { id: 'active', label: 'Active' },
-  { id: 'inactive', label: 'Inactive' },
 ] as const;
 
 const cardHoverSx = {
@@ -72,20 +60,29 @@ export function FloorCatalog({
   const showEmptyCatalog = !isLoading && !error && floors.length === 0 && !query.trim();
 
   return (
-    <Stack spacing={{ xs: compactMuiSpacing.block, md: 2.5 }} sx={{ flex: 1, width: '100%' }}>
+    <Stack spacing={{ xs: 2, md: 2.5 }} sx={{ flex: 1, width: '100%' }}>
       {/* Mobile / tablet: responsive floors list */}
-      <Stack
-        spacing={compactMuiSpacing.block}
-        sx={{ display: { xs: 'flex', md: 'none' }, width: '100%' }}
-      >
+      <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' }, width: '100%' }}>
         <Stack
           direction="row"
           spacing={1.5}
           sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}
         >
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography sx={listPageTitleSx}>Floors List</Typography>
-            <Typography sx={listPageSubtitleSx}>Manage Floors and sections tables.</Typography>
+            <Typography
+              sx={{
+                fontWeight: 800,
+                fontSize: { xs: '1.15rem', md: '1.25rem' },
+                lineHeight: 1.25,
+              }}
+            >
+              Floors List
+            </Typography>
+            <Typography
+              sx={{ color: 'text.secondary', fontSize: '0.8125rem', mt: 0.25, lineHeight: 1.45 }}
+            >
+              Manage Floors and sections tables.
+            </Typography>
           </Box>
           <ActionButton
             startIcon={<Plus size={16} />}
@@ -104,7 +101,15 @@ export function FloorCatalog({
           onChange={(event) => setQuery(event.target.value)}
           startIcon={<Search size={16} />}
         />
-        <Box sx={filterRowGridSx}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 1.25,
+            width: '100%',
+            '& > .MuiFormControl-root': { minWidth: 0 },
+          }}
+        >
           <Dropdown
             prefix="Sort by:"
             options={sortOptions}
@@ -112,16 +117,16 @@ export function FloorCatalog({
             onChange={setSort}
             size="large"
             minWidth={0}
-            sx={compactFilterDropdownSx}
+            sx={dropdownSx}
           />
           <Dropdown
             placeholder="Status"
-            options={statusOptions}
+            options={ACTIVE_STATUS_FILTER_OPTIONS}
             value={status}
             onChange={onStatusChange}
             size="large"
             minWidth={0}
-            sx={compactFilterDropdownSx}
+            sx={dropdownSx}
           />
         </Box>
       </Stack>
@@ -175,7 +180,7 @@ export function FloorCatalog({
           >
             <Dropdown
               placeholder="Status"
-              options={statusOptions}
+              options={ACTIVE_STATUS_FILTER_OPTIONS}
               value={status}
               onChange={onStatusChange}
               size="large"
@@ -225,7 +230,7 @@ export function FloorCatalog({
               [screen.tablet]: '1fr 1fr',
               [screen.wide]: '1fr 1fr 1fr',
             },
-            gap: { xs: compactMuiSpacing.block, md: 2 },
+            gap: { xs: 2, md: 2 },
           }}
         >
           {visible.map((floor) => (
@@ -358,7 +363,9 @@ function FloorsEmptyState({ onCreate }: Readonly<{ onCreate: () => void }>) {
       >
         <Building2 size={32} strokeWidth={1.75} />
       </Box>
-      <Typography sx={{ ...listPageTitleSx, fontSize: '1.1rem' }}>No Floors Added Yet</Typography>
+      <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', lineHeight: 1.25 }}>
+        No Floors Added Yet
+      </Typography>
       <Typography
         sx={{ color: 'text.secondary', maxWidth: 420, lineHeight: 1.6, fontSize: '0.875rem' }}
       >
