@@ -92,10 +92,13 @@
     "Sgst",
     "Igst",
     "mweb",
-    "topbar"
+    "topbar",
     "Masala",
     "masala",
     "Raita",
-    "raita"
+    "raita",
+    "tableside",
+    "Sidebarless",
+    "hrefs"
   ]
 }

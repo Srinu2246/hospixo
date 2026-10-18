@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import React, { useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Fade from '@mui/material/Fade';
 
+import { normalizeRoleKey } from '@/app/sidebar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Toast } from '@/components/shared/ui/Toast';
 import { useDashboardDirectory } from '@/lib/hooks/dashboard/useDashboardDirectory';
 import { useSidebarStore } from '@/stores/sidebarStore';
-import { Toast } from '@/components/shared/ui/Toast';
+
 import type { DashboardLevel } from '../types/dashboard.types';
 import { DashboardHeader } from './shared/DashboardHeader';
 import { OrganizationDashboard } from './organization/OrganizationDashboard';
@@ -17,60 +19,84 @@ import { BranchSalesDashboard } from './branch/BranchSalesDashboard';
 import { LowStockAlertBanner } from './branch/LowStockAlertBanner';
 
 export interface DashboardScreenProps {
+  /** Fallback when role/path cannot be resolved. */
   initialLevel?: DashboardLevel;
-  hideLevelSwitcher?: boolean;
 }
 
+/** Role → dashboard catalog. Path can still drill org → company/branch. */
+function dashboardLevelFromRole(role?: string | null): DashboardLevel {
+  const key = normalizeRoleKey(role || '');
+  if (key === 'organization' || key === 'super_admin') return 'organization';
+  if (key === 'company') return 'company';
+  return 'branch';
+}
+
+function dashboardLevelFromPath(pathname: string): DashboardLevel | null {
+  if (!pathname) return null;
+  if (pathname === '/company' || pathname.startsWith('/company/')) return 'company';
+  if (
+    pathname === '/branch-manager' ||
+    pathname.startsWith('/branch-manager/') ||
+    pathname === '/branch' ||
+    pathname.startsWith('/branch/')
+  ) {
+    return 'branch';
+  }
+  if (pathname === '/organization' || pathname.startsWith('/organization/')) return 'organization';
+  return null;
+}
+
+const DEFAULT_SCOPE_BY_LEVEL: Record<DashboardLevel, string> = {
+  organization: 'All Companies',
+  company: 'All Outlets',
+  branch: 'All Outlets',
+};
+
+/**
+ * Role-scoped dashboard (org / company / branch).
+ * Level comes from the signed-in role and URL scope — no testing level switcher.
+ */
 export function DashboardScreen({
   initialLevel = 'organization',
-  hideLevelSwitcher = false,
-}: Readonly<DashboardScreenProps>) {
-  const searchParams = useSearchParams();
-  const queryLevel = searchParams.get('level') as DashboardLevel | null;
-  const validLevel =
-    queryLevel && ['organization', 'company', 'branch'].includes(queryLevel)
-      ? queryLevel
-      : initialLevel;
-
-  const [currentLevel, setCurrentLevel] = useState<DashboardLevel>(validLevel);
-  const [selectedScope, setSelectedScope] = useState(() => {
-    if (validLevel === 'company' || validLevel === 'branch') return 'All Outlets';
-    return 'All Companies';
-  });
-  const [toastOpen, setToastOpen] = useState(false);
-  const [toastMsg, setToastMsg] = useState('');
+}: Readonly<DashboardScreenProps> = {}) {
+  const pathname = usePathname() ?? '';
+  const role = useSidebarStore((state) => state.role);
   const organizationId = useSidebarStore(
     (state) => state.account?.org_id ?? state.context.organizationId,
   );
   const companyId = useSidebarStore(
     (state) => state.context.companyId ?? state.account?.company_id ?? undefined,
   );
+
+  const currentLevel = useMemo(() => {
+    const fromPath = dashboardLevelFromPath(pathname);
+    const fromRole = dashboardLevelFromRole(role);
+    // Path wins when drilling into a lower catalog (e.g. org → /company/dashboard).
+    return fromPath ?? fromRole ?? initialLevel;
+  }, [pathname, role, initialLevel]);
+
+  const [selectedScopeByLevel, setSelectedScopeByLevel] =
+    useState<Record<DashboardLevel, string>>(DEFAULT_SCOPE_BY_LEVEL);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+
+  const selectedScope = selectedScopeByLevel[currentLevel];
+
   const directoryCompanyId = currentLevel === 'organization' ? undefined : companyId;
   const directory = useDashboardDirectory(organizationId, {
     companyId: directoryCompanyId,
     dashboardLevel: currentLevel,
   });
-  const companies = directory.data?.companies ?? [];
-  const branches = directory.data?.branches ?? [];
-
-  const handleLevelChange = (newLevel: DashboardLevel) => {
-    setCurrentLevel(newLevel);
-    if (newLevel === 'organization') setSelectedScope('All Companies');
-    if (newLevel === 'company') setSelectedScope('All Outlets');
-    if (newLevel === 'branch') setSelectedScope('All Outlets');
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.set('level', newLevel);
-      window.history.replaceState({}, '', url.toString());
-    }
-  };
 
   const handleExportData = () => {
     setToastMsg(`Exporting ${currentLevel} statistics data to CSV/Excel...`);
     setToastOpen(true);
   };
 
-  const getScopeDetails = () => {
+  const scopeDetails = useMemo(() => {
+    const companies = directory.data?.companies ?? [];
+    const branches = directory.data?.branches ?? [];
+
     switch (currentLevel) {
       case 'organization':
         return {
@@ -100,9 +126,7 @@ export function DashboardScreen({
               : ['All Outlets'],
         };
     }
-  };
-
-  const scopeDetails = getScopeDetails();
+  }, [currentLevel, directory.data]);
 
   return (
     <Box
@@ -124,15 +148,14 @@ export function DashboardScreen({
         }}
       >
         <DashboardHeader
-          currentLevel={currentLevel}
-          onLevelChange={handleLevelChange}
           title={scopeDetails.title}
           scopeEntityLabel={scopeDetails.entityLabel}
           scopeOptions={scopeDetails.options}
           selectedScope={selectedScope}
-          onScopeChange={setSelectedScope}
+          onScopeChange={(scope) =>
+            setSelectedScopeByLevel((prev) => ({ ...prev, [currentLevel]: scope }))
+          }
           onExportClick={handleExportData}
-          hideLevelSwitcher={hideLevelSwitcher}
           topBanner={currentLevel === 'branch' ? <LowStockAlertBanner /> : undefined}
         />
       </Box>
@@ -149,10 +172,9 @@ export function DashboardScreen({
         />
       ) : null}
 
-      {/* 2. Level Content with Smooth Transition */}
       <Box sx={{ width: '100%' }}>
         {currentLevel === 'organization' && (
-          <Fade in={currentLevel === 'organization'} timeout={300}>
+          <Fade in timeout={300}>
             <Box>
               <OrganizationDashboard
                 companies={directory.data?.companies}
@@ -164,7 +186,7 @@ export function DashboardScreen({
         )}
 
         {currentLevel === 'company' && (
-          <Fade in={currentLevel === 'company'} timeout={300}>
+          <Fade in timeout={300}>
             <Box>
               <CompanyDashboard
                 branches={directory.data?.branches}
@@ -175,7 +197,7 @@ export function DashboardScreen({
         )}
 
         {currentLevel === 'branch' && (
-          <Fade in={currentLevel === 'branch'} timeout={300}>
+          <Fade in timeout={300}>
             <Box>
               <BranchSalesDashboard onExportClick={handleExportData} />
             </Box>
@@ -183,7 +205,6 @@ export function DashboardScreen({
         )}
       </Box>
 
-      {/* Export Feedback Toast */}
       <Toast
         open={toastOpen}
         message={toastMsg}
