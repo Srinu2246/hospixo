@@ -1,5 +1,3 @@
-# Pull Request Template
-
 ## 1. Ticket Details
 
 - **Ticket Number:** <!-- Enter the Zoho / ClickUp ticket number -->
