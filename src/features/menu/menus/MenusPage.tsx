@@ -79,7 +79,7 @@ export function MenusPage() {
   );
 
   const menusQuery = useBranchMenus(listParams, branchId);
-  const menus = menusQuery.data ?? [];
+  const menus = useMemo(() => menusQuery.data ?? [], [menusQuery.data]);
 
   const editingMenu = useMemo(
     () => (mode === 'edit' && menuId != null ? menus.find((row) => row.id === menuId) : undefined),
