@@ -33,6 +33,7 @@ import {
   MOCK_KITCHEN_ORDERS,
   resolveKitchenDisplayMock,
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
+import { resolveBranchMenusMock } from '@/lib/mocks/menu/resolveBranchMenusMock';
 import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
 import { MOCK_MENU_CATEGORIES, MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
@@ -122,6 +123,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
   const gstRates = resolveGstRatesMock(request);
   if (gstRates !== undefined) return gstRates;
+
+  const branchMenus = resolveBranchMenusMock(request);
+  if (branchMenus !== undefined) return branchMenus;
 
   const userRoles = resolveUserRolesMock(request);
   if (userRoles !== undefined) return userRoles;
