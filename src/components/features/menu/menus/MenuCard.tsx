@@ -9,20 +9,20 @@ import { Card } from '@/components/shared/ui/Card';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { TagsGrid } from '@/components/shared/ui/TagsGrid';
 import { formatUpdatedAgo } from '@/lib/helpers';
-import type { MenuSessionItem } from '@/lib/mocks/menu/useMenus.mocks';
+import type { MenuAssignment } from '@/lib/schemas/menu/menus/menuListSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 export interface MenuCardProps {
-  menu: MenuSessionItem;
-  onView?: (menu: MenuSessionItem) => void;
-  onEdit?: (menu: MenuSessionItem) => void;
-  onDeactivate?: (menu: MenuSessionItem) => void;
-  onActivate?: (menu: MenuSessionItem) => void;
+  menu: MenuAssignment;
+  onView?: (menu: MenuAssignment) => void;
+  onEdit?: (menu: MenuAssignment) => void;
+  onDeactivate?: (menu: MenuAssignment) => void;
+  onActivate?: (menu: MenuAssignment) => void;
   sx?: SxProps<Theme>;
 }
 
 /**
- * Meal-session card: name, status, menu type, updated stamp, View / Edit / Activate|Deactivate.
+ * Menu assignment card: nested menu name/type, assignment status, updated stamp, actions.
  */
 export function MenuCard({
   menu,
@@ -32,9 +32,10 @@ export function MenuCard({
   onActivate,
   sx,
 }: Readonly<MenuCardProps>) {
-  const isActive = menu.status === 'active';
+  const isActive = menu.status.toLowerCase() === 'active';
   const statusActionLabel = isActive ? 'Deactivate' : 'Activate';
   const statusAction = isActive ? onDeactivate : onActivate;
+  const menuType = (menu.menu.menu_type || 'all').toUpperCase();
 
   return (
     <Card
@@ -54,7 +55,7 @@ export function MenuCard({
             letterSpacing: '-0.01em',
           }}
         >
-          {menu.name}
+          {menu.menu.name}
         </Typography>
       }
       action={
@@ -76,7 +77,7 @@ export function MenuCard({
             variant="caption"
             sx={{ color: colors.text.secondary, fontSize: '0.75rem', lineHeight: 1.4 }}
           >
-            {formatUpdatedAgo(menu.updatedAt)}
+            {formatUpdatedAgo(menu.updated_at ?? menu.menu.updated_at)}
           </Typography>
           <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, alignItems: 'center' }}>
             <CardAction label="View" tone="primary" onClick={() => onView?.(menu)} />
@@ -113,7 +114,7 @@ export function MenuCard({
           Menu type:
         </Typography>
         <TagsGrid
-          tags={[menu.menuType]}
+          tags={[menuType]}
           variantType="info"
           size="small"
           pill

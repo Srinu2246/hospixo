@@ -74,6 +74,12 @@ const ApiUrlsV1 = {
     gstRates: '/v1/restaurant/gst-rates',
     menuCategories: resource('/v1/restaurant/menu/categories'),
     menuItems: resource('/v1/restaurant/menu/items'),
+    /** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
+    branchMenus: {
+      /** Prefix for session-bearer matching and nested branch menu paths. */
+      root: '/v1/restaurant/branches',
+      list: (branchId: number | string) => restaurantBranchMenusPath(branchId),
+    },
   },
   kitchen: {
     kitchenBoard: resource('/v1/kitchen-display'),
@@ -139,6 +145,11 @@ export function organizationCompanyBranchesPath(
   companyId: number | string,
 ): string {
   return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies/${encodeURIComponent(String(companyId))}/branches`;
+}
+
+/** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
+export function restaurantBranchMenusPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branchMenus.root}/${encodeURIComponent(String(branchId))}/menus`;
 }
 
 /** GET/POST /v1/restaurant/gst-rates */
