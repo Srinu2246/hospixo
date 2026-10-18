@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -17,6 +17,7 @@ import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { colors } from '@/lib/theme/mui/colors';
 
 import {
@@ -97,13 +98,17 @@ export function CreateCustomTemplateScreen({
   // Template permissions state
   const groupedPermissions = useGroupedPermissions();
   const createCustomRole = useCreateCustomRole();
+  const remoteCategories = groupedPermissions.data ?? [];
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
+  const [syncedRemoteCategories, setSyncedRemoteCategories] =
+    useState<PermissionCategory[]>(remoteCategories);
 
-  useEffect(() => {
-    if (groupedPermissions.data?.length) {
-      setCategories(groupedPermissions.data);
+  if (remoteCategories !== syncedRemoteCategories) {
+    setSyncedRemoteCategories(remoteCategories);
+    if (remoteCategories.length > 0) {
+      setCategories(remoteCategories);
     }
-  }, [groupedPermissions.data]);
+  }
 
   // Toast feedback state
   const [toastFeedback, setToastFeedback] = useState<{
@@ -120,18 +125,13 @@ export function CreateCustomTemplateScreen({
     setToastFeedback({ open: true, message, severity });
   };
 
-  // Sticky footer portal container
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    setFooterTarget(document.getElementById('app-shell-footer'));
-  }, []);
+  const footerTarget = useAppShellFooterTarget();
 
   // Form Management
   const {
     control,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<CustomTemplateFormValues>({
     resolver: zodResolver(customTemplateSchema),
@@ -143,7 +143,7 @@ export function CreateCustomTemplateScreen({
     },
   });
 
-  const selectedPreset = watch('preset');
+  const selectedPreset = useWatch({ control, name: 'preset' });
 
   const handleBack = () => {
     if (onBack) {

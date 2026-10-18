@@ -98,8 +98,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   super_admin: Object.values(PERMISSIONS),
   org_admin: [
     PERMISSIONS.COMPANIES_VIEW,
+    PERMISSIONS.COMPANIES_CREATE,
     PERMISSIONS.COMPANIES_UPDATE,
     PERMISSIONS.BRANCHES_VIEW,
+    PERMISSIONS.BRANCHES_CREATE,
     PERMISSIONS.BRANCHES_UPDATE,
     PERMISSIONS.MENU_VIEW,
     PERMISSIONS.MENU_CREATE,
@@ -151,6 +153,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.MENU_VIEW,
     PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.GST_VIEW,
     PERMISSIONS.POS_SESSIONS_OPEN,
   ],
   waiter: [
@@ -161,6 +164,22 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.ORDERS_UPDATE,
     PERMISSIONS.ORDERS_VIEW,
   ],
+  cashier: [
+    PERMISSIONS.FLOORS_VIEW,
+    PERMISSIONS.TABLES_VIEW,
+    PERMISSIONS.MENU_VIEW,
+    PERMISSIONS.ORDERS_VIEW,
+    PERMISSIONS.ORDERS_CREATE,
+    PERMISSIONS.ORDERS_UPDATE,
+    PERMISSIONS.PAYMENTS_VIEW,
+    PERMISSIONS.PAYMENTS_COLLECT,
+    PERMISSIONS.BOOKINGS_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.POS_SESSIONS_OPEN,
+    PERMISSIONS.POS_SESSIONS_CLOSE,
+  ],
+  kitchen: [PERMISSIONS.ORDERS_VIEW, PERMISSIONS.ORDERS_UPDATE_STATUS, PERMISSIONS.MENU_VIEW],
+  chef: [PERMISSIONS.ORDERS_VIEW, PERMISSIONS.ORDERS_UPDATE_STATUS],
 };
 
 // ----------------------------------------------------------------------
@@ -293,20 +312,41 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 3,
+        name: 'Menu Management',
+        href: '/company/menu/menu-management',
+        icon: 'storefront',
+        permission: PERMISSIONS.MENU_UPDATE,
+      },
+      {
+        id: 4,
+        name: 'Menu Availability',
+        href: '/company/menu/menu-availability',
+        icon: 'calendar_today',
+        permission: PERMISSIONS.MENU_UPDATE,
+      },
+      {
+        id: 5,
+        name: 'Menu Builder',
+        href: '/company/menu/menu-builder',
+        icon: 'tune',
+        permission: PERMISSIONS.MENU_UPDATE,
+      },
+      {
+        id: 6,
         name: 'GST Rates',
         href: '/company/menu/gst-rates',
         icon: 'percent',
         permission: PERMISSIONS.GST_VIEW,
       },
       {
-        id: 4,
+        id: 7,
         name: 'Prep Stations',
         href: '/company/menu/prep-station',
         icon: 'kitchen',
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 5,
+        id: 8,
         name: 'Modifier Groups',
         href: '/company/menu/modifier-groups',
         icon: 'tune',
@@ -730,21 +770,102 @@ export const WAITER_SIDEBAR: SidebarEntry[] = [
     icon: 'fact_check',
     permission: PERMISSIONS.ORDERS_VIEW,
   },
+];
+
+/** Cashier / counter staff — billing-focused flat nav. */
+export const CASHIER_SIDEBAR: SidebarEntry[] = [
+  {
+    id: 1,
+    name: 'Dashboard',
+    href: '/branch-manager/pos/point-of-sale/dashboard',
+    icon: 'dashboard',
+    permission: PERMISSIONS.ORDERS_VIEW,
+  },
+  {
+    id: 2,
+    name: 'New Order',
+    href: '/branch-manager/pos/point-of-sale/tables',
+    icon: 'table_restaurant',
+    permission: PERMISSIONS.ORDERS_CREATE,
+  },
+  {
+    id: 3,
+    name: 'Orders',
+    href: '/branch-manager/pos/point-of-sale/all-orders',
+    icon: 'receipt_long',
+    permission: PERMISSIONS.ORDERS_VIEW,
+  },
+  {
+    id: 4,
+    name: 'Dine-In',
+    href: '/branch-manager/pos/point-of-sale/dine-in',
+    icon: 'restaurant',
+    permission: PERMISSIONS.ORDERS_CREATE,
+  },
   {
     id: 5,
-    name: 'Menu Availability',
-    href: '/branch-manager/menu/menu-availability',
-    icon: 'calendar_today',
-    permission: PERMISSIONS.MENU_VIEW,
+    name: 'Billing',
+    href: '/branch-manager/pos/point-of-sale/all-orders',
+    icon: 'receipt_long',
+    permission: PERMISSIONS.PAYMENTS_COLLECT,
   },
   {
     id: 6,
+    name: 'Payments',
+    href: '/branch-manager/pos/point-of-sale/due-payments',
+    icon: 'credit_card',
+    permission: PERMISSIONS.PAYMENTS_VIEW,
+  },
+  {
+    id: 7,
+    name: 'Customers',
+    href: '/branch-manager/management/customers',
+    icon: 'people',
+    permission: PERMISSIONS.BOOKINGS_VIEW,
+  },
+  {
+    id: 8,
+    name: 'Reports',
+    href: '/branch-manager/management/reports',
+    icon: 'bar_chart',
+    permission: PERMISSIONS.REPORTS_VIEW,
+  },
+];
+
+/** Kitchen manager / kitchen staff — KDS-focused flat nav. */
+export const KITCHEN_SIDEBAR: SidebarEntry[] = [
+  {
+    id: 1,
     name: 'Kitchen Display',
     href: '/branch-manager/management/kitchen-display',
     icon: 'tv',
     permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
   },
+  {
+    id: 2,
+    name: 'Incoming Orders',
+    href: '/branch-manager/management/kitchen-display',
+    icon: 'fact_check',
+    permission: PERMISSIONS.ORDERS_VIEW,
+  },
+  {
+    id: 3,
+    name: 'Preparing',
+    href: '/branch-manager/management/kitchen-display',
+    icon: 'schedule',
+    permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
+  },
+  {
+    id: 4,
+    name: 'Ready Orders',
+    href: '/branch-manager/pos/point-of-sale/ready-list',
+    icon: 'receipt_long',
+    permission: PERMISSIONS.ORDERS_VIEW,
+  },
 ];
+
+/** Chef station — distraction-free KDS; no sidebar chrome. */
+export const CHEF_SIDEBAR: SidebarEntry[] = [];
 
 export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
   {
@@ -766,6 +887,13 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 2,
+        name: 'Add Company',
+        href: '/organization/companies/new',
+        icon: 'add',
+        permission: PERMISSIONS.COMPANIES_CREATE,
+      },
+      {
+        id: 3,
         name: 'Company Analytics',
         href: '/organization/companies/analytics',
         icon: 'bar_chart',
@@ -786,6 +914,13 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 2,
+        name: 'Add Branch',
+        href: '/organization/branches/new',
+        icon: 'add',
+        permission: PERMISSIONS.BRANCHES_CREATE,
+      },
+      {
+        id: 3,
         name: 'Branch Performance',
         href: '/organization/branches/performance',
         icon: 'trending_up',
@@ -924,7 +1059,9 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
 export function rolePathSegment(role: string): string {
   const key = normalizeRoleKey(role);
   if (key === 'branch_manager') return 'branch-manager';
-  if (key === 'waiter') return 'waiter';
+  if (key === 'waiter' || key === 'cashier' || key === 'kitchen' || key === 'chef') {
+    return 'branch-manager';
+  }
   if (key === 'company') return 'company';
   if (key === 'organization' || key === 'super_admin') return 'organization';
   return key.replace(/_/g, '-');
@@ -936,6 +1073,9 @@ const SIDEBAR_RANK: Record<string, number> = {
   company: 2,
   branch_manager: 1,
   waiter: 0,
+  cashier: 0,
+  kitchen: 0,
+  chef: 0,
 };
 
 /** Hierarchy level implied by the URL. Shared module routes such as `/pos` return null. */
@@ -944,6 +1084,9 @@ export function sidebarLevelFromPath(pathname: string): string | null {
   if (pathname === '/organization' || pathname.startsWith('/organization/')) return 'organization';
   if (pathname === '/company' || pathname.startsWith('/company/')) return 'company';
   if (pathname === '/waiter' || pathname.startsWith('/waiter/')) return 'waiter';
+  if (pathname === '/cashier' || pathname.startsWith('/cashier/')) return 'cashier';
+  if (pathname === '/kitchen' || pathname.startsWith('/kitchen/')) return 'kitchen';
+  if (pathname === '/chef' || pathname.startsWith('/chef/')) return 'chef';
   if (
     pathname === '/branch-manager' ||
     pathname.startsWith('/branch-manager/') ||
@@ -977,7 +1120,9 @@ export function resolveSidebarEscape(
   level: string,
 ): { href: string; label: string } | null {
   const userKey = normalizeRoleKey(role || '');
-  if (!userKey || userKey === 'waiter' || !level || level === userKey) return null;
+  const operational =
+    userKey === 'waiter' || userKey === 'cashier' || userKey === 'kitchen' || userKey === 'chef';
+  if (!userKey || operational || !level || level === userKey) return null;
   if ((SIDEBAR_RANK[level] ?? 0) >= (SIDEBAR_RANK[userKey] ?? 0)) return null;
 
   if (userKey === 'company') {
@@ -994,26 +1139,64 @@ export function normalizeRoleKey(role: string): string {
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
-  if (normalized.includes('waiter') || normalized.includes('captain')) return 'waiter';
+  if (normalized === 'chef' || normalized.startsWith('chef_') || normalized.endsWith('_chef')) {
+    return 'chef';
+  }
+  if (normalized.includes('kitchen')) return 'kitchen';
+  if (
+    normalized.includes('cashier') ||
+    normalized.includes('counter') ||
+    normalized === 'pos_cashier'
+  ) {
+    return 'cashier';
+  }
+  if (
+    normalized.includes('waiter') ||
+    normalized.includes('captain') ||
+    normalized.includes('server') ||
+    normalized === 'host'
+  ) {
+    return 'waiter';
+  }
   if (normalized.includes('platform_support')) return 'platform_support';
-  if (normalized.includes('branch')) return 'branch_manager';
+  if (normalized.includes('branch') || normalized.includes('store_manager'))
+    return 'branch_manager';
   if (normalized.includes('company')) return 'company';
-  if (normalized.includes('org')) return 'organization';
+  if (normalized.includes('org') || normalized.includes('tenant_admin')) return 'organization';
   if (normalized.includes('super')) return 'super_admin';
   return normalized;
+}
+
+/** Chef stations render full-screen KDS with no sidebar chrome. */
+export function isSidebarlessRole(role?: string | null): boolean {
+  return normalizeRoleKey(role || '') === 'chef';
 }
 
 export const ROLE_SIDEBAR_REGISTRY: Record<string, SidebarEntry[]> = {
   company: COMPANY_SIDEBAR,
   company_admin: COMPANY_SIDEBAR,
+  company_owner: COMPANY_SIDEBAR,
+  company_manager: COMPANY_SIDEBAR,
   branch_manager: BRANCH_MANAGER_SIDEBAR,
   branch_admin: BRANCH_MANAGER_SIDEBAR,
   'branch manager': BRANCH_MANAGER_SIDEBAR,
+  store_manager: BRANCH_MANAGER_SIDEBAR,
   restaurant_manager: BRANCH_MANAGER_SIDEBAR,
   waiter: WAITER_SIDEBAR,
   captain: WAITER_SIDEBAR,
+  server: WAITER_SIDEBAR,
+  host: WAITER_SIDEBAR,
+  cashier: CASHIER_SIDEBAR,
+  counter: CASHIER_SIDEBAR,
+  pos_cashier: CASHIER_SIDEBAR,
+  counter_staff: CASHIER_SIDEBAR,
+  kitchen: KITCHEN_SIDEBAR,
+  kitchen_staff: KITCHEN_SIDEBAR,
+  chef: CHEF_SIDEBAR,
   organization: ORGANIZATION_SIDEBAR,
   org_admin: ORGANIZATION_SIDEBAR,
+  org_owner: ORGANIZATION_SIDEBAR,
+  tenant_admin: ORGANIZATION_SIDEBAR,
   super_admin: ORGANIZATION_SIDEBAR,
 };
 
@@ -1050,7 +1233,14 @@ export function getSidebarNavigation({
       : permissionKey === 'branch_manager'
         ? null
         : DEFAULT_ROLE_PERMISSIONS[permissionKey] || [];
-  const routeRole = level === 'branch_manager' || level === 'waiter' ? level : role;
+  const routeRole =
+    level === 'branch_manager' ||
+    level === 'waiter' ||
+    level === 'cashier' ||
+    level === 'kitchen' ||
+    level === 'chef'
+      ? level
+      : role;
 
   const filterItem = (item: SidebarItem): SidebarItem | null => {
     if (!hasPermission(permissions, item.permission)) return null;

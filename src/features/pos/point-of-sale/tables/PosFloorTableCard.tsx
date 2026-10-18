@@ -102,6 +102,25 @@ export function PosFloorTableCard({
         <StatusChip status={table.status} label={table.status.toUpperCase()} showDot size="small" />
       </Box>
 
+      {table.capacity != null ? (
+        <Box
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.5,
+            color: 'text.secondary',
+          }}
+        >
+          <GroupOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+          <Typography
+            component="span"
+            sx={{ fontSize: '0.8125rem', fontWeight: 600, color: 'text.secondary' }}
+          >
+            {table.capacity} seats
+          </Typography>
+        </Box>
+      ) : null}
+
       {/* Middle/Bottom Content Area */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {table.amount ? (

@@ -4,23 +4,35 @@ import Box from '@mui/material/Box';
 
 import { getMenuCreationPageConfig } from '@/features/menu/config';
 import { MenuCreationProvider } from '@/features/menu/context';
-import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
-
 import { MenuContent } from './MenuContent';
+import type {
+  MenuCreationScope,
+  MenuCreationViewMode,
+} from '@/lib/schemas/menu/menuCreationSchema';
 
 export interface MenuCreationLayoutProps {
   scope?: MenuCreationScope;
+  initialViewMode?: MenuCreationViewMode;
+  initialItemId?: string;
 }
 
 /**
  * Menu Creation layout shell used by company / branch / organization sidebar routes.
  * Categories rail starts at the top; page header and tools live in the right pane.
  */
-export function MenuCreationLayout({ scope = 'company' }: Readonly<MenuCreationLayoutProps>) {
+export function MenuCreationLayout({
+  scope = 'company',
+  initialViewMode = 'list',
+  initialItemId,
+}: Readonly<MenuCreationLayoutProps>) {
   const pageConfig = getMenuCreationPageConfig(scope);
 
   return (
-    <MenuCreationProvider pageConfig={pageConfig}>
+    <MenuCreationProvider
+      pageConfig={pageConfig}
+      initialViewMode={initialViewMode}
+      initialItemId={initialItemId}
+    >
       <Box
         sx={{
           width: '100%',

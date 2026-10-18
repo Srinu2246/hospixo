@@ -9,37 +9,31 @@ import MenuItem from '@mui/material/MenuItem';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import ApartmentIcon from '@mui/icons-material/Apartment';
-import StorefrontIcon from '@mui/icons-material/Storefront';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
-import type { DashboardLevel } from '../../types/dashboard.types';
 
 export interface DashboardHeaderProps {
-  currentLevel: DashboardLevel;
-  onLevelChange: (level: DashboardLevel) => void;
   title: string;
   scopeEntityLabel?: string;
   scopeOptions?: string[];
   selectedScope?: string;
   onScopeChange?: (scope: string) => void;
   onExportClick?: () => void;
-  hideLevelSwitcher?: boolean;
   topBanner?: React.ReactNode;
 }
 
+/**
+ * Dashboard title row: optional scope picker, date range, export.
+ * Level is fixed by role — no org/company/branch testing switcher.
+ */
 export function DashboardHeader({
-  currentLevel,
-  onLevelChange,
   title,
   scopeEntityLabel = 'Companies',
   scopeOptions = ['All Companies'],
   selectedScope = 'All Companies',
   onScopeChange,
   onExportClick,
-  hideLevelSwitcher = false,
   topBanner,
 }: Readonly<DashboardHeaderProps>) {
   const [scopeAnchor, setScopeAnchor] = useState<null | HTMLElement>(null);
@@ -57,174 +51,73 @@ export function DashboardHeader({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%' }}>
-      {/* Level Selector Pills & Scope Header */}
-      {!hideLevelSwitcher && (
+      {scopeOptions.length > 0 ? (
         <Box
           sx={{
             display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            alignItems: { xs: 'flex-start', md: 'center' },
-            justifyContent: 'space-between',
-            gap: 2,
-            pb: 1,
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 1,
           }}
         >
-          {/* Interactive Level Switcher */}
-          <Box
+          <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
+            {scopeEntityLabel}:
+          </Typography>
+          <ButtonBase
+            onClick={(e) => setScopeAnchor(e.currentTarget)}
             sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              p: 0.5,
-              borderRadius: '10px',
-              bgcolor: (theme) =>
-                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F3F4F6',
+              px: 1.5,
+              py: 0.65,
+              borderRadius: '8px',
               border: '1px solid',
               borderColor: (theme) =>
                 theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+              bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              color: 'text.primary',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
             }}
           >
-            <ButtonBase
-              onClick={() => onLevelChange('organization')}
-              sx={{
-                px: 2,
-                py: 0.85,
-                borderRadius: '8px',
-                fontSize: '0.8125rem',
-                fontWeight: currentLevel === 'organization' ? 700 : 500,
-                bgcolor:
-                  currentLevel === 'organization'
-                    ? (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF')
-                    : 'transparent',
-                color:
-                  currentLevel === 'organization' ? colors.primary.default : colors.text.secondary,
-                boxShadow: currentLevel === 'organization' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-              }}
-            >
-              <ApartmentIcon sx={{ fontSize: 18 }} />
-              Organization Level
-            </ButtonBase>
+            {selectedScope}
+            <KeyboardArrowDownIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
+          </ButtonBase>
 
-            <ButtonBase
-              onClick={() => onLevelChange('company')}
-              sx={{
-                px: 2,
-                py: 0.85,
-                borderRadius: '8px',
-                fontSize: '0.8125rem',
-                fontWeight: currentLevel === 'company' ? 700 : 500,
-                bgcolor:
-                  currentLevel === 'company'
-                    ? (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF')
-                    : 'transparent',
-                color: currentLevel === 'company' ? colors.primary.default : colors.text.secondary,
-                boxShadow: currentLevel === 'company' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-              }}
-            >
-              <StorefrontIcon sx={{ fontSize: 18 }} />
-              Company Level
-            </ButtonBase>
-
-            <ButtonBase
-              onClick={() => onLevelChange('branch')}
-              sx={{
-                px: 2,
-                py: 0.85,
-                borderRadius: '8px',
-                fontSize: '0.8125rem',
-                fontWeight: currentLevel === 'branch' ? 700 : 500,
-                bgcolor:
-                  currentLevel === 'branch'
-                    ? (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF')
-                    : 'transparent',
-                color: currentLevel === 'branch' ? colors.primary.default : colors.text.secondary,
-                boxShadow: currentLevel === 'branch' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-              }}
-            >
-              <LocationOnIcon sx={{ fontSize: 18 }} />
-              Branch / Outlet Level
-            </ButtonBase>
-          </Box>
-
-          {/* Scope Context Dropdown (Companies / Outlets) */}
-          {scopeOptions.length > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography
-                sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}
-              >
-                {scopeEntityLabel}:
-              </Typography>
-              <ButtonBase
-                onClick={(e) => setScopeAnchor(e.currentTarget)}
-                sx={{
-                  px: 1.5,
-                  py: 0.65,
-                  borderRadius: '8px',
-                  border: '1px solid',
-                  borderColor: (theme) =>
-                    theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                  bgcolor: (theme) =>
-                    theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  color: 'text.primary',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
+          <Menu
+            anchorEl={scopeAnchor}
+            open={Boolean(scopeAnchor)}
+            onClose={() => setScopeAnchor(null)}
+            slotProps={{
+              paper: {
+                sx: {
+                  borderRadius: '10px',
+                  minWidth: 180,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                },
+              },
+            }}
+          >
+            {scopeOptions.map((opt) => (
+              <MenuItem
+                key={opt}
+                selected={opt === selectedScope}
+                onClick={() => {
+                  onScopeChange?.(opt);
+                  setScopeAnchor(null);
                 }}
+                sx={{ fontSize: '0.8125rem', fontWeight: opt === selectedScope ? 700 : 500 }}
               >
-                {selectedScope}
-                <KeyboardArrowDownIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-              </ButtonBase>
-
-              <Menu
-                anchorEl={scopeAnchor}
-                open={Boolean(scopeAnchor)}
-                onClose={() => setScopeAnchor(null)}
-                slotProps={{
-                  paper: {
-                    sx: {
-                      borderRadius: '10px',
-                      minWidth: 180,
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                    },
-                  },
-                }}
-              >
-                {scopeOptions.map((opt) => (
-                  <MenuItem
-                    key={opt}
-                    selected={opt === selectedScope}
-                    onClick={() => {
-                      onScopeChange?.(opt);
-                      setScopeAnchor(null);
-                    }}
-                    sx={{ fontSize: '0.8125rem', fontWeight: opt === selectedScope ? 700 : 500 }}
-                  >
-                    {opt}
-                  </MenuItem>
-                ))}
-              </Menu>
-            </Box>
-          )}
+                {opt}
+              </MenuItem>
+            ))}
+          </Menu>
         </Box>
-      )}
+      ) : null}
 
-      {/* Optional Top Alert Banner (e.g. Low Stock Alert in Branch Dashboard) */}
-      {topBanner && <Box sx={{ width: '100%' }}>{topBanner}</Box>}
+      {topBanner ? <Box sx={{ width: '100%' }}>{topBanner}</Box> : null}
 
-      {/* Main Title & Action Bar */}
       <Box
         sx={{
           display: 'flex',
@@ -247,9 +140,7 @@ export function DashboardHeader({
           {title}
         </Typography>
 
-        {/* Date Filter & Export Button */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          {/* Date Range Selector */}
           <ButtonBase
             onClick={(e) => setDateAnchor(e.currentTarget)}
             sx={{
@@ -305,7 +196,6 @@ export function DashboardHeader({
             ))}
           </Menu>
 
-          {/* Export Data Button */}
           <ActionButton
             variant="outlined"
             startIcon={<FileDownloadOutlinedIcon sx={{ fontSize: 18 }} />}

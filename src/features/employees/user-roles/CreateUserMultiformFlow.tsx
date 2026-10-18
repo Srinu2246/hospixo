@@ -8,6 +8,7 @@ import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { ProgressBar } from '@/components/shared/ui/ProgressBar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { colors } from '@/lib/theme/mui/colors';
 
 import type {
@@ -145,12 +146,7 @@ export function CreateUserMultiformFlow({
 
   const baseRoute = getBaseRoute();
 
-  // Portal container for page footer rendered outside <main>
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setFooterTarget(document.getElementById('app-shell-footer'));
-  }, []);
+  const footerTarget = useAppShellFooterTarget();
 
   // Navigate to step route helper
   const navigateToStep = (targetStep: CreateUserStep) => {
