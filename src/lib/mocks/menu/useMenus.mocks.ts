@@ -8,9 +8,11 @@ export type MenuSessionDay =
 export interface MenuSessionItem {
   id: number;
   name: string;
+  code: string;
   status: MenuSessionStatus;
   /** Display label for menu type badge (e.g. ALL). */
   menuType: string;
+  description: string;
   /** ISO timestamp used for “Updated … ago”. */
   updatedAt: string;
   /** Schedule days; empty means any day. */
@@ -48,32 +50,40 @@ export const MOCK_MENUS: MenuSessionItem[] = [
   {
     id: 1,
     name: 'Breakfast',
+    code: 'BKFAST',
     status: 'active',
     menuType: 'ALL',
+    description: 'Morning meal service featuring breakfast classics and beverages.',
     updatedAt: hoursAgo(2),
     days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
   },
   {
     id: 2,
     name: 'Lunch',
+    code: 'LUNCH',
     status: 'active',
     menuType: 'ALL',
+    description: 'Midday service with mains, sides, and beverages.',
     updatedAt: hoursAgo(5),
     days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
   },
   {
     id: 3,
     name: 'Snacks',
+    code: 'SNACKS',
     status: 'inactive',
     menuType: 'ALL',
+    description: 'Light bites and refreshments for off-peak hours.',
     updatedAt: daysAgo(1),
     days: ['saturday', 'sunday'],
   },
   {
     id: 4,
     name: 'Dinner',
+    code: 'DINNER',
     status: 'active',
     menuType: 'ALL',
+    description: 'Evening dining with full-course options.',
     updatedAt: hoursAgo(3),
     days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
   },
