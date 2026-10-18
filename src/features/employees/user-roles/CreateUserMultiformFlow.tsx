@@ -30,7 +30,7 @@ import {
 import {
   useCreateStaffUser,
   useGroupedPermissions,
-  useRoleCatalog,
+  useRoleCatalogQuery,
   useRolePermissions,
 } from '@/lib/hooks/employees/user-roles';
 
@@ -128,7 +128,7 @@ export function CreateUserMultiformFlow({
   }, [resolvedScope, currentStep, setScope, setStep]);
 
   // Load roles catalog for the resolved scope
-  const rolesCatalogQuery = useRoleCatalog(resolvedScope);
+  const rolesCatalogQuery = useRoleCatalogQuery(resolvedScope);
   const roleCatalog = useMemo(() => {
     return Array.isArray(rolesCatalogQuery.data) ? rolesCatalogQuery.data : [];
   }, [rolesCatalogQuery.data]);

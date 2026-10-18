@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function BranchManagerDashboardPage() {
-  return <DashboardScreen initialLevel="branch" hideLevelSwitcher />;
+  return <DashboardScreen initialLevel="branch" />;
 }

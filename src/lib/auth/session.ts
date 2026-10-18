@@ -35,12 +35,22 @@ export function sessionFromLoginUser(account: LoginUser): SidebarSession {
   };
 }
 
+/** First landing route per role — matches the first sidebar item (like Dashboard for managers). */
 export function homePathForRole(role: string): string {
   const key = normalizeRoleKey(role);
   const segment = rolePathSegment(role);
-  if (key === 'waiter') return `/${segment}/pos/captain-flow`;
+
+  // Captain / waiter → Tables (first WAITER_SIDEBAR item)
+  if (key === 'waiter') return `/${segment}/pos/captain-flow/tables`;
+  // Kitchen staff → Kitchen Display (first KITCHEN_SIDEBAR item)
+  if (key === 'kitchen') return `/${segment}/management/kitchen-display`;
+  // Chef → full-screen KDS (same screen, no sidebar)
+  if (key === 'chef') return `/${segment}/management/kitchen-display`;
+  // Cashier → POS Dashboard (first CASHIER_SIDEBAR item)
+  if (key === 'cashier') return `/${segment}/pos/point-of-sale/dashboard`;
   if (key === 'company') return '/company/dashboard';
   if (key === 'organization' || key === 'super_admin') return '/organization/dashboard';
+  // Branch manager and other branch-scoped roles → Dashboard
   return `/${segment}/dashboard`;
 }
 
@@ -76,6 +86,9 @@ function displayRole(role: string): string {
   const key = normalizeRoleKey(role);
   if (key === 'branch_manager') return 'Branch manager';
   if (key === 'waiter') return 'Captain';
+  if (key === 'cashier') return 'Cashier';
+  if (key === 'kitchen') return 'Kitchen staff';
+  if (key === 'chef') return 'Chef';
   if (key === 'company') return 'Company admin';
   if (key === 'organization') return 'Organisation admin';
   if (key === 'super_admin') return 'Super admin';

@@ -203,15 +203,22 @@ function renderSidebarIcon(iconKey?: string, name?: string): React.ReactElement 
 // Active route matching
 // ----------------------------------------------------------------------
 
-function isSidebarItemActive(effectivePathname: string, href?: string): boolean {
+function stripScopePrefix(path: string): string {
+  return path.replace(/^\/[^/]+/, '');
+}
+
+/**
+ * Whether `href` could be considered active for `effectivePathname`.
+ * Sibling list items (e.g. All Companies vs Company Analytics) both match via
+ * prefix — callers must pick the longest match so only one stays highlighted.
+ */
+function doesSidebarHrefMatch(effectivePathname: string, href?: string): boolean {
   if (!href || !effectivePathname) return false;
   if (effectivePathname === href) return true;
 
-  // Handle path suffixes (e.g. branch-agnostic /pos/point-of-sale/tables matches /indiranagar/pos/point-of-sale/tables)
-  const cleanHref = href.replace(/^\/[^/]+/, '');
-  const cleanCurrent = effectivePathname.replace(/^\/[^/]+/, '');
+  const cleanHref = stripScopePrefix(href);
+  const cleanCurrent = stripScopePrefix(effectivePathname);
 
-  // Exact match on normalized branch-agnostic path
   if (cleanHref && cleanCurrent === cleanHref) return true;
 
   // POS Dashboard equivalence (/pos/point-of-sale and /pos/point-of-sale/dashboard)
@@ -222,7 +229,7 @@ function isSidebarItemActive(effectivePathname: string, href?: string): boolean 
     return true;
   }
 
-  // Menu Creation equivalence (/menu/menu-creation matches /menu/create-menu-item and /menu/menu-creation/create)
+  // Menu Creation equivalence (/menu/menu-creation matches create / wizard routes)
   if (
     cleanHref === '/menu/menu-creation' &&
     (cleanCurrent === '/menu/create-menu-item' ||
@@ -232,18 +239,46 @@ function isSidebarItemActive(effectivePathname: string, href?: string): boolean 
     return true;
   }
 
-  // Nested sub-route match with strict '/' boundary (e.g. /reservation/RES-01 matches /reservation)
-  // Avoid matching parent sections (like /pos/point-of-sale) when viewing specific sibling features
+  // Nested sub-route match with strict '/' boundary (e.g. /reservation/RES-01 → /reservation)
   if (
     cleanHref &&
     cleanHref !== '/' &&
     cleanHref !== '/pos/point-of-sale' &&
-    (effectivePathname.startsWith(href + '/') || cleanCurrent.startsWith(cleanHref + '/'))
+    (effectivePathname.startsWith(`${href}/`) || cleanCurrent.startsWith(`${cleanHref}/`))
   ) {
     return true;
   }
 
   return false;
+}
+
+/** Prefer exact path, then longest matching href so parent list items don't stay lit on siblings. */
+function resolveBestActiveHref(
+  effectivePathname: string,
+  candidates: readonly (string | undefined)[],
+): string | null {
+  let best: string | null = null;
+  let bestScore = -1;
+
+  for (const href of candidates) {
+    if (!href || !doesSidebarHrefMatch(effectivePathname, href)) continue;
+
+    const cleanHref = stripScopePrefix(href);
+    const cleanCurrent = stripScopePrefix(effectivePathname);
+    const exact = effectivePathname === href || (Boolean(cleanHref) && cleanCurrent === cleanHref);
+    const score = (exact ? 10_000 : 0) + href.length;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = href;
+    }
+  }
+
+  return best;
+}
+
+function isSidebarItemActive(effectivePathname: string, href?: string): boolean {
+  return doesSidebarHrefMatch(effectivePathname, href);
 }
 
 // ----------------------------------------------------------------------
@@ -387,10 +422,38 @@ export function Sidebar({
   // Open 15.5rem, collapsed icon rail 4.75rem — same widths as the main access sidebar.
   const sidebarWidth = isOpen ? 248 : 76;
 
+  // Longest / exact match among visible nav hrefs — avoids All Companies + Analytics both lighting up.
+  // When several items share the same href (e.g. Kitchen Display / Incoming / Preparing), only the first stays active.
+  const { activeHref, activeItemKey } = useMemo(() => {
+    const flatItems: SidebarItem[] = [];
+    for (const entry of navigationEntries) {
+      if (isSidebarSection(entry)) {
+        flatItems.push(...entry.items);
+      } else {
+        flatItems.push(entry);
+      }
+    }
+    if (activeSubFlow?.items.length) {
+      flatItems.push(...activeSubFlow.items);
+    }
+
+    const href = resolveBestActiveHref(
+      effectivePathname,
+      flatItems.map((item) => item.href),
+    );
+    const firstMatch = href ? flatItems.find((item) => item.href === href) : undefined;
+    const key = firstMatch
+      ? `${String(firstMatch.id ?? firstMatch.name)}::${firstMatch.href ?? ''}`
+      : null;
+
+    return { activeHref: href, activeItemKey: key };
+  }, [navigationEntries, activeSubFlow, effectivePathname]);
+
   // Render individual navigation item link/button
   const renderNavItem = (item: SidebarItem) => {
     const hasChildren = item.items && item.items.length > 0;
-    const active = isSidebarItemActive(effectivePathname, item.href);
+    const itemKey = `${String(item.id ?? item.name)}::${item.href ?? ''}`;
+    const active = Boolean(item.href) && item.href === activeHref && itemKey === activeItemKey;
 
     const handleClick = (e: React.MouseEvent) => {
       if (hasChildren) {

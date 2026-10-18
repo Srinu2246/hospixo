@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Avoid dev-only double mount that aborts in-flight React Query fetches (shows as "canceled").
+  reactStrictMode: false,
   reactCompiler: true,
   turbopack: {},
   webpack: (config, { dev }) => {
