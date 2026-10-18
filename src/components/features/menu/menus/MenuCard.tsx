@@ -98,21 +98,29 @@ export function MenuCard({
         ...sx,
       }}
     >
-      <Typography
-        component="span"
-        sx={{
-          display: 'block',
-          fontSize: '0.6875rem',
-          fontWeight: 600,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          color: colors.text.secondary,
-          mb: 0.75,
-        }}
-      >
-        Menu type:
-      </Typography>
-      <TagsGrid tags={[menu.menuType]} variantType="info" size="small" pill maxVisible={4} />
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
+        <Typography
+          component="span"
+          sx={{
+            flexShrink: 0,
+            fontSize: '0.6875rem',
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: colors.text.secondary,
+          }}
+        >
+          Menu type:
+        </Typography>
+        <TagsGrid
+          tags={[menu.menuType]}
+          variantType="info"
+          size="small"
+          pill
+          maxVisible={4}
+          sx={{ flex: 1, minWidth: 0 }}
+        />
+      </Stack>
     </Card>
   );
 }

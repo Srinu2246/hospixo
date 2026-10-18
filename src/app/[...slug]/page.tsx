@@ -440,7 +440,7 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     },
   },
 
-  // 16. Menus (meal sessions): .../menu/menus (company | branch-manager | organization)
+  // 16. Menus (meal sessions): .../menu/menus[/create|/:id/edit]
   {
     name: 'Menus',
     match: (path) => path.includes('menu/menus'),
