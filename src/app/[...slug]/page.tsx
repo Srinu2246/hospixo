@@ -362,7 +362,7 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     },
   },
 
-  // 12. Main Dashboard: .../dashboard
+  // 12. Main Dashboard: .../dashboard (level from role + path inside DashboardScreen)
   {
     name: 'Main Dashboard',
     match: (path) => path.endsWith('dashboard') && !path.includes('pos/point-of-sale'),
