@@ -31,20 +31,21 @@ export function ConfigurePermissionsStepTwo({
 }: Readonly<ConfigurePermissionsStepTwoProps>) {
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2.5, pb: 4 }}>
-      {/* Configure Permissions Main Card (24px padding via shared Card) */}
+      {/* Configure Permissions Main Card */}
       <Card
         variant="outlined"
         padding={3}
         sx={{
-          borderRadius: '12px',
+          borderRadius: '16px',
           borderColor: (theme) =>
             theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
           bgcolor: (theme) =>
             theme.palette.mode === 'dark' ? colors.surface.dark : colors.surface.default,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2.5,
+          gap: 3,
           boxShadow: 'none',
+          p: { xs: 2.5, sm: 3.5 },
         }}
       >
         <Typography
@@ -63,8 +64,7 @@ export function ConfigurePermissionsStepTwo({
           sx={{
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-            columnGap: { xs: 2, md: 4 },
-            rowGap: 2.5,
+            gap: { xs: 2, md: 3 },
           }}
         >
           <Input
@@ -73,6 +73,14 @@ export function ConfigurePermissionsStepTwo({
             onChange={(e) => onRoleNameChange?.(e.target.value)}
             placeholder="e.g. Branch Manager"
             fullWidth
+            sx={{
+              '& label': {
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: colors.text.secondary,
+                letterSpacing: '0.04em',
+              },
+            }}
           />
           <Input
             label="DESCRIPTION"
@@ -80,6 +88,14 @@ export function ConfigurePermissionsStepTwo({
             onChange={(e) => onRoleDescriptionChange?.(e.target.value)}
             placeholder="e.g. Manages staff and inventory at a specific branch level."
             fullWidth
+            sx={{
+              '& label': {
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: colors.text.secondary,
+                letterSpacing: '0.04em',
+              },
+            }}
           />
         </Box>
 
@@ -87,10 +103,10 @@ export function ConfigurePermissionsStepTwo({
         <Box sx={{ mt: 0.5 }}>
           <Typography
             sx={{
-              fontSize: '1rem',
+              fontSize: '1.125rem',
               fontWeight: 700,
               color: 'text.primary',
-              mb: 1.5,
+              mb: 2,
             }}
           >
             Permissions

@@ -15,8 +15,10 @@
     "@babel/preset-typescript",
     "@locator/babel-jsx",
     "@locator/webpack-loader",
-    "@treelocator/runtime"
+    "@treelocator/runtime",
+    "lint-staged"
   ],
+  "husky": false,
   "rules": {
     "files": "error",
     "exports": "error",

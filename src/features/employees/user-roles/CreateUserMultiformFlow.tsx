@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
@@ -10,17 +10,29 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 
-import type {
-  CreateUserStep,
-  CreateUserFormValues,
-  RoleTemplateItem,
-  ScopeType,
+import {
+  resolveRoleId,
+  type CreateUserStep,
+  type CreateUserFormValues,
+  type RoleTemplateItem,
+  type PermissionCategory,
+  type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { useCreateUserStore } from '@/stores/createUserStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
-import { mergePermissionCategories } from '@/lib/helpers/employees/userRolesHelpers';
-import { useCreateStaffUser, useGroupedPermissions } from '@/lib/hooks/employees/user-roles';
+import {
+  autoEnableRolePermissions,
+  extractAssignedPermissionKeys,
+  mergePermissionCategories,
+} from '@/lib/helpers/employees/userRolesHelpers';
+import {
+  useCreateStaffUser,
+  useGroupedPermissions,
+  useRoleCatalogQuery,
+  useRolePermissions,
+} from '@/lib/hooks/employees/user-roles';
 
 import {
   RoleTemplateSelection,
@@ -40,7 +52,7 @@ export interface CreateUserMultiformFlowProps {
 }
 
 const WIZARD_STEPS = [
-  { id: 'step-1', label: 'Create user' },
+  { id: 'step-1', label: 'Create User' },
   { id: 'step-2', label: 'Configure Permissions' },
   { id: 'step-3', label: 'Review & Save' },
 ] as const;
@@ -73,6 +85,7 @@ export function CreateUserMultiformFlow({
   const {
     step: storeStep,
     selectedTemplate,
+    selectedRoleId,
     formValues,
     categories,
     isSubmitting,
@@ -114,11 +127,126 @@ export function CreateUserMultiformFlow({
     setStep(currentStep);
   }, [resolvedScope, currentStep, setScope, setStep]);
 
+  // Load roles catalog for the resolved scope
+  const rolesCatalogQuery = useRoleCatalogQuery(resolvedScope);
+  const roleCatalog = useMemo(() => {
+    return Array.isArray(rolesCatalogQuery.data) ? rolesCatalogQuery.data : [];
+  }, [rolesCatalogQuery.data]);
+
+  // Active role name
+  const activeRoleName = useMemo(() => {
+    return formValues.role || selectedTemplate?.roleName || 'Branch Manager';
+  }, [formValues.role, selectedTemplate?.roleName]);
+
+  // Find matching catalog item
+  const currentRoleCatalogItem = useMemo(() => {
+    return roleCatalog.find(
+      (item) =>
+        item.name.toLowerCase() === activeRoleName.toLowerCase() ||
+        item.code?.toLowerCase() === activeRoleName.toLowerCase() ||
+        (selectedRoleId != null && String(item.id) === String(selectedRoleId)),
+    );
+  }, [roleCatalog, activeRoleName, selectedRoleId]);
+
+  // Resolve role ID:
+  // 1. From selectedRoleId in store
+  // 2. From matched catalog item id
+  // 3. resolveRoleId helper matching catalog name/code/id
+  // 4. selectedTemplate.id if numeric
+  const resolvedRoleId = useMemo(() => {
+    if (selectedRoleId != null && selectedRoleId !== '') {
+      return selectedRoleId;
+    }
+    if (currentRoleCatalogItem?.id != null) {
+      return currentRoleCatalogItem.id;
+    }
+    const resolved = resolveRoleId(activeRoleName, roleCatalog);
+    if (resolved != null) {
+      return resolved;
+    }
+    if (selectedTemplate?.id && !isNaN(Number(selectedTemplate.id))) {
+      return selectedTemplate.id;
+    }
+    return undefined;
+  }, [selectedRoleId, currentRoleCatalogItem, activeRoleName, roleCatalog, selectedTemplate]);
+
+  // Resolve role description: catalog item -> selectedTemplate -> fallback
+  const resolvedRoleDescription = useMemo(() => {
+    return (
+      currentRoleCatalogItem?.description ||
+      selectedTemplate?.description ||
+      'Manages staff and inventory at a specific branch level.'
+    );
+  }, [currentRoleCatalogItem?.description, selectedTemplate]);
+
+  // Query assigned effective permissions for the resolved role ID
+  const rolePermissionsQuery = useRolePermissions(resolvedRoleId, {
+    scope: resolvedScope,
+    companyId: contextCompanyId ?? accountCompanyId,
+    branchId: contextBranchId ?? accountBranchId,
+  });
+
+  // Synchronize role description when catalog item description becomes available
+  const lastSyncedRoleRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentRoleCatalogItem?.description) return;
+    if (lastSyncedRoleRef.current === activeRoleName) return;
+
+    setRoleAndDescription(activeRoleName, currentRoleCatalogItem.description, resolvedRoleId);
+    lastSyncedRoleRef.current = activeRoleName;
+  }, [activeRoleName, currentRoleCatalogItem?.description, resolvedRoleId, setRoleAndDescription]);
+
+  // Auto-enable permissions assigned to this role in categories
+  const appliedRolePermissionsRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!groupedPermissions.data?.length) return;
     const current = useCreateUserStore.getState().categories;
-    setCategories(mergePermissionCategories(current, groupedPermissions.data));
-  }, [groupedPermissions.data, setCategories]);
+    const merged = mergePermissionCategories(current, groupedPermissions.data);
+    if (rolePermissionsQuery.data && resolvedRoleId != null) {
+      const assignedKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);
+      if (assignedKeys.size > 0) {
+        setCategories(autoEnableRolePermissions(merged, assignedKeys));
+        appliedRolePermissionsRef.current = String(resolvedRoleId);
+        return;
+      }
+    }
+    setCategories(merged);
+  }, [groupedPermissions.data, rolePermissionsQuery.data, resolvedRoleId, setCategories]);
+
+  useEffect(() => {
+    const roleKey = resolvedRoleId != null ? String(resolvedRoleId) : null;
+    if (!roleKey || !rolePermissionsQuery.data) return;
+
+    // If categories are empty but rolePermissionsQuery returns an array of categories
+    if (
+      categories.length === 0 &&
+      Array.isArray(rolePermissionsQuery.data) &&
+      rolePermissionsQuery.data.length > 0
+    ) {
+      const first = rolePermissionsQuery.data[0] as Record<string, unknown>;
+      if (
+        first &&
+        typeof first === 'object' &&
+        'permissions' in first &&
+        Array.isArray(first.permissions)
+      ) {
+        setCategories(rolePermissionsQuery.data as PermissionCategory[]);
+        appliedRolePermissionsRef.current = roleKey;
+        return;
+      }
+    }
+
+    if (categories.length === 0) return;
+
+    if (appliedRolePermissionsRef.current !== roleKey) {
+      const assignedKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);
+      if (assignedKeys.size > 0) {
+        setCategories((prev) => autoEnableRolePermissions(prev, assignedKeys));
+      }
+      appliedRolePermissionsRef.current = roleKey;
+    }
+  }, [resolvedRoleId, rolePermissionsQuery.data, categories.length, setCategories]);
 
   // Toast feedback state
   const [toastFeedback, setToastFeedback] = useState<{
@@ -146,6 +274,7 @@ export function CreateUserMultiformFlow({
 
   const baseRoute = getBaseRoute();
 
+  // Portal container for page footer rendered outside <main>
   const footerTarget = useAppShellFooterTarget();
 
   // Navigate to step route helper
@@ -243,6 +372,14 @@ export function CreateUserMultiformFlow({
 
   const handleFooterNext = () => {
     if (currentStep === 'permissions') {
+      const roleKey = resolvedRoleId != null ? String(resolvedRoleId) : null;
+      if (rolePermissionsQuery.data && roleKey && appliedRolePermissionsRef.current !== roleKey) {
+        const assignedKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);
+        if (assignedKeys.size > 0) {
+          setCategories((prev) => autoEnableRolePermissions(prev, assignedKeys));
+          appliedRolePermissionsRef.current = roleKey;
+        }
+      }
       navigateToStep('review');
     } else if (currentStep === 'review') {
       handleFinalSubmit();
@@ -287,10 +424,25 @@ export function CreateUserMultiformFlow({
             display: 'flex',
             flexDirection: 'column',
             position: 'relative',
+            flex: 1,
           }}
         >
-          {/* Top Header & Breadcrumbs */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mb: 3, flexShrink: 0 }}>
+          {/* Top Breadcrumb Bar - White background ONLY for breadcrumbs with solid light black bottom line and no padding on the line */}
+          <Box
+            sx={{
+              mt: { [screen.mobile]: -2, [screen.desktop]: -3 },
+              mx: { [screen.mobile]: -2, [screen.desktop]: -3 },
+              px: { [screen.mobile]: 2, [screen.desktop]: 3 },
+              py: 1.5,
+              bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
+              borderBottom: '1px solid',
+              borderColor: (theme) =>
+                theme.palette.mode === 'dark' ? theme.palette.divider : 'rgba(0, 0, 0, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
             <Breadcrumbs
               items={[
                 { label: 'Users & Roles', onClick: handleExitFlow },
@@ -306,8 +458,10 @@ export function CreateUserMultiformFlow({
                 },
               ]}
             />
+          </Box>
 
-            {/* Global Reusable Stepped Progress Bar */}
+          {/* Global Reusable Stepped Progress Bar */}
+          <Box sx={{ my: 3, flexShrink: 0 }}>
             <ProgressBar
               variant="stepped"
               steps={WIZARD_STEPS}
@@ -334,14 +488,11 @@ export function CreateUserMultiformFlow({
                 categories={categories}
                 onTogglePermission={togglePermission}
                 onToggleCategoryAll={toggleCategoryAll}
-                roleName={formValues.role || 'Branch Manager'}
-                roleDescription={
-                  selectedTemplate?.description ||
-                  'Manages staff and inventory at a specific branch level.'
-                }
+                roleName={activeRoleName}
+                roleDescription={selectedTemplate?.description || resolvedRoleDescription}
                 onRoleNameChange={(name) => updateFormField('role', name)}
                 onRoleDescriptionChange={(desc) =>
-                  setRoleAndDescription(formValues.role || 'Branch Manager', desc)
+                  setRoleAndDescription(activeRoleName, desc, resolvedRoleId)
                 }
               />
             )}
@@ -349,7 +500,20 @@ export function CreateUserMultiformFlow({
             {currentStep === 'review' && (
               <ReviewAndSaveStepThree
                 formValues={formValues}
-                selectedTemplate={selectedTemplate}
+                selectedTemplate={
+                  selectedTemplate
+                    ? {
+                        ...selectedTemplate,
+                        description: selectedTemplate.description || resolvedRoleDescription,
+                      }
+                    : {
+                        id: resolvedRoleId ? String(resolvedRoleId) : 'custom-role',
+                        title: activeRoleName,
+                        description: resolvedRoleDescription,
+                        icon: 'restaurant',
+                        roleName: activeRoleName,
+                      }
+                }
                 categories={categories}
                 onEditSection={(section) => navigateToStep(section)}
               />

@@ -33,6 +33,7 @@ import {
   type PermissionCategory,
   type RoleCatalogItem,
   type ScopeType,
+  type ScopedRolePermissionsParams,
   type StaffProfileFormValues,
   type UserRoleFormValues,
   type UserRoleItem,
@@ -454,13 +455,54 @@ export function useCreateCustomRole() {
 // Role templates and grouped permissions (read)
 // ---------------------------------------------------------------------------
 
-export function useRoleCatalogQuery(scope: ScopeType = 'company') {
+export function useRoleCatalogQuery(scope?: ScopeType) {
   return useQuery({
-    queryKey: ['api', ApiUrlsV1.roles.list, scope],
+    queryKey: ['api', ApiUrlsV1.roles.list, scope ?? 'all'],
     queryFn: async ({ signal }) =>
       parseRoleCatalog(await api.get<unknown>(ApiUrlsV1.roles.list, undefined, signal)),
     staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
+  });
+}
+
+export function useRolePermissions(
+  roleId: string | number | undefined | null,
+  options?: {
+    scope?: ScopeType | string;
+    companyId?: number | string | null;
+    branchId?: number | string | null;
+  },
+) {
+  const scopeType = options?.scope || 'branch';
+  const companyId = options?.companyId;
+  const branchId = options?.branchId;
+
+  return useQuery({
+    queryKey: [
+      'api',
+      'roles',
+      roleId != null && roleId !== '' ? String(roleId) : 'none',
+      'permissions',
+      scopeType,
+      companyId != null ? String(companyId) : 'all',
+      branchId != null ? String(branchId) : 'all',
+    ],
+    queryFn: async ({ signal }) => {
+      if (roleId == null || roleId === '') return null;
+      const params: ScopedRolePermissionsParams = {
+        scope_type: (scopeType as ScopeType) || 'branch',
+        ...(companyId != null && companyId !== ''
+          ? { company_id: Number(companyId) || String(companyId) }
+          : {}),
+        ...(branchId != null && branchId !== ''
+          ? { branch_id: Number(branchId) || String(branchId) }
+          : {}),
+        page_size: 100,
+      };
+      return api.get<unknown>(rolePermissionsPath(roleId), params, signal);
+    },
+    enabled: roleId != null && roleId !== '',
+    staleTime: 60_000,
   });
 }
 

@@ -486,8 +486,49 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
     return COMPANY_ROLE_TEMPLATES;
   }
 
+  const rolePermissionsMatch = request.path.match(/^\/v1\/roles\/([^/?]+)\/permissions(?:\?.*)?$/);
+  if (rolePermissionsMatch) {
+    if (request.method === 'GET') {
+      const roleIdNum = Number(rolePermissionsMatch[1]) || 12;
+      return {
+        success: true,
+        data: {
+          role_id: roleIdNum,
+          scope_type: 'branch',
+          organization_id: 1,
+          inherited_permission_codes: [],
+          permission_codes: [
+            'dashboard.view',
+            'dashboard.analytics',
+            'users.create',
+            'users.edit',
+            'users.delete',
+            'branches.view',
+            'branches.manage',
+          ],
+          total_permissions: 7,
+          page: 1,
+          page_size: 100,
+          total_pages: 1,
+          scope_adjustments: [],
+        },
+      };
+    }
+    if (request.method === 'PUT') {
+      return { success: true };
+    }
+  }
+
   if (request.path.startsWith('/v1/roles') && request.method === 'GET') {
-    return INITIAL_USERS.map((user, index) => ({ id: index + 1, name: user.role }));
+    return INITIAL_USERS.map((user, index) => {
+      const template = COMPANY_ROLE_TEMPLATES.find((t) => t.roleName === user.role);
+      return {
+        id: index + 1,
+        name: user.role,
+        description:
+          template?.description ?? `Manages ${user.role} responsibilities and permissions.`,
+      };
+    });
   }
 
   const usersMatch = request.path.match(/^\/v1\/users(?:\/([^/]+))?/);
