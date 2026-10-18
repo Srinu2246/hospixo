@@ -4,6 +4,12 @@ const nextConfig = {
   reactStrictMode: false,
   reactCompiler: true,
   turbopack: {},
+  env: {
+    NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY:
+      process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY || process.env.VITE_GROWTHBOOK_CLIENT_KEY || '',
+    NEXT_PUBLIC_GROWTHBOOK_API_HOST:
+      process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST || 'https://cdn.growthbook.io',
+  },
   webpack: (config, { dev }) => {
     if (dev) {
       config.module.rules.push({
