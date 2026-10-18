@@ -1,4 +1,6 @@
-export type KnownFeatureFlag = 'new-test-generation' | (string & {});
+import { FEATURE_FLAG_DEFAULTS, type FeatureFlagName } from './featureFlags';
+
+export type KnownFeatureFlag = FeatureFlagName | 'new-test-generation' | (string & {});
 
 export type FeatureFlagKey = KnownFeatureFlag;
 
@@ -19,8 +21,10 @@ export type GrowthBookAttributes = {
 };
 
 /**
- * Safe default values when GrowthBook is offline, network fails, or flag is unset.
+ * Safe defaults when GrowthBook is offline, network fails, or a flag is unset.
+ * Nav flags come from FEATURE_FLAG_DEFAULTS (VERSION_1 MVP).
  */
 export const DEFAULT_FEATURE_FLAGS: Record<string, boolean> = {
+  ...FEATURE_FLAG_DEFAULTS,
   'new-test-generation': false,
 };

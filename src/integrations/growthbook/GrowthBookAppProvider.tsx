@@ -2,23 +2,24 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { GrowthBookProvider } from '@growthbook/growthbook-react';
+
+import { useSidebarStore } from '@/stores/sidebarStore';
+
 import {
   buildGrowthBookAttributes,
   getGrowthBook,
   initGrowthBook,
   refreshGrowthBook,
-  syncGrowthBookToStore,
 } from './growthbookClient';
-import { useSidebarStore } from '@/stores/sidebarStore';
 
 export type GrowthBookAppProviderProps = {
   children: ReactNode;
 };
 
 /**
- * Centrally manages GrowthBook feature flags at the application level.
- * Synchronizes targeting attributes with user, role, company, and branch context,
- * and maintains the global Zustand feature flag store.
+ * App-level GrowthBook setup.
+ * Loads features once; on login / context change only updates targeting attributes.
+ * Components read flags via useFeatureFlag / FeatureGate (SDK hooks).
  */
 export function GrowthBookAppProvider({ children }: GrowthBookAppProviderProps) {
   const role = useSidebarStore((state) => state.role);
@@ -28,14 +29,8 @@ export function GrowthBookAppProvider({ children }: GrowthBookAppProviderProps) 
 
   const [gb] = useState(() => getGrowthBook());
 
-  // Initialize GrowthBook once on mount with streaming support and refresh on window focus
   useEffect(() => {
     void initGrowthBook(gb);
-
-    // Listen for real-time SSE streaming changes
-    gb.setRenderer(() => {
-      syncGrowthBookToStore(gb);
-    });
 
     const handleFocusOrReconnect = () => {
       void refreshGrowthBook(gb);
@@ -47,20 +42,19 @@ export function GrowthBookAppProvider({ children }: GrowthBookAppProviderProps) 
     return () => {
       window.removeEventListener('focus', handleFocusOrReconnect);
       window.removeEventListener('online', handleFocusOrReconnect);
-      gb.setRenderer(() => {});
     };
   }, [gb]);
 
-  // Keep targeting attributes in sync when authentication, role, or branch changes
+  // Login / role / branch changes → retarget only (no Zustand flag cache)
   useEffect(() => {
-    const updatedAttrs = buildGrowthBookAttributes({
-      role,
-      context,
-      user,
-      account: account ?? undefined,
-    });
-    gb.setAttributes(updatedAttrs);
-    syncGrowthBookToStore(gb);
+    gb.setAttributes(
+      buildGrowthBookAttributes({
+        role,
+        context,
+        user,
+        account: account ?? undefined,
+      }),
+    );
   }, [gb, role, context, user, account]);
 
   return <GrowthBookProvider growthbook={gb}>{children}</GrowthBookProvider>;

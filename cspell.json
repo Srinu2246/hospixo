@@ -101,6 +101,11 @@
     "BKFAST",
     "growthbook",
     "Growthbook",
-    "GrowthBook"
+    "GrowthBook",
+    "featurename",
+    "subfeature",
+    "retarget",
+    "unbilled",
+    "providerspecific"
   ]
 }

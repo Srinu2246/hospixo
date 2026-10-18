@@ -1,19 +1,18 @@
 import { GrowthBook } from '@growthbook/growthbook-react';
+
 import type { SidebarSession } from '@/lib/auth/session';
-import { useFeatureFlagStore } from '@/stores/featureFlagStore';
-import type { GrowthBookAttributes, FlagJSONValue } from './types';
+
+import type { GrowthBookAttributes } from './types';
 import { DEFAULT_FEATURE_FLAGS } from './types';
 
 let growthbookInstance: GrowthBook | null = null;
 
 export function getGrowthBookClientKey(): string {
-  return (
-    process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY || process.env.VITE_GROWTHBOOK_CLIENT_KEY || ''
-  );
+  return process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY?.trim() || '';
 }
 
 export function getGrowthBookApiHost(): string {
-  return process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST || 'https://cdn.growthbook.io';
+  return process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST?.trim() || '';
 }
 
 /**
@@ -67,23 +66,26 @@ export function buildGrowthBookAttributes(
   };
 }
 
-/**
- * Returns the singleton GrowthBook instance on the client.
- */
+function growthBookConfig(initialAttributes?: GrowthBookAttributes) {
+  const apiHost = getGrowthBookApiHost();
+  const clientKey = getGrowthBookClientKey();
+
+  return {
+    ...(apiHost ? { apiHost } : {}),
+    ...(clientKey ? { clientKey } : {}),
+    attributes: initialAttributes ?? {},
+  };
+}
+
+/** Singleton GrowthBook client (browser). SSR gets a fresh instance. */
 export function getGrowthBook(initialAttributes?: GrowthBookAttributes): GrowthBook {
   if (typeof window === 'undefined') {
-    return new GrowthBook({
-      apiHost: getGrowthBookApiHost(),
-      clientKey: getGrowthBookClientKey(),
-      attributes: initialAttributes ?? {},
-    });
+    return new GrowthBook(growthBookConfig(initialAttributes));
   }
 
   if (!growthbookInstance) {
     growthbookInstance = new GrowthBook({
-      apiHost: getGrowthBookApiHost(),
-      clientKey: getGrowthBookClientKey(),
-      attributes: initialAttributes ?? {},
+      ...growthBookConfig(initialAttributes),
       enableDevMode: process.env.NODE_ENV === 'development',
     });
   } else if (initialAttributes) {
@@ -94,66 +96,37 @@ export function getGrowthBook(initialAttributes?: GrowthBookAttributes): GrowthB
 }
 
 /**
- * Syncs evaluated feature flags and values from GrowthBook into the Zustand store.
- * Components subscribed to the store avoid re-evaluating flags on every render.
- */
-export function syncGrowthBookToStore(gb: GrowthBook): void {
-  const features = gb.getFeatures();
-  const flags: Record<string, boolean> = {};
-  const values: Record<string, FlagJSONValue> = {};
-
-  // Include known default flags
-  for (const key of Object.keys(DEFAULT_FEATURE_FLAGS)) {
-    flags[key] = gb.isOn(key);
-    values[key] = gb.getFeatureValue(key, null);
-  }
-
-  // Include all features returned by GrowthBook
-  for (const key of Object.keys(features)) {
-    flags[key] = gb.isOn(key);
-    values[key] = gb.getFeatureValue(key, null);
-  }
-
-  useFeatureFlagStore.getState().setFlags(flags, values);
-}
-
-/**
- * Initializes GrowthBook features and connects to real-time streaming (SSE).
- * Toggles and rule changes in the GrowthBook dashboard reflect immediately.
+ * Loads features and enables streaming so dashboard toggles apply live.
+ * GrowthBookProvider handles React re-renders — no Zustand mirror.
  */
 export async function initGrowthBook(gb: GrowthBook): Promise<void> {
   const clientKey = getGrowthBookClientKey();
-  if (!clientKey) {
+  const apiHost = getGrowthBookApiHost();
+  if (!clientKey || !apiHost) {
     if (process.env.NODE_ENV === 'development') {
       console.warn(
-        '[GrowthBook] NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY is missing. Feature flags will use fallback defaults.',
+        '[GrowthBook] NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY or NEXT_PUBLIC_GROWTHBOOK_API_HOST is missing. Feature flags will use fallback defaults.',
       );
     }
-    syncGrowthBookToStore(gb);
     return;
   }
 
   try {
     await gb.init({ streaming: true });
-    syncGrowthBookToStore(gb);
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[GrowthBook] Initialization failed, using fallbacks:', error);
     }
-    syncGrowthBookToStore(gb);
   }
 }
 
-/**
- * Refreshes feature flags on demand from the GrowthBook API.
- */
+/** Refreshes feature definitions from the GrowthBook API. */
 export async function refreshGrowthBook(gb?: GrowthBook): Promise<void> {
   const client = gb ?? growthbookInstance;
   if (!client) return;
 
   try {
     await client.refreshFeatures();
-    syncGrowthBookToStore(client);
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[GrowthBook] Refresh failed:', error);
@@ -161,9 +134,7 @@ export async function refreshGrowthBook(gb?: GrowthBook): Promise<void> {
   }
 }
 
-/**
- * Imperative check for evaluating a flag outside React components.
- */
+/** Imperative flag check outside React (prefer useFeatureFlag in components). */
 export function evalFeatureFlag(key: string, defaultValue?: boolean): boolean {
   const gb = growthbookInstance ?? getGrowthBook();
   const result = gb.evalFeature(key);

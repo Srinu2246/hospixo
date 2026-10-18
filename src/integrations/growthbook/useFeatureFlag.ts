@@ -1,34 +1,31 @@
 'use client';
 
-import { useFeatureFlagStore } from '@/stores/featureFlagStore';
+import { useFeatureIsOn, useFeatureValue, useGrowthBook } from '@growthbook/growthbook-react';
+
 import type { FeatureFlagKey, FlagJSONValue } from './types';
 import { DEFAULT_FEATURE_FLAGS } from './types';
 
 /**
- * Returns whether a feature flag is enabled directly from the Zustand store.
- * Subscribes to the specific flag key so the component only re-renders
- * when this flag changes, avoiding redundant SDK evaluations.
+ * Whether a feature flag is on. Reads from GrowthBook (source of truth).
+ * Falls back to defaults when the flag is not yet loaded / unknown.
  */
 export function useFeatureFlag(key: FeatureFlagKey, fallbackValue?: boolean): boolean {
-  return useFeatureFlagStore((state) => {
-    const flagVal = state.flags[key];
-    if (flagVal !== undefined) return flagVal;
-    return fallbackValue ?? DEFAULT_FEATURE_FLAGS[key] ?? false;
-  });
+  const flagKey = String(key);
+  const fallback = fallbackValue ?? DEFAULT_FEATURE_FLAGS[flagKey] ?? false;
+  const isOn = useFeatureIsOn(flagKey);
+  const gb = useGrowthBook();
+  const known = Boolean(gb?.getFeatures()?.[flagKey]);
+
+  if (!known) return fallback;
+  return isOn;
 }
 
 /**
- * Returns the typed value of a feature flag directly from the Zustand store.
+ * Typed feature value from GrowthBook. Prefer this for non-boolean variants.
  */
 export function useFeatureFlagValue<T extends FlagJSONValue>(
   key: FeatureFlagKey,
   fallbackValue: T,
 ): T {
-  return useFeatureFlagStore((state) => {
-    const value = state.values[key];
-    if (value !== undefined && value !== null) {
-      return value as T;
-    }
-    return fallbackValue;
-  });
+  return useFeatureValue(String(key), fallbackValue) as T;
 }
