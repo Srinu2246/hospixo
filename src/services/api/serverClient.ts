@@ -348,6 +348,7 @@ function pathUsesSessionBearer(path: string): boolean {
     ApiUrlsV1.organization.platformOrganizations,
     ApiUrlsV1.organization.platformOrganizationsV2,
     ApiUrlsV1.restaurant.branches,
+    ApiUrlsV1.restaurant.branchMenus.root,
     ApiUrlsV1.restaurant.gstRates,
     ApiUrlsV1.restaurant.menuCategories.list,
     ApiUrlsV1.restaurant.menuItems.list,
