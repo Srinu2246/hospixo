@@ -81,7 +81,17 @@ export function MobileNumberInput({
 
   // Handle phone number input
   const handlePhoneChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onPhoneNumberChange?.(e.target.value);
+    const raw = e.target.value;
+    if (raw.trim().startsWith('+')) {
+      const match = countries.find((c) => raw.trim().startsWith(c.code));
+      if (match) {
+        onCountryCodeChange?.(match.code);
+        const rest = raw.trim().slice(match.code.length).trim();
+        onPhoneNumberChange?.(rest);
+        return;
+      }
+    }
+    onPhoneNumberChange?.(raw);
   };
 
   return (

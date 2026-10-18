@@ -16,7 +16,6 @@ import {
   POS_LIVE_ORDERS,
   POS_METRIC_CARDS,
 } from '@/lib/mocks/pos/usePosDashboard.mocks';
-import { MOCK_MENU_ITEMS } from '@/lib/mocks/pos/usePosMenu.mocks';
 import { MOCK_POS_ORDERS, MOCK_READY_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
 import { MOCK_RESERVATIONS } from '@/lib/mocks/pos/usePosReservations.mocks';
 import {
@@ -34,8 +33,9 @@ import {
   MOCK_KITCHEN_ORDERS,
   resolveKitchenDisplayMock,
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
+import { resolveBranchMenusMock } from '@/lib/mocks/menu/resolveBranchMenusMock';
 import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
-import { resolveMenuCategoriesMock } from '@/lib/mocks/menu/useMenuCreation.mocks';
+import { MOCK_MENU_CATEGORIES, MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
 import type { HttpMethod, QueryParams } from '@/services/api/types';
@@ -105,6 +105,8 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.dashboard.branch.list]: { stats: BRANCH_STAT_CARDS },
   [ApiUrlsV1.organization.companies]: MOCK_COMPANIES,
   [ApiUrlsV1.restaurant.branches]: MOCK_BRANCHES,
+  [ApiUrlsV1.restaurant.menuCategories.list]: MOCK_MENU_CATEGORIES,
+  [ApiUrlsV1.restaurant.menuItems.list]: MOCK_MENU_ITEMS,
 };
 
 export function isMockApiEnabled(): boolean {
@@ -122,8 +124,8 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   const gstRates = resolveGstRatesMock(request);
   if (gstRates !== undefined) return gstRates;
 
-  const menuCategories = resolveMenuCategoriesMock(request);
-  if (menuCategories !== undefined) return menuCategories;
+  const branchMenus = resolveBranchMenusMock(request);
+  if (branchMenus !== undefined) return branchMenus;
 
   const userRoles = resolveUserRolesMock(request);
   if (userRoles !== undefined) return userRoles;
@@ -139,14 +141,38 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   }
 
   const payload = LIST_MOCKS[listPath];
-  if (request.path === listPath) return payload;
+  if (request.path === listPath) {
+    if (
+      listPath === ApiUrlsV1.restaurant.menuCategories.list ||
+      listPath === ApiUrlsV1.restaurant.menuItems.list
+    ) {
+      const items = Array.isArray(payload) ? payload : [];
+      return {
+        success: true,
+        data: {
+          items,
+          total: items.length,
+          page: 1,
+          page_size: items.length || 15,
+        },
+        message: 'OK',
+      };
+    }
+    return payload;
+  }
 
   const id = request.path.slice(listPath.length + 1).split('/')[0];
   if (Array.isArray(payload)) {
-    return (
+    const match =
       payload.find((item) => isRecord(item) && String(item.id) === decodeURIComponent(id)) ??
-      payload[0]
-    );
+      payload[0];
+    if (
+      listPath === ApiUrlsV1.restaurant.menuCategories.list ||
+      listPath === ApiUrlsV1.restaurant.menuItems.list
+    ) {
+      return { success: true, data: match, message: 'OK' };
+    }
+    return match;
   }
 
   return payload;

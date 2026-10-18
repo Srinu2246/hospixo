@@ -6,12 +6,16 @@
  * and nested sub-flow navigation (POS, Captain Flow, etc.).
  */
 
+import { FEATURE_FLAGS, isFeatureFlagDefaultOn } from '@/integrations/growthbook/featureFlags';
+
 export type SidebarItem = {
   id?: string | number;
   name: string;
   href?: string;
   icon?: string;
   permission?: string | string[];
+  /** GrowthBook nav flag from FEATURE_FLAGS (scope_feature_subfeature_details). */
+  featureFlag?: string;
   /**
    * When items are provided, this represents a sub-flow (like POS or Captain Flow)
    * where clicking replaces the main navbar with these items and renders a back button.
@@ -23,6 +27,8 @@ export type SidebarSection = {
   name: string;
   icon?: string;
   permission?: string | string[];
+  /** GrowthBook nav flag for the whole section (optional). */
+  featureFlag?: string;
   items: SidebarItem[];
 };
 
@@ -98,8 +104,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   super_admin: Object.values(PERMISSIONS),
   org_admin: [
     PERMISSIONS.COMPANIES_VIEW,
+    PERMISSIONS.COMPANIES_CREATE,
     PERMISSIONS.COMPANIES_UPDATE,
     PERMISSIONS.BRANCHES_VIEW,
+    PERMISSIONS.BRANCHES_CREATE,
     PERMISSIONS.BRANCHES_UPDATE,
     PERMISSIONS.MENU_VIEW,
     PERMISSIONS.MENU_CREATE,
@@ -151,6 +159,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.MENU_VIEW,
     PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.GST_VIEW,
     PERMISSIONS.POS_SESSIONS_OPEN,
   ],
   waiter: [
@@ -161,6 +170,22 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.ORDERS_UPDATE,
     PERMISSIONS.ORDERS_VIEW,
   ],
+  cashier: [
+    PERMISSIONS.FLOORS_VIEW,
+    PERMISSIONS.TABLES_VIEW,
+    PERMISSIONS.MENU_VIEW,
+    PERMISSIONS.ORDERS_VIEW,
+    PERMISSIONS.ORDERS_CREATE,
+    PERMISSIONS.ORDERS_UPDATE,
+    PERMISSIONS.PAYMENTS_VIEW,
+    PERMISSIONS.PAYMENTS_COLLECT,
+    PERMISSIONS.BOOKINGS_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.POS_SESSIONS_OPEN,
+    PERMISSIONS.POS_SESSIONS_CLOSE,
+  ],
+  kitchen: [PERMISSIONS.ORDERS_VIEW, PERMISSIONS.ORDERS_UPDATE_STATUS, PERMISSIONS.MENU_VIEW],
+  chef: [PERMISSIONS.ORDERS_VIEW, PERMISSIONS.ORDERS_UPDATE_STATUS],
 };
 
 // ----------------------------------------------------------------------
@@ -223,6 +248,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
   {
     name: 'Dashboard',
     href: '/company/dashboard',
+    featureFlag: FEATURE_FLAGS.company_home_dashboard_nav,
     icon: 'dashboard',
     permission: PERMISSIONS.COMPANIES_VIEW,
   },
@@ -234,6 +260,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'All Branches',
         href: '/company/branches/all-branches',
+        featureFlag: FEATURE_FLAGS.company_branches_allBranches_nav,
         icon: 'storefront',
         permission: PERMISSIONS.BRANCHES_VIEW,
       },
@@ -241,6 +268,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Branch Analytics',
         href: '/company/branches/branch-analytics',
+        featureFlag: FEATURE_FLAGS.company_branches_analytics_nav,
         icon: 'trending_up',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -248,6 +276,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 3,
         name: 'Manage Performance',
         href: '/company/branches/manage-performance',
+        featureFlag: FEATURE_FLAGS.company_branches_performance_nav,
         icon: 'speed',
         permission: PERMISSIONS.BRANCHES_UPDATE,
       },
@@ -261,6 +290,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Users & Roles',
         href: '/company/employees/users-and-roles',
+        featureFlag: FEATURE_FLAGS.company_employees_usersAndRoles_nav,
         icon: 'group',
         permission: PERMISSIONS.USERS_VIEW,
       },
@@ -268,6 +298,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Attendance',
         href: '/company/employees/attendence',
+        featureFlag: FEATURE_FLAGS.company_employees_attendance_nav,
         icon: 'badge',
         permission: PERMISSIONS.HR_ATTENDANCE_VIEW,
       },
@@ -281,6 +312,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Menu Creation',
         href: '/company/menu/menu-creation',
+        featureFlag: FEATURE_FLAGS.company_menu_creation_nav,
         icon: 'menu_book',
         permission: PERMISSIONS.MENU_CREATE,
       },
@@ -288,27 +320,55 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Menus',
         href: '/company/menu/menus',
+        featureFlag: FEATURE_FLAGS.company_menu_menus_nav,
         icon: 'menu_book',
         permission: PERMISSIONS.MENU_VIEW,
       },
       {
         id: 3,
-        name: 'GST Rates',
-        href: '/company/menu/gst-rates',
-        icon: 'percent',
-        permission: PERMISSIONS.GST_VIEW,
+        name: 'Menu Management',
+        href: '/company/menu/menu-management',
+        featureFlag: FEATURE_FLAGS.company_menu_management_nav,
+        icon: 'storefront',
+        permission: PERMISSIONS.MENU_UPDATE,
       },
       {
         id: 4,
-        name: 'Prep Stations',
-        href: '/company/menu/prep-station',
-        icon: 'kitchen',
+        name: 'Menu Availability',
+        href: '/company/menu/menu-availability',
+        featureFlag: FEATURE_FLAGS.company_menu_availability_nav,
+        icon: 'calendar_today',
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
         id: 5,
+        name: 'Menu Builder',
+        href: '/company/menu/menu-builder',
+        featureFlag: FEATURE_FLAGS.company_menu_builder_nav,
+        icon: 'tune',
+        permission: PERMISSIONS.MENU_UPDATE,
+      },
+      {
+        id: 6,
+        name: 'GST Rates',
+        href: '/company/menu/gst-rates',
+        featureFlag: FEATURE_FLAGS.company_menu_gstRates_nav,
+        icon: 'percent',
+        permission: PERMISSIONS.GST_VIEW,
+      },
+      {
+        id: 7,
+        name: 'Prep Stations',
+        href: '/company/menu/prep-station',
+        featureFlag: FEATURE_FLAGS.company_menu_prepStations_nav,
+        icon: 'kitchen',
+        permission: PERMISSIONS.MENU_UPDATE,
+      },
+      {
+        id: 8,
         name: 'Modifier Groups',
         href: '/company/menu/modifier-groups',
+        featureFlag: FEATURE_FLAGS.company_menu_modifierGroups_nav,
         icon: 'tune',
         permission: PERMISSIONS.MENU_UPDATE,
       },
@@ -322,6 +382,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Order',
         href: '/company/operations/order',
+        featureFlag: FEATURE_FLAGS.company_operations_order_nav,
         icon: 'receipt_long',
         permission: PERMISSIONS.ORDERS_VIEW,
       },
@@ -329,6 +390,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Kitchen Display',
         href: '/company/operations/kitchen-display',
+        featureFlag: FEATURE_FLAGS.company_operations_kitchenDisplay_nav,
         icon: 'tv',
         permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
       },
@@ -336,6 +398,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 3,
         name: 'Cash Counter',
         href: '/company/operations/cash-counter',
+        featureFlag: FEATURE_FLAGS.company_operations_cashCounter_nav,
         icon: 'currency_rupee',
         permission: PERMISSIONS.PAYMENTS_VIEW,
       },
@@ -343,6 +406,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 4,
         name: 'Inventory',
         href: '/company/operations/inventory',
+        featureFlag: FEATURE_FLAGS.company_operations_inventory_nav,
         icon: 'inventory',
         permission: PERMISSIONS.INVENTORY_VIEW,
       },
@@ -350,6 +414,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 5,
         name: 'Customers',
         href: '/company/operations/customers',
+        featureFlag: FEATURE_FLAGS.company_operations_customers_nav,
         icon: 'people',
         permission: PERMISSIONS.BOOKINGS_VIEW,
       },
@@ -363,6 +428,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Sales',
         href: '/company/report/sales',
+        featureFlag: FEATURE_FLAGS.company_reports_sales_nav,
         icon: 'bar_chart',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -370,6 +436,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Revenue',
         href: '/company/report/revenue',
+        featureFlag: FEATURE_FLAGS.company_reports_revenue_nav,
         icon: 'trending_up',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -377,6 +444,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 3,
         name: 'Analytics',
         href: '/company/report/analytics',
+        featureFlag: FEATURE_FLAGS.company_reports_analytics_nav,
         icon: 'speed',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -390,6 +458,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Company Settings',
         href: '/company/settings/company-settings',
+        featureFlag: FEATURE_FLAGS.company_settings_companySettings_nav,
         icon: 'settings',
         permission: PERMISSIONS.COMPANIES_UPDATE,
       },
@@ -401,6 +470,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
   {
     name: 'Dashboard',
     href: '/branch-manager/dashboard',
+    featureFlag: FEATURE_FLAGS.branch_home_dashboard_nav,
     icon: 'dashboard',
     permission: PERMISSIONS.REPORTS_VIEW,
   },
@@ -412,6 +482,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Users & Roles',
         href: '/branch-manager/employees/users-and-roles',
+        featureFlag: FEATURE_FLAGS.branch_employees_usersAndRoles_nav,
         icon: 'group',
         permission: PERMISSIONS.USERS_VIEW,
       },
@@ -419,6 +490,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Attendance',
         href: '/branch-manager/employees/attendence',
+        featureFlag: FEATURE_FLAGS.branch_employees_attendance_nav,
         icon: 'badge',
         permission: PERMISSIONS.HR_ATTENDANCE_VIEW,
       },
@@ -426,6 +498,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 3,
         name: 'Schedule',
         href: '/branch-manager/employees/schedule',
+        featureFlag: FEATURE_FLAGS.branch_employees_schedule_nav,
         icon: 'calendar_month',
         permission: PERMISSIONS.USERS_VIEW,
       },
@@ -439,6 +512,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Point of Sale',
         href: '/branch-manager/pos/point-of-sale',
+        featureFlag: FEATURE_FLAGS.branch_pos_pointOfSale_nav,
         icon: 'point_of_sale',
         permission: PERMISSIONS.ORDERS_CREATE,
         // Sub-navbar drilldown flow
@@ -447,60 +521,70 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
             id: 1,
             name: 'Dashboard',
             href: '/branch-manager/pos/point-of-sale/dashboard',
+            featureFlag: FEATURE_FLAGS.branch_pos_dashboard_nav,
             icon: 'dashboard',
           },
           {
             id: 2,
             name: 'Tables',
             href: '/branch-manager/pos/point-of-sale/tables',
+            featureFlag: FEATURE_FLAGS.branch_pos_tables_nav,
             icon: 'table_restaurant',
           },
           {
             id: 3,
             name: 'Dine In',
             href: '/branch-manager/pos/point-of-sale/dine-in',
+            featureFlag: FEATURE_FLAGS.branch_pos_dineIn_nav,
             icon: 'restaurant',
           },
           {
             id: 4,
             name: 'Take Away',
             href: '/branch-manager/pos/point-of-sale/takeaway',
+            featureFlag: FEATURE_FLAGS.branch_pos_takeAway_nav,
             icon: 'takeaway',
           },
           {
             id: 5,
             name: 'Ready List',
             href: '/branch-manager/pos/point-of-sale/ready-list',
+            featureFlag: FEATURE_FLAGS.branch_pos_readyList_nav,
             icon: 'fact_check',
           },
           {
             id: 6,
             name: 'Reservation',
             href: '/branch-manager/pos/point-of-sale/reservation',
+            featureFlag: FEATURE_FLAGS.branch_pos_reservation_nav,
             icon: 'bookmark',
           },
           {
             id: 7,
             name: 'Online Orders',
             href: '/branch-manager/pos/point-of-sale/online-orders',
+            featureFlag: FEATURE_FLAGS.branch_pos_onlineOrders_nav,
             icon: 'language',
           },
           {
             id: 8,
             name: 'All Orders',
             href: '/branch-manager/pos/point-of-sale/all-orders',
+            featureFlag: FEATURE_FLAGS.branch_pos_allOrders_nav,
             icon: 'receipt_long',
           },
           {
             id: 9,
             name: 'Cash Shift',
             href: '/branch-manager/pos/point-of-sale/cash-shift',
+            featureFlag: FEATURE_FLAGS.branch_pos_cashShift_nav,
             icon: 'currency_rupee',
           },
           {
             id: 10,
             name: 'Due Payments',
             href: '/branch-manager/pos/point-of-sale/due-payments',
+            featureFlag: FEATURE_FLAGS.branch_pos_duePayments_nav,
             icon: 'credit_card',
           },
         ],
@@ -509,6 +593,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Captain Flow',
         href: '/branch-manager/pos/captain-flow',
+        featureFlag: FEATURE_FLAGS.branch_pos_captainFlow_nav,
         icon: 'fastfood',
         permission: PERMISSIONS.ORDERS_CREATE,
         // Sub-navbar drilldown flow
@@ -517,24 +602,28 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
             id: 1,
             name: 'Tables',
             href: '/branch-manager/pos/captain-flow/tables',
+            featureFlag: FEATURE_FLAGS.branch_pos_captainTables_nav,
             icon: 'table_restaurant',
           },
           {
             id: 2,
             name: 'Order Menu',
             href: '/branch-manager/pos/captain-flow/order-menu',
+            featureFlag: FEATURE_FLAGS.branch_pos_captainOrderMenu_nav,
             icon: 'restaurant',
           },
           {
             id: 3,
             name: 'Ready List',
             href: '/branch-manager/pos/captain-flow/ready-list',
+            featureFlag: FEATURE_FLAGS.branch_pos_captainReadyList_nav,
             icon: 'fact_check',
           },
           {
             id: 4,
             name: 'All Orders',
             href: '/branch-manager/pos/captain-flow/all-orders',
+            featureFlag: FEATURE_FLAGS.branch_pos_captainAllOrders_nav,
             icon: 'receipt_long',
           },
         ],
@@ -549,6 +638,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Online Orders',
         href: '/branch-manager/orders/online-orders',
+        featureFlag: FEATURE_FLAGS.branch_orders_onlineOrders_nav,
         icon: 'language',
         permission: PERMISSIONS.ORDERS_VIEW,
       },
@@ -556,6 +646,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Live Orders',
         href: '/branch-manager/orders/live-orders',
+        featureFlag: FEATURE_FLAGS.branch_orders_liveOrders_nav,
         icon: 'electric_bolt',
         permission: PERMISSIONS.ORDERS_VIEW,
       },
@@ -563,6 +654,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 3,
         name: 'Ready Orders',
         href: '/branch-manager/orders/ready-orders',
+        featureFlag: FEATURE_FLAGS.branch_orders_readyOrders_nav,
         icon: 'fact_check',
         permission: PERMISSIONS.ORDERS_VIEW,
       },
@@ -570,6 +662,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 4,
         name: 'All Orders',
         href: '/branch-manager/orders/all-orders',
+        featureFlag: FEATURE_FLAGS.branch_orders_allOrders_nav,
         icon: 'receipt_long',
         permission: PERMISSIONS.ORDERS_VIEW,
       },
@@ -578,11 +671,13 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
   {
     name: 'Menu',
     permission: PERMISSIONS.MENU_VIEW,
+    featureFlag: FEATURE_FLAGS.branch_menu_hub_nav,
     items: [
       {
         id: 1,
         name: 'Menu Creation',
         href: '/branch-manager/menu/menu-creation',
+        featureFlag: FEATURE_FLAGS.branch_menu_creation_nav,
         icon: 'menu_book',
         permission: PERMISSIONS.MENU_CREATE,
       },
@@ -590,27 +685,39 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Menus',
         href: '/branch-manager/menu/menus',
+        featureFlag: FEATURE_FLAGS.branch_menu_menus_nav,
         icon: 'menu_book',
         permission: PERMISSIONS.MENU_VIEW,
       },
       {
         id: 3,
+        name: 'GST Rates',
+        href: '/branch-manager/menu/gst-rates',
+        featureFlag: FEATURE_FLAGS.branch_menu_gstRates_nav,
+        icon: 'percent',
+        permission: PERMISSIONS.GST_VIEW,
+      },
+      {
+        id: 4,
         name: 'Prep Stations',
         href: '/branch-manager/menu/prep-station',
+        featureFlag: FEATURE_FLAGS.branch_menu_prepStations_nav,
         icon: 'kitchen',
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 4,
+        id: 5,
         name: 'Modifier Groups',
         href: '/branch-manager/menu/modifier-groups',
+        featureFlag: FEATURE_FLAGS.branch_menu_modifierGroups_nav,
         icon: 'tune',
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 5,
+        id: 6,
         name: 'Menu Availability',
         href: '/branch-manager/menu/menu-availability',
+        featureFlag: FEATURE_FLAGS.branch_menu_availability_nav,
         icon: 'calendar_today',
         permission: PERMISSIONS.MENU_UPDATE,
       },
@@ -624,6 +731,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Tables',
         href: '/branch-manager/management/tables',
+        featureFlag: FEATURE_FLAGS.branch_management_tables_nav,
         icon: 'table_restaurant',
         permission: PERMISSIONS.TABLES_VIEW,
       },
@@ -631,6 +739,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Dine In',
         href: '/branch-manager/management/dine-in',
+        featureFlag: FEATURE_FLAGS.branch_management_dineIn_nav,
         icon: 'restaurant',
         permission: PERMISSIONS.ORDERS_CREATE,
       },
@@ -638,6 +747,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 3,
         name: 'Cash Counter',
         href: '/branch-manager/management/cash-counter',
+        featureFlag: FEATURE_FLAGS.branch_management_cashCounter_nav,
         icon: 'currency_rupee',
         permission: PERMISSIONS.PAYMENTS_COLLECT,
       },
@@ -645,6 +755,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 4,
         name: 'Due Payments',
         href: '/branch-manager/management/due-payments',
+        featureFlag: FEATURE_FLAGS.branch_management_duePayments_nav,
         icon: 'credit_card',
         permission: PERMISSIONS.PAYMENTS_VIEW,
       },
@@ -652,6 +763,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 5,
         name: 'Kitchen Display',
         href: '/branch-manager/management/kitchen-display',
+        featureFlag: FEATURE_FLAGS.branch_management_kitchenDisplay_nav,
         icon: 'tv',
         permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
       },
@@ -659,6 +771,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 6,
         name: 'Inventory',
         href: '/branch-manager/management/inventory',
+        featureFlag: FEATURE_FLAGS.branch_management_inventory_nav,
         icon: 'inventory',
         permission: PERMISSIONS.INVENTORY_VIEW,
       },
@@ -666,6 +779,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 7,
         name: 'Customers',
         href: '/branch-manager/management/customers',
+        featureFlag: FEATURE_FLAGS.branch_management_customers_nav,
         icon: 'people',
         permission: PERMISSIONS.BOOKINGS_VIEW,
       },
@@ -673,6 +787,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 8,
         name: 'Reports',
         href: '/branch-manager/management/reports',
+        featureFlag: FEATURE_FLAGS.branch_management_reports_nav,
         icon: 'bar_chart',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -680,6 +795,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 9,
         name: 'Settings',
         href: '/branch-manager/management/settings',
+        featureFlag: FEATURE_FLAGS.branch_management_settings_nav,
         icon: 'settings',
         permission: PERMISSIONS.FEATURES_CONFIGURE,
       },
@@ -687,6 +803,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         id: 10,
         name: 'Floor & Table Set-up',
         href: '/branch-manager/management/floor-and-table-setup',
+        featureFlag: FEATURE_FLAGS.branch_management_floorAndTableSetup_nav,
         icon: 'view_quilt',
         permission: PERMISSIONS.FLOORS_VIEW,
       },
@@ -701,6 +818,7 @@ export const WAITER_SIDEBAR: SidebarEntry[] = [
     href: '/branch-manager/pos/captain-flow/tables',
     icon: 'table_restaurant',
     permission: PERMISSIONS.TABLES_VIEW,
+    featureFlag: FEATURE_FLAGS.captain_pos_tables_nav,
   },
   {
     id: 2,
@@ -708,6 +826,7 @@ export const WAITER_SIDEBAR: SidebarEntry[] = [
     href: '/branch-manager/pos/captain-flow/all-orders',
     icon: 'receipt_long',
     permission: PERMISSIONS.ORDERS_VIEW,
+    featureFlag: FEATURE_FLAGS.captain_pos_orders_nav,
   },
   {
     id: 3,
@@ -715,6 +834,7 @@ export const WAITER_SIDEBAR: SidebarEntry[] = [
     href: '/branch-manager/pos/captain-flow/order-menu',
     icon: 'restaurant',
     permission: PERMISSIONS.ORDERS_CREATE,
+    featureFlag: FEATURE_FLAGS.captain_pos_dineIn_nav,
   },
   {
     id: 4,
@@ -722,27 +842,130 @@ export const WAITER_SIDEBAR: SidebarEntry[] = [
     href: '/branch-manager/pos/captain-flow/ready-list',
     icon: 'fact_check',
     permission: PERMISSIONS.ORDERS_VIEW,
+    featureFlag: FEATURE_FLAGS.captain_pos_readyOrders_nav,
+  },
+];
+
+/** Cashier / counter staff — billing-focused flat nav. */
+export const CASHIER_SIDEBAR: SidebarEntry[] = [
+  {
+    id: 1,
+    name: 'Dashboard',
+    href: '/branch-manager/pos/point-of-sale/dashboard',
+    icon: 'dashboard',
+    permission: PERMISSIONS.ORDERS_VIEW,
+    featureFlag: FEATURE_FLAGS.cashier_pos_dashboard_nav,
+  },
+  {
+    id: 2,
+    name: 'New Order',
+    href: '/branch-manager/pos/point-of-sale/tables',
+    icon: 'table_restaurant',
+    permission: PERMISSIONS.ORDERS_CREATE,
+    featureFlag: FEATURE_FLAGS.cashier_pos_newOrder_nav,
+  },
+  {
+    id: 3,
+    name: 'Orders',
+    href: '/branch-manager/pos/point-of-sale/all-orders',
+    icon: 'receipt_long',
+    permission: PERMISSIONS.ORDERS_VIEW,
+    featureFlag: FEATURE_FLAGS.cashier_pos_orders_nav,
+  },
+  {
+    id: 4,
+    name: 'Dine-In',
+    href: '/branch-manager/pos/point-of-sale/dine-in',
+    icon: 'restaurant',
+    permission: PERMISSIONS.ORDERS_CREATE,
+    featureFlag: FEATURE_FLAGS.cashier_pos_dineIn_nav,
   },
   {
     id: 5,
-    name: 'Menu Availability',
-    href: '/branch-manager/menu/menu-availability',
-    icon: 'calendar_today',
-    permission: PERMISSIONS.MENU_VIEW,
+    name: 'Billing',
+    href: '/branch-manager/pos/point-of-sale/all-orders',
+    icon: 'receipt_long',
+    permission: PERMISSIONS.PAYMENTS_COLLECT,
+    featureFlag: FEATURE_FLAGS.cashier_pos_billing_nav,
   },
   {
     id: 6,
+    name: 'Cash Counter',
+    href: '/branch-manager/pos/point-of-sale/cash-shift',
+    icon: 'currency_rupee',
+    permission: PERMISSIONS.POS_SESSIONS_OPEN,
+    featureFlag: FEATURE_FLAGS.cashier_pos_cashCounter_nav,
+  },
+  {
+    id: 7,
+    name: 'Payments',
+    href: '/branch-manager/pos/point-of-sale/due-payments',
+    icon: 'credit_card',
+    permission: PERMISSIONS.PAYMENTS_VIEW,
+    featureFlag: FEATURE_FLAGS.cashier_pos_payments_nav,
+  },
+  {
+    id: 8,
+    name: 'Customers',
+    href: '/branch-manager/management/customers',
+    icon: 'people',
+    permission: PERMISSIONS.BOOKINGS_VIEW,
+    featureFlag: FEATURE_FLAGS.cashier_management_customers_nav,
+  },
+  {
+    id: 9,
+    name: 'Reports',
+    href: '/branch-manager/management/reports',
+    icon: 'bar_chart',
+    permission: PERMISSIONS.REPORTS_VIEW,
+    featureFlag: FEATURE_FLAGS.cashier_management_reports_nav,
+  },
+];
+
+/** Kitchen manager / kitchen staff — KDS-focused flat nav. */
+export const KITCHEN_SIDEBAR: SidebarEntry[] = [
+  {
+    id: 1,
     name: 'Kitchen Display',
     href: '/branch-manager/management/kitchen-display',
     icon: 'tv',
     permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
+    featureFlag: FEATURE_FLAGS.kitchen_kds_display_nav,
+  },
+  {
+    id: 2,
+    name: 'Incoming Orders',
+    href: '/branch-manager/management/kitchen-display',
+    icon: 'fact_check',
+    permission: PERMISSIONS.ORDERS_VIEW,
+    featureFlag: FEATURE_FLAGS.kitchen_kds_incoming_nav,
+  },
+  {
+    id: 3,
+    name: 'Preparing',
+    href: '/branch-manager/management/kitchen-display',
+    icon: 'schedule',
+    permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
+    featureFlag: FEATURE_FLAGS.kitchen_kds_preparing_nav,
+  },
+  {
+    id: 4,
+    name: 'Ready Orders',
+    href: '/branch-manager/pos/point-of-sale/ready-list',
+    icon: 'receipt_long',
+    permission: PERMISSIONS.ORDERS_VIEW,
+    featureFlag: FEATURE_FLAGS.kitchen_kds_readyOrders_nav,
   },
 ];
+
+/** Chef station — distraction-free KDS; no sidebar chrome. */
+export const CHEF_SIDEBAR: SidebarEntry[] = [];
 
 export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
   {
     name: 'Dashboard',
     href: '/organization/dashboard',
+    featureFlag: FEATURE_FLAGS.org_home_dashboard_nav,
     icon: 'dashboard',
     permission: PERMISSIONS.COMPANIES_VIEW,
   },
@@ -754,13 +977,23 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'All Companies',
         href: '/organization/companies',
+        featureFlag: FEATURE_FLAGS.org_companies_allCompanies_nav,
         icon: 'business',
         permission: PERMISSIONS.COMPANIES_VIEW,
       },
       {
         id: 2,
+        name: 'Add Company',
+        href: '/organization/companies/new',
+        featureFlag: FEATURE_FLAGS.org_companies_addCompany_nav,
+        icon: 'add',
+        permission: PERMISSIONS.COMPANIES_CREATE,
+      },
+      {
+        id: 3,
         name: 'Company Analytics',
         href: '/organization/companies/analytics',
+        featureFlag: FEATURE_FLAGS.org_companies_analytics_nav,
         icon: 'bar_chart',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -774,13 +1007,23 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'All Branches',
         href: '/organization/branches',
+        featureFlag: FEATURE_FLAGS.org_branches_allBranches_nav,
         icon: 'storefront',
         permission: PERMISSIONS.BRANCHES_VIEW,
       },
       {
         id: 2,
+        name: 'Add Branch',
+        href: '/organization/branches/new',
+        featureFlag: FEATURE_FLAGS.org_branches_addBranch_nav,
+        icon: 'add',
+        permission: PERMISSIONS.BRANCHES_CREATE,
+      },
+      {
+        id: 3,
         name: 'Branch Performance',
         href: '/organization/branches/performance',
+        featureFlag: FEATURE_FLAGS.org_branches_performance_nav,
         icon: 'trending_up',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -794,6 +1037,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Users & Roles',
         href: '/organization/employees/users-and-roles',
+        featureFlag: FEATURE_FLAGS.org_employees_usersAndRoles_nav,
         icon: 'group',
         permission: PERMISSIONS.USERS_VIEW,
       },
@@ -801,6 +1045,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Attendance',
         href: '/organization/employees/attendence',
+        featureFlag: FEATURE_FLAGS.org_employees_attendance_nav,
         icon: 'badge',
         permission: PERMISSIONS.HR_ATTENDANCE_VIEW,
       },
@@ -814,6 +1059,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Menu Creation',
         href: '/organization/menu/menu-creation',
+        featureFlag: FEATURE_FLAGS.org_menu_creation_nav,
         icon: 'menu_book',
         permission: PERMISSIONS.MENU_CREATE,
       },
@@ -821,6 +1067,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Menus',
         href: '/organization/menu/menus',
+        featureFlag: FEATURE_FLAGS.org_menu_menus_nav,
         icon: 'menu_book',
         permission: PERMISSIONS.MENU_VIEW,
       },
@@ -828,6 +1075,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 3,
         name: 'Menu Management',
         href: '/organization/menu/menu-management',
+        featureFlag: FEATURE_FLAGS.org_menu_management_nav,
         icon: 'storefront',
         permission: PERMISSIONS.MENU_UPDATE,
       },
@@ -835,6 +1083,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 4,
         name: 'Menu Builder',
         href: '/organization/menu/menu-builder',
+        featureFlag: FEATURE_FLAGS.org_menu_builder_nav,
         icon: 'tune',
         permission: PERMISSIONS.MENU_UPDATE,
       },
@@ -848,6 +1097,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Sales',
         href: '/organization/reports/sales',
+        featureFlag: FEATURE_FLAGS.org_reports_sales_nav,
         icon: 'bar_chart',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -855,6 +1105,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Revenue',
         href: '/organization/reports/revenue',
+        featureFlag: FEATURE_FLAGS.org_reports_revenue_nav,
         icon: 'currency_rupee',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -862,6 +1113,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 3,
         name: 'Expenses',
         href: '/organization/reports/expenses',
+        featureFlag: FEATURE_FLAGS.org_reports_expenses_nav,
         icon: 'receipt_long',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -869,6 +1121,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 4,
         name: '% Taxes',
         href: '/organization/reports/taxes',
+        featureFlag: FEATURE_FLAGS.org_reports_taxes_nav,
         icon: 'percent',
         permission: PERMISSIONS.GST_VIEW,
       },
@@ -876,6 +1129,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 5,
         name: 'Analytics',
         href: '/organization/reports/analytics',
+        featureFlag: FEATURE_FLAGS.org_reports_analytics_nav,
         icon: 'speed',
         permission: PERMISSIONS.REPORTS_VIEW,
       },
@@ -889,6 +1143,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 1,
         name: 'Organization Settings',
         href: '/organization/settings',
+        featureFlag: FEATURE_FLAGS.org_settings_organizationSettings_nav,
         icon: 'settings',
         permission: PERMISSIONS.COMPANIES_UPDATE,
       },
@@ -896,6 +1151,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 2,
         name: 'Subscription',
         href: '/organization/settings/billing',
+        featureFlag: FEATURE_FLAGS.org_settings_subscription_nav,
         icon: 'credit_card',
         permission: PERMISSIONS.FEATURES_VIEW,
       },
@@ -903,6 +1159,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         id: 3,
         name: 'Integrations',
         href: '/organization/settings/integrations',
+        featureFlag: FEATURE_FLAGS.org_settings_integrations_nav,
         icon: 'inventory',
         permission: PERMISSIONS.FEATURES_CONFIGURE,
       },
@@ -917,7 +1174,9 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
 export function rolePathSegment(role: string): string {
   const key = normalizeRoleKey(role);
   if (key === 'branch_manager') return 'branch-manager';
-  if (key === 'waiter') return 'waiter';
+  if (key === 'waiter' || key === 'cashier' || key === 'kitchen' || key === 'chef') {
+    return 'branch-manager';
+  }
   if (key === 'company') return 'company';
   if (key === 'organization' || key === 'super_admin') return 'organization';
   return key.replace(/_/g, '-');
@@ -929,6 +1188,9 @@ const SIDEBAR_RANK: Record<string, number> = {
   company: 2,
   branch_manager: 1,
   waiter: 0,
+  cashier: 0,
+  kitchen: 0,
+  chef: 0,
 };
 
 /** Hierarchy level implied by the URL. Shared module routes such as `/pos` return null. */
@@ -937,6 +1199,9 @@ export function sidebarLevelFromPath(pathname: string): string | null {
   if (pathname === '/organization' || pathname.startsWith('/organization/')) return 'organization';
   if (pathname === '/company' || pathname.startsWith('/company/')) return 'company';
   if (pathname === '/waiter' || pathname.startsWith('/waiter/')) return 'waiter';
+  if (pathname === '/cashier' || pathname.startsWith('/cashier/')) return 'cashier';
+  if (pathname === '/kitchen' || pathname.startsWith('/kitchen/')) return 'kitchen';
+  if (pathname === '/chef' || pathname.startsWith('/chef/')) return 'chef';
   if (
     pathname === '/branch-manager' ||
     pathname.startsWith('/branch-manager/') ||
@@ -970,7 +1235,9 @@ export function resolveSidebarEscape(
   level: string,
 ): { href: string; label: string } | null {
   const userKey = normalizeRoleKey(role || '');
-  if (!userKey || userKey === 'waiter' || !level || level === userKey) return null;
+  const operational =
+    userKey === 'waiter' || userKey === 'cashier' || userKey === 'kitchen' || userKey === 'chef';
+  if (!userKey || operational || !level || level === userKey) return null;
   if ((SIDEBAR_RANK[level] ?? 0) >= (SIDEBAR_RANK[userKey] ?? 0)) return null;
 
   if (userKey === 'company') {
@@ -987,26 +1254,64 @@ export function normalizeRoleKey(role: string): string {
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
-  if (normalized.includes('waiter') || normalized.includes('captain')) return 'waiter';
+  if (normalized === 'chef' || normalized.startsWith('chef_') || normalized.endsWith('_chef')) {
+    return 'chef';
+  }
+  if (normalized.includes('kitchen')) return 'kitchen';
+  if (
+    normalized.includes('cashier') ||
+    normalized.includes('counter') ||
+    normalized === 'pos_cashier'
+  ) {
+    return 'cashier';
+  }
+  if (
+    normalized.includes('waiter') ||
+    normalized.includes('captain') ||
+    normalized.includes('server') ||
+    normalized === 'host'
+  ) {
+    return 'waiter';
+  }
   if (normalized.includes('platform_support')) return 'platform_support';
-  if (normalized.includes('branch')) return 'branch_manager';
+  if (normalized.includes('branch') || normalized.includes('store_manager'))
+    return 'branch_manager';
   if (normalized.includes('company')) return 'company';
-  if (normalized.includes('org')) return 'organization';
+  if (normalized.includes('org') || normalized.includes('tenant_admin')) return 'organization';
   if (normalized.includes('super')) return 'super_admin';
   return normalized;
+}
+
+/** Chef stations render full-screen KDS with no sidebar chrome. */
+export function isSidebarlessRole(role?: string | null): boolean {
+  return normalizeRoleKey(role || '') === 'chef';
 }
 
 export const ROLE_SIDEBAR_REGISTRY: Record<string, SidebarEntry[]> = {
   company: COMPANY_SIDEBAR,
   company_admin: COMPANY_SIDEBAR,
+  company_owner: COMPANY_SIDEBAR,
+  company_manager: COMPANY_SIDEBAR,
   branch_manager: BRANCH_MANAGER_SIDEBAR,
   branch_admin: BRANCH_MANAGER_SIDEBAR,
   'branch manager': BRANCH_MANAGER_SIDEBAR,
+  store_manager: BRANCH_MANAGER_SIDEBAR,
   restaurant_manager: BRANCH_MANAGER_SIDEBAR,
   waiter: WAITER_SIDEBAR,
   captain: WAITER_SIDEBAR,
+  server: WAITER_SIDEBAR,
+  host: WAITER_SIDEBAR,
+  cashier: CASHIER_SIDEBAR,
+  counter: CASHIER_SIDEBAR,
+  pos_cashier: CASHIER_SIDEBAR,
+  counter_staff: CASHIER_SIDEBAR,
+  kitchen: KITCHEN_SIDEBAR,
+  kitchen_staff: KITCHEN_SIDEBAR,
+  chef: CHEF_SIDEBAR,
   organization: ORGANIZATION_SIDEBAR,
   org_admin: ORGANIZATION_SIDEBAR,
+  org_owner: ORGANIZATION_SIDEBAR,
+  tenant_admin: ORGANIZATION_SIDEBAR,
   super_admin: ORGANIZATION_SIDEBAR,
 };
 
@@ -1043,7 +1348,14 @@ export function getSidebarNavigation({
       : permissionKey === 'branch_manager'
         ? null
         : DEFAULT_ROLE_PERMISSIONS[permissionKey] || [];
-  const routeRole = level === 'branch_manager' || level === 'waiter' ? level : role;
+  const routeRole =
+    level === 'branch_manager' ||
+    level === 'waiter' ||
+    level === 'cashier' ||
+    level === 'kitchen' ||
+    level === 'chef'
+      ? level
+      : role;
 
   const filterItem = (item: SidebarItem): SidebarItem | null => {
     if (!hasPermission(permissions, item.permission)) return null;
@@ -1081,4 +1393,38 @@ export function getSidebarNavigation({
   }
 
   return filteredEntries;
+}
+
+/**
+ * Hide sidebar leaves whose GrowthBook / MVP default flag is off.
+ * Drop empty sections and drilldown parents after filtering.
+ */
+export function filterSidebarByFeatureFlags(
+  entries: SidebarEntry[],
+  isEnabled: (flag: string) => boolean = isFeatureFlagDefaultOn,
+): SidebarEntry[] {
+  const filterItem = (item: SidebarItem): SidebarItem | null => {
+    if (item.featureFlag && !isEnabled(item.featureFlag)) return null;
+
+    const children = item.items
+      ? (item.items.map(filterItem).filter(Boolean) as SidebarItem[])
+      : undefined;
+
+    if (item.items && (!children || children.length === 0)) return null;
+
+    return children ? { ...item, items: children } : item;
+  };
+
+  const next: SidebarEntry[] = [];
+  for (const entry of entries) {
+    if (isSidebarSection(entry)) {
+      if (entry.featureFlag && !isEnabled(entry.featureFlag)) continue;
+      const items = entry.items.map(filterItem).filter(Boolean) as SidebarItem[];
+      if (items.length > 0) next.push({ ...entry, items });
+    } else {
+      const item = filterItem(entry);
+      if (item) next.push(item);
+    }
+  }
+  return next;
 }

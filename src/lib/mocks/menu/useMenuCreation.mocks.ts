@@ -4,18 +4,10 @@ import {
   type StatusBasic,
 } from '@/lib/schemas/menu/menuCategoriesSchema';
 import {
-  menuCatalogItemListSchema,
-  type MenuCatalogItem,
-} from '@/lib/schemas/menu/menuCreationSchema';
-import { restaurantMenuCategoriesPath } from '@/services/api/ApiUrlsV1';
-import type { HttpMethod, QueryParams } from '@/services/api/types';
-
-type MockRequest = {
-  method: HttpMethod;
-  path: string;
-  params?: QueryParams;
-  body?: unknown;
-};
+  menuItemResponseListSchema,
+  type DietaryTypeApi,
+  type MenuItemResponse,
+} from '@/lib/schemas/menu/menuItemsSchema';
 
 const ORGANIZATION_ID = 126;
 const COMPANY_ID = 94;
@@ -97,199 +89,260 @@ export const MOCK_MENU_CATEGORIES: MenuCategoryResponse[] = menuCategoryResponse
   },
 ]);
 
-/** Seed catalog items for Menu Creation list / detail views. */
-export const MOCK_MENU_ITEMS: MenuCatalogItem[] = menuCatalogItemListSchema.parse([
-  {
-    id: 'item_001',
+const CREATED_AT = '2026-10-12T10:00:00.000Z';
+
+function menuItem(input: {
+  id: number;
+  categoryId: number;
+  name: string;
+  code: string;
+  basePrice: number;
+  dietary: DietaryTypeApi;
+  status: StatusBasic;
+  description?: string;
+  imageUrl?: string;
+  allowDelivery?: boolean;
+  isFavorite?: boolean;
+  isCombo?: boolean;
+  tagNames?: readonly string[];
+  variants?: Array<{ id: number; name: string; price: number; isDefault?: boolean }>;
+  modifiers?: Array<{ id: number; name: string; min?: number; max?: number }>;
+}): MenuItemResponse {
+  const tagNames = input.tagNames ?? [];
+  const tags = tagNames.map((name, index) => ({
+    id: input.id * 100 + index + 1,
+    name,
+    code: name.toUpperCase().replace(/\s+/g, '_'),
+  }));
+
+  return {
+    id: input.id,
+    organization_id: ORGANIZATION_ID,
+    company_id: COMPANY_ID,
+    catalogue_scope: 'company',
+    branch_id: null,
+    category_id: input.categoryId,
+    taxes: [],
+    preparation_stations: [],
+    modifier_groups: (input.modifiers ?? []).map((modifier, index) => ({
+      id: input.id * 1000 + index + 1,
+      modifier_group_id: modifier.id,
+      override_min_select: null,
+      override_max_select: null,
+      display_order: index,
+      modifier_group: {
+        id: modifier.id,
+        name: modifier.name,
+        min_select: modifier.min ?? 0,
+        max_select: modifier.max ?? 1,
+        is_required: (modifier.min ?? 0) > 0,
+      },
+    })),
+    name: input.name,
+    code: input.code,
+    description: input.description ?? null,
+    sku: input.code,
+    barcode: null,
+    base_price: input.basePrice,
+    profit_margin_percent: null,
+    allow_dine_in: true,
+    allow_takeaway: true,
+    allow_delivery: input.allowDelivery ?? true,
+    expose_captain_app: true,
+    is_favorite: input.isFavorite ?? false,
+    is_combo: input.isCombo ?? false,
+    tag_ids: tags.map((tag) => tag.id),
+    tags,
+    dietary_type: input.dietary,
+    status: input.status,
+    variants: (input.variants ?? []).map((variant, index) => ({
+      id: variant.id,
+      organization_id: ORGANIZATION_ID,
+      company_id: COMPANY_ID,
+      catalogue_scope: 'company' as const,
+      branch_id: null,
+      item_id: input.id,
+      name: variant.name,
+      sku: null,
+      price_adjustment: variant.price - input.basePrice,
+      final_price: variant.price,
+      display_order: index,
+      is_default: variant.isDefault ?? index === 0,
+      status: 'active' as const,
+      created_at: CREATED_AT,
+      updated_at: CREATED_AT,
+    })),
+    images: input.imageUrl
+      ? [
+          {
+            id: input.id * 10 + 1,
+            organization_id: ORGANIZATION_ID,
+            company_id: COMPANY_ID,
+            branch_id: null,
+            catalogue_scope: 'company' as const,
+            item_id: input.id,
+            storage_key: null,
+            url: input.imageUrl,
+            mime_type: 'image/jpeg',
+            sort_order: 0,
+            is_primary: true,
+            status: 'active' as const,
+            created_at: CREATED_AT,
+            updated_at: CREATED_AT,
+          },
+        ]
+      : [],
+    created_at: CREATED_AT,
+    updated_at: CREATED_AT,
+  };
+}
+
+/** Seed items for Menu Creation + dine-in matching GET /v1/restaurant/menu/items. */
+export const MOCK_MENU_ITEMS: MenuItemResponse[] = menuItemResponseListSchema.parse([
+  menuItem({
+    id: 1,
+    categoryId: 1,
     name: 'Paneer Tikka',
-    categoryId: '1',
-    categoryName: 'Starters',
-    basePrice: 249,
-    dietary: 'Veg',
-    status: 'Available',
     code: 'PNT',
-    orderTypes: ['Dine In', 'Take Away', 'Delivery'],
-    tags: ['chef-special', 'spicy', 'Set As Favorite', 'gluten-free'],
+    basePrice: 249,
+    dietary: 'veg',
+    status: 'active',
+    description: 'Grilled cottage cheese with spices.',
     imageUrl:
       'https://images.unsplash.com/photo-1567184109411-b28f2700e1e5?w=600&auto=format&fit=crop&q=80',
-    description: 'Grilled cottage cheese with spices.',
-  },
-  {
-    id: 'item_002',
+    isFavorite: true,
+    tagNames: ['chef-special', 'spicy', 'gluten-free'],
+    variants: [
+      { id: 101, name: 'Regular', price: 249, isDefault: true },
+      { id: 102, name: 'Platter', price: 399 },
+    ],
+    modifiers: [
+      { id: 11, name: 'Mint Chutney', max: 2 },
+      { id: 12, name: 'Butter Toss', max: 1 },
+    ],
+  }),
+  menuItem({
+    id: 2,
+    categoryId: 1,
     name: 'Chicken Tikka',
-    categoryId: '1',
-    categoryName: 'Starters',
-    basePrice: 299,
-    dietary: 'Non-Veg',
-    status: 'Available',
     code: 'CKT',
-    orderTypes: ['Dine In', 'Take Away'],
-    tags: ['spicy'],
+    basePrice: 299,
+    dietary: 'non_veg',
+    status: 'active',
+    allowDelivery: false,
     imageUrl:
       'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'item_003',
+    tagNames: ['spicy'],
+    variants: [
+      { id: 201, name: '6 Pcs', price: 299, isDefault: true },
+      { id: 202, name: '12 Pcs', price: 480 },
+    ],
+  }),
+  menuItem({
+    id: 3,
+    categoryId: 2,
     name: 'Butter Chicken',
-    categoryId: '2',
-    categoryName: 'Main Course',
-    basePrice: 349,
-    dietary: 'Non-Veg',
-    status: 'Available',
     code: 'BTC',
-    orderTypes: ['Dine In', 'Take Away', 'Delivery'],
-    tags: ['chef-special'],
+    basePrice: 349,
+    dietary: 'non_veg',
+    status: 'active',
     imageUrl:
       'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'item_004',
+    tagNames: ['chef-special'],
+    variants: [
+      { id: 301, name: 'Half', price: 249 },
+      { id: 302, name: 'Full', price: 349, isDefault: true },
+    ],
+  }),
+  menuItem({
+    id: 4,
+    categoryId: 2,
     name: 'Dal Makhani',
-    categoryId: '2',
-    categoryName: 'Main Course',
-    basePrice: 229,
-    dietary: 'Veg',
-    status: 'Available',
     code: 'DLM',
-    orderTypes: ['Dine In', 'Take Away', 'Delivery'],
-    tags: ['eco-item'],
-  },
-  {
-    id: 'item_005',
+    basePrice: 229,
+    dietary: 'veg',
+    status: 'active',
+    tagNames: ['eco-item'],
+  }),
+  menuItem({
+    id: 5,
+    categoryId: 3,
     name: 'Butter Naan',
-    categoryId: '3',
-    categoryName: 'Breads',
-    basePrice: 49,
-    dietary: 'Veg',
-    status: 'Available',
     code: 'BTN',
-    orderTypes: ['Dine In', 'Take Away'],
-    tags: [],
-  },
-  {
-    id: 'item_006',
-    name: 'Garlic Naan',
-    categoryId: '3',
-    categoryName: 'Breads',
-    basePrice: 59,
-    dietary: 'Veg',
-    status: 'Available',
-    code: 'GLN',
-    orderTypes: ['Dine In', 'Take Away'],
-    tags: ['chef-special'],
-  },
-  {
-    id: 'item_007',
-    name: 'Mango Lassi',
-    categoryId: '4',
-    categoryName: 'Beverages',
-    basePrice: 99,
-    dietary: 'Veg',
-    status: 'Out of Stock',
-    code: 'MGL',
-    orderTypes: ['Dine In', 'Take Away'],
-    tags: ['eco-item'],
-  },
-  {
-    id: 'item_008',
-    name: 'Masala Chai',
-    categoryId: '4',
-    categoryName: 'Beverages',
     basePrice: 49,
-    dietary: 'Veg',
-    status: 'Available',
+    dietary: 'veg',
+    status: 'active',
+    allowDelivery: false,
+  }),
+  menuItem({
+    id: 6,
+    categoryId: 3,
+    name: 'Garlic Naan',
+    code: 'GLN',
+    basePrice: 59,
+    dietary: 'veg',
+    status: 'active',
+    allowDelivery: false,
+    tagNames: ['chef-special'],
+  }),
+  menuItem({
+    id: 7,
+    categoryId: 4,
+    name: 'Mango Lassi',
+    code: 'MGL',
+    basePrice: 99,
+    dietary: 'veg',
+    status: 'inactive',
+    allowDelivery: false,
+    tagNames: ['eco-item'],
+  }),
+  menuItem({
+    id: 8,
+    categoryId: 4,
+    name: 'Masala Chai',
     code: 'MSC',
-    orderTypes: ['Dine In', 'Take Away'],
-    tags: [],
-  },
-  {
-    id: 'item_009',
+    basePrice: 49,
+    dietary: 'veg',
+    status: 'active',
+    allowDelivery: false,
+  }),
+  menuItem({
+    id: 9,
+    categoryId: 5,
     name: 'Gulab Jamun',
-    categoryId: '5',
-    categoryName: 'Desserts',
-    basePrice: 89,
-    dietary: 'Veg',
-    status: 'Hidden',
     code: 'GLJ',
-    orderTypes: ['Dine In', 'Take Away'],
-    tags: ['chef-special'],
-  },
-  {
-    id: 'item_010',
+    basePrice: 89,
+    dietary: 'veg',
+    status: 'inactive',
+    allowDelivery: false,
+    tagNames: ['chef-special'],
+  }),
+  menuItem({
+    id: 10,
+    categoryId: 2,
     name: 'Veg Biryani',
-    categoryId: '2',
-    categoryName: 'Main Course',
-    basePrice: 279,
-    dietary: 'Veg',
-    status: 'Available',
     code: 'VBR',
-    orderTypes: ['Dine In', 'Take Away', 'Delivery'],
-    tags: ['spicy', 'Set As Combo', 'chef-special', 'vegan'],
-  },
-  {
-    id: 'item_011',
+    basePrice: 279,
+    dietary: 'veg',
+    status: 'active',
+    isCombo: true,
+    tagNames: ['spicy', 'chef-special', 'vegan'],
+    variants: [
+      { id: 1001, name: 'Single', price: 279, isDefault: true },
+      { id: 1002, name: 'Family Pack', price: 699 },
+    ],
+  }),
+  menuItem({
+    id: 11,
+    categoryId: 3,
     name: 'Tandoori Roti',
-    categoryId: '3',
-    categoryName: 'Breads',
-    basePrice: 29,
-    dietary: 'Veg',
-    status: 'Inactive',
     code: 'TDR',
-    orderTypes: ['Dine In'],
-    tags: [],
+    basePrice: 29,
+    dietary: 'veg',
+    status: 'inactive',
+    allowDelivery: false,
+    description: 'Traditional crisp whole wheat flatbread baked in a clay tandoor.',
     imageUrl:
       'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=600&auto=format&fit=crop&q=80',
-    description: 'Traditional crisp whole wheat flatbread baked in a clay tandoor.',
-  },
+  }),
 ]);
-
-export function resolveMenuCategoriesMock(request: MockRequest): unknown | undefined {
-  const listPath = restaurantMenuCategoriesPath();
-  if (!request.path.startsWith(listPath)) {
-    return undefined;
-  }
-
-  // GET /v1/restaurant/menu/categories
-  if (request.method === 'GET' && request.path === listPath) {
-    const status = request.params?.status as StatusBasic | undefined;
-    const page = Math.max(1, Number(request.params?.page ?? 1));
-    const pageSize = Math.max(1, Number(request.params?.page_size ?? 15));
-
-    const filtered = MOCK_MENU_CATEGORIES.filter((cat) => {
-      if (status && cat.status !== status) return false;
-      return true;
-    });
-
-    const start = (page - 1) * pageSize;
-    const paginated = filtered.slice(start, start + pageSize);
-
-    return {
-      success: true as const,
-      data: {
-        items: paginated,
-        total: filtered.length,
-        page,
-        page_size: pageSize,
-      },
-      message: 'OK',
-      request_id: 'mock-menu-categories',
-    };
-  }
-
-  // GET /v1/restaurant/menu/categories/{id}
-  if (request.method === 'GET' && request.path.startsWith(`${listPath}/`)) {
-    const idSegment = request.path.slice(listPath.length + 1).split('/')[0];
-    const category = MOCK_MENU_CATEGORIES.find(
-      (c) => String(c.id) === decodeURIComponent(idSegment),
-    );
-    if (!category) return undefined;
-    return {
-      success: true as const,
-      data: category,
-      message: 'OK',
-      request_id: 'mock-menu-categories',
-    };
-  }
-
-  return undefined;
-}

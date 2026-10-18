@@ -73,6 +73,13 @@ const ApiUrlsV1 = {
     preparationStations: '/v1/restaurant/preparation-stations',
     gstRates: '/v1/restaurant/gst-rates',
     menuCategories: resource('/v1/restaurant/menu/categories'),
+    menuItems: resource('/v1/restaurant/menu/items'),
+    /** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
+    branchMenus: {
+      /** Prefix for session-bearer matching and nested branch menu paths. */
+      root: '/v1/restaurant/branches',
+      list: (branchId: number | string) => restaurantBranchMenusPath(branchId),
+    },
   },
   kitchen: {
     kitchenBoard: resource('/v1/kitchen-display'),
@@ -140,6 +147,11 @@ export function organizationCompanyBranchesPath(
   return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies/${encodeURIComponent(String(companyId))}/branches`;
 }
 
+/** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
+export function restaurantBranchMenusPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branchMenus.root}/${encodeURIComponent(String(branchId))}/menus`;
+}
+
 /** GET/POST /v1/restaurant/gst-rates */
 export function restaurantGstRatesPath(): string {
   return ApiUrlsV1.restaurant.gstRates;
@@ -153,6 +165,21 @@ export function restaurantGstRatePath(gstRateId: number | string): string {
 /** GET/POST /v1/restaurant/menu/categories */
 export function restaurantMenuCategoriesPath(): string {
   return ApiUrlsV1.restaurant.menuCategories.list;
+}
+
+/** GET/POST /v1/restaurant/menu/items */
+export function restaurantMenuItemsPath(): string {
+  return ApiUrlsV1.restaurant.menuItems.list;
+}
+
+/** GET /v1/restaurant/menu/items/{item_id} */
+export function restaurantMenuItemPath(itemId: number | string): string {
+  return ApiUrlsV1.restaurant.menuItems.detail(String(itemId));
+}
+
+/** POST /v1/restaurant/menu/items/{item_id}/deactivate */
+export function restaurantMenuItemDeactivatePath(itemId: number | string): string {
+  return `${restaurantMenuItemPath(itemId)}/deactivate`;
 }
 
 export function restaurantFloorsPath(branchId: number): string {

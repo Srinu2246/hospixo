@@ -26,10 +26,14 @@ import {
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { Modal } from '@/components/shared/ui/Modal';
+import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
+import { toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import { useCreateMenuItem } from '@/lib/hooks/menu/menu-creation/useCreateMenuItem';
+import { useMenuItem } from '@/lib/hooks/menu/useMenuItems';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import type {
   CreateMenuItemFormValues,
@@ -70,7 +74,6 @@ export function CreateMenuItemScreen({
   onBack,
   onSaveSuccess,
 }: Readonly<CreateMenuItemScreenProps>) {
-  // Context integration (graceful fallback if rendered outside provider)
   let menuContext: ReturnType<typeof useMenuCreation> | null = null;
   try {
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -79,7 +82,83 @@ export function CreateMenuItemScreen({
     menuContext = null;
   }
 
+  const editItemId = mode === 'edit' && initialItem ? Number(initialItem.id) : undefined;
+  const detailQuery = useMenuItem(
+    typeof editItemId === 'number' && Number.isFinite(editItemId) && editItemId > 0
+      ? editItemId
+      : undefined,
+  );
+
+  const handleBackNavigation = () => {
+    if (onBack) {
+      onBack();
+    } else if (menuContext) {
+      menuContext.backToList();
+    } else if (typeof window !== 'undefined') {
+      window.history.back();
+    }
+  };
+
+  if (mode === 'edit' && detailQuery.isLoading && !detailQuery.data) {
+    return (
+      <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', py: 2 }}>
+        <SkeletonLoader count={8} height={56} />
+      </Box>
+    );
+  }
+
+  if (mode === 'edit' && detailQuery.isError && !detailQuery.data) {
+    return (
+      <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', py: 2 }}>
+        <AlertMessage
+          variant="error"
+          title="Unable to load menu item"
+          message={
+            detailQuery.error instanceof Error
+              ? detailQuery.error.message
+              : 'The menu item request failed.'
+          }
+        />
+        <ActionButton variant="outlined" onClick={handleBackNavigation} sx={{ mt: 2 }}>
+          Back to list
+        </ActionButton>
+      </Box>
+    );
+  }
+
+  const seededItem =
+    mode === 'edit' && detailQuery.data
+      ? toMenuCatalogItem(detailQuery.data, undefined, initialItem?.categoryName)
+      : initialItem;
+
+  return (
+    <CreateMenuItemForm
+      key={mode === 'edit' ? `edit-${detailQuery.data?.id ?? initialItem?.id}` : 'create'}
+      initialItem={seededItem}
+      initialDetail={mode === 'edit' ? (detailQuery.data ?? null) : null}
+      mode={mode}
+      onBack={onBack}
+      onSaveSuccess={onSaveSuccess}
+      menuContext={menuContext}
+    />
+  );
+}
+
+function CreateMenuItemForm({
+  initialItem = null,
+  initialDetail = null,
+  mode = 'create',
+  onBack,
+  onSaveSuccess,
+  menuContext,
+}: Readonly<
+  CreateMenuItemScreenProps & {
+    initialDetail?: import('@/lib/schemas/menu/menuItemsSchema').MenuItemResponse | null;
+    menuContext: ReturnType<typeof useMenuCreation> | null;
+  }
+>) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [toastFeedback, setToastFeedback] = useState<{
     open: boolean;
     message: string;
@@ -127,6 +206,7 @@ export function CreateMenuItemScreen({
 
   const formHook = useCreateMenuItem({
     initialItem,
+    initialDetail,
     onSave: handleSaveItem,
     onBack: handleBackNavigation,
   });

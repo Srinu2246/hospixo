@@ -33,6 +33,7 @@ import {
   type PermissionCategory,
   type RoleCatalogItem,
   type ScopeType,
+  type ScopedRolePermissionsParams,
   type StaffProfileFormValues,
   type UserRoleFormValues,
   type UserRoleItem,
@@ -147,12 +148,7 @@ export function useUserRoles(
     placeholderData: (previous) => previous,
   });
 
-  const rolesQuery = useQuery({
-    queryKey: ['api', ApiUrlsV1.roles.list, scope],
-    queryFn: async ({ signal }) =>
-      parseRoleCatalog(await api.get<unknown>(ApiUrlsV1.roles.list, undefined, signal)),
-    staleTime: 60_000,
-  });
+  const rolesQuery = useRoleCatalogQuery(scope);
 
   const roleCatalog: RoleCatalogItem[] = useMemo(() => {
     if (Array.isArray(rolesQuery.data)) return rolesQuery.data;
@@ -299,14 +295,7 @@ export function useStaffProfile(userId: string | null | undefined) {
       parseUserRecord(await api.get<unknown>(ApiUrlsV1.users.detail(userId!), undefined, signal)),
   });
 
-  const permissionsQuery = useQuery({
-    queryKey: ['api', ApiUrlsV1.permissions.grouped],
-    queryFn: async ({ signal }) =>
-      parseGroupedPermissions(
-        await api.get<unknown>(ApiUrlsV1.permissions.grouped, undefined, signal),
-      ),
-    staleTime: 60_000,
-  });
+  const permissionsQuery = useGroupedPermissions(enabled);
 
   const profile = userQuery.data ? staffProfileFromUser(userQuery.data) : undefined;
 
@@ -466,6 +455,57 @@ export function useCreateCustomRole() {
 // Role templates and grouped permissions (read)
 // ---------------------------------------------------------------------------
 
+export function useRoleCatalogQuery(scope?: ScopeType) {
+  return useQuery({
+    queryKey: ['api', ApiUrlsV1.roles.list, scope ?? 'all'],
+    queryFn: async ({ signal }) =>
+      parseRoleCatalog(await api.get<unknown>(ApiUrlsV1.roles.list, undefined, signal)),
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  });
+}
+
+export function useRolePermissions(
+  roleId: string | number | undefined | null,
+  options?: {
+    scope?: ScopeType | string;
+    companyId?: number | string | null;
+    branchId?: number | string | null;
+  },
+) {
+  const scopeType = options?.scope || 'branch';
+  const companyId = options?.companyId;
+  const branchId = options?.branchId;
+
+  return useQuery({
+    queryKey: [
+      'api',
+      'roles',
+      roleId != null && roleId !== '' ? String(roleId) : 'none',
+      'permissions',
+      scopeType,
+      companyId != null ? String(companyId) : 'all',
+      branchId != null ? String(branchId) : 'all',
+    ],
+    queryFn: async ({ signal }) => {
+      if (roleId == null || roleId === '') return null;
+      const params: ScopedRolePermissionsParams = {
+        scope_type: (scopeType as ScopeType) || 'branch',
+        ...(companyId != null && companyId !== ''
+          ? { company_id: Number(companyId) || String(companyId) }
+          : {}),
+        ...(branchId != null && branchId !== ''
+          ? { branch_id: Number(branchId) || String(branchId) }
+          : {}),
+        page_size: 100,
+      };
+      return api.get<unknown>(rolePermissionsPath(roleId), params, signal);
+    },
+    enabled: roleId != null && roleId !== '',
+    staleTime: 60_000,
+  });
+}
+
 export function useRoleTemplates(scope: ScopeType = 'organization') {
   return useQuery({
     queryKey: ['api', ApiUrlsV1.roles.templates, scope],
@@ -481,14 +521,16 @@ export function useRoleTemplates(scope: ScopeType = 'organization') {
   });
 }
 
-export function useGroupedPermissions() {
+export function useGroupedPermissions(enabled = true) {
   return useQuery({
     queryKey: ['api', ApiUrlsV1.permissions.grouped],
+    enabled,
     queryFn: async ({ signal }) =>
       parseGroupedPermissions(
         await api.get<unknown>(ApiUrlsV1.permissions.grouped, undefined, signal),
       ),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
   });
 }
 
@@ -497,14 +539,20 @@ export function useGroupedPermissions() {
 // ---------------------------------------------------------------------------
 
 export function useEmployeeDirectory(organizationId?: number, companyId?: number) {
-  return useQuery({
-    queryKey: ['employees', 'directory', organizationId ?? 'session', companyId ?? 'all'],
-    queryFn: async ({ signal }) => {
-      const { context, account } = useSidebarStore.getState();
-      const resolvedOrgId =
-        organizationId ?? context.organizationId ?? account?.org_id ?? undefined;
-      const resolvedCompanyId = companyId ?? context.companyId ?? account?.company_id ?? undefined;
+  const account = useSidebarStore((state) => state.account);
+  const context = useSidebarStore((state) => state.context);
+  const role = useSidebarStore((state) => state.role);
 
+  const resolvedOrgId = organizationId ?? context.organizationId ?? account?.org_id ?? undefined;
+  const resolvedCompanyId = companyId ?? context.companyId ?? account?.company_id ?? undefined;
+
+  const sessionReady = Boolean(role || account);
+  const hasDirectoryScope = resolvedOrgId != null || resolvedCompanyId != null;
+
+  return useQuery({
+    queryKey: ['employees', 'directory', resolvedOrgId ?? 'none', resolvedCompanyId ?? 'none'],
+    enabled: sessionReady && hasDirectoryScope,
+    queryFn: async ({ signal }) => {
       const get = (
         path: string,
         params?: Record<string, string | number | boolean | null | undefined>,
@@ -530,7 +578,6 @@ export function useEmployeeDirectory(organizationId?: number, companyId?: number
         return enrichDirectoryWithSession([], [], sessionHints);
       }
     },
-    enabled: true,
     staleTime: 30_000,
     placeholderData: (previous) => previous,
   });

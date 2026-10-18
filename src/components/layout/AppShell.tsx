@@ -7,10 +7,12 @@ import { Sidebar } from '@/components/shared/app/Sidebar';
 import { TopNavbar } from '@/components/shared/app/TopNavbar';
 import { WorkspaceBottomNav } from '@/components/shared/app/WorkspaceBottomNav';
 import { Toast } from '@/components/shared/ui/Toast';
+import { isSidebarlessRole } from '@/app/sidebar';
 import type { SidebarSession } from '@/lib/auth/session';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useToastStore } from '@/stores/toastStore';
+
 type AppShellProps = {
   children: React.ReactNode;
   initialSession?: SidebarSession | null;
@@ -62,6 +64,24 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
   if (pathname === '/login' || pathname.startsWith('/login/')) {
     return (
       <Box sx={{ minHeight: '100vh', width: '100%', bgcolor: 'background.default' }}>
+        {children}
+        {toast}
+      </Box>
+    );
+  }
+
+  // Chef station: full-screen KDS with no sidebar / top navbar chrome.
+  if (isSidebarlessRole(role)) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          width: '100%',
+          height: '100vh',
+          overflow: 'hidden',
+          bgcolor: 'background.default',
+        }}
+      >
         {children}
         {toast}
       </Box>
