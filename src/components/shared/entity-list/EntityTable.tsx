@@ -3,7 +3,6 @@
 import type { ElementType, ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Skeleton from '@mui/material/Skeleton';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -13,6 +12,7 @@ import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
 
+import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { colors } from '@/lib/theme/mui/colors';
 
@@ -92,7 +92,7 @@ export function EntityTable({
                       align={column.align ?? 'left'}
                       sx={{ py: 1, px: 1.5 }}
                     >
-                      <Skeleton
+                      <SkeletonLoader
                         width={columnIndex === 0 ? 180 : 80}
                         height={24}
                         sx={column.align === 'center' ? { mx: 'auto' } : undefined}

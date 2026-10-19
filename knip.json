@@ -21,6 +21,7 @@
   "ignoreIssues": {
     ".husky/**": ["unlisted", "binaries"]
   },
+  "husky": false,
   "rules": {
     "files": "error",
     "exports": "error",

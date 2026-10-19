@@ -7,11 +7,12 @@ import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
 import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
-import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
+import { Header } from '@/components/shared/ui/Header';
+import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { Card } from '@/components/shared/ui/Card';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
@@ -19,17 +20,17 @@ import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
 
-import type { UserRoleItem, ScopeType } from '@/types/user-roles';
-import type { UserRoleFormValues } from '@/lib/schemas/user-roles';
-import { useUserRoles } from '@/lib/hooks/user-roles';
-import {
-  ROLE_OPTIONS,
-  BRANCH_OPTIONS,
-  COMPANY_ROLE_OPTIONS,
-  COMPANY_BRANCH_OPTIONS,
-  BRANCH_ROLE_OPTIONS,
-  BRANCH_BRANCH_OPTIONS,
-} from '@/lib/mocks/employees/useUserRoles.mocks';
+import type {
+  UserRoleItem,
+  ScopeType,
+  UserRoleFormValues,
+  ParsedUserList,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import { useEmployeeDirectory, useUserRoles } from '@/lib/hooks/employees/user-roles';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { useUserRolesUiStore } from '@/stores/userRolesUiStore';
+
 import {
   UserRoleStats,
   AddUserModal,
@@ -41,12 +42,25 @@ import { CreateUserMultiformFlow } from './CreateUserMultiformFlow';
 export interface UsersAndRolesScreenProps {
   scope?: ScopeType;
   companyName?: string;
+  initialUserList?: ParsedUserList;
 }
 
+/**
+ * UsersAndRolesPage Component
+ *
+ * Page-level screen implementing team member directory and role management:
+ * 1. Global reusable Header with "Add User" action.
+ * 2. 4 Summary KPI statistics cards.
+ * 3. Search and filter toolbar with active filter chips.
+ * 4. Responsive data grid with custom row action menu and inline status toggles.
+ * 5. Add / Edit User modal dialog and filters popover.
+ */
 export function UsersAndRolesScreen({
   scope,
-  companyName = 'VJITVI',
+  initialUserList,
 }: Readonly<UsersAndRolesScreenProps> = {}) {
+  const contextCompanyName = useSidebarStore((state) => state.context.companyName);
+  const companyName = contextCompanyName;
   const router = useRouter();
   const pathname = usePathname() || '';
 
@@ -58,9 +72,23 @@ export function UsersAndRolesScreen({
         ? 'branch'
         : 'organization');
 
+  const setSelectedUserId = useUserRolesUiStore((state) => state.setSelectedUserId);
+  const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
+  const contextOrgId = useSidebarStore((state) => state.context.organizationId);
+  const contextCompanyId = useSidebarStore((state) => state.context.companyId);
+  const accountCompanyId = useSidebarStore((state) => state.account?.company_id ?? undefined);
+  const organizationId = contextOrgId ?? accountOrgId;
+  const directoryCompanyId =
+    resolvedScope === 'organization' ? undefined : (contextCompanyId ?? accountCompanyId);
+  const directory = useEmployeeDirectory(organizationId, directoryCompanyId);
+
   const {
     paginatedUsers,
     stats,
+    roleOptions,
+    isLoading,
+    isError,
+    error,
     searchQuery,
     setSearchQuery,
     selectedRole,
@@ -79,20 +107,9 @@ export function UsersAndRolesScreen({
     updateUser,
     deleteUser,
     changeUserStatus,
-  } = useUserRoles({ pageSize: 8, scope: resolvedScope, companyName });
+  } = useUserRoles({ pageSize: 8, scope: resolvedScope, companyName, initialUserList });
 
-  const roleOptions =
-    resolvedScope === 'branch'
-      ? BRANCH_ROLE_OPTIONS
-      : resolvedScope === 'company'
-        ? COMPANY_ROLE_OPTIONS
-        : ROLE_OPTIONS;
-  const branchOptions =
-    resolvedScope === 'branch'
-      ? BRANCH_BRANCH_OPTIONS
-      : resolvedScope === 'company'
-        ? COMPANY_BRANCH_OPTIONS
-        : BRANCH_OPTIONS;
+  const branchOptions = (directory.data?.branches ?? []).map((branch) => branch.name);
 
   // View mode fallback: 'table' or 'multiform'
   const [viewMode, setViewMode] = useState<'table' | 'multiform'>('table');
@@ -179,6 +196,7 @@ export function UsersAndRolesScreen({
     const targetUser = user || selectedUserForAction;
     handleCloseActionMenu();
     if (targetUser) {
+      setSelectedUserId(targetUser.id);
       router.push(`${baseRoute}/edit`);
     }
   };
@@ -187,6 +205,7 @@ export function UsersAndRolesScreen({
     const targetUser = user || selectedUserForAction;
     handleCloseActionMenu();
     if (targetUser) {
+      setSelectedUserId(targetUser.id);
       router.push(`${baseRoute}/profile`);
     }
   };
@@ -361,56 +380,36 @@ export function UsersAndRolesScreen({
       }}
     >
       {/* ---------------------------------------------------------------- */}
-      {/* Page Header: Title, Subtitle and Add User Button                 */}
+      {/* Global Reusable Header: Title, Subtitle and Add User Action Button */}
       {/* ---------------------------------------------------------------- */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          justifyContent: 'space-between',
-          gap: 2,
-        }}
-      >
-        <Box>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{
-              fontSize: { xs: '1.375rem', sm: '1.625rem' },
-              fontWeight: 700,
-              color: 'text.primary',
-              letterSpacing: '-0.02em',
-            }}
+      <Header
+        title="Users & Roles"
+        subtitle="Manage your team members and their system access levels."
+        actionSlot={
+          <ActionButton
+            variant="primary"
+            onClick={handleOpenAddModal}
+            startIcon={<PersonAddAlt1OutlinedIcon fontSize="small" />}
+            sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
           >
-            Users & Roles
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              color: colors.text.secondary,
-              mt: 0.25,
-              fontSize: '0.875rem',
-            }}
-          >
-            Manage your team members and their system access levels.
-          </Typography>
-        </Box>
-
-        <ActionButton
-          variant="primary"
-          onClick={handleOpenAddModal}
-          startIcon={<PersonAddAlt1OutlinedIcon fontSize="small" />}
-          sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
-        >
-          Add User
-        </ActionButton>
-      </Box>
+            Add User
+          </ActionButton>
+        }
+      />
 
       {/* ---------------------------------------------------------------- */}
       {/* 4 Summary Stats Cards                                            */}
       {/* ---------------------------------------------------------------- */}
       <UserRoleStats stats={stats} />
+
+      {isLoading ? <AlertMessage variant="info" message="Loading users…" /> : null}
+
+      {isError ? (
+        <AlertMessage
+          variant="error"
+          message={error instanceof Error ? error.message : 'Unable to load users.'}
+        />
+      ) : null}
 
       {/* ---------------------------------------------------------------- */}
       {/* Main Table Card with Search, Filters and Internal Scrolling      */}
@@ -525,6 +524,7 @@ export function UsersAndRolesScreen({
             columns={columns}
             rows={paginatedUsers}
             getRowId={(row) => row.id}
+            isLoading={isLoading}
             stickyHeader
             pagination
             page={page}
@@ -619,3 +619,5 @@ export function UsersAndRolesScreen({
     </Box>
   );
 }
+
+// Re-export with Screen suffix for full backwards compatibility

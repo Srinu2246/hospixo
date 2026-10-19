@@ -12,7 +12,8 @@ import type {
   CreateUserFormValues,
   PermissionCategory,
   RoleTemplateItem,
-} from '@/types/user-roles';
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import { PermissionGroupsGrid } from './PermissionGroupsGrid';
 
 export interface ReviewAndSaveStepThreeProps {
   formValues: CreateUserFormValues;
@@ -27,66 +28,6 @@ export function ReviewAndSaveStepThree({
   categories,
   onEditSection,
 }: Readonly<ReviewAndSaveStepThreeProps>) {
-  // Extract summary permission groups for the 4 preview cards matching Screenshot
-  const dashboardCategory = categories.find((c) => c.id === 'dashboard');
-  const userMgmtCategory = categories.find((c) => c.id === 'user_management' || c.id === 'users');
-  const branchMgmtCategory = categories.find(
-    (c) => c.id === 'branch_management' || c.id === 'branches',
-  );
-  const inventoryCategory = categories.find((c) => c.id === 'inventory');
-
-  const dashPerms = dashboardCategory?.permissions || [];
-  const isViewDashboard = dashPerms.find((p) => p.id.includes('view'))?.enabled ?? true;
-  const isViewAnalytics = dashPerms.find((p) => p.id.includes('analytics'))?.enabled ?? true;
-
-  const userPerms = userMgmtCategory?.permissions || [];
-  const isCreateUsers = userPerms.find((p) => p.id.includes('create'))?.enabled ?? true;
-  const isEditUsers =
-    userPerms.find((p) => p.id.includes('edit') || p.id.includes('update'))?.enabled ?? true;
-  const isDeleteUsers = userPerms.find((p) => p.id.includes('delete'))?.enabled ?? false;
-
-  const branchPerms = branchMgmtCategory?.permissions || [];
-  const isViewBranches = branchPerms.find((p) => p.id.includes('view'))?.enabled ?? false;
-  const isManageBranches =
-    branchPerms.find((p) => p.id.includes('manage') || p.id.includes('update'))?.enabled ?? true;
-
-  const invPerms = inventoryCategory?.permissions || [];
-  const isViewInventory = invPerms.find((p) => p.id.includes('view'))?.enabled ?? false;
-  const isManageItems =
-    invPerms.find((p) => p.id.includes('item') || p.id.includes('manage'))?.enabled ?? false;
-
-  const permissionCards = [
-    {
-      title: 'DASHBOARD',
-      items: [
-        { label: 'VIEW DASHBOARD', enabled: isViewDashboard },
-        { label: 'VIEW ANALYTICS', enabled: isViewAnalytics },
-      ],
-    },
-    {
-      title: 'USER MANAGEMENT',
-      items: [
-        { label: 'CREATE USERS', enabled: isCreateUsers },
-        { label: 'EDIT USERS', enabled: isEditUsers },
-        { label: 'DELETE USERS', enabled: isDeleteUsers },
-      ],
-    },
-    {
-      title: 'BRANCH MANAGEMENT',
-      items: [
-        { label: 'VIEW BRANCHES', enabled: isViewBranches },
-        { label: 'MANAGE BRANCHES', enabled: isManageBranches },
-      ],
-    },
-    {
-      title: 'INVENTORY',
-      items: [
-        { label: 'VIEW INVENTORY', enabled: isViewInventory },
-        { label: 'MANAGE ITEMS', enabled: isManageItems },
-      ],
-    },
-  ];
-
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2.5, pb: 4 }}>
       {/* 1. Role Summary Card (24px padding) */}
@@ -298,7 +239,7 @@ export function ReviewAndSaveStepThree({
               Company
             </Typography>
             <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.company || 'VJITVI'}
+              {formValues.company || '—'}
             </Typography>
           </Box>
 
@@ -308,7 +249,7 @@ export function ReviewAndSaveStepThree({
               Branch
             </Typography>
             <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.branch || 'Downtown Branch'}
+              {formValues.branch || '—'}
             </Typography>
           </Box>
 
@@ -357,88 +298,44 @@ export function ReviewAndSaveStepThree({
         </Box>
       </Card>
 
-      {/* 3. Permissions Summary Cards (2x2 Grid) */}
-      <Box
+      {/* 3. Permissions summary (same groups as configure step, read-only) */}
+      <Card
+        variant="outlined"
+        padding={3}
         sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-          gap: 2,
+          borderRadius: '12px',
+          borderColor: (theme) =>
+            theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+          bgcolor: (theme) =>
+            theme.palette.mode === 'dark' ? colors.surface.dark : colors.surface.default,
+          boxShadow: 'none',
         }}
       >
-        {permissionCards.map((card) => (
-          <Card
-            key={card.title}
-            variant="outlined"
-            padding={2.5}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
+            Permissions
+          </Typography>
+          <IconButton
+            size="small"
+            aria-label="Edit permissions"
+            onClick={() => onEditSection('permissions')}
             sx={{
-              borderRadius: '12px',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-              bgcolor: (theme) =>
-                theme.palette.mode === 'dark' ? colors.surface.dark : colors.surface.default,
-              boxShadow: 'none',
+              color: colors.primary.default,
+              '&:hover': { bgcolor: 'rgba(51, 84, 244, 0.08)' },
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                mb: 1.5,
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: '0.8125rem',
-                  fontWeight: 700,
-                  color: 'text.primary',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {card.title}
-              </Typography>
-              <IconButton
-                size="small"
-                aria-label={`Edit ${card.title}`}
-                onClick={() => onEditSection('permissions')}
-                sx={{
-                  color: colors.primary.default,
-                  '&:hover': { bgcolor: 'rgba(51, 84, 244, 0.08)' },
-                }}
-              >
-                <EditOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Box>
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-              {card.items.map((item) => (
-                <Box key={item.label} sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: colors.text.secondary,
-                      fontWeight: 700,
-                      fontSize: '0.6875rem',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    {item.label}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: '0.8125rem',
-                      fontWeight: 700,
-                      color: item.enabled ? colors.success.default : colors.danger.default,
-                    }}
-                  >
-                    {item.enabled ? 'Enabled' : 'Disabled'}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </Card>
-        ))}
-      </Box>
+        {categories.length === 0 ? (
+          <Typography sx={{ fontSize: '0.875rem', color: colors.text.secondary }}>
+            No permissions loaded. Go back to configure permissions.
+          </Typography>
+        ) : (
+          <PermissionGroupsGrid categories={categories} readOnly badgeMode="enabled" />
+        )}
+      </Card>
     </Box>
   );
 }

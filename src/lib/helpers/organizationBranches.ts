@@ -21,8 +21,7 @@ export async function loadOrganizationBranches(
   companyId?: number,
 ): Promise<BranchListItem[]> {
   if (companyId != null && organizationId != null) {
-    const scoped = await loadCompanyBranches(organizationId, companyId, get);
-    if (scoped.length > 0) return scoped;
+    return dedupeBranches(await loadCompanyBranches(organizationId, companyId, get));
   }
 
   if (organizationId != null && companyId == null && companies.length > 0) {
@@ -72,7 +71,7 @@ async function loadCompanyBranches(
 ): Promise<BranchListItem[]> {
   try {
     const items = parseBranchList(
-      await get(organizationCompanyBranchesPath(organizationId, companyId)),
+      await get(ApiUrlsV1.restaurant.branches, { company_id: companyId }),
       companyId,
     );
     if (items.length > 0) return items;
@@ -81,10 +80,11 @@ async function loadCompanyBranches(
   }
 
   try {
-    return parseBranchList(
-      await get(ApiUrlsV1.restaurant.branches, { company_id: companyId }),
+    const items = parseBranchList(
+      await get(organizationCompanyBranchesPath(organizationId, companyId)),
       companyId,
     );
+    if (items.length > 0) return items;
   } catch (error) {
     if (!isMissingEndpoint(error)) throw error;
   }
@@ -99,11 +99,14 @@ async function loadTenantBranches(
 ): Promise<BranchListItem[]> {
   const attempts: QueryParams[] = [];
   if (companyId != null) attempts.push({ company_id: companyId });
-  if (organizationId != null) {
+  if (organizationId != null && companyId == null) {
     attempts.push({ organization_id: organizationId });
     attempts.push({ org_id: organizationId });
   }
-  attempts.push({});
+
+  if (attempts.length === 0) {
+    return [];
+  }
 
   for (const params of attempts) {
     try {

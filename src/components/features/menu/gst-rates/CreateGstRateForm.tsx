@@ -11,16 +11,17 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { CalendarPicker } from '@/components/shared/form-fields/CalendarPicker';
 import { Input } from '@/components/shared/form-fields/Input';
 import {
-  createGstRateInputSchema,
-  type CreateGstRateInput,
+  createGstRateBodySchema,
+  type CreateGstRateBody,
   type GstRate,
 } from '@/lib/schemas/menu/gstRatesSchema';
 
 export interface CreateGstRateFormProps {
   mode?: 'create' | 'view';
   rate?: GstRate | null;
+  submitting?: boolean;
   onCancel: () => void;
-  onSubmit: (input: CreateGstRateInput) => void;
+  onSubmit: (input: CreateGstRateBody) => void;
 }
 
 function toDateInputValue(value?: string | null): Date | null {
@@ -29,17 +30,15 @@ function toDateInputValue(value?: string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function toIsoDate(value: Date | null): string {
+function toIsoDateTime(value: Date | null): string {
   if (!value) return '';
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return value.toISOString();
 }
 
 export function CreateGstRateForm({
   mode = 'create',
   rate = null,
+  submitting = false,
   onCancel,
   onSubmit,
 }: Readonly<CreateGstRateFormProps>) {
@@ -47,14 +46,14 @@ export function CreateGstRateForm({
 
   const [code, setCode] = useState(rate?.code ?? '');
   const [name, setName] = useState(rate?.name ?? '');
-  const [cgst, setCgst] = useState(rate ? String(rate.cgst) : '2.5');
-  const [sgst, setSgst] = useState(rate ? String(rate.sgst) : '2.5');
-  const [igst, setIgst] = useState(rate ? String(rate.igst) : '5');
-  const [total, setTotal] = useState(rate ? String(rate.total) : '5');
+  const [cgst, setCgst] = useState(rate ? String(rate.cgst_rate) : '2.5');
+  const [sgst, setSgst] = useState(rate ? String(rate.sgst_rate) : '2.5');
+  const [igst, setIgst] = useState(rate ? String(rate.igst_rate) : '5');
+  const [total, setTotal] = useState(rate ? String(rate.total_rate) : '5');
   const [effectiveFrom, setEffectiveFrom] = useState<Date | null>(
-    toDateInputValue(rate?.effectiveFrom) ?? new Date(),
+    toDateInputValue(rate?.effective_from) ?? new Date(),
   );
-  const [effectiveTo, setEffectiveTo] = useState<Date | null>(toDateInputValue(rate?.effectiveTo));
+  const [effectiveTo, setEffectiveTo] = useState<Date | null>(toDateInputValue(rate?.effective_to));
   const [error, setError] = useState<string | null>(null);
 
   const computedTotal = useMemo(() => {
@@ -70,15 +69,15 @@ export function CreateGstRateForm({
       return;
     }
 
-    const result = createGstRateInputSchema.safeParse({
+    const result = createGstRateBodySchema.safeParse({
       code,
       name,
-      cgst,
-      sgst,
-      igst,
-      total: total.trim() ? Number(total) : computedTotal,
-      effectiveFrom: toIsoDate(effectiveFrom),
-      effectiveTo: toIsoDate(effectiveTo) || undefined,
+      cgst_rate: cgst,
+      sgst_rate: sgst,
+      igst_rate: igst,
+      total_rate: total.trim() ? Number(total) : computedTotal,
+      effective_from: toIsoDateTime(effectiveFrom),
+      effective_to: toIsoDateTime(effectiveTo) || undefined,
     });
 
     if (!result.success) {
@@ -151,7 +150,7 @@ export function CreateGstRateForm({
               placeholder="e.g. GST_5, GST_12, GST_18, EXEMPT"
               helperText="Tax slab code for GST compliance."
               value={code}
-              disabled={isView}
+              disabled={isView || submitting}
               onChange={(event) => {
                 setCode(event.target.value);
                 if (error) setError(null);
@@ -164,7 +163,7 @@ export function CreateGstRateForm({
               placeholder="e.g. Standard Food (5%)"
               helperText="Descriptive name printed on invoices."
               value={name}
-              disabled={isView}
+              disabled={isView || submitting}
               onChange={(event) => {
                 setName(event.target.value);
                 if (error) setError(null);
@@ -175,7 +174,7 @@ export function CreateGstRateForm({
               label="Total Rate (%)"
               type="number"
               value={total}
-              disabled={isView}
+              disabled={isView || submitting}
               onChange={(event) => setTotal(event.target.value)}
               onBlur={() => {
                 if (!total.trim()) setTotal(String(computedTotal));
@@ -195,7 +194,7 @@ export function CreateGstRateForm({
               label="CGST (%)"
               type="number"
               value={cgst}
-              disabled={isView}
+              disabled={isView || submitting}
               onChange={(event) => setCgst(event.target.value)}
             />
             <Input
@@ -203,7 +202,7 @@ export function CreateGstRateForm({
               label="SGST (%)"
               type="number"
               value={sgst}
-              disabled={isView}
+              disabled={isView || submitting}
               onChange={(event) => setSgst(event.target.value)}
             />
             <Input
@@ -211,7 +210,7 @@ export function CreateGstRateForm({
               label="IGST (%)"
               type="number"
               value={igst}
-              disabled={isView}
+              disabled={isView || submitting}
               onChange={(event) => setIgst(event.target.value)}
             />
           </Box>
@@ -233,7 +232,7 @@ export function CreateGstRateForm({
                 value={effectiveFrom}
                 onChange={setEffectiveFrom}
                 placeholder="dd-mm-yyyy"
-                disabled={isView}
+                disabled={isView || submitting}
                 minWidth="100%"
                 sx={{ width: '100%' }}
               />
@@ -248,7 +247,7 @@ export function CreateGstRateForm({
                 value={effectiveTo}
                 onChange={setEffectiveTo}
                 placeholder="dd-mm-yyyy --:--"
-                disabled={isView}
+                disabled={isView || submitting}
                 minWidth="100%"
                 sx={{ width: '100%' }}
               />
@@ -262,10 +261,14 @@ export function CreateGstRateForm({
           ) : null}
 
           <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end', pt: 1 }}>
-            <ActionButton variant="outlined" onClick={onCancel}>
+            <ActionButton variant="outlined" onClick={onCancel} disabled={submitting}>
               {isView ? 'Close' : 'Cancel'}
             </ActionButton>
-            {!isView ? <ActionButton onClick={handleSubmit}>Create GST Rate</ActionButton> : null}
+            {!isView ? (
+              <ActionButton onClick={handleSubmit} disabled={submitting}>
+                {submitting ? 'Creating…' : 'Create GST Rate'}
+              </ActionButton>
+            ) : null}
           </Stack>
         </Stack>
       </Paper>

@@ -6,7 +6,6 @@ import {
   Box,
   ButtonBase,
   Paper,
-  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -18,6 +17,8 @@ import {
 } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
+
+import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 
 export interface DataGridColumn<T = object> {
   field: string; // Row property key
@@ -370,7 +371,7 @@ export function DataGrid<T = object>({
                         borderColor: 'divider',
                       }}
                     >
-                      <Skeleton
+                      <SkeletonLoader
                         variant="text"
                         height={24}
                         width={cIdx === 0 ? '70%' : cIdx === colSpan - 1 ? '40%' : '55%'}
