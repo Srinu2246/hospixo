@@ -1,8 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import TakeoutDiningIcon from '@mui/icons-material/TakeoutDining';
 import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
@@ -10,13 +12,17 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 
 import ButtonBase from '@mui/material/ButtonBase';
-import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 
 import { Card } from '@/components/shared/ui/Card';
+import { CalendarPicker } from '@/components/shared/form-fields/CalendarPicker';
+import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
+import { useToastStore } from '@/stores/toastStore';
+import { PeriodOption } from '@/features/dashboard/enums';
 import {
   BRANCH_STAT_CARDS,
   BRANCH_EXPENSES,
@@ -28,27 +34,101 @@ import {
   BRANCH_ONLINE_AGGREGATORS,
   BRANCH_LEAKAGE_STATS,
   BRANCH_CHANNEL_CARDS,
+  MOCK_PERIOD_OPTIONS,
 } from '@/lib/mocks/dashboard/dashboard.mocks';
 import { DashboardStatCard } from '../shared/DashboardStatCard';
 import { QuickHelpCard } from '../shared/QuickHelpCard';
 
-export function BranchSalesDashboard() {
+export interface BranchSalesDashboardProps {
+  onExportClick?: () => void;
+}
+
+interface BranchPeriodSelectorProps {
+  value: PeriodOption;
+  onChange: (value: PeriodOption) => void;
+}
+
+function BranchPeriodSelector({ value, onChange }: Readonly<BranchPeriodSelectorProps>) {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5, width: '100%', pb: 4 }}>
-      {/* 1. Top 4 Stat Cards */}
-      <Box
+    <>
+      <ButtonBase
+        onClick={(e) => setAnchorEl(e.currentTarget)}
         sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' },
-          gap: 2.5,
+          px: 1,
+          py: 0.35,
+          borderRadius: '6px',
+          border: '1px solid',
+          borderColor: (theme) =>
+            theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+          bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          color: 'text.primary',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
         }}
       >
-        {BRANCH_STAT_CARDS.map((stat) => (
-          <DashboardStatCard key={stat.id} stat={stat} />
+        {value}
+        <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
+      </ButtonBase>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={() => setAnchorEl(null)}
+        slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
+      >
+        {MOCK_PERIOD_OPTIONS.map((p) => (
+          <MenuItem
+            key={p}
+            selected={p === value}
+            onClick={() => {
+              onChange(p);
+              setAnchorEl(null);
+            }}
+            sx={{ fontSize: '0.75rem' }}
+          >
+            {p}
+          </MenuItem>
         ))}
-      </Box>
+      </Menu>
+    </>
+  );
+}
 
-      {/* 2. Sub-section Header: Sales Statistics with Date & Refresh Button */}
+export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDashboardProps> = {}) {
+  const [selectedDate, setSelectedDate] = useState<Date>(BRANCH_SALES_SUMMARY.defaultStartDate);
+
+  const [chartPeriod, setChartPeriod] = useState<PeriodOption>(PeriodOption.TODAY);
+  const [onlinePeriod, setOnlinePeriod] = useState<PeriodOption>(PeriodOption.TODAY);
+  const [expensesPeriod, setExpensesPeriod] = useState<PeriodOption>(PeriodOption.TODAY);
+
+  const handleExport = () => {
+    if (onExportClick) {
+      onExportClick();
+    } else {
+      useToastStore.getState().show('Exporting sales statistics data to CSV/Excel...', 'info');
+    }
+  };
+
+  const handleRefresh = () => {
+    useToastStore.getState().show('Refreshing branch dashboard data...', 'info');
+  };
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: { xs: 2.5, sm: 3, md: 3.5 },
+        width: '100%',
+        pb: 4,
+      }}
+    >
+      {/* 1. Sub-section Header: Sales Statistics with Date & Refresh/Export Button */}
+      {/* Appears first up to 1050px (order: 1); sub-header below stats on desktop > 1050px (order: 2) */}
       <Box
         sx={{
           display: 'flex',
@@ -57,6 +137,7 @@ export function BranchSalesDashboard() {
           flexWrap: 'wrap',
           gap: 2,
           pt: 0.5,
+          order: { xs: 1, md: 2 },
         }}
       >
         <Typography
@@ -64,7 +145,7 @@ export function BranchSalesDashboard() {
           component="h2"
           sx={{
             fontWeight: 700,
-            fontSize: '1.25rem',
+            fontSize: { xs: '1.25rem', sm: '1.375rem' },
             color: 'text.primary',
             letterSpacing: '-0.015em',
           }}
@@ -73,62 +154,83 @@ export function BranchSalesDashboard() {
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <ButtonBase
-            sx={{
-              px: 1.75,
-              py: 0.85,
-              borderRadius: '8px',
-              border: '1px solid',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-              bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
-              color: 'text.primary',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
+          {/* Reusable Calendar Date Picker */}
+          <CalendarPicker
+            value={selectedDate}
+            onChange={(date) => {
+              setSelectedDate(date);
+              const formatted = date.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              });
+              useToastStore.getState().show(`Filtered sales statistics for ${formatted}`, 'info');
             }}
-          >
-            <CalendarMonthOutlinedIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-            {BRANCH_SALES_SUMMARY.dateRange}
-            <KeyboardArrowDownIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-          </ButtonBase>
+            size="medium"
+            minWidth={200}
+          />
 
-          <ButtonBase
+          {/* Export Data Button - visible up to desktop */}
+          <ActionButton
+            variant="secondary"
+            size="medium"
+            startIcon={<DescriptionOutlinedIcon sx={{ fontSize: 18 }} />}
+            onClick={handleExport}
             sx={{
-              p: 0.85,
-              borderRadius: '8px',
-              border: '1px solid',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-              bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
-              color: colors.text.secondary,
-              transition: 'all 0.15s ease',
-              '&:hover': {
-                borderColor: colors.primary.default,
-                color: colors.primary.default,
-              },
+              display: { xs: 'inline-flex', md: 'none' },
             }}
           >
-            <RefreshIcon sx={{ fontSize: 20 }} />
-          </ButtonBase>
+            Export Data
+          </ActionButton>
+
+          {/* Refresh Button - visible on desktop */}
+          <ActionButton
+            variant="outlined"
+            size="medium"
+            startIcon={<RefreshIcon sx={{ fontSize: 18 }} />}
+            onClick={handleRefresh}
+            sx={{
+              display: { xs: 'none', md: 'inline-flex' },
+            }}
+          >
+            Refresh
+          </ActionButton>
         </Box>
       </Box>
 
-      {/* 3. Middle Row: 3 Visual Analysis Cards */}
+      {/* 2. Top 4 Stat Cards */}
+      {/* 2x2 grid up to desktop; 4 columns on desktop */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr 1fr' },
-          gap: 2.5,
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+          gap: { xs: 1.5, sm: 2, md: 2.5 },
+          order: { xs: 2, md: 1 },
         }}
       >
-        {/* Card 1: Channel Orders Chart */}
+        {BRANCH_STAT_CARDS.map((stat) => (
+          <DashboardStatCard key={stat.id} stat={stat} />
+        ))}
+      </Box>
+
+      {/* 3. Middle Row: 3 Visual Analysis Cards */}
+      {/* Desktop: 3 cards in 1 row (1.2fr 1fr 1fr) */}
+      {/* Tablet: Card 1 spans full width, Card 2 and Card 3 are 2 columns side-by-side */}
+      {/* Mobile: All 3 cards stacked (1 column) */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: '1.2fr 1fr 1fr' },
+          gap: { xs: 2, sm: 2.5 },
+          order: 3,
+        }}
+      >
+        {/* Card 1: Channel Orders Chart (Sales) */}
         <Card
           variant="outlined"
           padding={3}
           sx={{
+            gridColumn: { xs: '1 / -1', sm: '1 / -1', md: 'auto' },
             borderRadius: '12px',
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
@@ -180,27 +282,7 @@ export function BranchSalesDashboard() {
                 </Typography>
               </Box>
 
-              <ButtonBase
-                sx={{
-                  px: 1,
-                  py: 0.35,
-                  borderRadius: '6px',
-                  border: '1px solid',
-                  borderColor: (theme) =>
-                    theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                  bgcolor: (theme) =>
-                    theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  color: 'text.primary',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                }}
-              >
-                Today
-                <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
-              </ButtonBase>
+              <BranchPeriodSelector value={chartPeriod} onChange={setChartPeriod} />
             </Box>
           </Box>
 
@@ -430,27 +512,7 @@ export function BranchSalesDashboard() {
             <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: 'text.primary' }}>
               Online orders
             </Typography>
-            <ButtonBase
-              sx={{
-                px: 1,
-                py: 0.35,
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: (theme) =>
-                  theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'text.primary',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-              }}
-            >
-              Today
-              <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
-            </ButtonBase>
+            <BranchPeriodSelector value={onlinePeriod} onChange={setOnlinePeriod} />
           </Box>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
@@ -553,12 +615,13 @@ export function BranchSalesDashboard() {
         </Card>
       </Box>
 
-      {/* 3. Channel Summary Cards (Dine In, Take Away, Delivery) */}
+      {/* 4. Channel Summary Cards (Dine In, Take Away, Delivery) */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
-          gap: 2.5,
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)', md: 'repeat(3, 1fr)' },
+          gap: { xs: 2, sm: 2.5 },
+          order: 4,
         }}
       >
         {BRANCH_CHANNEL_CARDS.map((channel) => (
@@ -575,19 +638,19 @@ export function BranchSalesDashboard() {
               boxShadow: 'none',
               display: 'flex',
               flexDirection: 'column',
-              gap: 1.5,
+              gap: 1.25,
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box
                   sx={{
+                    display: 'flex',
                     width: 32,
                     height: 32,
                     borderRadius: '8px',
                     bgcolor: (theme) =>
                       theme.palette.mode === 'dark' ? `${channel.color}26` : channel.bgColor,
-                    display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -602,13 +665,31 @@ export function BranchSalesDashboard() {
                     <DeliveryDiningIcon sx={{ fontSize: 18, color: channel.color }} />
                   )}
                 </Box>
-                <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: 'text.primary' }}>
+                <Typography
+                  sx={{
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    color: 'text.primary',
+                  }}
+                >
                   {channel.title}
                 </Typography>
               </Box>
-              <MoreHorizIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
+              <MoreHorizIcon
+                sx={{
+                  display: 'block',
+                  fontSize: 18,
+                  color: colors.text.secondary,
+                }}
+              />
             </Box>
-            <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: 'text.primary' }}>
+            <Typography
+              sx={{
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                fontWeight: 700,
+                color: 'text.primary',
+              }}
+            >
               {channel.amount}
             </Typography>
             <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary }}>
@@ -618,12 +699,17 @@ export function BranchSalesDashboard() {
         ))}
       </Box>
 
-      {/* 4. Bottom Row: Today's Expenses + Leakage + Quick Help */}
+      {/* 5. Bottom Row: Today's Expenses + Leakage + Quick Help */}
+      {/* Desktop: 3 columns (1fr 1fr 1fr) */}
+      {/* Tablet: 2 columns (Left: Expenses spanning 2 rows, Right: Leakage and Quick Help stacked) */}
+      {/* Mobile: 1 column stacked */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
-          gap: 2.5,
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+          gap: { xs: 2, sm: 2.5 },
+          alignItems: 'start',
+          order: 5,
         }}
       >
         {/* Branch Expenses */}
@@ -631,6 +717,8 @@ export function BranchSalesDashboard() {
           variant="outlined"
           padding={3}
           sx={{
+            gridColumn: { xs: '1', sm: '1', md: 'auto' },
+            gridRow: { xs: 'auto', sm: '1 / span 2', md: 'auto' },
             borderRadius: '16px',
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
@@ -655,27 +743,7 @@ export function BranchSalesDashboard() {
             >
               TODAY&apos;S EXPENSES
             </Typography>
-            <ButtonBase
-              sx={{
-                px: 1,
-                py: 0.35,
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: (theme) =>
-                  theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'text.primary',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-              }}
-            >
-              Today
-              <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
-            </ButtonBase>
+            <BranchPeriodSelector value={expensesPeriod} onChange={setExpensesPeriod} />
           </Box>
 
           <Box
@@ -745,6 +813,8 @@ export function BranchSalesDashboard() {
           variant="outlined"
           padding={3}
           sx={{
+            gridColumn: { xs: '1', sm: '2', md: 'auto' },
+            gridRow: { xs: 'auto', sm: '1', md: 'auto' },
             borderRadius: '16px',
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
@@ -865,13 +935,22 @@ export function BranchSalesDashboard() {
         </Card>
 
         {/* Quick Help */}
-        <QuickHelpCard
-          idLabel="Outlet ID: 63284"
-          showPocBadge
-          statusText="Online"
-          description="Your dedicated account manager for all operational support and billing queries. Reach out anytime during working hours."
-          availableHours="Available 10:00 AM – 07:00 PM"
-        />
+        <Box
+          sx={{
+            gridColumn: { xs: '1', sm: '2', md: 'auto' },
+            gridRow: { xs: 'auto', sm: '2', md: 'auto' },
+            height: '100%',
+          }}
+        >
+          <QuickHelpCard
+            idLabel="Outlet ID: 63284"
+            showPocBadge
+            statusText="Online"
+            description="Your dedicated account manager for all operational support and billing queries. Reach out anytime during working hours."
+            availableStartTime="10:00 AM"
+            availableEndTime="07:00 PM"
+          />
+        </Box>
       </Box>
     </Box>
   );
