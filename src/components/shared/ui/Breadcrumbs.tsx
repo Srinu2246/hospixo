@@ -47,7 +47,7 @@ const SIZE_CONFIG = {
     separatorSize: 14,
   },
   medium: {
-    fontSize: '0.9375rem', // 15px
+    fontSize: '0.85rem', // 15px
     titleFontSize: '1.25rem', // 20px
     iconSize: 16,
     gap: 1.25, // 10px
