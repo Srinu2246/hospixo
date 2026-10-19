@@ -7,6 +7,10 @@ import {
   type PermissionCategory,
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import {
+  togglePermissionCategory,
+  toggleAllInCategory,
+} from '@/lib/helpers/employees/userRolesHelpers';
 
 export interface CreateUserState {
   scope: ScopeType;
@@ -58,7 +62,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
       selectedRoleId: template?.id != null ? template.id : state.selectedRoleId,
       formValues: {
         ...state.formValues,
-        role: template?.roleName || state.formValues.role || 'Branch Manager',
+        role: template?.roleName || state.formValues.role || 'Branch Admin',
       },
     })),
 
@@ -110,26 +114,12 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
 
   togglePermission: (categoryId, permissionId) =>
     set((state) => ({
-      categories: state.categories.map((cat) => {
-        if (cat.id !== categoryId) return cat;
-        return {
-          ...cat,
-          permissions: cat.permissions.map((p) =>
-            p.id === permissionId ? { ...p, enabled: !p.enabled } : p,
-          ),
-        };
-      }),
+      categories: togglePermissionCategory(state.categories, categoryId, permissionId),
     })),
 
   toggleCategoryAll: (categoryId, enableAll) =>
     set((state) => ({
-      categories: state.categories.map((cat) => {
-        if (cat.id !== categoryId) return cat;
-        return {
-          ...cat,
-          permissions: cat.permissions.map((p) => ({ ...p, enabled: enableAll })),
-        };
-      }),
+      categories: toggleAllInCategory(state.categories, categoryId, enableAll),
     })),
 
   setIsSubmitting: (isSubmitting) => set({ isSubmitting }),

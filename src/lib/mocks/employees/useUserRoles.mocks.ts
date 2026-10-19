@@ -192,9 +192,38 @@ const INITIAL_USERS_RAW = [
     createdAt: '2024-02-20',
     company: 'VJITVI',
   },
+  {
+    id: 'usr-org-1',
+    name: 'Alexander Wright',
+    email: 'a.wright@hospixo.com',
+    role: 'Organization Admin',
+    branch: 'Global HQ',
+    status: 'active',
+    avatar:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80',
+    createdAt: '2024-01-01',
+    company: 'VJITVI',
+  },
 ] as const;
 
-export const INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(INITIAL_USERS_RAW);
+export const INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(
+  INITIAL_USERS_RAW.map((u) => {
+    const roleLower = u.role.toLowerCase();
+    const isOrg = roleLower.includes('org') || roleLower.includes('super');
+    const isCompany =
+      roleLower.includes('company') ||
+      roleLower.includes('accountant') ||
+      roleLower.includes('finance') ||
+      roleLower.includes('inventory') ||
+      roleLower.includes('hr');
+    const scope = isOrg ? 'organization' : isCompany ? 'company' : 'branch';
+    return {
+      ...u,
+      phone: '+919876543210',
+      scope,
+    };
+  }),
+);
 
 const COMPANY_INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(
   INITIAL_USERS.map((u) => ({
@@ -295,35 +324,99 @@ const roleTemplateListSchema = z.array(roleTemplateItemSchema);
 
 export const COMPANY_ROLE_TEMPLATES: RoleTemplateItem[] = roleTemplateListSchema.parse([
   {
-    id: 'tpl-restaurant-mgr',
-    title: 'Restaurant Manager',
-    description: 'Daily store operations and staff',
+    id: '9',
+    title: 'Branch Admin',
+    description: 'Branch operations and local approvals',
     icon: 'restaurant',
-    roleName: 'Restaurant Manager',
-    scope: 'company',
+    roleName: 'Branch Admin',
+    scope: 'branch',
   },
   {
-    id: 'tpl-pos-counter',
-    title: 'POS Counter',
-    description: 'Financial approvals and reports',
+    id: '12',
+    title: 'Cashier',
+    description: 'Payments, shifts, billing',
     icon: 'pos',
-    roleName: 'POS Counter',
-    scope: 'company',
+    roleName: 'Cashier',
+    scope: 'branch',
   },
   {
-    id: 'tpl-captain',
-    title: 'Captain',
-    description: 'Read-only access to all system data',
-    icon: 'captain',
-    roleName: 'Captain',
-    scope: 'company',
+    id: '14',
+    title: 'Hotel Manager',
+    description: 'Rooms, bookings, front desk',
+    icon: 'company',
+    roleName: 'Hotel Manager',
+    scope: 'branch',
   },
   {
-    id: 'tpl-kitchen-staff',
+    id: '13',
     title: 'Kitchen Staff',
-    description: 'Kitchen display and order prep',
+    description: 'Kitchen order preparation and status updates',
     icon: 'kitchen',
     roleName: 'Kitchen Staff',
+    scope: 'branch',
+  },
+  {
+    id: '15',
+    title: 'Receptionist',
+    description: 'Bookings, check-in/out',
+    icon: 'restaurant',
+    roleName: 'Receptionist',
+    scope: 'branch',
+  },
+  {
+    id: '10',
+    title: 'Restaurant Manager',
+    description: 'Menu, tables, order visibility',
+    icon: 'restaurant',
+    roleName: 'Restaurant Manager',
+    scope: 'branch',
+  },
+  {
+    id: '11',
+    title: 'Waiter / Steward',
+    description: 'Creates and updates assigned orders',
+    icon: 'captain',
+    roleName: 'Waiter / Steward',
+    scope: 'branch',
+  },
+  {
+    id: '7',
+    title: 'Accountant',
+    description: 'Reviews invoices, journals, GST prep',
+    icon: 'company',
+    roleName: 'Accountant',
+    scope: 'company',
+  },
+  {
+    id: '4',
+    title: 'Company Admin',
+    description: 'Manages one specific company: branches, users, settings',
+    icon: 'company',
+    roleName: 'Company Admin',
+    scope: 'company',
+  },
+  {
+    id: '5',
+    title: 'Finance Admin',
+    description: 'Invoices, journals, GST, ledgers',
+    icon: 'company',
+    roleName: 'Finance Admin',
+    scope: 'company',
+  },
+  {
+    id: '6',
+    title: 'HR Admin',
+    description: 'Employees, attendance, payroll',
+    icon: 'company',
+    roleName: 'HR Admin',
+    scope: 'company',
+  },
+  {
+    id: '8',
+    title: 'Inventory Manager',
+    description: 'Stock, suppliers, PO lifecycle',
+    icon: 'company',
+    roleName: 'Inventory Manager',
     scope: 'company',
   },
 ]);
@@ -358,6 +451,12 @@ const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = permissionCatego
     title: 'User Management',
     permissions: [
       {
+        id: 'users.view',
+        name: 'View Users',
+        description: 'Access and view the team member directory',
+        enabled: true,
+      },
+      {
         id: 'users.create',
         name: 'Create Users',
         description: 'Invite and add new members to the system',
@@ -373,6 +472,12 @@ const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = permissionCatego
         id: 'users.delete',
         name: 'Delete Users',
         description: 'Remove users permanently from the organization',
+        enabled: true,
+      },
+      {
+        id: 'roles.view',
+        name: 'View Roles',
+        description: 'Access and view system roles and permissions',
         enabled: true,
       },
     ],
@@ -426,14 +531,30 @@ type MockRequest = {
   body?: unknown;
 };
 
-function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
-  const dataset = [...INITIAL_USERS];
+const mockUsersDataset: UserRoleItem[] = [...INITIAL_USERS];
 
+function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
   if (request.method === 'GET') {
     if (itemId) {
-      return dataset.find((user) => user.id === itemId) ?? dataset[0];
+      const found = mockUsersDataset.find((user) => user.id === itemId) ?? mockUsersDataset[0];
+      const template = COMPANY_ROLE_TEMPLATES.find(
+        (t) => t.roleName.toLowerCase() === found.role.toLowerCase(),
+      );
+      return {
+        ...found,
+        first_name: found.name.split(' ')[0] ?? 'User',
+        last_name: found.name.split(' ').slice(1).join(' ') ?? '',
+        phone: found.phone ?? '+919876543210',
+        phone_number: found.phone ?? '+919876543210',
+        username: found.email.split('@')[0] ?? 'user',
+        description: template?.description ?? `Operations for ${found.role}.`,
+        role_description: template?.description ?? `Operations for ${found.role}.`,
+        role_id: template?.id ? Number(template.id) || template.id : 10,
+        scope: found.scope ?? template?.scope ?? 'branch',
+        is_active: found.status === 'active',
+      };
     }
-    let items = dataset;
+    let items = mockUsersDataset;
     const search = request.params?.search;
     if (typeof search === 'string' && search.trim()) {
       const q = search.toLowerCase();
@@ -449,28 +570,77 @@ function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
       string,
       unknown
     >;
-    return {
+    const firstName = String(body.first_name ?? body.firstName ?? '').trim();
+    const lastName = String(body.last_name ?? body.lastName ?? '').trim();
+    const joinedName = [firstName, lastName].filter(Boolean).join(' ') || 'New User';
+    const email = String(body.email ?? 'user@hospixo.com')
+      .trim()
+      .toLowerCase();
+    const newUser: UserRoleItem = {
       id: `usr-${Date.now()}`,
-      name: `${body.first_name ?? body.firstName ?? ''} ${body.last_name ?? body.lastName ?? ''}`.trim(),
-      email: body.email,
-      role: body.role ?? 'Staff',
-      branch: body.branch_name ?? body.branch ?? 'Downtown Branch',
+      name: joinedName,
+      email,
+      role: String(body.role ?? 'Staff'),
+      branch: String(body.branch_name ?? body.branch ?? 'Downtown Branch'),
       status: 'active',
+      phone: String(body.phone ?? '+919876543210'),
+      scope: 'branch',
     };
+    mockUsersDataset.unshift(newUser);
+    return newUser;
   }
 
   if (request.method === 'PUT' && itemId) {
-    return { id: itemId, ...(request.body as object) };
-  }
-
-  if (request.method === 'PATCH') {
-    return {
-      id: itemId ?? 'usr-1',
-      status: (request.body as { status?: string })?.status ?? 'active',
+    const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
+      string,
+      unknown
+    >;
+    const idx = mockUsersDataset.findIndex((u) => u.id === itemId);
+    const existing = idx >= 0 ? mockUsersDataset[idx] : undefined;
+    const firstName = body.first_name ?? body.firstName;
+    const lastName = body.last_name ?? body.lastName;
+    const name =
+      firstName || lastName
+        ? [firstName, lastName].filter(Boolean).join(' ')
+        : (existing?.name ?? 'User');
+    const updated: UserRoleItem = {
+      id: itemId,
+      name: String(name),
+      email: String(body.email ?? existing?.email ?? 'user@hospixo.com'),
+      role: String(body.role ?? existing?.role ?? 'Staff'),
+      branch: String(body.branch ?? existing?.branch ?? 'Downtown Branch'),
+      status: (body.status as UserRoleItem['status']) ?? existing?.status ?? 'active',
+      phone: String(body.phone ?? body.phone_number ?? existing?.phone ?? '+919876543210'),
+      scope: existing?.scope ?? 'branch',
+      avatar: existing?.avatar,
+      createdAt: existing?.createdAt,
     };
+    if (idx >= 0) {
+      mockUsersDataset[idx] = updated;
+    } else {
+      mockUsersDataset.push(updated);
+    }
+    return updated;
   }
 
-  if (request.method === 'DELETE') {
+  if (request.method === 'PATCH' && itemId) {
+    const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
+      string,
+      unknown
+    >;
+    const idx = mockUsersDataset.findIndex((u) => u.id === itemId);
+    const nextStatus = (body.status as UserRoleItem['status']) ?? 'active';
+    if (idx >= 0) {
+      mockUsersDataset[idx] = { ...mockUsersDataset[idx], status: nextStatus };
+    }
+    return { id: itemId, status: nextStatus };
+  }
+
+  if (request.method === 'DELETE' && itemId) {
+    const idx = mockUsersDataset.findIndex((u) => u.id === itemId);
+    if (idx >= 0) {
+      mockUsersDataset.splice(idx, 1);
+    }
     return { success: true };
   }
 
@@ -500,9 +670,11 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
           permission_codes: [
             'dashboard.view',
             'dashboard.analytics',
+            'users.view',
             'users.create',
             'users.edit',
             'users.delete',
+            'roles.view',
             'branches.view',
             'branches.manage',
           ],
@@ -520,15 +692,57 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
   }
 
   if (request.path.startsWith('/v1/roles') && request.method === 'GET') {
-    return INITIAL_USERS.map((user, index) => {
-      const template = COMPANY_ROLE_TEMPLATES.find((t) => t.roleName === user.role);
-      return {
-        id: index + 1,
-        name: user.role,
-        description:
-          template?.description ?? `Manages ${user.role} responsibilities and permissions.`,
-      };
-    });
+    return {
+      success: true,
+      data: {
+        roles: COMPANY_ROLE_TEMPLATES.map((t) => ({
+          id: Number(t.id) || t.id,
+          code: t.roleName.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+          display_name: t.title,
+          name: t.roleName,
+          scope: t.scope ?? 'company',
+          description: t.description,
+          status: 'active',
+          is_system_role: true,
+        })),
+      },
+      message: 'Roles retrieved',
+    };
+  }
+
+  const userRolesMatch = request.path.match(/^\/v1\/users\/([^/]+)\/roles/);
+  if (userRolesMatch) {
+    const userId = userRolesMatch[1];
+    if (request.method === 'PUT' || request.method === 'POST') {
+      const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
+        string,
+        unknown
+      >;
+      const rolesArr = Array.isArray(body.roles) ? (body.roles as Record<string, unknown>[]) : [];
+      const roleCode = String(rolesArr[0]?.role_code ?? body.role_code ?? '').trim();
+      if (roleCode) {
+        const template = COMPANY_ROLE_TEMPLATES.find(
+          (t) =>
+            t.roleName.toLowerCase() === roleCode.toLowerCase() ||
+            t.id.toLowerCase() === roleCode.toLowerCase(),
+        );
+        const idx = mockUsersDataset.findIndex((u) => u.id === userId);
+        if (idx >= 0) {
+          mockUsersDataset[idx] = {
+            ...mockUsersDataset[idx],
+            role: template?.roleName ?? roleCode,
+            roleCode,
+          };
+        }
+      }
+      return { success: true };
+    }
+    return { success: true, data: { roles: [] } };
+  }
+
+  const userAssignmentsMatch = request.path.match(/^\/v1\/users\/([^/]+)\/assignments/);
+  if (userAssignmentsMatch) {
+    return { success: true, data: [] };
   }
 
   const usersMatch = request.path.match(/^\/v1\/users(?:\/([^/]+))?/);
@@ -553,7 +767,19 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
   if (request.method === 'GET') {
     if (itemId) {
       const found = getDataset().find((u) => u.id === itemId);
-      return found ?? getDataset()[0];
+      const user = found ?? getDataset()[0];
+      return {
+        ...user,
+        first_name: user?.name.split(' ')[0] ?? 'User',
+        last_name: user?.name.split(' ').slice(1).join(' ') ?? '',
+        phone: '+919876543210',
+        phone_number: '+919876543210',
+        username: user?.email.split('@')[0] ?? 'user',
+        description: `Operations for ${user?.role}.`,
+        role_description: `Operations for ${user?.role}.`,
+        role_id: 12,
+        is_active: user?.status === 'active',
+      };
     }
 
     let items = getDataset();
@@ -602,16 +828,27 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
   }
 
   if (request.method === 'PUT' && itemId) {
-    const body = (
-      request.body && typeof request.body === 'object' ? request.body : {}
-    ) as Partial<UserRoleItem>;
+    const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
+      string,
+      unknown
+    >;
+    const firstName = (body.first_name as string) || '';
+    const lastName = (body.last_name as string) || '';
+    const name = `${firstName} ${lastName}`.trim() || (body.name as string) || 'Updated User';
     return {
       id: itemId,
-      name: body.name || 'Updated User',
-      email: body.email || 'user@hospixo.com',
-      role: body.role || 'Staff',
-      branch: body.branch || 'Downtown Branch',
-      status: body.status || 'active',
+      name,
+      first_name: firstName,
+      last_name: lastName,
+      email: (body.email as string) || 'user@hospixo.com',
+      phone: (body.phone as string) || (body.phone_number as string) || '+919876543210',
+      phone_number: (body.phone as string) || (body.phone_number as string) || '+919876543210',
+      username: (body.username as string) || 'user',
+      role: (body.role as string) || 'Staff',
+      role_description: (body.description as string) || '',
+      description: (body.description as string) || '',
+      branch: (body.branch as string) || 'Downtown Branch',
+      status: (body.status as string) || 'active',
       createdAt: '2024-01-01',
     };
   }

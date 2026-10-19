@@ -4,12 +4,14 @@ import type { BranchListItem } from '@/lib/schemas/organization/branches/branchL
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import {
+  isRecord,
   roleRequiresBranchId,
   unwrapEnvelope,
   type CreateUserRequestContext,
   type RoleCatalogItem,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { QueryParams } from '@/services/api/types';
+import { userRolePermissionsPath } from '@/services/api/ApiUrlsV1';
 
 type GetJson = (path: string, params?: QueryParams) => Promise<unknown>;
 
@@ -211,7 +213,14 @@ export async function resolveCreateUserRequestContext(
 
   if (branchId == null && names.branch?.trim()) {
     const branchName = names.branch.trim();
-    branchId = normalizeId(branches.find((branch) => branch.name === branchName)?.id);
+    branchId =
+      normalizeId(
+        branches.find(
+          (branch) =>
+            branch.name?.trim().toLowerCase() === branchName.toLowerCase() ||
+            String(branch.id) === branchName,
+        )?.id,
+      ) ?? normalizeId(branchName);
   }
 
   if (companyId == null && branchId != null) {
@@ -246,7 +255,7 @@ export async function resolveCreateUserRequestContext(
   return {
     organizationId,
     companyId,
-    ...(needsBranch && branchId != null ? { branchId } : {}),
+    ...(branchId != null ? { branchId } : {}),
     roleCatalog,
     ...(roleCode ? { roleCode } : {}),
   };
@@ -259,10 +268,6 @@ function normalizeId(value: unknown): number | undefined {
     if (Number.isFinite(parsed)) return parsed;
   }
   return undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function extractAssignedPermissionKeys(payload: unknown): Set<string> {
@@ -352,6 +357,12 @@ export function extractAssignedPermissionKeys(payload: unknown): Set<string> {
     }
   }
 
+  const hasUserManagement = Array.from(keys).some((k) => k.toLowerCase().startsWith('users.'));
+  if (hasUserManagement) {
+    keys.add('users.view');
+    keys.add('roles.view');
+  }
+
   return keys;
 }
 
@@ -361,28 +372,215 @@ export function autoEnableRolePermissions(
 ): PermissionCategory[] {
   if (assignedKeys.size === 0) return [...categories];
 
-  return categories.map((category) => {
-    return {
-      ...category,
-      permissions: category.permissions.map((perm) => {
-        const candidateCode =
-          'code' in perm && typeof (perm as Record<string, unknown>).code === 'string'
-            ? ((perm as Record<string, unknown>).code as string)
-            : undefined;
-        const isAssigned =
-          assignedKeys.has(perm.id) ||
-          assignedKeys.has(perm.id.toLowerCase()) ||
-          assignedKeys.has(perm.name) ||
-          assignedKeys.has(perm.name.toLowerCase()) ||
-          (candidateCode
-            ? assignedKeys.has(candidateCode) || assignedKeys.has(candidateCode.toLowerCase())
-            : false);
+  return categories
+    .map((category) => {
+      const permissions = category.permissions
+        .map((perm) => {
+          const candidateCode =
+            'code' in perm && typeof (perm as Record<string, unknown>).code === 'string'
+              ? ((perm as Record<string, unknown>).code as string)
+              : undefined;
+          const isAssigned =
+            assignedKeys.has(perm.id) ||
+            assignedKeys.has(perm.id.toLowerCase()) ||
+            assignedKeys.has(perm.name) ||
+            assignedKeys.has(perm.name.toLowerCase()) ||
+            (candidateCode
+              ? assignedKeys.has(candidateCode) || assignedKeys.has(candidateCode.toLowerCase())
+              : false);
 
-        return {
-          ...perm,
-          enabled: isAssigned,
-        };
-      }),
+          return {
+            ...perm,
+            enabled: isAssigned,
+          };
+        })
+        .filter((perm) => perm.enabled);
+
+      return {
+        ...category,
+        permissions,
+      };
+    })
+    .filter((category) => category.permissions.length > 0);
+}
+
+export function togglePermissionCategory(
+  categories: readonly PermissionCategory[],
+  categoryId: string,
+  permissionId: string,
+): PermissionCategory[] {
+  return categories.map((cat) => {
+    if (cat.id !== categoryId) return cat;
+    return {
+      ...cat,
+      permissions: cat.permissions.map((p) =>
+        p.id === permissionId ? { ...p, enabled: !p.enabled } : p,
+      ),
     };
   });
+}
+
+export function toggleAllInCategory(
+  categories: readonly PermissionCategory[],
+  categoryId: string,
+  enableAll: boolean,
+): PermissionCategory[] {
+  return categories.map((cat) => {
+    if (cat.id !== categoryId) return cat;
+    return {
+      ...cat,
+      permissions: cat.permissions.map((p) => ({ ...p, enabled: enableAll })),
+    };
+  });
+}
+
+export const DEFAULT_BRANCH_ADMIN_PERMISSION_CODES = [
+  'business_days.close',
+  'business_days.close_preview',
+  'business_days.open',
+  'business_days.view',
+  'expenses.create',
+  'expenses.view',
+  'inventory.view',
+  'orders.create',
+  'orders.create_takeaway',
+  'orders.update',
+  'orders.update_status',
+  'orders.view',
+  'payments.collect',
+  'payments.view',
+  'pos.sessions.close',
+  'pos.sessions.open',
+  'pos.shifts.close',
+  'reports.day_end.view',
+  'reports.view',
+  'restaurant.branch_menu.assign',
+  'restaurant.branch_menu.delete',
+  'restaurant.branch_menu.update',
+  'restaurant.branch_menu.view',
+  'restaurant.cash_registers.create',
+  'restaurant.cash_registers.update',
+  'restaurant.cash_registers.view',
+  'restaurant.floors.archive',
+  'restaurant.floors.create',
+  'restaurant.floors.update',
+  'restaurant.floors.view',
+  'restaurant.meal_sessions.create',
+  'restaurant.meal_sessions.update',
+  'restaurant.meal_sessions.view',
+  'restaurant.menu.create',
+  'restaurant.menu.delete',
+  'restaurant.menu.update',
+  'restaurant.menu.view',
+  'restaurant.tables.archive',
+  'restaurant.tables.combine',
+  'restaurant.tables.create',
+  'restaurant.tables.split',
+  'restaurant.tables.update',
+  'restaurant.tables.view',
+  'roles.assign_permissions',
+  'roles.create',
+  'roles.update',
+  'roles.view',
+  'roles.view_permissions',
+  'shifts.close',
+  'shifts.open',
+  'shifts.view',
+  'users.activate',
+  'users.assign_roles',
+  'users.create',
+  'users.deactivate',
+  'users.remove_roles',
+  'users.update',
+  'users.view',
+];
+
+export async function resolveAssignmentPermissionsPayload(
+  userId: number | string,
+  userRoleId: number | string,
+  categories: readonly PermissionCategory[],
+  get: (path: string) => Promise<unknown>,
+  roleNameOrCode?: string,
+): Promise<{
+  permission_codes: string[];
+  permission_ids: string[];
+  assignment_adjustments: Array<{ permission_code: string; effect: 'grant' | 'revoke' }>;
+}> {
+  let inheritedCodes: string[] = [];
+  try {
+    const raw = await get(userRolePermissionsPath(userId, userRoleId));
+    const unwrapped =
+      typeof raw === 'object' && raw !== null && 'data' in raw
+        ? (raw as { data: unknown }).data
+        : raw;
+    if (
+      typeof unwrapped === 'object' &&
+      unwrapped !== null &&
+      'inherited_permission_codes' in unwrapped &&
+      Array.isArray(
+        (unwrapped as { inherited_permission_codes: unknown }).inherited_permission_codes,
+      )
+    ) {
+      inheritedCodes = (
+        unwrapped as { inherited_permission_codes: unknown[] }
+      ).inherited_permission_codes.filter(
+        (code): code is string => typeof code === 'string' && code.length > 0,
+      );
+    }
+  } catch {
+    // If GET permissions endpoint fails, fallback to defaults
+  }
+
+  const roleStr = String(roleNameOrCode || '').toLowerCase();
+  const isBranchRole =
+    roleStr.includes('branch') || roleStr.includes('admin') || roleStr.includes('manager');
+
+  if (inheritedCodes.length === 0 && isBranchRole) {
+    inheritedCodes = [...DEFAULT_BRANCH_ADMIN_PERMISSION_CODES];
+  }
+
+  const enabledFromUI = new Set<string>();
+  const disabledFromUI = new Set<string>();
+
+  for (const cat of categories) {
+    for (const perm of cat.permissions) {
+      const code =
+        'code' in perm && typeof (perm as Record<string, unknown>).code === 'string'
+          ? ((perm as Record<string, unknown>).code as string)
+          : perm.id;
+      if (perm.enabled) {
+        enabledFromUI.add(code);
+      } else {
+        disabledFromUI.add(code);
+      }
+    }
+  }
+
+  const finalCodes = new Set<string>(inheritedCodes);
+
+  for (const code of enabledFromUI) {
+    finalCodes.add(code);
+  }
+
+  for (const code of disabledFromUI) {
+    finalCodes.delete(code);
+  }
+
+  const hasUserManagement =
+    Array.from(finalCodes).some((c) => c.toLowerCase().startsWith('users.')) ||
+    roleStr.includes('admin') ||
+    roleStr.includes('manager');
+
+  if (hasUserManagement) {
+    finalCodes.add('users.view');
+    finalCodes.add('roles.view');
+  }
+
+  const permissionCodesList = Array.from(finalCodes);
+
+  return {
+    permission_codes: permissionCodesList,
+    permission_ids: permissionCodesList,
+    assignment_adjustments: [],
+  };
 }
