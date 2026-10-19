@@ -113,6 +113,21 @@ export function isMockApiEnabled(): boolean {
   return process.env.API_MOCK === 'true';
 }
 
+/**
+ * When true, `/api/v1|v2` BFF routes forward to `API_BASE_URL` on the server.
+ * Browser never receives the backend origin — only same-origin `/api/...` paths.
+ * Defaults to on when `API_BASE_URL` is set (unless explicitly `false`).
+ */
+export function isApiProxyEnabled(): boolean {
+  if (isMockApiEnabled()) return false;
+
+  const flag = process.env.API_PROXY_ENABLED?.trim().toLowerCase();
+  if (flag === 'false' || flag === '0' || flag === 'off') return false;
+  if (flag === 'true' || flag === '1' || flag === 'on') return true;
+
+  return Boolean(process.env.API_BASE_URL?.trim());
+}
+
 export function resolveMock(request: MockRequest): unknown | undefined {
   // Floors, sections, tables, and floor-map under /v1/branches/:id/floors/**
   const restaurant = resolveRestaurantFloorMock(request);
