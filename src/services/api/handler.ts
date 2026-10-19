@@ -34,7 +34,7 @@ import {
   resolveKitchenDisplayMock,
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
 import { resolveBranchMenuAssignmentsMock } from '@/lib/mocks/floor-and-table-setup/branchMenuAssignments.mocks';
-import { MOCK_PUBLIC_RESTAURANT_MENU } from '@/lib/mocks/floor-and-table-setup/publicRestaurantMenu.mocks';
+import { MOCK_PUBLIC_RESTAURANT_MENU_RESPONSE } from '@/lib/mocks/floor-and-table-setup/publicRestaurantMenu.mocks';
 import { resolveBranchMenusMock } from '@/lib/mocks/menu/resolveBranchMenusMock';
 import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
 import { MOCK_MENU_CATEGORIES, MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
@@ -107,11 +107,7 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.dashboard.branch.list]: { stats: BRANCH_STAT_CARDS },
   [ApiUrlsV1.organization.companies]: MOCK_COMPANIES,
   [ApiUrlsV1.restaurant.branches]: MOCK_BRANCHES,
-  [ApiUrlsV1.public.restaurantMenu]: {
-    success: true,
-    message: 'OK',
-    data: MOCK_PUBLIC_RESTAURANT_MENU,
-  },
+  [ApiUrlsV1.public.restaurantMenu]: MOCK_PUBLIC_RESTAURANT_MENU_RESPONSE,
   [ApiUrlsV1.restaurant.menuCategories.list]: MOCK_MENU_CATEGORIES,
   [ApiUrlsV1.restaurant.menuItems.list]: MOCK_MENU_ITEMS,
 };

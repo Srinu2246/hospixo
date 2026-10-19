@@ -8,8 +8,8 @@ import {
   type SectionGuestMenuTarget,
 } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
 import { pickActiveBranchMenuAssignment } from '@/lib/helpers/menu/pickActiveBranchMenuAssignment';
-import { useBranchMenusQuery } from '@/lib/hooks/menu/use-branch-menus-query';
-import { guestMenuCopy } from '@/lib/helpers/floor-and-table-setup/guestMenuCopy';
+import { useBranchMenusQuery } from '@/lib/hooks/menu/use_branch_menus_query';
+import { guestMenuCopy } from '@/lib/strings/floor-and-table-setup/guestMenuCopy';
 
 type UseSectionGuestMenuUrlInput = Readonly<{
   section: SectionGuestMenuTarget | null;

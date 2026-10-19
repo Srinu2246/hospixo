@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 
 import { Loading } from '@/components/shared/ui/Loading';
 import { GuestMenuScreen } from '@/components/features/floor-and-table-setup/GuestMenuScreen';
-import { guestMenuCopy } from '@/lib/helpers/floor-and-table-setup/guestMenuCopy';
+import { guestMenuCopy } from '@/lib/strings/floor-and-table-setup/guestMenuCopy';
 
 export const metadata: Metadata = {
   title: 'Guest menu',

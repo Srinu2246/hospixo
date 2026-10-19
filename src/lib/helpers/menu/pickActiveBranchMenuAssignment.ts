@@ -1,4 +1,4 @@
-import type { BranchMenuAssignment } from '@/lib/schemas/menu/branchMenuAssignmentSchema';
+import type { BranchMenuAssignment } from '@/lib/schemas/menu/menus/menuListSchema';
 
 function normalizeMenuType(value?: string): string {
   return (value ?? '').toLowerCase().replace(/\s+/g, '_');

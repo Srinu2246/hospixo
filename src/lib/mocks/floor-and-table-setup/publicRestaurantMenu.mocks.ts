@@ -1,4 +1,5 @@
 import {
+  publicRestaurantMenuApiResponseSchema,
   publicRestaurantMenuDataSchema,
   type PublicRestaurantMenuData,
 } from '@/lib/schemas/floor-and-table-setup/publicRestaurantMenuSchema';
@@ -66,3 +67,10 @@ export const MOCK_PUBLIC_RESTAURANT_MENU: PublicRestaurantMenuData =
       },
     ],
   });
+
+/** Full API envelope for GET /v1/public/restaurant/menu (handler + start-mocked). */
+export const MOCK_PUBLIC_RESTAURANT_MENU_RESPONSE = publicRestaurantMenuApiResponseSchema.parse({
+  success: true,
+  message: 'OK',
+  data: MOCK_PUBLIC_RESTAURANT_MENU,
+});

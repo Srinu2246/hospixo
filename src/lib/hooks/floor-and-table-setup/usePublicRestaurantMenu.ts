@@ -24,7 +24,7 @@ export const publicRestaurantMenuQueryKey = (query: PublicRestaurantMenuQuery) =
 async function fetchPublicRestaurantMenu(
   query: PublicRestaurantMenuQuery,
 ): Promise<PublicRestaurantMenuData> {
-  const payload = await api.get<unknown>(ApiUrlsV1.public.restaurantMenu, {
+  const payload = await api.get(ApiUrlsV1.public.restaurantMenu, {
     branch_id: query.branch_id,
     floor_id: query.floor_id,
     section_id: query.section_id,

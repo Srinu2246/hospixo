@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { parseBranchMenuAssignmentList } from '@/lib/schemas/menu/branchMenuAssignmentSchema';
+import { parseBranchMenuAssignmentList } from '@/lib/schemas/menu/menus/menuListSchema';
 import { api } from '@/services/api/browserClient';
 import { restaurantBranchMenusPath } from '@/services/api/ApiUrlsV1';
 
@@ -10,7 +10,7 @@ export const branchMenusQueryKey = (branchId: string | number) =>
   ['menu', 'branch-menus', String(branchId)] as const;
 
 async function fetchBranchMenus(branchId: string | number) {
-  const payload = await api.get<unknown>(restaurantBranchMenusPath(branchId));
+  const payload = await api.get(restaurantBranchMenusPath(branchId));
   return parseBranchMenuAssignmentList(payload);
 }
 

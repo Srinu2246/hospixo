@@ -1,7 +1,7 @@
 import { clearSidebarSession } from '@/lib/auth/session';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
-import ApiUrlsV1 from './ApiUrlsV1';
+import ApiUrlsV1, { isPublicEndpoint } from './ApiUrlsV1';
 import { isApiServerFetchEnabled } from './fetchMode';
 import { readResponse } from './readResponse';
 import { ApiError, type HttpMethod, type QueryParams } from './types';
@@ -91,7 +91,12 @@ async function request<T>(
   try {
     return await readResponse<T>(response);
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401 && !isAuthPath(endpoint)) {
+    if (
+      error instanceof ApiError &&
+      error.status === 401 &&
+      !isAuthPath(endpoint) &&
+      !isPublicEndpoint(endpoint)
+    ) {
       redirectToLoginAfterUnauthorized();
     }
     throw error;
