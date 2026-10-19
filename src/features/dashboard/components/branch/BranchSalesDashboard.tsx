@@ -43,17 +43,67 @@ export interface BranchSalesDashboardProps {
   onExportClick?: () => void;
 }
 
+interface BranchPeriodSelectorProps {
+  value: PeriodOption;
+  onChange: (value: PeriodOption) => void;
+}
+
+function BranchPeriodSelector({ value, onChange }: Readonly<BranchPeriodSelectorProps>) {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+
+  return (
+    <>
+      <ButtonBase
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        sx={{
+          px: 1,
+          py: 0.35,
+          borderRadius: '6px',
+          border: '1px solid',
+          borderColor: (theme) =>
+            theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+          bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          color: 'text.primary',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
+        }}
+      >
+        {value}
+        <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
+      </ButtonBase>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={() => setAnchorEl(null)}
+        slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
+      >
+        {MOCK_PERIOD_OPTIONS.map((p) => (
+          <MenuItem
+            key={p}
+            selected={p === value}
+            onClick={() => {
+              onChange(p);
+              setAnchorEl(null);
+            }}
+            sx={{ fontSize: '0.75rem' }}
+          >
+            {p}
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
+  );
+}
+
 export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDashboardProps> = {}) {
   const [selectedDate, setSelectedDate] = useState<Date>(BRANCH_SALES_SUMMARY.defaultStartDate);
 
   const [chartPeriod, setChartPeriod] = useState<PeriodOption>(PeriodOption.TODAY);
-  const [chartMenuAnchor, setChartMenuAnchor] = useState<HTMLElement | null>(null);
-
   const [onlinePeriod, setOnlinePeriod] = useState<PeriodOption>(PeriodOption.TODAY);
-  const [onlineMenuAnchor, setOnlineMenuAnchor] = useState<HTMLElement | null>(null);
-
   const [expensesPeriod, setExpensesPeriod] = useState<PeriodOption>(PeriodOption.TODAY);
-  const [expensesMenuAnchor, setExpensesMenuAnchor] = useState<HTMLElement | null>(null);
 
   const handleExport = () => {
     if (onExportClick) {
@@ -232,48 +282,7 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
                 </Typography>
               </Box>
 
-              <ButtonBase
-                onClick={(e) => setChartMenuAnchor(e.currentTarget)}
-                sx={{
-                  px: 1,
-                  py: 0.35,
-                  borderRadius: '6px',
-                  border: '1px solid',
-                  borderColor: (theme) =>
-                    theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                  bgcolor: (theme) =>
-                    theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  color: 'text.primary',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                }}
-              >
-                {chartPeriod}
-                <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
-              </ButtonBase>
-              <Menu
-                anchorEl={chartMenuAnchor}
-                open={Boolean(chartMenuAnchor)}
-                onClose={() => setChartMenuAnchor(null)}
-                slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
-              >
-                {MOCK_PERIOD_OPTIONS.map((p) => (
-                  <MenuItem
-                    key={p}
-                    selected={p === chartPeriod}
-                    onClick={() => {
-                      setChartPeriod(p);
-                      setChartMenuAnchor(null);
-                    }}
-                    sx={{ fontSize: '0.75rem' }}
-                  >
-                    {p}
-                  </MenuItem>
-                ))}
-              </Menu>
+              <BranchPeriodSelector value={chartPeriod} onChange={setChartPeriod} />
             </Box>
           </Box>
 
@@ -503,48 +512,7 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
             <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: 'text.primary' }}>
               Online orders
             </Typography>
-            <ButtonBase
-              onClick={(e) => setOnlineMenuAnchor(e.currentTarget)}
-              sx={{
-                px: 1,
-                py: 0.35,
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: (theme) =>
-                  theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'text.primary',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-              }}
-            >
-              {onlinePeriod}
-              <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
-            </ButtonBase>
-            <Menu
-              anchorEl={onlineMenuAnchor}
-              open={Boolean(onlineMenuAnchor)}
-              onClose={() => setOnlineMenuAnchor(null)}
-              slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
-            >
-              {MOCK_PERIOD_OPTIONS.map((p) => (
-                <MenuItem
-                  key={p}
-                  selected={p === onlinePeriod}
-                  onClick={() => {
-                    setOnlinePeriod(p);
-                    setOnlineMenuAnchor(null);
-                  }}
-                  sx={{ fontSize: '0.75rem' }}
-                >
-                  {p}
-                </MenuItem>
-              ))}
-            </Menu>
+            <BranchPeriodSelector value={onlinePeriod} onChange={setOnlinePeriod} />
           </Box>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
@@ -775,48 +743,7 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
             >
               TODAY&apos;S EXPENSES
             </Typography>
-            <ButtonBase
-              onClick={(e) => setExpensesMenuAnchor(e.currentTarget)}
-              sx={{
-                px: 1,
-                py: 0.35,
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: (theme) =>
-                  theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'text.primary',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-              }}
-            >
-              {expensesPeriod}
-              <KeyboardArrowDownIcon sx={{ fontSize: 16, color: colors.text.secondary }} />
-            </ButtonBase>
-            <Menu
-              anchorEl={expensesMenuAnchor}
-              open={Boolean(expensesMenuAnchor)}
-              onClose={() => setExpensesMenuAnchor(null)}
-              slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
-            >
-              {MOCK_PERIOD_OPTIONS.map((p) => (
-                <MenuItem
-                  key={p}
-                  selected={p === expensesPeriod}
-                  onClick={() => {
-                    setExpensesPeriod(p);
-                    setExpensesMenuAnchor(null);
-                  }}
-                  sx={{ fontSize: '0.75rem' }}
-                >
-                  {p}
-                </MenuItem>
-              ))}
-            </Menu>
+            <BranchPeriodSelector value={expensesPeriod} onChange={setExpensesPeriod} />
           </Box>
 
           <Box

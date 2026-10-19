@@ -2,45 +2,15 @@
 
 import React from 'react';
 import Image from 'next/image';
-import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
-import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import Box from '@mui/material/Box';
-import type { SxProps, Theme } from '@mui/material/styles';
 
 import logoLight from '@/assets/app/logo-light.svg';
-import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import type { DropdownOption } from '@/components/shared/form-fields/Dropdown';
-import { colors } from '@/lib/theme/mui/colors';
 
 import { MobileBranchSelector } from './MobileBranchSelector';
+import { NavMenuButton, NavNotificationButton } from './NavActionButtons';
+import type { MobileNavbarProps } from './topNavbar.types';
 
-/**
- * MobileNavbarProps
- */
-export interface MobileNavbarProps {
-  /** Anchor element for the branch selector menu */
-  branchMenuAnchor: HTMLElement | null;
-  /** Callback fired to open branch selector menu */
-  onOpenBranchMenu: (el: HTMLElement) => void;
-  /** Callback fired to close branch selector menu */
-  onCloseBranchMenu: () => void;
-  /** Organizational scope label */
-  mobileScopeLabel: string;
-  /** Active outlet or branch label */
-  mobileOutletLabel: string;
-  /** Branch options list */
-  mobileBranchOptions: DropdownOption<string>[];
-  /** Selected outlet id */
-  mobileSelectedOutletSlug: string;
-  /** Callback fired when an outlet option is chosen */
-  onMobileOutletChange: (id: string, option?: DropdownOption<string>) => void;
-  /** Callback fired on notification button click */
-  onNotificationClick?: () => void;
-  /** Callback fired on mobile hamburger menu click */
-  onOpenMenu?: () => void;
-  /** Optional layout style overrides from the caller */
-  sx?: SxProps<Theme>;
-}
+export type { MobileNavbarProps };
 
 /**
  * MobileNavbar
@@ -119,41 +89,8 @@ export function MobileNavbar({
 
       {/* Mobile Right: Notifications bell & Hamburger menu button */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <ActionButton
-          variant="icon"
-          size="medium"
-          ariaLabel="View notifications"
-          onClick={onNotificationClick}
-          sx={{
-            p: 0.75,
-            color: colors.text.secondary,
-            borderRadius: '8px',
-            '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
-          }}
-        >
-          <NotificationsNoneOutlinedIcon sx={{ fontSize: 20 }} />
-        </ActionButton>
-        <ActionButton
-          variant="icon"
-          size="medium"
-          ariaLabel="Open navigation"
-          onClick={onOpenMenu}
-          sx={{
-            p: 0.75,
-            borderRadius: '8px',
-            border: '1px solid',
-            borderColor: (theme) => theme.palette.divider,
-            color: 'text.primary',
-            bgcolor: (theme) =>
-              theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F3F4F6',
-            '&:hover': {
-              bgcolor: (theme) =>
-                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : '#E5E7EB',
-            },
-          }}
-        >
-          <MenuOutlinedIcon sx={{ fontSize: 20 }} />
-        </ActionButton>
+        <NavNotificationButton onClick={onNotificationClick} />
+        <NavMenuButton onClick={onOpenMenu} />
       </Box>
     </Box>
   );
