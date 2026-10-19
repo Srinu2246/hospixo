@@ -27,6 +27,8 @@ import {
   OrderSuccessReceipt,
   type ReceiptData,
 } from '@/features/pos/point-of-sale/components/OrderSuccessReceipt';
+import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
+import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 
 export interface OrderSettleProps {
   orderId?: string;
@@ -64,6 +66,7 @@ export function OrderSettle({
 }: Readonly<OrderSettleProps>) {
   const router = useRouter();
   const pathname = usePathname();
+  const captainCompact = useCaptainCompactLayout();
 
   const isSuccessRoute = Boolean(
     pathname?.endsWith('/success') || pathname?.endsWith('/payment-success'),
@@ -271,6 +274,16 @@ export function OrderSettle({
         overflow: 'hidden',
       }}
     >
+      {captainCompact && currentStep === 'checkout' ? (
+        <Box sx={{ flexShrink: 0, mb: 1 }}>
+          <CaptainWorkspaceSubheader
+            title="Checkout Payment"
+            subtitle={`${reviewOrder.orderNumber} · ${reviewOrder.table}`}
+            onBack={handleBack}
+          />
+        </Box>
+      ) : null}
+
       {/* ------------------------------------------------------------- */}
       {/* 1. Top Navigation Bar                                         */}
       {/* ------------------------------------------------------------- */}
@@ -282,7 +295,7 @@ export function OrderSettle({
           borderColor: 'divider',
           px: { xs: 2, sm: 3.5 },
           py: 1.75,
-          display: 'flex',
+          display: captainCompact ? 'none' : 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}
@@ -398,17 +411,17 @@ export function OrderSettle({
           /* Step 1: Proceed to Checkout View (Image 1) */
           <Box
             sx={{
-              maxWidth: 1360,
+              maxWidth: captainCompact ? '100%' : 1360,
               width: '100%',
               height: '100%',
               minHeight: 0,
               mx: 'auto',
-              pt: { xs: 2, sm: 2.5, md: 3 },
+              pt: captainCompact ? 0 : { xs: 2, sm: 2.5, md: 3 },
               display: 'flex',
               flexDirection: { xs: 'column', md: 'row' },
               alignItems: 'stretch',
               gap: { xs: 2.5, md: 3 },
-              overflow: 'hidden',
+              overflow: captainCompact ? 'auto' : 'hidden',
             }}
           >
             {/* Left Card: ORDER REVIEW (Independent Scroll) */}
@@ -416,9 +429,10 @@ export function OrderSettle({
               sx={{
                 flex: { xs: '1 1 auto', md: 1.35 },
                 width: '100%',
-                height: '100%',
+                height: captainCompact ? 'auto' : '100%',
                 minHeight: 0,
-                overflowY: 'auto',
+                overflowY: captainCompact ? 'visible' : 'auto',
+                display: captainCompact ? 'none' : 'block',
                 pr: { md: 1 },
                 scrollbarWidth: 'thin',
                 scrollbarColor: `${colors.border.default} transparent`,
@@ -443,10 +457,10 @@ export function OrderSettle({
               sx={{
                 flex: { xs: '1 1 auto', md: 1 },
                 width: '100%',
-                maxWidth: { md: 440 },
-                height: '100%',
+                maxWidth: captainCompact ? '100%' : { md: 440 },
+                height: captainCompact ? 'auto' : '100%',
                 minHeight: 0,
-                overflowY: 'auto',
+                overflowY: captainCompact ? 'visible' : 'auto',
                 pr: { md: 1 },
                 scrollbarWidth: 'thin',
                 scrollbarColor: `${colors.border.default} transparent`,

@@ -8,10 +8,21 @@ import InputBase from '@mui/material/InputBase';
 import { alpha } from '@mui/material/styles';
 import { Search } from 'lucide-react';
 
+import { SearchBar } from '@/components/shared/form-fields/SearchBar';
+
 import { Toast } from '@/components/shared/ui/Toast';
 import { Modal } from '@/components/shared/ui/Modal';
+import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
 import { ReadyOrderCard } from '@/features/pos/point-of-sale/components/ReadyOrderCard';
-import { MOCK_READY_ORDERS, type ReadyOrderItem } from '@/lib/mocks/pos/usePosOrders.mocks';
+import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
+import {
+  MOCK_READY_ORDERS,
+  MOCK_READY_PENDING,
+  type ReadyOrderItem,
+} from '@/lib/mocks/pos/usePosOrders.mocks';
+import { FilterChips } from '@/components/shared/form-fields/FilterChips';
+
+type ReadyListTab = 'active' | 'pending' | 'history';
 import { colors } from '@/lib/theme/mui/colors';
 
 /**
@@ -24,29 +35,49 @@ import { colors } from '@/lib/theme/mui/colors';
  * 4. Interactive Serve actions with Toast confirmation and View Order details modal.
  */
 export function ReadyListPage() {
+  const captainCompact = useCaptainCompactLayout();
   const [orders, setOrders] = useState<ReadyOrderItem[]>(MOCK_READY_ORDERS);
+  const [pendingOrders] = useState<ReadyOrderItem[]>(MOCK_READY_PENDING);
+  const [historyOrders, setHistoryOrders] = useState<ReadyOrderItem[]>([]);
+  const [readyTab, setReadyTab] = useState<ReadyListTab>('active');
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [servingOrderId, setServingOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<ReadyOrderItem | null>(null);
 
+  const tabOrders = useMemo(() => {
+    if (readyTab === 'pending') return pendingOrders;
+    if (readyTab === 'history') return historyOrders;
+    return orders;
+  }, [historyOrders, orders, pendingOrders, readyTab]);
+
+  const readyTabItems = useMemo(
+    () => [
+      { id: 'active' as const, label: `Active (${orders.length})` },
+      { id: 'pending' as const, label: `Pending (${pendingOrders.length})` },
+      { id: 'history' as const, label: `History (${historyOrders.length})` },
+    ],
+    [historyOrders.length, orders.length, pendingOrders.length],
+  );
+
   // Filter orders by search query (table, token, or dish summary)
   const filteredOrders = useMemo(() => {
-    if (!searchQuery.trim()) return orders;
+    if (!searchQuery.trim()) return tabOrders;
     const query = searchQuery.toLowerCase().trim();
-    return orders.filter(
+    return tabOrders.filter(
       (order) =>
         order.table.toLowerCase().includes(query) ||
         order.token.toLowerCase().includes(query) ||
         order.dishSummary.toLowerCase().includes(query),
     );
-  }, [orders, searchQuery]);
+  }, [searchQuery, tabOrders]);
 
   // Action: Serve order
   const handleServe = (order: ReadyOrderItem) => {
     setServingOrderId(order.id);
     setTimeout(() => {
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      setHistoryOrders((prev) => [{ ...order, readyTimeAgo: 'Served just now' }, ...prev]);
       setServingOrderId(null);
       setToastMessage(`${order.table} (${order.token}) marked as served!`);
     }, 350);
@@ -69,12 +100,33 @@ export function ReadyListPage() {
       }}
     >
       <Box sx={{ maxWidth: 1440, width: '100%', mx: 'auto' }}>
+        {captainCompact ? (
+          <Stack spacing={1.5} sx={{ mb: 1.5 }}>
+            <CaptainWorkspaceSubheader title="Ready to Serve" subtitle="Kitchen updates live" />
+            <FilterChips
+              items={readyTabItems}
+              value={readyTab}
+              onChange={(value) => setReadyTab(value as ReadyListTab)}
+              scrollable
+            />
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onClear={() => setSearchQuery('')}
+              placeholder="Search orders, tokens, table numbers..."
+              fullWidth
+              showClear
+              sx={{ height: 44 }}
+            />
+          </Stack>
+        ) : null}
+
         {/* ----------------------------------------------------------- */}
         {/* 1. Top Bar: Search Input & Live Store Ops Online Badge       */}
         {/* ----------------------------------------------------------- */}
         <Box
           sx={{
-            display: 'flex',
+            display: captainCompact ? 'none' : 'flex',
             flexDirection: { xs: 'column', sm: 'row' },
             justifyContent: 'space-between',
             alignItems: { xs: 'flex-start', sm: 'center' },
@@ -172,18 +224,11 @@ export function ReadyListPage() {
         {/* ----------------------------------------------------------- */}
         {/* 2. Section Header: "Ready to Serve" + Count Badge          */}
         {/* ----------------------------------------------------------- */}
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1.5 }}>
-          <Typography
-            sx={{
-              fontSize: { xs: '1.35rem', sm: '1.65rem' },
-              fontWeight: 800,
-              color: 'text.primary',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Ready to Serve
-          </Typography>
-
+        <Stack
+          direction="row"
+          spacing={1.5}
+          sx={{ alignItems: 'center', mb: 1.5, display: captainCompact ? 'none' : 'flex' }}
+        >
           <Box
             sx={{
               minWidth: 28,
@@ -252,8 +297,9 @@ export function ReadyListPage() {
               <ReadyOrderCard
                 key={order.id}
                 order={order}
+                compact={captainCompact}
                 onViewOrder={handleViewOrder}
-                onServe={handleServe}
+                onServe={readyTab === 'active' ? handleServe : undefined}
                 isServing={servingOrderId === order.id}
               />
             ))}

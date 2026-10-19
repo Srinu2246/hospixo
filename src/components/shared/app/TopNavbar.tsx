@@ -32,6 +32,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { colors } from '@/lib/theme/mui/colors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { normalizeRoleKey, type SidebarContext, type SidebarUserProfile } from '@/app/sidebar';
+import { isCaptainWorkspacePath, POS_CAPTAIN_COMPACT_PADDING } from '@/lib/helpers/posCaptainFlow';
 
 type ProfileMenuAction = 'profile' | 'help' | 'privacy' | 'terms' | 'blogs' | 'logout';
 
@@ -103,8 +104,9 @@ export function TopNavbar({
     setContext({ branchId: parsed });
   };
 
-  const pathname = usePathname();
-  const isBranchView = pathname?.includes('/branch-manager') || false;
+  const pathname = usePathname() ?? '';
+  const isBranchView = pathname.includes('/branch-manager');
+  const captainWorkspacePath = isCaptainWorkspacePath(pathname);
   const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
@@ -119,20 +121,35 @@ export function TopNavbar({
 
   const displayName = activeUser?.name?.trim() || 'User';
   const displayRole = formatRoleLabel(activeUser?.role || activeRole);
+  const workspaceSubtitle =
+    context.branchName?.trim() ||
+    (context.branchId != null ? `Branch ${context.branchId}` : 'Restaurant workspace');
 
   return (
     <Box
       component="header"
       id="app-top-navbar"
       sx={{
-        height: 64,
-        minHeight: 64,
-        maxHeight: 64,
+        height: captainWorkspacePath
+          ? { [screen.mobile]: 56, [screen.tablet]: 56, [screen.desktop]: 64 }
+          : 64,
+        minHeight: captainWorkspacePath
+          ? { [screen.mobile]: 56, [screen.tablet]: 56, [screen.desktop]: 64 }
+          : 64,
+        maxHeight: captainWorkspacePath
+          ? { [screen.mobile]: 56, [screen.tablet]: 56, [screen.desktop]: 64 }
+          : 64,
         width: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        px: { xs: 2, sm: 3 },
+        px: captainWorkspacePath
+          ? {
+              [screen.mobile]: POS_CAPTAIN_COMPACT_PADDING,
+              [screen.tablet]: POS_CAPTAIN_COMPACT_PADDING,
+              [screen.desktop]: 3,
+            }
+          : { xs: 2, sm: 3 },
         backgroundColor: (theme) => theme.palette.background.paper,
         borderBottom: '1px solid',
         borderColor: (theme) => theme.palette.divider,
@@ -145,30 +162,73 @@ export function TopNavbar({
       {/* Left Section: Outlets Location Dropdown (using Dropdown component)  */}
       {/* ------------------------------------------------------------------ */}
       <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 1 }}>
-        <ActionButton
-          variant="icon"
-          ariaLabel="Open navigation"
-          onClick={onOpenMenu}
-          sx={{ display: { [screen.mobile]: 'inline-flex', [screen.tablet]: 'none' } }}
+        <Box
+          sx={{
+            minWidth: 0,
+            display: captainWorkspacePath
+              ? { [screen.mobile]: 'block', [screen.desktop]: 'none' }
+              : 'none',
+          }}
         >
-          <MenuOutlinedIcon sx={{ fontSize: 20 }} />
-        </ActionButton>
-        <Dropdown
-          variant="outlet"
-          label="Outlets"
-          startIcon={
-            <PlaceOutlinedIcon
-              sx={{
-                fontSize: 18,
-                color: (theme) => theme.palette.text.primary,
-                flexShrink: 0,
-              }}
-            />
-          }
-          options={outletOptions}
-          value={selectedOutletSlug}
-          onChange={handleOutletChange}
-        />
+          <Typography
+            sx={{
+              fontWeight: 800,
+              fontSize: '1.05rem',
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Hospixo Tables
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.75rem',
+              color: 'text.secondary',
+              lineHeight: 1.3,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: { xs: 200, sm: 280 },
+            }}
+          >
+            {workspaceSubtitle}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            display: captainWorkspacePath
+              ? { [screen.mobile]: 'none', [screen.desktop]: 'flex' }
+              : 'flex',
+            alignItems: 'center',
+            gap: 1,
+            minWidth: 0,
+          }}
+        >
+          <ActionButton
+            variant="icon"
+            ariaLabel="Open navigation"
+            onClick={onOpenMenu}
+            sx={{ display: { [screen.mobile]: 'inline-flex', [screen.tablet]: 'none' } }}
+          >
+            <MenuOutlinedIcon sx={{ fontSize: 20 }} />
+          </ActionButton>
+          <Dropdown
+            variant="outlet"
+            label="Outlets"
+            startIcon={
+              <PlaceOutlinedIcon
+                sx={{
+                  fontSize: 18,
+                  color: (theme) => theme.palette.text.primary,
+                  flexShrink: 0,
+                }}
+              />
+            }
+            options={outletOptions}
+            value={selectedOutletSlug}
+            onChange={handleOutletChange}
+          />
+        </Box>
       </Box>
 
       {/* ------------------------------------------------------------------ */}
@@ -183,7 +243,9 @@ export function TopNavbar({
             startIcon={<HeadsetMicOutlinedIcon sx={{ fontSize: 18 }} />}
             onClick={onAiAgentClick}
             sx={{
-              display: { xs: 'none', sm: 'inline-flex' },
+              display: captainWorkspacePath
+                ? { [screen.mobile]: 'none', [screen.desktop]: 'inline-flex' }
+                : { xs: 'none', sm: 'inline-flex' },
               borderRadius: '8px',
               borderColor: (theme) => theme.palette.divider,
               color: (theme) => theme.palette.text.primary,
@@ -207,6 +269,9 @@ export function TopNavbar({
             startIcon={<GridViewOutlinedIcon sx={{ fontSize: 18 }} />}
             onClick={onExploreProductsClick}
             sx={{
+              display: captainWorkspacePath
+                ? { [screen.mobile]: 'none', [screen.desktop]: 'inline-flex' }
+                : 'inline-flex',
               borderRadius: '8px',
               backgroundColor: colors.primary.default,
               color: colors.white.default,
@@ -232,6 +297,9 @@ export function TopNavbar({
                 ariaLabel="Toggle theme mode"
                 onClick={toggleMode}
                 sx={{
+                  display: captainWorkspacePath
+                    ? { [screen.mobile]: 'none', [screen.desktop]: 'inline-flex' }
+                    : 'inline-flex',
                   borderRadius: '8px',
                   borderColor: (theme) => theme.palette.divider,
                   color: (theme) => theme.palette.text.secondary,
@@ -274,7 +342,6 @@ export function TopNavbar({
           </span>
         </Tooltip>
 
-        {/* Settings Button */}
         <Tooltip title="Settings">
           <span>
             <ActionButton
@@ -283,6 +350,9 @@ export function TopNavbar({
               ariaLabel="Open settings"
               onClick={onSettingsClick}
               sx={{
+                display: captainWorkspacePath
+                  ? { [screen.mobile]: 'none', [screen.desktop]: 'inline-flex' }
+                  : 'inline-flex',
                 borderRadius: '8px',
                 borderColor: (theme) => theme.palette.divider,
                 color: (theme) => theme.palette.text.secondary,

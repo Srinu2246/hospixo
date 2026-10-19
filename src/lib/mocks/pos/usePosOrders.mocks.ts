@@ -11,6 +11,8 @@ export interface PosOrderItem {
   kitchenStatusLabel: string; // Display kitchen status label
   amount: number; // Order amount in INR
   amountFormatted: string; // Formatted amount string (e.g. ₹882)
+  /** Relative time label for captain mobile cards (Figma). */
+  elapsedLabel?: string;
 }
 
 export const MOCK_POS_ORDERS: PosOrderItem[] = [
@@ -20,32 +22,23 @@ export const MOCK_POS_ORDERS: PosOrderItem[] = [
     type: 'dine-in',
     typeLabel: 'Dine-in',
     reference: 'Table T4',
-    kitchenStatus: 'kot sent',
-    kitchenStatusLabel: 'KOT Sent',
-    amount: 882,
-    amountFormatted: '₹882',
-  },
-  {
-    id: 'ord-1024-2',
-    orderNumber: '#1024',
-    type: 'dine-in',
-    typeLabel: 'Dine-in',
-    reference: 'Table T4',
     kitchenStatus: 'ready',
     kitchenStatusLabel: 'Ready',
     amount: 882,
     amountFormatted: '₹882',
+    elapsedLabel: '21m ago',
   },
   {
-    id: 'ord-1025-1',
+    id: 'ord-1024-2',
     orderNumber: '#1025',
     type: 'takeaway',
     typeLabel: 'Takeaway',
-    reference: 'Table T5',
+    reference: 'Token #12',
     kitchenStatus: 'preparing',
-    kitchenStatusLabel: 'Preparing',
+    kitchenStatusLabel: 'Cooking',
     amount: 450,
     amountFormatted: '₹450',
+    elapsedLabel: '14m ago',
   },
   {
     id: 'ord-1026-1',
@@ -53,10 +46,11 @@ export const MOCK_POS_ORDERS: PosOrderItem[] = [
     type: 'dine-in',
     typeLabel: 'Dine-in',
     reference: 'Table T6',
-    kitchenStatus: 'billing',
-    kitchenStatusLabel: 'Billing',
+    kitchenStatus: 'kot sent',
+    kitchenStatusLabel: 'Pending',
     amount: 620,
     amountFormatted: '₹620',
+    elapsedLabel: '8m ago',
   },
   {
     id: 'ord-1027-1',
@@ -409,5 +403,31 @@ export const MOCK_READY_ORDERS: ReadyOrderItem[] = [
     status: 'Ready',
     dishSummary: 'Mango Lassi',
     paymentStatus: 'PENDING',
+  },
+];
+
+/** Kitchen queue not yet marked ready (captain Ready tab — Pending). */
+export const MOCK_READY_PENDING: ReadyOrderItem[] = [
+  {
+    id: 'pending-1',
+    table: 'Table T2',
+    readyTimeAgo: 'Cooking · 12 min',
+    token: 'Token #118',
+    priority: 'NORMAL',
+    itemsCount: 2,
+    status: 'Ready',
+    dishSummary: 'Margherita Pizza',
+    paymentStatus: 'PENDING',
+  },
+  {
+    id: 'pending-2',
+    table: 'Table T9',
+    readyTimeAgo: 'Cooking · 18 min',
+    token: 'Token #119',
+    priority: 'HIGH',
+    itemsCount: 4,
+    status: 'Ready',
+    dishSummary: 'Chicken Biryani, Raita',
+    paymentStatus: 'PAID',
   },
 ];

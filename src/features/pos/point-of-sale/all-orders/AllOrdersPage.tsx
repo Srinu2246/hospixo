@@ -10,7 +10,11 @@ import { alpha } from '@mui/material/styles';
 import { Download } from 'lucide-react';
 
 import { FilterBar, type FilterBarItem } from '@/components/shared/form-fields/FilterBar';
+import { FilterChips } from '@/components/shared/form-fields/FilterChips';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
+import { CaptainOpenOrderCard } from '@/features/pos/point-of-sale/components/CaptainOpenOrderCard';
+import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
+import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
@@ -39,6 +43,7 @@ const ORDER_FILTER_ITEMS: readonly FilterBarItem<OrderType>[] = [
 export function AllOrdersPage() {
   const router = useRouter();
   const pathname = usePathname();
+  const captainCompact = useCaptainCompactLayout();
 
   const [orders] = useState<PosOrderItem[]>(MOCK_POS_ORDERS);
   const [activeFilter, setActiveFilter] = useState<OrderType>('all');
@@ -310,12 +315,67 @@ export function AllOrdersPage() {
         overflow: 'hidden',
       }}
     >
+      {captainCompact ? (
+        <Stack spacing={1.5} sx={{ flexShrink: 0 }}>
+          <CaptainWorkspaceSubheader title="Open Orders" subtitle="Live active tickets" />
+          <FilterChips
+            items={ORDER_FILTER_ITEMS}
+            value={activeFilter}
+            onChange={(val) => {
+              setActiveFilter(val);
+              setPage(1);
+            }}
+            scrollable
+          />
+          <SearchBar
+            value={searchQuery}
+            onChange={(val: string) => {
+              setSearchQuery(val);
+              setPage(1);
+            }}
+            onClear={() => setSearchQuery('')}
+            placeholder="Order #, Table #, or Bill No..."
+            fullWidth
+            showClear
+            sx={{ height: 44, borderRadius: '12px' }}
+          />
+        </Stack>
+      ) : null}
+
+      {captainCompact ? (
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.5,
+          }}
+        >
+          {paginatedRows.length === 0 ? (
+            <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 6 }}>
+              No orders found
+            </Typography>
+          ) : (
+            paginatedRows.map((order) => (
+              <CaptainOpenOrderCard
+                key={order.id}
+                order={order}
+                onAddItems={handleAddItems}
+                onSettle={handleSettle}
+              />
+            ))
+          )}
+        </Box>
+      ) : null}
+
       {/* ------------------------------------------------------------- */}
       {/* 1. Header Row: Title + FilterBar + SearchBar + Online Synced   */}
       {/* ------------------------------------------------------------- */}
       <Box
         sx={{
-          display: 'flex',
+          display: captainCompact ? 'none' : 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 2,
@@ -407,10 +467,10 @@ export function AllOrdersPage() {
       {/* ------------------------------------------------------------- */}
       <Box
         sx={{
-          flex: 1,
+          flex: captainCompact ? 0 : 1,
           minHeight: 0,
-          height: '100%',
-          display: 'flex',
+          height: captainCompact ? 0 : '100%',
+          display: captainCompact ? 'none' : 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}
@@ -464,7 +524,7 @@ export function AllOrdersPage() {
       {/* ------------------------------------------------------------- */}
       <Box
         sx={{
-          display: 'flex',
+          display: captainCompact ? 'none' : 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           px: 1,

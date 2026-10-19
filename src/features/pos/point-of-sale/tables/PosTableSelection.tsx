@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Box, Stack, Typography } from '@mui/material';
 import { Plus } from 'lucide-react';
@@ -31,6 +32,10 @@ import {
   type PosTableStatus,
 } from '@/lib/mocks/pos/usePosTables.mocks';
 import { colors } from '@/lib/theme/mui/colors';
+import { POS_CAPTAIN_COMPACT_PADDING } from '@/lib/helpers/posCaptainFlow';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
+import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { PosFloorTableCard } from './PosFloorTableCard';
 
@@ -78,6 +83,8 @@ export function PosTableSelection({
   const searchParams = useSearchParams();
   const fromTables = searchParams?.get('from') === 'tables';
   const isCaptainFlow = Boolean(pathname?.includes('captain-flow'));
+  const captainCompact = useCaptainCompactLayout();
+  const footerTarget = useAppShellFooterTarget();
   const branchId = useSidebarStore((state) => state.context.branchId);
   const floorsQuery = usePosFloorLayout(branchId);
   const floors = useMemo(() => floorsQuery.data ?? [], [floorsQuery.data]);
@@ -224,7 +231,7 @@ export function PosTableSelection({
     setSelectedTableId(t.id);
     onTableSelect?.(t);
 
-    if (isCaptainFlow && !isDineIn) {
+    if ((isCaptainFlow || captainCompact) && !isDineIn) {
       setManualActiveTable(t);
       return;
     }
@@ -321,22 +328,123 @@ export function PosTableSelection({
     }
   }
 
+  const footerTable = selectedTable ?? tables.find((table) => table.id === selectedTableId) ?? null;
+
+  const captainSelectionFooter =
+    captainCompact && footerTable && footerTarget
+      ? createPortal(
+          <Box
+            sx={{
+              width: '100%',
+              bgcolor: 'background.paper',
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              px: POS_CAPTAIN_COMPACT_PADDING,
+              py: 1.25,
+              minHeight: 64,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1.5,
+              boxSizing: 'border-box',
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 700,
+                  color: 'text.secondary',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                SELECTED TABLE
+              </Typography>
+              <Typography sx={{ fontWeight: 800, fontSize: '0.9375rem', lineHeight: 1.3 }} noWrap>
+                {footerTable.name}
+                {footerTable.guests != null
+                  ? ` · ${footerTable.guests} Guest${footerTable.guests === 1 ? '' : 's'}`
+                  : ''}
+                {footerTable.waiter ? ` (${footerTable.waiter})` : ''}
+              </Typography>
+            </Box>
+            <ActionButton
+              variant="primary"
+              startIcon={<Plus size={16} />}
+              onClick={() => handleOpenTableMenu(footerTable)}
+              sx={{
+                flexShrink: 0,
+                minHeight: 44,
+                px: 2,
+                borderRadius: '10px',
+                fontWeight: 700,
+                bgcolor: colors.captainFlow.primary,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Order Menu
+            </ActionButton>
+          </Box>,
+          footerTarget,
+        )
+      : null;
+
   return (
     <Box
       sx={{
         width: '100%',
-        height: '100%',
-        maxHeight: '100%',
-        flex: 1,
-        minHeight: 0,
+        height: captainCompact ? 'auto' : '100%',
+        maxHeight: captainCompact ? 'none' : '100%',
+        flex: captainCompact ? '0 1 auto' : 1,
+        minHeight: captainCompact ? 'auto' : 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px',
+        gap: captainCompact ? '12px' : '20px',
         boxSizing: 'border-box',
-        overflow: 'hidden',
+        overflow: captainCompact ? 'visible' : 'hidden',
       }}
     >
-      <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {captainSelectionFooter}
+
+      {captainCompact ? (
+        <Stack spacing={1.5} sx={{ flexShrink: 0 }}>
+          <CaptainWorkspaceSubheader
+            title={isDineIn ? 'Dine In' : 'Order Menu'}
+            subtitle={
+              footerTable
+                ? `${footerTable.name}${footerTable.waiter ? ` · ${footerTable.waiter}` : ''}`
+                : isDineIn
+                  ? 'Active dine-in tables'
+                  : 'Select a table to start ordering'
+            }
+            floorOptions={floorTabs}
+            floorValue={activeFloor}
+            onFloorChange={setActiveFloor}
+            sectionOptions={sectionOptions}
+            sectionValue={activeSection}
+            onSectionChange={setActiveSection}
+            sectionDisabled={sectionsQuery.isLoading || isSingleSection}
+          />
+          <SearchBar
+            placeholder="Search table name..."
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onClear={() => setSearchQuery('')}
+            showClear
+            fullWidth
+            sx={{ height: 44, borderRadius: '12px' }}
+          />
+        </Stack>
+      ) : null}
+
+      <Box
+        sx={{
+          flexShrink: 0,
+          display: captainCompact ? 'none' : 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
         <Box
           sx={{
             display: 'flex',
@@ -482,7 +590,7 @@ export function PosTableSelection({
             ) : null}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Box
-                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.primary.default }}
+                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.warning.default }}
               />
               <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                 Occupied
@@ -490,7 +598,7 @@ export function PosTableSelection({
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Box
-                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.warning.default }}
+                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.danger.default }}
               />
               <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                 Reserved
@@ -502,9 +610,9 @@ export function PosTableSelection({
 
       <Box
         sx={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
+          flex: captainCompact ? '0 1 auto' : 1,
+          minHeight: captainCompact ? 'auto' : 0,
+          overflowY: captainCompact ? 'visible' : 'auto',
           overflowX: 'hidden',
           pr: 0.5,
           '&::-webkit-scrollbar': { width: 6 },
@@ -551,14 +659,16 @@ export function PosTableSelection({
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(2, 1fr)',
-                md: 'repeat(3, 1fr)',
-                lg: 'repeat(4, 1fr)',
-              },
-              gap: '20px',
-              pb: 2,
+              gridTemplateColumns: captainCompact
+                ? { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, 1fr)' }
+                : {
+                    xs: '1fr',
+                    sm: 'repeat(2, 1fr)',
+                    md: 'repeat(3, 1fr)',
+                    lg: 'repeat(4, 1fr)',
+                  },
+              gap: captainCompact ? '12px' : '20px',
+              pb: captainCompact ? 0 : 2,
             }}
           >
             {filteredTables.length === 0 ? (
@@ -577,6 +687,7 @@ export function PosTableSelection({
               <PosFloorTableCard
                 key={table.id}
                 table={table}
+                compact={captainCompact}
                 isSelected={selectedTableId === table.id}
                 onClick={handleTableClick}
               />

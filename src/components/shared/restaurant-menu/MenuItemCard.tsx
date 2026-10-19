@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
 import Checkbox from '@mui/material/Checkbox';
 import Collapse from '@mui/material/Collapse';
+import Drawer from '@mui/material/Drawer';
 import { Minus, Plus, Utensils } from 'lucide-react';
 
 import { colors } from '@/lib/theme/mui/colors';
@@ -24,6 +25,8 @@ export interface MenuItemCardProps {
   item: PosMenuItem;
   viewMode?: 'list' | 'grid';
   quantityInCart?: number;
+  /** Captain mobile/tablet list row + bottom sheet (Figma). */
+  captainCompact?: boolean;
   onAddDefault: () => void;
   onDecrementDefault?: () => void;
   onAddCustomized: (customization: CartCustomization, quantity: number, unitPrice: number) => void;
@@ -42,6 +45,7 @@ export function MenuItemCard({
   item,
   viewMode = 'list',
   quantityInCart = 0,
+  captainCompact = false,
   onAddDefault,
   onDecrementDefault,
   onAddCustomized,
@@ -734,7 +738,198 @@ export function MenuItemCard({
   }
 
   // -------------------------------------------------------------------
-  // B. LIST VIEW RENDERING (DEFAULT)
+  // B. CAPTAIN LIST VIEW (Figma)
+  // -------------------------------------------------------------------
+  if (captainCompact && viewMode === 'list') {
+    const openCustomize = () => {
+      if (item.sizes.length > 1 || item.addOns.length > 0) {
+        setIsModalOpen(true);
+        return;
+      }
+      onAddDefault();
+    };
+
+    return (
+      <>
+        <Box
+          sx={{
+            bgcolor: 'background.paper',
+            borderRadius: '12px',
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+            p: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+          }}
+        >
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '10px',
+              overflow: 'hidden',
+              flexShrink: 0,
+              bgcolor: colors.surface.muted,
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            {item.imageUrl ? (
+              <Box
+                component="img"
+                src={item.imageUrl}
+                alt={item.name}
+                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: 'text.secondary',
+                }}
+              >
+                <Utensils size={22} />
+              </Box>
+            )}
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }} onClick={openCustomize}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9375rem', lineHeight: 1.3 }} noWrap>
+              {item.name}
+            </Typography>
+            <Typography
+              sx={{
+                fontWeight: 800,
+                fontSize: '0.9375rem',
+                color: colors.captainFlow.primary,
+                mt: 0.35,
+              }}
+            >
+              Rs {item.basePrice}
+            </Typography>
+          </Box>
+          {quantityInCart > 0 ? (
+            <Stack
+              direction="row"
+              spacing={0.5}
+              sx={{
+                alignItems: 'center',
+                bgcolor: colors.surface.muted,
+                borderRadius: '10px',
+                p: 0.35,
+                border: '1px solid',
+                borderColor: 'divider',
+                flexShrink: 0,
+              }}
+            >
+              <ButtonBase
+                onClick={handleDirectDecrementClick}
+                sx={{ width: 30, height: 30, borderRadius: '8px' }}
+              >
+                <Minus size={14} />
+              </ButtonBase>
+              <Typography
+                sx={{
+                  px: 0.75,
+                  fontWeight: 800,
+                  fontSize: '0.875rem',
+                  minWidth: 18,
+                  textAlign: 'center',
+                }}
+              >
+                {quantityInCart}
+              </Typography>
+              <ButtonBase
+                onClick={handleDirectAddClick}
+                sx={{ width: 30, height: 30, borderRadius: '8px' }}
+              >
+                <Plus size={14} />
+              </ButtonBase>
+            </Stack>
+          ) : (
+            <ActionButton
+              variant="outlined"
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                openCustomize();
+              }}
+              sx={{
+                flexShrink: 0,
+                minWidth: 64,
+                height: 36,
+                borderRadius: '8px',
+                borderColor: colors.captainFlow.primary,
+                color: colors.captainFlow.primary,
+                fontWeight: 800,
+                fontSize: '0.8125rem',
+                boxShadow: 'none',
+              }}
+            >
+              ADD
+            </ActionButton>
+          )}
+        </Box>
+
+        <Drawer
+          anchor="bottom"
+          open={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          slotProps={{
+            paper: {
+              sx: {
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                maxHeight: '88vh',
+                px: 2,
+                pt: 1.5,
+                pb: 2.5,
+              },
+            },
+          }}
+        >
+          <Box
+            sx={{ width: 40, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mb: 1.5 }}
+          />
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              mb: 0.5,
+            }}
+          >
+            <Box sx={{ pr: 2 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: '1.125rem' }}>{item.name}</Typography>
+              <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary', mt: 0.35 }}>
+                Customize cooking preferences and add-ons
+              </Typography>
+            </Box>
+            <Typography
+              sx={{
+                fontWeight: 800,
+                fontSize: '1rem',
+                color: colors.captainFlow.primary,
+                flexShrink: 0,
+              }}
+            >
+              Rs {calculatedUnitPrice}
+            </Typography>
+          </Box>
+          <Box sx={{ overflowY: 'auto', maxHeight: 'calc(88vh - 140px)', pr: 0.5 }}>
+            {renderCustomizationContent()}
+          </Box>
+        </Drawer>
+      </>
+    );
+  }
+
+  // -------------------------------------------------------------------
+  // C. LIST VIEW RENDERING (DEFAULT)
   // -------------------------------------------------------------------
   return (
     <Box
