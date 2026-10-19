@@ -5,7 +5,6 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
 import { Card } from '@/components/shared/ui/Card';
@@ -17,6 +16,8 @@ export interface QuickHelpCardProps {
   showPocBadge?: boolean;
   statusText?: string;
   description?: string;
+  availableStartTime?: string;
+  availableEndTime?: string;
   availableHours?: string;
   compact?: boolean;
 }
@@ -26,14 +27,21 @@ export function QuickHelpCard({
   showPocBadge = true,
   statusText = 'Online',
   description,
+  availableStartTime,
+  availableEndTime,
   availableHours,
   compact,
 }: Readonly<QuickHelpCardProps>) {
   const cardDescription =
     description ??
     'Your dedicated account manager for all operational support and billing queries. Reach out anytime during working hours.';
-  const rawHours = availableHours ?? `Available ${ACCOUNT_MANAGER.availableHours}`;
-  const displayHours = rawHours.replace(/^Available\s*/i, '');
+  const displayHours =
+    availableStartTime && availableEndTime
+      ? `${availableStartTime} – ${availableEndTime}`
+      : (availableHours ?? `Available ${ACCOUNT_MANAGER.availableHours}`).replace(
+          /^Available\s*/i,
+          '',
+        );
 
   const handleWhatsAppClick = () => {
     window.open(`https://wa.me/${ACCOUNT_MANAGER.phoneWhatsapp.replace('+', '')}`, '_blank');

@@ -12,19 +12,17 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 
 import ButtonBase from '@mui/material/ButtonBase';
-import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 
 import { Card } from '@/components/shared/ui/Card';
-import { Modal } from '@/components/shared/ui/Modal';
 import { CalendarPicker } from '@/components/shared/form-fields/CalendarPicker';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
 import { useToastStore } from '@/stores/toastStore';
-import { DateRangeOption, PeriodOption } from '@/features/dashboard/types/dashboard.types';
+import { PeriodOption } from '@/features/dashboard/enums';
 import {
   BRANCH_STAT_CARDS,
   BRANCH_EXPENSES,
@@ -36,7 +34,6 @@ import {
   BRANCH_ONLINE_AGGREGATORS,
   BRANCH_LEAKAGE_STATS,
   BRANCH_CHANNEL_CARDS,
-  MOCK_DATE_RANGE_OPTIONS,
   MOCK_PERIOD_OPTIONS,
 } from '@/lib/mocks/dashboard/dashboard.mocks';
 import { DashboardStatCard } from '../shared/DashboardStatCard';
@@ -47,15 +44,7 @@ export interface BranchSalesDashboardProps {
 }
 
 export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDashboardProps> = {}) {
-  const [selectedDateRange, setSelectedDateRange] = useState<string>(
-    BRANCH_SALES_SUMMARY.dateRange,
-  );
-  const [dateMenuAnchor, setDateMenuAnchor] = useState<HTMLElement | null>(null);
-  const [customDialogOpen, setCustomDialogOpen] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState<Date>(
-    BRANCH_SALES_SUMMARY.defaultStartDate,
-  );
-  const [customEndDate, setCustomEndDate] = useState<Date>(BRANCH_SALES_SUMMARY.defaultEndDate);
+  const [selectedDate, setSelectedDate] = useState<Date>(BRANCH_SALES_SUMMARY.defaultStartDate);
 
   const [chartPeriod, setChartPeriod] = useState<PeriodOption>(PeriodOption.TODAY);
   const [chartMenuAnchor, setChartMenuAnchor] = useState<HTMLElement | null>(null);
@@ -78,27 +67,6 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
     useToastStore.getState().show('Refreshing branch dashboard data...', 'info');
   };
 
-  const handleDateSelect = (option: DateRangeOption) => {
-    setDateMenuAnchor(null);
-    if (option === DateRangeOption.CUSTOM_RANGE) {
-      setCustomDialogOpen(true);
-      return;
-    }
-    setSelectedDateRange(option);
-    useToastStore.getState().show(`Filtered sales statistics for ${option}`, 'info');
-  };
-
-  const handleApplyCustomDate = () => {
-    if (customStartDate && customEndDate) {
-      const formatDate = (date: Date) =>
-        date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-      const formatted = `${formatDate(customStartDate)} to ${formatDate(customEndDate)}`;
-      setSelectedDateRange(formatted);
-      useToastStore.getState().show(`Filtered sales statistics for ${formatted}`, 'success');
-    }
-    setCustomDialogOpen(false);
-  };
-
   return (
     <Box
       sx={{
@@ -119,10 +87,7 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
           flexWrap: 'wrap',
           gap: 2,
           pt: 0.5,
-          order: 1,
-          '@media (min-width: 1051px)': {
-            order: 2,
-          },
+          order: { xs: 1, md: 2 },
         }}
       >
         <Typography
@@ -139,182 +104,58 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {/* Working Date Selection Button */}
-          <ButtonBase
-            onClick={(e) => setDateMenuAnchor(e.currentTarget)}
-            sx={{
-              px: { xs: 1.25, sm: 1.75 },
-              py: 0.85,
-              borderRadius: '8px',
-              border: '1px solid',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-              bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
-              color: 'text.primary',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              transition: 'border-color 0.15s ease',
-              '&:hover': {
-                borderColor: colors.primary.default,
-              },
+          {/* Reusable Calendar Date Picker */}
+          <CalendarPicker
+            value={selectedDate}
+            onChange={(date) => {
+              setSelectedDate(date);
+              const formatted = date.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              });
+              useToastStore.getState().show(`Filtered sales statistics for ${formatted}`, 'info');
             }}
-          >
-            <CalendarMonthOutlinedIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-            {selectedDateRange}
-            <KeyboardArrowDownIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-          </ButtonBase>
+            size="medium"
+            minWidth={200}
+          />
 
-          {/* Date Options Menu */}
-          <Menu
-            anchorEl={dateMenuAnchor}
-            open={Boolean(dateMenuAnchor)}
-            onClose={() => setDateMenuAnchor(null)}
-            slotProps={{
-              paper: {
-                sx: {
-                  borderRadius: '10px',
-                  minWidth: 230,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                },
-              },
-            }}
-          >
-            {MOCK_DATE_RANGE_OPTIONS.map((range) => (
-              <MenuItem
-                key={range}
-                selected={range === selectedDateRange}
-                onClick={() => handleDateSelect(range)}
-                sx={{ fontSize: '0.8125rem' }}
-              >
-                {range}
-              </MenuItem>
-            ))}
-          </Menu>
-
-          {/* Custom Date Range Picker Modal */}
-          <Modal
-            open={customDialogOpen}
-            onClose={() => setCustomDialogOpen(false)}
-            title="Select Custom Date Range"
-            width={400}
-            height="auto"
-            footer={
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, width: '100%' }}>
-                <ActionButton
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setCustomDialogOpen(false)}
-                >
-                  Cancel
-                </ActionButton>
-                <ActionButton variant="primary" size="small" onClick={handleApplyCustomDate}>
-                  Apply
-                </ActionButton>
-              </Box>
-            }
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 1 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                <Typography
-                  sx={{ fontSize: '0.8125rem', fontWeight: 600, color: 'text.secondary' }}
-                >
-                  Start Date
-                </Typography>
-                <CalendarPicker
-                  value={customStartDate}
-                  onChange={(date) => setCustomStartDate(date)}
-                  minWidth="100%"
-                />
-              </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                <Typography
-                  sx={{ fontSize: '0.8125rem', fontWeight: 600, color: 'text.secondary' }}
-                >
-                  End Date
-                </Typography>
-                <CalendarPicker
-                  value={customEndDate}
-                  onChange={(date) => setCustomEndDate(date)}
-                  minWidth="100%"
-                />
-              </Box>
-            </Box>
-          </Modal>
-
-          {/* Export Data Button - visible on all responsive devices up to 1050px (mobile + tablet) */}
-          <ButtonBase
+          {/* Export Data Button - visible up to desktop */}
+          <ActionButton
+            variant="secondary"
+            size="medium"
+            startIcon={<DescriptionOutlinedIcon sx={{ fontSize: 18 }} />}
             onClick={handleExport}
             sx={{
-              display: 'inline-flex',
-              '@media (min-width: 1051px)': {
-                display: 'none',
-              },
-              px: { xs: 1.25, sm: 1.75 },
-              py: 0.85,
-              borderRadius: '8px',
-              bgcolor: (theme) =>
-                theme.palette.mode === 'dark' ? 'rgba(79, 70, 229, 0.2)' : '#EEF2FF',
-              color: '#4F46E5',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              alignItems: 'center',
-              gap: 0.75,
-              border: '1px solid',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? 'rgba(79, 70, 229, 0.3)' : '#E0E7FF',
-              transition: 'background-color 0.15s ease',
-              '&:hover': {
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? 'rgba(79, 70, 229, 0.3)' : '#E0E7FF',
-              },
+              display: { xs: 'inline-flex', md: 'none' },
             }}
           >
-            <DescriptionOutlinedIcon sx={{ fontSize: 18, color: '#4F46E5' }} />
             Export Data
-          </ButtonBase>
+          </ActionButton>
 
-          {/* Refresh Button - visible above 1050px on desktop */}
-          <ButtonBase
+          {/* Refresh Button - visible on desktop */}
+          <ActionButton
+            variant="outlined"
+            size="medium"
+            startIcon={<RefreshIcon sx={{ fontSize: 18 }} />}
             onClick={handleRefresh}
             sx={{
-              display: 'none',
-              '@media (min-width: 1051px)': {
-                display: 'inline-flex',
-              },
-              p: 0.85,
-              borderRadius: '8px',
-              border: '1px solid',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-              bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
-              color: colors.text.secondary,
-              transition: 'all 0.15s ease',
-              '&:hover': {
-                borderColor: colors.primary.default,
-                color: colors.primary.default,
-              },
+              display: { xs: 'none', md: 'inline-flex' },
             }}
           >
-            <RefreshIcon sx={{ fontSize: 20 }} />
-          </ButtonBase>
+            Refresh
+          </ActionButton>
         </Box>
       </Box>
 
       {/* 2. Top 4 Stat Cards */}
-      {/* 2x2 grid up to 1050px; 4 columns on desktop above 1050px */}
+      {/* 2x2 grid up to desktop; 4 columns on desktop */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(2, 1fr)' },
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
           gap: { xs: 1.5, sm: 2, md: 2.5 },
-          order: 2,
-          '@media (min-width: 1051px)': {
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            order: 1,
-          },
+          order: { xs: 2, md: 1 },
         }}
       >
         {BRANCH_STAT_CARDS.map((stat) => (
@@ -323,18 +164,15 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
       </Box>
 
       {/* 3. Middle Row: 3 Visual Analysis Cards */}
-      {/* Desktop > 1050px: 3 cards in 1 row (1.2fr 1fr 1fr) */}
-      {/* Tablet & <= 1050px: Card 1 spans full width, Card 2 and Card 3 are 2 columns side-by-side */}
+      {/* Desktop: 3 cards in 1 row (1.2fr 1fr 1fr) */}
+      {/* Tablet: Card 1 spans full width, Card 2 and Card 3 are 2 columns side-by-side */}
       {/* Mobile: All 3 cards stacked (1 column) */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: '1.2fr 1fr 1fr' },
           gap: { xs: 2, sm: 2.5 },
           order: 3,
-          '@media (min-width: 1051px)': {
-            gridTemplateColumns: '1.2fr 1fr 1fr',
-          },
         }}
       >
         {/* Card 1: Channel Orders Chart (Sales) */}
@@ -342,10 +180,7 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
           variant="outlined"
           padding={3}
           sx={{
-            gridColumn: { xs: '1 / -1', sm: '1 / -1' },
-            '@media (min-width: 1051px)': {
-              gridColumn: 'auto',
-            },
+            gridColumn: { xs: '1 / -1', sm: '1 / -1', md: 'auto' },
             borderRadius: '12px',
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
@@ -903,13 +738,10 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
           gap: { xs: 2, sm: 2.5 },
           alignItems: 'start',
           order: 5,
-          '@media (min-width: 1051px)': {
-            gridTemplateColumns: '1fr 1fr 1fr',
-          },
         }}
       >
         {/* Branch Expenses */}
@@ -917,12 +749,8 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
           variant="outlined"
           padding={3}
           sx={{
-            gridColumn: { xs: '1', sm: '1' },
-            gridRow: { xs: 'auto', sm: '1 / span 2' },
-            '@media (min-width: 1051px)': {
-              gridColumn: 'auto',
-              gridRow: 'auto',
-            },
+            gridColumn: { xs: '1', sm: '1', md: 'auto' },
+            gridRow: { xs: 'auto', sm: '1 / span 2', md: 'auto' },
             borderRadius: '16px',
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
@@ -1058,12 +886,8 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
           variant="outlined"
           padding={3}
           sx={{
-            gridColumn: { xs: '1', sm: '2' },
-            gridRow: { xs: 'auto', sm: '1' },
-            '@media (min-width: 1051px)': {
-              gridColumn: 'auto',
-              gridRow: 'auto',
-            },
+            gridColumn: { xs: '1', sm: '2', md: 'auto' },
+            gridRow: { xs: 'auto', sm: '1', md: 'auto' },
             borderRadius: '16px',
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
@@ -1186,13 +1010,9 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
         {/* Quick Help */}
         <Box
           sx={{
-            gridColumn: { xs: '1', sm: '2' },
-            gridRow: { xs: 'auto', sm: '2' },
+            gridColumn: { xs: '1', sm: '2', md: 'auto' },
+            gridRow: { xs: 'auto', sm: '2', md: 'auto' },
             height: '100%',
-            '@media (min-width: 1051px)': {
-              gridColumn: 'auto',
-              gridRow: 'auto',
-            },
           }}
         >
           <QuickHelpCard
@@ -1200,7 +1020,8 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
             showPocBadge
             statusText="Online"
             description="Your dedicated account manager for all operational support and billing queries. Reach out anytime during working hours."
-            availableHours="Available 10:00 AM – 07:00 PM"
+            availableStartTime="10:00 AM"
+            availableEndTime="07:00 PM"
           />
         </Box>
       </Box>

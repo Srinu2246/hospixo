@@ -1,23 +1,22 @@
-import {
-  DateRangeOption,
-  PeriodOption,
-  type DashboardStatItem,
-  type CompanyPerformanceRow,
-  type OutletPerformanceRow,
-  type TaxItem,
-  type DiscountItem,
-  type FinancialBreakdownItem,
-  type TopPerformingBranch,
-  type SubscriptionUsageData,
-  type NeedsAttentionItem,
-  type AiBusinessInsight,
-  type AccountManagerInfo,
-  type LeakageStats,
-  type ExpenseItem,
-  type OutletChartBarItem,
-  type PaymentModeItem,
-  type OnlineAggregatorItem,
-  type ChannelCardItem,
+import { DateRangeOption, PeriodOption } from '@/features/dashboard/enums';
+import type {
+  DashboardStatItem,
+  CompanyPerformanceRow,
+  OutletPerformanceRow,
+  TaxItem,
+  DiscountItem,
+  FinancialBreakdownItem,
+  TopPerformingBranch,
+  SubscriptionUsageData,
+  NeedsAttentionItem,
+  AiBusinessInsight,
+  AccountManagerInfo,
+  LeakageStats,
+  ExpenseItem,
+  OutletChartBarItem,
+  PaymentModeItem,
+  OnlineAggregatorItem,
+  ChannelCardItem,
 } from '@/features/dashboard/types/dashboard.types';
 
 // ==========================================
@@ -417,8 +416,6 @@ export const BRANCH_STAT_CARDS: DashboardStatItem[] = [
     iconType: 'offline',
   },
 ];
-
-export const MOCK_DATE_RANGE_OPTIONS: DateRangeOption[] = Object.values(DateRangeOption);
 
 export const MOCK_PERIOD_OPTIONS: PeriodOption[] = Object.values(PeriodOption);
 

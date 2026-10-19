@@ -27,6 +27,7 @@
     "dependencies": "error",
     "devDependencies": "error",
     "unlisted": "error",
-    "binaries": "off"
+    "binaries": "off",
+    "enumMembers": "off"
   }
 }
