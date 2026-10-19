@@ -8,11 +8,11 @@ import {
   parseMenuItemList,
   parseMenuItemRecord,
   type MenuItemListParams,
-  type UpdateMenuItemStatusBody,
 } from '@/lib/schemas/menu/menuItemsSchema';
 import { useToastStore } from '@/stores/toastStore';
 import { api } from '@/services/api/browserClient';
 import {
+  restaurantMenuItemActivatePath,
   restaurantMenuItemDeactivatePath,
   restaurantMenuItemPath,
   restaurantMenuItemsPath,
@@ -83,22 +83,19 @@ export function useDeactivateMenuItem() {
   });
 }
 
-export type UpdateMenuItemStatusVariables = {
-  itemId: number;
-  body: UpdateMenuItemStatusBody;
-};
-
 /**
- * Set menu item active / inactive (Menu Availability toggle).
- * PATCH /v1/restaurant/menu/items/{item_id}
+ * Activate or deactivate a menu item (Menu Availability toggle).
+ * POST .../items/{id}/activate | .../deactivate
  */
-export function useUpdateMenuItemStatus() {
+export function useSetMenuItemActive() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ itemId, body }: UpdateMenuItemStatusVariables) => {
-      const payload = await api.patch(restaurantMenuItemPath(itemId), body);
-      return parseMenuItemRecord(payload);
+    mutationFn: async ({ itemId, active }: { itemId: number; active: boolean }) => {
+      const path = active
+        ? restaurantMenuItemActivatePath(itemId)
+        : restaurantMenuItemDeactivatePath(itemId);
+      await api.post(path, {});
     },
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
