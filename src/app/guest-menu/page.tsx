@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 
 import { Loading } from '@/components/shared/ui/Loading';
-import { GuestMenuScreen } from '@/features/floor-table-setup/components/guest-menu/guest-menu-screen';
+import { GuestMenuScreen } from '@/components/features/floor-and-table-setup/GuestMenuScreen';
 import { guestMenuCopy } from '@/lib/helpers/floor-and-table-setup/guestMenuCopy';
 
 export const metadata: Metadata = {

@@ -26,6 +26,7 @@ function readMenuQuery(searchParams: URLSearchParams): Partial<{
   };
 }
 
+/** Public guest menu view (section QR deep link). */
 export function GuestMenuScreen() {
   const searchParams = useSearchParams();
   const query = readMenuQuery(searchParams);

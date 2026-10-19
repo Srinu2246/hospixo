@@ -7,15 +7,16 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 
 import { sectionQrCopy } from '@/lib/helpers/floor-and-table-setup/sectionQrCopy';
 import type { SectionGuestMenuTarget } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
 import { useSectionGuestMenuUrl } from '@/lib/hooks/floor-and-table-setup/useSectionGuestMenuUrl';
 import { useSectionQrImage } from '@/lib/hooks/floor-and-table-setup/useSectionQrImage';
+import { colors } from '@/lib/theme/mui/colors';
 
-import styles from './section-qr.module.css';
-
-type SectionQrDialogProps = Readonly<{
+export type SectionQrDialogProps = Readonly<{
   open: boolean;
   section: SectionGuestMenuTarget | null;
   floorId: string | null;
@@ -103,22 +104,41 @@ export function SectionQrDialog({
               {error}
             </Alert>
           ) : dataUrl && section ? (
-            <div className={styles.qrImageWrap}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- QR is a generated data URL */}
-              <img
-                className={styles.qrImage}
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5, pb: 2 }}>
+              {}
+              <Box
+                component="img"
                 src={dataUrl}
                 alt={sectionQrCopy.qrAlt(sectionName)}
+                sx={{
+                  width: 280,
+                  maxWidth: '100%',
+                  height: 'auto',
+                  borderRadius: '6px',
+                }}
               />
-            </div>
+            </Box>
           ) : null}
           {menuUrl ? (
             <>
-              <p className={styles.scanHint}>{sectionQrCopy.scanHint}</p>
-              <p className={styles.menuUrl}>{menuUrl}</p>
+              <Typography sx={{ m: 0, textAlign: 'center', fontSize: '0.875rem', fontWeight: 600 }}>
+                {sectionQrCopy.scanHint}
+              </Typography>
+              <Typography
+                sx={{
+                  display: 'block',
+                  mt: 0.5,
+                  textAlign: 'center',
+                  fontSize: '0.8125rem',
+                  color: 'text.secondary',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {menuUrl}
+              </Typography>
             </>
           ) : null}
-          <div className={styles.dialogActions}>
+          <Stack spacing={1.25} sx={{ width: '100%', pt: 0.5 }}>
             <Button
               fullWidth
               variant="contained"
@@ -138,15 +158,22 @@ export function SectionQrDialog({
             >
               {sectionQrCopy.downloadPdf}
             </Button>
-            <button
-              type="button"
-              className={styles.printLink}
+            <Button
+              variant="text"
               disabled={!dataUrl || !section}
               onClick={handlePrint}
+              sx={{
+                alignSelf: 'center',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                color: colors.primary.default,
+                textDecoration: 'underline',
+                textUnderlineOffset: '0.15rem',
+              }}
             >
               {sectionQrCopy.printQr}
-            </button>
-          </div>
+            </Button>
+          </Stack>
         </Box>
       </DialogContent>
     </Dialog>
