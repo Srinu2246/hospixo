@@ -139,17 +139,27 @@ export function DashboardScreen({
         pt: 0.5,
       }}
     >
-      <DashboardHeader
-        title={scopeDetails.title}
-        scopeEntityLabel={scopeDetails.entityLabel}
-        scopeOptions={scopeDetails.options}
-        selectedScope={selectedScope}
-        onScopeChange={(scope) =>
-          setSelectedScopeByLevel((prev) => ({ ...prev, [currentLevel]: scope }))
-        }
-        onExportClick={handleExportData}
-        topBanner={currentLevel === 'branch' ? <LowStockAlertBanner /> : undefined}
-      />
+      {/* 1. Universal Dashboard Header (Visible above 1050px; hidden up to 1050px on branch view to match tablet design) */}
+      <Box
+        sx={{
+          display: currentLevel === 'branch' ? 'none' : 'block',
+          '@media (min-width: 1051px)': {
+            display: 'block',
+          },
+        }}
+      >
+        <DashboardHeader
+          title={scopeDetails.title}
+          scopeEntityLabel={scopeDetails.entityLabel}
+          scopeOptions={scopeDetails.options}
+          selectedScope={selectedScope}
+          onScopeChange={(scope) =>
+            setSelectedScopeByLevel((prev) => ({ ...prev, [currentLevel]: scope }))
+          }
+          onExportClick={handleExportData}
+          topBanner={currentLevel === 'branch' ? <LowStockAlertBanner /> : undefined}
+        />
+      </Box>
 
       {directory.isError ? (
         <AlertMessage
@@ -190,7 +200,7 @@ export function DashboardScreen({
         {currentLevel === 'branch' && (
           <Fade in timeout={300}>
             <Box>
-              <BranchSalesDashboard />
+              <BranchSalesDashboard onExportClick={handleExportData} />
             </Box>
           </Fade>
         )}

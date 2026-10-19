@@ -195,16 +195,15 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
     const menuItemsListPath = ApiUrlsV1.restaurant.menuItems.list;
     if (
-      request.method === 'PATCH' &&
-      request.path.startsWith(`${menuItemsListPath}/`) &&
-      !request.path.endsWith('/deactivate') &&
-      isRecord(request.body)
+      request.method === 'POST' &&
+      (request.path.endsWith('/activate') || request.path.endsWith('/deactivate')) &&
+      request.path.startsWith(`${menuItemsListPath}/`)
     ) {
       const idSegment = request.path.slice(menuItemsListPath.length + 1).split('/')[0];
       const itemId = Number(idSegment);
       const existing = MOCK_MENU_ITEMS.find((item) => item.id === itemId);
       const now = new Date().toISOString();
-      const nextStatus = request.body.status === 'inactive' ? 'inactive' : 'active';
+      const nextStatus = request.path.endsWith('/activate') ? 'active' : 'inactive';
       return {
         success: true,
         data: {
@@ -242,7 +241,7 @@ export function resolveMock(request: MockRequest): unknown | undefined {
           status: nextStatus,
           updated_at: now,
         },
-        message: 'Menu item updated',
+        message: nextStatus === 'active' ? 'Menu item activated' : 'Menu item deactivated',
       };
     }
 

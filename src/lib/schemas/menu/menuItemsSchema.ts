@@ -162,13 +162,6 @@ export type MenuItemListParams = {
   page_size?: number;
 };
 
-/** PATCH /api/v1/restaurant/menu/items/{item_id} — active / inactive */
-export const updateMenuItemStatusBodySchema = z.object({
-  status: statusBasicSchema,
-});
-
-export type UpdateMenuItemStatusBody = z.infer<typeof updateMenuItemStatusBodySchema>;
-
 export function parseMenuItemList(payload: unknown): PagedMenuItemsData {
   const parsed = menuItemsEnvelopeSchema.safeParse(payload);
   if (!parsed.success || !parsed.data.success || !parsed.data.data) {

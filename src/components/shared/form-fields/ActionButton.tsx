@@ -45,6 +45,15 @@ export function ActionButton({
 }: Readonly<ActionButtonProps>) {
   const sizeConfig = SIZE_STYLES[size];
   const isIconVariant = variant === 'icon';
+  const isPrimary = variant === 'primary';
+
+  // MUI v9 text/outlined buttons color via CSS vars; contained + primary uses contrastText (white).
+  const muiVariant = isPrimary
+    ? 'contained'
+    : variant === 'outlined' || variant === 'icon'
+      ? 'outlined'
+      : 'text';
+  const muiColor = isPrimary ? 'primary' : 'inherit';
 
   // Resolve visual variant styling
   const getVariantSx = () => {
@@ -52,9 +61,17 @@ export function ActionButton({
       case 'primary':
         return {
           bgcolor: colors.primary.default,
-          color: colors.white.default,
+          color: '#FFFFFF',
           boxShadow: `0 2px 8px ${colors.sidebar.activeGlow}`,
-          '&:hover': { bgcolor: colors.primary.dark },
+          '&:hover': { bgcolor: colors.primary.dark, color: '#FFFFFF' },
+          '&.Mui-disabled': {
+            bgcolor: colors.primary.default,
+            color: '#FFFFFF',
+            opacity: 0.5,
+          },
+          '& .MuiButton-startIcon, & .MuiButton-endIcon, & .MuiCircularProgress-root': {
+            color: '#FFFFFF',
+          },
         };
       case 'secondary':
         return {
@@ -110,9 +127,12 @@ export function ActionButton({
       type={type}
       form={form}
       aria-label={ariaLabel}
+      variant={muiVariant}
+      color={muiColor}
       disabled={disabled || loading}
       onClick={onClick}
       fullWidth={fullWidth}
+      disableElevation={isPrimary}
       startIcon={
         !isIconVariant && (loading ? <CircularProgress size={16} color="inherit" /> : startIcon)
       }
@@ -129,6 +149,15 @@ export function ActionButton({
         transition: 'all 0.15s ease',
         ...getVariantSx(),
         ...sx,
+        // Keep primary label/icons white even when callers override bgcolor in sx.
+        ...(isPrimary
+          ? {
+              color: '#FFFFFF',
+              '& .MuiButton-startIcon, & .MuiButton-endIcon, & .MuiCircularProgress-root': {
+                color: '#FFFFFF',
+              },
+            }
+          : null),
       }}
     >
       {loading && isIconVariant ? (
