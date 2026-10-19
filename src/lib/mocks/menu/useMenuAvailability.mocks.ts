@@ -2,6 +2,7 @@ import {
   availabilityChannelListSchema,
   type AvailabilityChannel,
 } from '@/lib/schemas/menu/menuAvailabilitySchema';
+import type { DietaryTypeApi } from '@/lib/schemas/menu/menuItemsSchema';
 
 export const AVAILABILITY_GROUP_TABS = [
   { value: 'all', label: 'All' },
@@ -18,12 +19,25 @@ export const AVAILABILITY_CHANNELS: AvailabilityChannel[] = availabilityChannelL
   { id: 'dine-in-qr', label: 'DineIn QR', group: 'dine-in-qr' },
 ]);
 
-export const ADDON_STATUS_OPTIONS = [
-  { id: 'addon-on', label: 'Addon On' },
-  { id: 'addon-off', label: 'Addon Off' },
-] as const;
+export type AvailabilityDietaryFilter = 'all' | DietaryTypeApi;
+export type AvailabilityStatusFilter = 'all' | 'active' | 'inactive';
 
-export const STORE_STATUS_OPTIONS = [
-  { id: 'store-on', label: 'Store On' },
-  { id: 'store-off', label: 'Store Off' },
-] as const;
+export const AVAILABILITY_DIETARY_OPTIONS: ReadonlyArray<{
+  id: AvailabilityDietaryFilter;
+  label: string;
+}> = [
+  { id: 'all', label: 'All Dietary' },
+  { id: 'veg', label: 'Veg' },
+  { id: 'non_veg', label: 'Non-Veg' },
+  { id: 'egg', label: 'Egg' },
+  { id: 'vegan', label: 'Vegan' },
+];
+
+export const AVAILABILITY_STATUS_OPTIONS: ReadonlyArray<{
+  id: AvailabilityStatusFilter;
+  label: string;
+}> = [
+  { id: 'all', label: 'All Status' },
+  { id: 'active', label: 'Active' },
+  { id: 'inactive', label: 'Inactive' },
+];

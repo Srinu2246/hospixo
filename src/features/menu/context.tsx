@@ -2,7 +2,11 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { AVAILABILITY_CHANNELS } from '@/lib/mocks/menu/useMenuAvailability.mocks';
+import {
+  AVAILABILITY_CHANNELS,
+  type AvailabilityDietaryFilter,
+  type AvailabilityStatusFilter,
+} from '@/lib/mocks/menu/useMenuAvailability.mocks';
 import type {
   AvailabilityCategory,
   AvailabilityChannel,
@@ -11,6 +15,7 @@ import type {
   ItemAvailabilityMark,
   MenuAvailabilityPageConfig,
 } from '@/lib/schemas/menu/menuAvailabilitySchema';
+import type { MenuItemListParams } from '@/lib/schemas/menu/menuItemsSchema';
 import {
   createCategoryInputSchema,
   type CreateCategoryInput,
@@ -30,7 +35,7 @@ import {
 import {
   useDeactivateMenuItem,
   useMenuItems,
-  useUpdateMenuItemStatus,
+  useSetMenuItemActive,
 } from '@/lib/hooks/menu/useMenuItems';
 import type {
   CreateMenuCategoryBody,
@@ -542,27 +547,25 @@ export interface MenuAvailabilityContextValue {
     eightySixCount: number;
     hidden: number;
   };
-  changedCount: number;
   activeCategoryId: string | null;
   searchQuery: string;
   channelGroup: AvailabilityChannelGroup;
   activeChannelId: string;
-  addonStatus: string;
-  storeStatus: string;
+  dietaryFilter: AvailabilityDietaryFilter;
+  statusFilter: AvailabilityStatusFilter;
   setActiveCategoryId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setChannelGroup: (group: AvailabilityChannelGroup) => void;
   setActiveChannelId: (channelId: string) => void;
-  setAddonStatus: (status: string) => void;
-  setStoreStatus: (status: string) => void;
-  /** PATCH item status — active (true) / inactive (false). */
+  setDietaryFilter: (value: AvailabilityDietaryFilter) => void;
+  setStatusFilter: (value: AvailabilityStatusFilter) => void;
+  /** POST .../activate | .../deactivate — active (true) / inactive (false). */
   toggleItemMark: (itemId: string, nextActive: boolean) => Promise<void>;
   isUpdatingItemStatus?: boolean;
   isCategoriesLoading?: boolean;
   isItemsLoading?: boolean;
   categoriesError?: Error | null;
   itemsError?: Error | null;
-  updateAvailability: () => void;
 }
 
 const MenuAvailabilityContext = createContext<MenuAvailabilityContextValue | null>(null);
@@ -596,6 +599,17 @@ function toAvailabilityItem(
   };
 }
 
+function matchesDietaryFilter(
+  dietary: AvailabilityItem['dietary'],
+  filter: AvailabilityDietaryFilter,
+): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'veg') return dietary === 'Veg';
+  if (filter === 'non_veg') return dietary === 'Non-Veg';
+  if (filter === 'egg') return dietary === 'Egg';
+  return dietary === 'Vegan';
+}
+
 export function MenuAvailabilityProvider({
   pageConfig,
   children,
@@ -603,10 +617,29 @@ export function MenuAvailabilityProvider({
   pageConfig: MenuAvailabilityPageConfig;
   children: ReactNode;
 }>) {
-  // Same list APIs as Menu Creation: GET categories + GET menu items.
+  /** null = All Items (same as Menu Creation). */
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  /** Default DineIn QR — All / Online tabs are feature-flagged off for MVP. */
+  const [channelGroup, setChannelGroup] = useState<AvailabilityChannelGroup>('dine-in-qr');
+  const [activeChannelId, setActiveChannelId] = useState('dine-in-qr');
+  const [dietaryFilter, setDietaryFilter] = useState<AvailabilityDietaryFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<AvailabilityStatusFilter>('all');
+  const [localItems, setLocalItems] = useState<AvailabilityItem[] | null>(null);
+
+  const itemListParams = useMemo<MenuItemListParams>(
+    () => ({
+      ...MENU_LIST_PARAMS,
+      ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+      ...(dietaryFilter !== 'all' ? { dietary_type: dietaryFilter } : {}),
+    }),
+    [dietaryFilter, statusFilter],
+  );
+
+  // Same list APIs as Menu Creation: GET categories + GET menu items (with status / dietary filters).
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
-  const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
-  const updateMenuItemStatus = useUpdateMenuItemStatus();
+  const itemsQuery = useMenuItems(itemListParams);
+  const setMenuItemActive = useSetMenuItemActive();
 
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -632,23 +665,8 @@ export function MenuAvailabilityProvider({
     [itemsQuery.data?.items, categoryNameById],
   );
 
-  const [localItems, setLocalItems] = useState<AvailabilityItem[] | null>(null);
-  const [baselineItems, setBaselineItems] = useState<AvailabilityItem[]>([]);
-  /** null = All Items (same as Menu Creation). */
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [channelGroup, setChannelGroup] = useState<AvailabilityChannelGroup>('online');
-  const [activeChannelId, setActiveChannelId] = useState('mayukha-website');
-  const [addonStatus, setAddonStatus] = useState('addon-on');
-  const [storeStatus, setStoreStatus] = useState('store-on');
-
   const categories = apiCategories;
   const items = localItems ?? apiItems;
-
-  // Keep baseline in sync with the latest API payload until the user edits marks.
-  if (localItems == null && apiItems.length > 0 && baselineItems !== apiItems) {
-    setBaselineItems(apiItems);
-  }
 
   const channels = useMemo(() => channelsForGroup(channelGroup), [channelGroup]);
 
@@ -664,6 +682,9 @@ export function MenuAvailabilityProvider({
     const query = searchQuery.trim().toLowerCase();
     return items.filter((item) => {
       if (activeCategoryId && item.categoryId !== activeCategoryId) return false;
+      if (!matchesDietaryFilter(item.dietary, dietaryFilter)) return false;
+      if (statusFilter === 'active' && !item.isActive) return false;
+      if (statusFilter === 'inactive' && item.isActive) return false;
       if (!query) return true;
       return (
         item.name.toLowerCase().includes(query) ||
@@ -671,7 +692,7 @@ export function MenuAvailabilityProvider({
         item.categoryName.toLowerCase().includes(query)
       );
     });
-  }, [activeCategoryId, items, searchQuery]);
+  }, [activeCategoryId, dietaryFilter, items, searchQuery, statusFilter]);
 
   const stats = useMemo(() => {
     let available = 0;
@@ -690,15 +711,6 @@ export function MenuAvailabilityProvider({
     };
   }, [items]);
 
-  const changedCount = useMemo(() => {
-    const baselineById = new Map(baselineItems.map((item) => [item.id, item]));
-    return items.reduce((count, item) => {
-      const baseline = baselineById.get(item.id);
-      if (!baseline) return count + 1;
-      return baseline.mark !== item.mark ? count + 1 : count;
-    }, 0);
-  }, [baselineItems, items]);
-
   const value = useMemo<MenuAvailabilityContextValue>(
     () => ({
       pageConfig,
@@ -709,13 +721,12 @@ export function MenuAvailabilityProvider({
       categoryCounts,
       totalItemCount: items.length,
       stats,
-      changedCount,
       activeCategoryId,
       searchQuery,
       channelGroup,
       activeChannelId,
-      addonStatus,
-      storeStatus,
+      dietaryFilter,
+      statusFilter,
       setActiveCategoryId,
       setSearchQuery,
       setChannelGroup: (group) => {
@@ -727,17 +738,23 @@ export function MenuAvailabilityProvider({
         }
       },
       setActiveChannelId,
-      setAddonStatus,
-      setStoreStatus,
+      setDietaryFilter: (next) => {
+        setDietaryFilter(next);
+        setLocalItems(null);
+      },
+      setStatusFilter: (next) => {
+        setStatusFilter(next);
+        setLocalItems(null);
+      },
       toggleItemMark: async (itemId, nextActive) => {
         const numericId = Number(itemId);
         if (!Number.isFinite(numericId) || numericId <= 0) {
           throw new ApiError('Invalid menu item id.', 400);
         }
 
-        await updateMenuItemStatus.mutateAsync({
+        await setMenuItemActive.mutateAsync({
           itemId: numericId,
-          body: { status: nextActive ? 'active' : 'inactive' },
+          active: nextActive,
         });
 
         const nextMark: ItemAvailabilityMark = nextActive ? 'available' : '86d';
@@ -758,32 +775,27 @@ export function MenuAvailabilityProvider({
         await itemsQuery.refetch();
         setLocalItems(null);
       },
-      isUpdatingItemStatus: updateMenuItemStatus.isPending,
+      isUpdatingItemStatus: setMenuItemActive.isPending,
       isCategoriesLoading: categoriesQuery.isLoading,
       isItemsLoading: itemsQuery.isLoading || itemsQuery.isFetching,
       categoriesError: categoriesQuery.error,
       itemsError: itemsQuery.error,
-      updateAvailability: () => {
-        setBaselineItems(items);
-        setLocalItems(items);
-      },
     }),
     [
       activeCategoryId,
       activeChannelId,
-      addonStatus,
       categories,
       categoryCounts,
-      changedCount,
       channelGroup,
       channels,
+      dietaryFilter,
       filteredItems,
       items,
       pageConfig,
       searchQuery,
       stats,
-      storeStatus,
-      updateMenuItemStatus,
+      statusFilter,
+      setMenuItemActive,
       categoriesQuery.isLoading,
       categoriesQuery.error,
       itemsQuery,

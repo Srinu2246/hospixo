@@ -192,6 +192,11 @@ export function restaurantMenuItemPath(itemId: number | string): string {
   return ApiUrlsV1.restaurant.menuItems.detail(String(itemId));
 }
 
+/** POST /v1/restaurant/menu/items/{item_id}/activate */
+export function restaurantMenuItemActivatePath(itemId: number | string): string {
+  return `${restaurantMenuItemPath(itemId)}/activate`;
+}
+
 /** POST /v1/restaurant/menu/items/{item_id}/deactivate */
 export function restaurantMenuItemDeactivatePath(itemId: number | string): string {
   return `${restaurantMenuItemPath(itemId)}/deactivate`;
