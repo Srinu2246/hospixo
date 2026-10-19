@@ -75,6 +75,12 @@ const ApiUrlsV1 = {
     gstRates: '/v1/restaurant/gst-rates',
     menuCategories: resource('/v1/restaurant/menu/categories'),
     menuItems: resource('/v1/restaurant/menu/items'),
+    /** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
+    branchMenus: {
+      /** Prefix for session-bearer matching and nested branch menu paths. */
+      root: '/v1/restaurant/branches',
+      list: (branchId: number | string) => restaurantBranchMenusPath(branchId),
+    },
   },
   public: {
     restaurantMenu: '/v1/public/restaurant/menu',
@@ -145,8 +151,9 @@ export function organizationCompanyBranchesPath(
   return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies/${encodeURIComponent(String(companyId))}/branches`;
 }
 
+/** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
 export function restaurantBranchMenusPath(branchId: number | string): string {
-  return `${ApiUrlsV1.restaurant.branchMenuAssignments}/${encodeURIComponent(String(branchId))}/menus`;
+  return `${ApiUrlsV1.restaurant.branchMenus.root}/${encodeURIComponent(String(branchId))}/menus`;
 }
 
 /** GET/POST /v1/restaurant/gst-rates */
@@ -162,6 +169,21 @@ export function restaurantGstRatePath(gstRateId: number | string): string {
 /** GET/POST /v1/restaurant/menu/categories */
 export function restaurantMenuCategoriesPath(): string {
   return ApiUrlsV1.restaurant.menuCategories.list;
+}
+
+/** GET/PATCH /v1/restaurant/menu/categories/{category_id} */
+export function restaurantMenuCategoryPath(categoryId: number | string): string {
+  return ApiUrlsV1.restaurant.menuCategories.detail(String(categoryId));
+}
+
+/** POST /v1/restaurant/menu/categories/{category_id}/activate */
+export function restaurantMenuCategoryActivatePath(categoryId: number | string): string {
+  return `${restaurantMenuCategoryPath(categoryId)}/activate`;
+}
+
+/** POST /v1/restaurant/menu/categories/{category_id}/deactivate */
+export function restaurantMenuCategoryDeactivatePath(categoryId: number | string): string {
+  return `${restaurantMenuCategoryPath(categoryId)}/deactivate`;
 }
 
 /** GET/POST /v1/restaurant/menu/items */

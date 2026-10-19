@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, type Query } from '@tanstack/react-query';
+import { type Query } from '@tanstack/react-query';
 
+import { useQuery } from '@/lib/hooks/api/useQuery';
 import { api } from '@/services/api/browserClient';
 import type { QueryParams } from '@/services/api/types';
 

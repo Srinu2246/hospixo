@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { logoutRequestSchema } from '@/lib/schemas/login/loginFormSchema';
 import { PROFILE_COOKIE, profileCookieValue } from '@/lib/auth/shell-session';
 import ApiUrlsV1, { isAllowedEndpoint, isPublicEndpoint } from './ApiUrlsV1';
-import { isMockApiEnabled, resolveMock } from './handler';
+import { isApiProxyEnabled, isMockApiEnabled, resolveMock } from './handler';
 import { readResponse } from './readResponse';
 import { ApiError, type HttpMethod, type QueryParams } from './types';
 
@@ -44,15 +44,22 @@ async function rejectUnauthorized(): Promise<never> {
   throw new ApiError('Unauthorized', 401);
 }
 
-function getBackendConfig(): { baseUrl: string; secret: string } {
+function getBackendConfig(): { baseUrl: string } {
+  // Never use NEXT_PUBLIC_* for the backend — that would expose the origin in the browser bundle.
   const baseUrl = process.env.API_BASE_URL?.replace(/\/+$/, '') ?? '';
-  const secret = process.env.API_SECRET ?? '';
 
-  if (!baseUrl) {
-    throw new ApiError('API is not configured', 503);
+  if (!isApiProxyEnabled()) {
+    throw new ApiError(
+      'API proxy is disabled. Set API_PROXY_ENABLED=true and API_BASE_URL (or API_MOCK=true).',
+      503,
+    );
   }
 
-  return { baseUrl, secret };
+  if (!baseUrl) {
+    throw new ApiError('API is not configured. Set API_BASE_URL for the BFF proxy.', 503);
+  }
+
+  return { baseUrl };
 }
 
 function buildBackendUrl(path: string, params?: QueryParams): string {
@@ -85,19 +92,14 @@ async function request<T>(
 
   const isPublic = isPublicEndpoint(path);
   const isLogout = path === ApiUrlsV1.auth.logout;
+  // Non-public routes always require a session; BE identifies the user from this JWT only.
   const session = isPublic ? undefined : await requireSession();
-  const { secret } = getBackendConfig();
   const headers = new Headers({
     Accept: 'application/json',
   });
 
-  if (session && (isLogout || pathUsesSessionBearer(path))) {
-    headers.set('Authorization', `Bearer ${session}`);
-  } else if (secret) {
-    headers.set('Authorization', `Bearer ${secret}`);
-  }
-
   if (session) {
+    headers.set('Authorization', `Bearer ${session}`);
     headers.set('X-Session-Id', session);
   }
 
@@ -335,24 +337,4 @@ function isSensitiveKey(key: string): boolean {
 
 function normalizeKey(key: string): string {
   return key.toLowerCase().replace(/[-_\s]/g, '');
-}
-
-/** User-scoped APIs must use the login access token, not API_SECRET. */
-function pathUsesSessionBearer(path: string): boolean {
-  const prefixes = [
-    ApiUrlsV1.auth.me,
-    ApiUrlsV1.users.list,
-    ApiUrlsV1.roles.list,
-    ApiUrlsV1.permissions.grouped,
-    ApiUrlsV1.organization.companies,
-    ApiUrlsV1.organization.platformOrganizations,
-    ApiUrlsV1.organization.platformOrganizationsV2,
-    ApiUrlsV1.restaurant.branches,
-    ApiUrlsV1.restaurant.branchMenuAssignments,
-    ApiUrlsV1.restaurant.gstRates,
-    ApiUrlsV1.restaurant.menuCategories.list,
-    ApiUrlsV1.restaurant.menuItems.list,
-  ];
-
-  return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }

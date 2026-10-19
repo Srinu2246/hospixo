@@ -86,9 +86,7 @@ export function FloorSectionsPanel({
           floorTables={tables}
           branchId={branchId}
           floorId={floorId}
-          onDownloadQr={() =>
-            setQrSection({ id: selected.id, name: selected.name, code: selected.code })
-          }
+          onDownloadQr={() => setQrSection({ id: selected.id, name: selected.name })}
         />
       </>
     );
@@ -101,9 +99,7 @@ export function FloorSectionsPanel({
         onOpen={onOpen}
         onEdit={onEdit}
         onAdd={onAdd}
-        onDownloadQr={(section) =>
-          setQrSection({ id: section.id, name: section.name, code: section.code })
-        }
+        onDownloadQr={(section) => setQrSection({ id: section.id, name: section.name })}
       />
     </>
   );

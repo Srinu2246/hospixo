@@ -46,6 +46,7 @@ export function MenuAvailabilityContent() {
     storeStatus,
     setStoreStatus,
     toggleItemMark,
+    isUpdatingItemStatus,
     updateAvailability,
   } = useMenuAvailability();
 
@@ -221,7 +222,13 @@ export function MenuAvailabilityContent() {
           }}
         >
           <MenuAvailabilitySidebar />
-          <AvailabilityItemsTable items={filteredItems} onToggleMark={toggleItemMark} />
+          <AvailabilityItemsTable
+            items={filteredItems}
+            toggleDisabled={Boolean(isUpdatingItemStatus)}
+            onToggleMark={(itemId, nextActive) => {
+              void toggleItemMark(itemId, nextActive);
+            }}
+          />
         </Box>
       </Box>
 

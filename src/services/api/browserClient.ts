@@ -2,6 +2,7 @@ import { clearSidebarSession } from '@/lib/auth/session';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 import ApiUrlsV1 from './ApiUrlsV1';
+import { isApiServerFetchEnabled } from './fetchMode';
 import { readResponse } from './readResponse';
 import { ApiError, type HttpMethod, type QueryParams } from './types';
 
@@ -13,6 +14,10 @@ type BrowserRequestOptions = {
 
 let redirectingToLogin = false;
 
+/**
+ * Browser only calls same-origin `/api/v1|v2/...` (BFF). Absolute backend URLs are rejected
+ * so `API_BASE_URL` never leaves the server.
+ */
 function toAppPath(endpoint: string, params?: QueryParams): string {
   if (/^https?:\/\//i.test(endpoint) || !/^\/v[12]\//.test(endpoint)) {
     throw new ApiError('Browser client only calls versioned app endpoints', 400);
@@ -49,11 +54,23 @@ function redirectToLoginAfterUnauthorized(): void {
   window.location.assign('/login');
 }
 
+/** Auth session bootstrap may still GET on the client even in server-fetch mode. */
+function isClientGetAllowed(endpoint: string): boolean {
+  return endpoint === ApiUrlsV1.auth.me;
+}
+
 async function request<T>(
   method: HttpMethod,
   endpoint: string,
   options: BrowserRequestOptions = {},
 ): Promise<T> {
+  if (method === 'GET' && isApiServerFetchEnabled() && !isClientGetAllowed(endpoint)) {
+    throw new ApiError(
+      'Client GET disabled (NEXT_PUBLIC_API_SERVER_FETCH=true). Load this path with serverApi in the page.',
+      503,
+    );
+  }
+
   const headers = new Headers({ Accept: 'application/json' });
   let body: string | undefined;
 

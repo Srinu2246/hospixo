@@ -59,6 +59,7 @@ export function SectionQrDialog({
   } = useSectionQrImage(open ? menuUrl : null);
   const isPending = menuUrlPending || qrPending;
   const error = menuUrlError ?? qrError;
+  const sectionName = section?.name?.trim() || 'Section';
 
   function handlePrint() {
     if (!dataUrl || !section) return;
@@ -67,10 +68,10 @@ export function SectionQrDialog({
     printWindow.document.write(`
       <!doctype html>
       <html>
-        <head><title>${sectionQrCopy.dialogTitle(section.name)}</title></head>
+        <head><title>${sectionQrCopy.dialogTitle(sectionName)}</title></head>
         <body style="font-family:Arial,sans-serif;text-align:center;padding:24px;">
-          <h1 style="font-size:18px;margin:0 0 16px;">${sectionQrCopy.dialogTitle(section.name)}</h1>
-          <img src="${dataUrl}" alt="${sectionQrCopy.qrAlt(section.name)}" width="280" height="280" />
+          <h1 style="font-size:18px;margin:0 0 16px;">${sectionQrCopy.dialogTitle(sectionName)}</h1>
+          <img src="${dataUrl}" alt="${sectionQrCopy.qrAlt(sectionName)}" width="280" height="280" />
           <p style="margin:16px 0 8px;font-weight:600;">${sectionQrCopy.scanHint}</p>
           <p style="margin:0;font-size:13px;color:#64748b;">${menuUrl ?? ''}</p>
         </body>
@@ -89,7 +90,7 @@ export function SectionQrDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ textAlign: 'center', fontWeight: 700, pb: 1 }}>
-        {section ? sectionQrCopy.dialogTitle(section.name) : ''}
+        {section ? sectionQrCopy.dialogTitle(sectionName) : ''}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
@@ -107,7 +108,7 @@ export function SectionQrDialog({
               <img
                 className={styles.qrImage}
                 src={dataUrl}
-                alt={sectionQrCopy.qrAlt(section.name)}
+                alt={sectionQrCopy.qrAlt(sectionName)}
               />
             </div>
           ) : null}
@@ -124,7 +125,7 @@ export function SectionQrDialog({
               disabled={!dataUrl || !section}
               onClick={() => {
                 if (!dataUrl || !section) return;
-                downloadDataUrl(dataUrl, sectionQrCopy.fileNamePng(section.name));
+                downloadDataUrl(dataUrl, sectionQrCopy.fileNamePng(sectionName));
               }}
             >
               {sectionQrCopy.downloadPng}

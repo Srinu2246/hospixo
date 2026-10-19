@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import { loadBranchDirectory } from '@/lib/helpers/organizationBranches';
 import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
