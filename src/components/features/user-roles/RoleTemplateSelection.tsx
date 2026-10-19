@@ -85,11 +85,6 @@ export function RoleTemplateSelection({
         />
       </Box>
 
-      {templatesQuery.isError ? (
-        <AlertMessage variant="error" message="Unable to load role templates." />
-      ) : null}
-      {templatesQuery.isLoading ? <Loading message="Loading templates…" fullPage={false} /> : null}
-
       {/* Header Card with Title and Create Template Button */}
       <Card
         variant="outlined"
@@ -144,6 +139,15 @@ export function RoleTemplateSelection({
           </ActionButton>
         </Box>
       </Card>
+
+      {templatesQuery.isError ? (
+        <AlertMessage variant="error" message="Unable to load role templates." />
+      ) : null}
+      {templatesQuery.isLoading ? (
+        <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
+          <Loading message="Loading templates…" fullPage={false} />
+        </Box>
+      ) : null}
 
       {/* Grid of Role Templates (Compact 24px Card styling) */}
       <Box

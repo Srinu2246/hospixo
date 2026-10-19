@@ -8,7 +8,7 @@ import Divider from '@mui/material/Divider';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
-const STATUS_FILTER_OPTIONS = ['active', 'invited', 'disabled', 'inactive'] as const;
+const STATUS_FILTER_OPTIONS = ['active', 'invited', 'inactive'] as const;
 
 export interface UserFilterPopoverProps {
   anchorEl: HTMLElement | null;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useForm, Controller } from 'react-hook-form';
@@ -17,7 +17,6 @@ import {
 const STATUS_OPTIONS = [
   { id: 'active', label: 'Active' },
   { id: 'invited', label: 'Invited' },
-  { id: 'disabled', label: 'Disabled' },
   { id: 'inactive', label: 'Inactive' },
 ] as const;
 
@@ -43,38 +42,26 @@ export function AddUserModal({
   const {
     control,
     handleSubmit,
-    reset,
     formState: { errors, isSubmitting },
   } = useForm<UserRoleFormValues>({
     resolver: zodResolver(userRoleFormSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      role: roleOptions[0] ?? 'Staff',
-      branch: branchOptions[0] ?? '—',
-      status: 'active',
-    },
+    values: editUser
+      ? {
+          name: editUser.name,
+          email: editUser.email,
+          role: editUser.role,
+          branch: editUser.branch,
+          status: editUser.status,
+        }
+      : {
+          name: '',
+          email: '',
+          role: roleOptions[0] ?? 'Staff',
+          branch: branchOptions[0] ?? '—',
+          status: 'active',
+        },
+    resetOptions: { keepDefaultValues: false },
   });
-
-  useEffect(() => {
-    if (editUser) {
-      reset({
-        name: editUser.name,
-        email: editUser.email,
-        role: editUser.role,
-        branch: editUser.branch,
-        status: editUser.status,
-      });
-    } else {
-      reset({
-        name: '',
-        email: '',
-        role: roleOptions[0] ?? 'Staff',
-        branch: branchOptions[0] ?? '—',
-        status: 'active',
-      });
-    }
-  }, [editUser, reset, open, roleOptions, branchOptions]);
 
   const onFormSubmit = (data: UserRoleFormValues) => {
     onSubmit(data);

@@ -1,16 +1,12 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import React, { useMemo } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
 
 import { Card } from '@/components/shared/ui/Card';
-import { Input } from '@/components/shared/form-fields/Input';
-import { Dropdown } from '@/components/shared/form-fields/Dropdown';
-import { MobileNumberInput } from '@/components/shared/form-fields/MobileNumberInput';
 import { colors } from '@/lib/theme/mui/colors';
 
 import {
@@ -22,6 +18,8 @@ import {
 import { useEmployeeDirectory, useRoleCatalogQuery } from '@/lib/hooks/employees/user-roles';
 import { useCreateUserStore } from '@/stores/createUserStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import { CreateUserStaffInfoSection } from './create-user/CreateUserStaffInfoSection';
+import { CreateUserAssignmentSection } from './create-user/CreateUserAssignmentSection';
 
 export interface CreateUserStepOneProps {
   onValidSubmit?: (values: CreateUserFormValues) => void;
@@ -53,40 +51,38 @@ export function CreateUserStepOne({
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
   const organizationId = contextOrgId ?? accountOrgId;
   const directoryCompanyId =
-    currentScope === 'company' || currentScope === 'branch'
-      ? (contextCompanyId ?? accountCompanyId)
-      : undefined;
+    currentScope === 'branch'
+      ? (accountCompanyId ?? contextCompanyId)
+      : (contextCompanyId ?? accountCompanyId);
+
   const directory = useEmployeeDirectory(organizationId, directoryCompanyId);
-  const rolesQuery = useRoleCatalogQuery(currentScope);
-  const roleCatalog = useMemo(() => {
-    if (Array.isArray(rolesQuery.data)) return rolesQuery.data;
-    if (rolesQuery.data) return parseRoleCatalog(rolesQuery.data);
-    return [];
-  }, [rolesQuery.data]);
+
+  const rolesQuery = useRoleCatalogQuery();
+  const roleCatalog = useMemo(() => parseRoleCatalog(rolesQuery.data), [rolesQuery.data]);
+
   const roleOptions = useMemo(() => {
-    const names = (Array.isArray(roleCatalog) ? roleCatalog : []).map((role) => role.name);
-    return names.length > 0 ? names : ['Staff'];
-  }, [roleCatalog]);
+    const list = roleCatalog.filter((r) => !r.scope || r.scope === currentScope).map((r) => r.name);
+    return list.length > 0 ? list : ['Captain', 'Cashier', 'Kitchen Staff'];
+  }, [roleCatalog, currentScope]);
+
   const companyOptions = useMemo(
     () => (directory.data?.companies ?? []).map((company) => company.name),
     [directory.data?.companies],
   );
-  const directoryCompanyName = useMemo(() => {
-    const companies = directory.data?.companies ?? [];
-    const byContext = contextCompanyId
-      ? companies.find((company) => String(company.id) === String(contextCompanyId))?.name
-      : undefined;
-    if (byContext) return byContext;
-    if (companies.length === 1) return companies[0]?.name;
-    return undefined;
-  }, [contextCompanyId, directory.data?.companies]);
 
-  // When in branch scope, resolve the company bound to the active branch
+  const directoryCompanyName = useMemo(() => {
+    if (directoryCompanyId == null) return undefined;
+    const match = (directory.data?.companies ?? []).find(
+      (c) => String(c.id) === String(directoryCompanyId),
+    );
+    return match?.name?.trim();
+  }, [directory.data?.companies, directoryCompanyId]);
+
   const branchBoundCompany = useMemo(() => {
     const branches = directory.data?.branches ?? [];
     const companies = directory.data?.companies ?? [];
-    const activeBranchName = contextBranchName || formValues.branch;
     const branchId = contextBranchId ?? accountBranchId;
+    const activeBranchName = contextBranchName || formValues.branch;
 
     const matchedBranch =
       branches.find(
@@ -134,18 +130,6 @@ export function CreateUserStepOne({
     (companyOptions.length === 1 ? companyOptions[0] : undefined);
   const lockedCompanyLabel = resolvedCompanyLabel || formValues.company || '—';
 
-  // Established React Hook Form v7 pattern with dynamic Zod v4 resolver per scope
-  const validationSchema = useMemo(
-    () => buildCreateUserStepOneSchema(roleCatalog, currentScope),
-    [roleCatalog, currentScope],
-  );
-
-  const { control, handleSubmit, setValue, reset } = useForm<CreateUserFormValues>({
-    resolver: zodResolver(validationSchema),
-    defaultValues: formValues,
-    mode: 'onBlur',
-  });
-
   const branchOptions = useMemo(() => {
     const branches = directory.data?.branches ?? [];
     const activeCompany =
@@ -167,88 +151,16 @@ export function CreateUserStepOne({
   const isBranchLoading = directory.isLoading || (directory.isPending && !directory.data);
   const lockedBranchLabel = contextBranchName || formValues.branch || branchOptions[0] || '—';
 
-  // Keep React Hook Form in sync if store values update externally
-  useEffect(() => {
-    reset(formValues);
-  }, [formValues, reset]);
+  const validationSchema = useMemo(
+    () => buildCreateUserStepOneSchema(roleCatalog, currentScope),
+    [roleCatalog, currentScope],
+  );
 
-  useEffect(() => {
-    if (currentScope !== 'company' && currentScope !== 'branch') return;
-    if (!resolvedCompanyLabel || resolvedCompanyLabel === '—') return;
-    if (formValues.company === resolvedCompanyLabel) return;
-    setValue('company', resolvedCompanyLabel, { shouldValidate: true });
-    updateFormField('company', resolvedCompanyLabel);
-  }, [currentScope, formValues.company, resolvedCompanyLabel, setValue, updateFormField]);
-
-  useEffect(() => {
-    if (!formValues.role && roleOptions.length > 0) {
-      const defaultRole = roleOptions[0] || 'Captain';
-      setValue('role', defaultRole, { shouldValidate: true });
-      updateFormField('role', defaultRole);
-      const matched = roleCatalog.find(
-        (r) =>
-          r.name.toLowerCase() === defaultRole.toLowerCase() ||
-          r.code?.toLowerCase() === defaultRole.toLowerCase(),
-      );
-      if (matched) {
-        setSelectedRoleId(matched.id);
-        if (matched.description) {
-          setRoleAndDescription(matched.name, matched.description, matched.id);
-        }
-      }
-    }
-  }, [
-    formValues.role,
-    roleOptions,
-    roleCatalog,
-    setValue,
-    updateFormField,
-    setRoleAndDescription,
-    setSelectedRoleId,
-  ]);
-
-  useEffect(() => {
-    if (!formValues.role || roleCatalog.length === 0) return;
-    const matched = roleCatalog.find(
-      (r) =>
-        r.name.toLowerCase() === formValues.role.toLowerCase() ||
-        r.code?.toLowerCase() === formValues.role.toLowerCase(),
-    );
-    if (matched) {
-      setSelectedRoleId(matched.id);
-      if (matched.description) {
-        setRoleAndDescription(matched.name, matched.description, matched.id);
-      }
-    }
-  }, [formValues.role, roleCatalog, setRoleAndDescription, setSelectedRoleId]);
-
-  useEffect(() => {
-    if (isBranchLoading) return;
-    if (currentScope === 'branch') {
-      const branchToSet = contextBranchName || branchOptions[0];
-      if (branchToSet && branchToSet !== '—' && formValues.branch !== branchToSet) {
-        setValue('branch', branchToSet, { shouldValidate: true });
-        updateFormField('branch', branchToSet);
-      }
-      return;
-    }
-    if (
-      branchOptions.length > 0 &&
-      (!formValues.branch || !branchOptions.includes(formValues.branch))
-    ) {
-      const firstBranch = branchOptions[0];
-      setValue('branch', firstBranch, { shouldValidate: true });
-      updateFormField('branch', firstBranch);
-    }
-  }, [
-    isBranchLoading,
-    currentScope,
-    contextBranchName,
-    branchOptions,
-    formValues.branch,
-    setValue,
-    updateFormField,
-  ]);
+  const { control, handleSubmit, setValue } = useForm<CreateUserFormValues>({
+    resolver: zodResolver(validationSchema),
+    defaultValues: formValues,
+    mode: 'onBlur',
+  });
 
   const handleFieldChange = (field: keyof CreateUserFormValues, value: string | boolean) => {
     setValue(field, value as string, { shouldValidate: true, shouldDirty: true });
@@ -269,8 +181,32 @@ export function CreateUserStepOne({
   };
 
   const handleFormSubmit = (data: CreateUserFormValues) => {
-    setFormValues(data);
-    onValidSubmit?.(data);
+    const defaultBranch = currentScope === 'branch' ? lockedBranchLabel : branchOptions[0] || '';
+    const defaultRole = roleOptions[0] || 'Captain';
+    const effectiveCompany = data.company || lockedCompanyLabel;
+    const effectiveBranch = data.branch || defaultBranch;
+    const effectiveRole = data.role || defaultRole;
+
+    const matched = roleCatalog.find(
+      (r) =>
+        r.name.toLowerCase() === effectiveRole.toLowerCase() ||
+        r.code?.toLowerCase() === effectiveRole.toLowerCase(),
+    );
+    if (matched) {
+      setSelectedRoleId(matched.id);
+      if (matched.description) {
+        setRoleAndDescription(matched.name, matched.description, matched.id);
+      }
+    }
+
+    const finalValues: CreateUserFormValues = {
+      ...data,
+      company: effectiveCompany === '—' ? '' : effectiveCompany,
+      branch: effectiveBranch === '—' ? '' : effectiveBranch,
+      role: effectiveRole,
+    };
+    setFormValues(finalValues);
+    onValidSubmit?.(finalValues);
   };
 
   return (
@@ -280,7 +216,6 @@ export function CreateUserStepOne({
       onSubmit={handleSubmit(handleFormSubmit)}
       sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3, pb: 2 }}
     >
-      {/* Form Card (32px padding matching Figma layout) */}
       <Card
         variant="outlined"
         padding={4}
@@ -314,435 +249,23 @@ export function CreateUserStepOne({
             </Typography>
           </Box>
 
-          {/* Section: Staff Information */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            <Typography
-              sx={{
-                fontSize: '1rem',
-                fontWeight: 700,
-                color: 'text.primary',
-              }}
-            >
-              Staff Information
-            </Typography>
+          <CreateUserStaffInfoSection
+            control={control}
+            countryCode={formValues.countryCode || '+91'}
+            onFieldChange={handleFieldChange}
+          />
 
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                columnGap: { xs: 2, md: 4 },
-                rowGap: 3,
-              }}
-            >
-              {/* First Name */}
-              <Controller
-                name="firstName"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Input
-                    label="FIRST NAME"
-                    required
-                    placeholder="Enter first name"
-                    value={field.value}
-                    onChange={(e) => handleFieldChange('firstName', e.target.value)}
-                    onBlur={field.onBlur}
-                    error={Boolean(fieldState.error)}
-                    helperText={fieldState.error?.message}
-                    fullWidth
-                  />
-                )}
-              />
-
-              {/* Last Name */}
-              <Controller
-                name="lastName"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Input
-                    label="LAST NAME"
-                    required
-                    placeholder="Enter last name"
-                    value={field.value}
-                    onChange={(e) => handleFieldChange('lastName', e.target.value)}
-                    onBlur={field.onBlur}
-                    error={Boolean(fieldState.error)}
-                    helperText={fieldState.error?.message}
-                    fullWidth
-                  />
-                )}
-              />
-
-              {/* Phone Number (Reusing shared MobileNumberInput) */}
-              <Controller
-                name="phoneNumber"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <MobileNumberInput
-                    label="PHONE NUMBER"
-                    required
-                    countryCode={formValues.countryCode || '+91'}
-                    onCountryCodeChange={(code) => handleFieldChange('countryCode', code)}
-                    placeholder="98765 43210"
-                    phoneNumber={field.value}
-                    onPhoneNumberChange={(value) => handleFieldChange('phoneNumber', value)}
-                    error={Boolean(fieldState.error)}
-                    helperText={fieldState.error?.message}
-                  />
-                )}
-              />
-
-              {/* Email Address */}
-              <Controller
-                name="email"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Input
-                    label="EMAIL ADDRESS"
-                    required
-                    type="email"
-                    placeholder="e.g. sarah.chen@example.com"
-                    value={field.value}
-                    onChange={(e) => handleFieldChange('email', e.target.value)}
-                    onBlur={field.onBlur}
-                    error={Boolean(fieldState.error)}
-                    helperText={fieldState.error?.message}
-                    fullWidth
-                  />
-                )}
-              />
-
-              {/* Username */}
-              <Controller
-                name="username"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Input
-                    label="USERNAME"
-                    required
-                    placeholder="Create Username"
-                    value={field.value}
-                    onChange={(e) => handleFieldChange('username', e.target.value)}
-                    onBlur={field.onBlur}
-                    error={Boolean(fieldState.error)}
-                    helperText={fieldState.error?.message}
-                    fullWidth
-                  />
-                )}
-              />
-
-              {/* Password */}
-              <Controller
-                name="password"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <Input
-                    label="PASSWORD"
-                    required
-                    type="password"
-                    placeholder="Create Password"
-                    value={field.value}
-                    onChange={(e) => handleFieldChange('password', e.target.value)}
-                    onBlur={field.onBlur}
-                    error={Boolean(fieldState.error)}
-                    helperText={fieldState.error?.message}
-                    fullWidth
-                  />
-                )}
-              />
-            </Box>
-          </Box>
-
-          {/* Company & Branch Assignment */}
-          {currentScope === 'branch' ? (
-            /* Branch Scope: Single 2-Column Row with Assign Branch and Assign Role */
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                columnGap: { xs: 2, md: 4 },
-                rowGap: 3,
-              }}
-            >
-              {/* Assign Branch */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-                  Assign Branch
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    color: colors.text.secondary,
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  SELECT BRANCH
-                </Typography>
-                {isBranchLoading ? (
-                  <Box
-                    sx={{
-                      height: 40,
-                      borderRadius: '8px',
-                      border: '1px solid',
-                      borderColor: (theme) =>
-                        theme.palette.mode === 'dark'
-                          ? theme.palette.divider
-                          : colors.border.default,
-                      bgcolor: (theme) =>
-                        theme.palette.mode === 'dark'
-                          ? 'rgba(255,255,255,0.04)'
-                          : colors.surface.muted,
-                      px: 1.75,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.25,
-                    }}
-                  >
-                    <CircularProgress size={16} sx={{ color: 'primary.main' }} />
-                    <Typography
-                      sx={{ fontSize: '0.875rem', color: colors.text.secondary, fontWeight: 500 }}
-                    >
-                      Loading branch...
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Box
-                    sx={{
-                      height: 40,
-                      borderRadius: '8px',
-                      border: '1px solid',
-                      borderColor: (theme) =>
-                        theme.palette.mode === 'dark'
-                          ? theme.palette.divider
-                          : colors.border.default,
-                      bgcolor: (theme) =>
-                        theme.palette.mode === 'dark'
-                          ? 'rgba(255,255,255,0.06)'
-                          : colors.white.default,
-                      px: 1.75,
-                      display: 'flex',
-                      alignItems: 'center',
-                      color: 'text.primary',
-                      fontWeight: 500,
-                      fontSize: '0.875rem',
-                      cursor: 'default',
-                      userSelect: 'none',
-                    }}
-                  >
-                    {lockedBranchLabel}
-                  </Box>
-                )}
-                <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, mt: 0.25 }}>
-                  The user will only see data for the selected branch.
-                </Typography>
-              </Box>
-
-              {/* Assign Role */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-                  Assign Role
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    color: colors.text.secondary,
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  SELECT ROLE
-                </Typography>
-                <Controller
-                  name="role"
-                  control={control}
-                  render={({ field }) => (
-                    <Dropdown
-                      options={roleOptions}
-                      value={field.value || 'Captain'}
-                      onChange={(val) => handleFieldChange('role', val)}
-                      sx={{ width: '100%' }}
-                    />
-                  )}
-                />
-              </Box>
-            </Box>
-          ) : (
-            <>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                  columnGap: { xs: 2, md: 4 },
-                  rowGap: 3,
-                }}
-              >
-                {/* Assign Company */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-                    Assign Company
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: '0.6875rem',
-                      fontWeight: 700,
-                      color: colors.text.secondary,
-                      letterSpacing: '0.04em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    SELECT COMPANY
-                  </Typography>
-                  {currentScope === 'company' ? (
-                    <Box
-                      sx={{
-                        height: 40,
-                        borderRadius: '8px',
-                        border: '1px solid',
-                        borderColor: (theme) =>
-                          theme.palette.mode === 'dark'
-                            ? theme.palette.divider
-                            : colors.border.default,
-                        bgcolor: (theme) =>
-                          theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#EAEFF5',
-                        px: 1.75,
-                        display: 'flex',
-                        alignItems: 'center',
-                        color: 'text.primary',
-                        fontWeight: 600,
-                        fontSize: '0.875rem',
-                        cursor: 'default',
-                        userSelect: 'none',
-                      }}
-                    >
-                      {lockedCompanyLabel || '—'}
-                    </Box>
-                  ) : (
-                    <Controller
-                      name="company"
-                      control={control}
-                      render={({ field }) => (
-                        <Dropdown
-                          options={companyOptions.length > 0 ? companyOptions : ['—']}
-                          value={field.value}
-                          onChange={(val) => handleFieldChange('company', val)}
-                          sx={{ width: '100%' }}
-                        />
-                      )}
-                    />
-                  )}
-                  <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, mt: 0.25 }}>
-                    The user will only see data for the selected branch.
-                  </Typography>
-                </Box>
-
-                {/* Assign Branch */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-                    Assign Branch
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: '0.6875rem',
-                      fontWeight: 700,
-                      color: colors.text.secondary,
-                      letterSpacing: '0.04em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    SELECT BRANCH
-                  </Typography>
-                  {isBranchLoading ? (
-                    <Box
-                      sx={{
-                        height: 40,
-                        borderRadius: '8px',
-                        border: '1px solid',
-                        borderColor: (theme) =>
-                          theme.palette.mode === 'dark'
-                            ? theme.palette.divider
-                            : colors.border.default,
-                        bgcolor: (theme) =>
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(255,255,255,0.04)'
-                            : colors.surface.muted,
-                        px: 1.75,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.25,
-                      }}
-                    >
-                      <CircularProgress size={16} sx={{ color: 'primary.main' }} />
-                      <Typography
-                        sx={{ fontSize: '0.875rem', color: colors.text.secondary, fontWeight: 500 }}
-                      >
-                        Loading branches...
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <Controller
-                      name="branch"
-                      control={control}
-                      render={({ field }) => (
-                        <Dropdown
-                          options={branchOptions.length > 0 ? branchOptions : ['—']}
-                          value={field.value}
-                          onChange={(val) => handleFieldChange('branch', val)}
-                          placeholder={
-                            branchOptions.length === 0 ? 'No branches available' : 'Select branch'
-                          }
-                          sx={{ width: '100%' }}
-                        />
-                      )}
-                    />
-                  )}
-                  <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, mt: 0.25 }}>
-                    The user will only see data for the selected branch.
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* Assign Role (Aligned directly within Column 1 for exact pixel grid alignment) */}
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                  columnGap: { xs: 2, md: 4 },
-                }}
-              >
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-                    Assign Role
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: '0.6875rem',
-                      fontWeight: 700,
-                      color: colors.text.secondary,
-                      letterSpacing: '0.04em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    SELECT ROLE
-                  </Typography>
-                  <Controller
-                    name="role"
-                    control={control}
-                    render={({ field }) => (
-                      <Dropdown
-                        options={roleOptions}
-                        value={field.value}
-                        onChange={(val) => handleFieldChange('role', val)}
-                        sx={{ width: '100%' }}
-                      />
-                    )}
-                  />
-                </Box>
-                <Box sx={{ display: { xs: 'none', md: 'block' } }} />
-              </Box>
-            </>
-          )}
+          <CreateUserAssignmentSection
+            control={control}
+            currentScope={currentScope}
+            companyOptions={companyOptions}
+            branchOptions={branchOptions}
+            roleOptions={roleOptions}
+            lockedCompanyLabel={lockedCompanyLabel}
+            lockedBranchLabel={lockedBranchLabel}
+            isBranchLoading={isBranchLoading}
+            onFieldChange={handleFieldChange}
+          />
         </Box>
       </Card>
     </Box>
