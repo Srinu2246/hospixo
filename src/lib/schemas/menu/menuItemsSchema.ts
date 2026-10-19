@@ -28,7 +28,7 @@ export const menuItemTaxSchema = z.object({
 export const menuItemPreparationStationRefSchema = z.object({
   id: z.number().int(),
   name: z.string(),
-  code: z.string(),
+  code: nullableText,
 });
 
 export const menuItemPreparationStationSchema = z.object({
@@ -58,7 +58,7 @@ export const menuItemModifierGroupSchema = z.object({
 export const menuItemTagSchema = z.object({
   id: z.number().int(),
   name: z.string(),
-  code: z.string(),
+  code: nullableText,
 });
 
 export const menuItemVariantSchema = z.object({
@@ -161,6 +161,13 @@ export type MenuItemListParams = {
   page?: number;
   page_size?: number;
 };
+
+/** PATCH /api/v1/restaurant/menu/items/{item_id} — active / inactive */
+export const updateMenuItemStatusBodySchema = z.object({
+  status: statusBasicSchema,
+});
+
+export type UpdateMenuItemStatusBody = z.infer<typeof updateMenuItemStatusBodySchema>;
 
 export function parseMenuItemList(payload: unknown): PagedMenuItemsData {
   const parsed = menuItemsEnvelopeSchema.safeParse(payload);

@@ -17,6 +17,7 @@ export const menuItemStatusSchema = z.enum([
 export const menuCreationViewModeSchema = z.enum([
   'list',
   'create-category',
+  'edit-category',
   'create-item',
   'edit-item',
   'view-item',
@@ -28,6 +29,7 @@ export const menuCategorySchema = z.object({
   status: menuCategoryStatusSchema,
   description: z.string().optional(),
   displayOrder: z.number().int(),
+  parentId: z.number().int().nullable().optional(),
 });
 
 export const menuCatalogItemSchema = z.object({

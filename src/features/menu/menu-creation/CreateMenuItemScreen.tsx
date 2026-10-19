@@ -35,6 +35,7 @@ import { toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import { useCreateMenuItem } from '@/lib/hooks/menu/menu-creation/useCreateMenuItem';
 import { useMenuItem } from '@/lib/hooks/menu/useMenuItems';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { shouldSimulateMenuItemUploadError } from '@/lib/params/menu';
 import type {
   CreateMenuItemFormValues,
   MenuCatalogItem,
@@ -213,15 +214,13 @@ function CreateMenuItemForm({
 
   const { setUploadError } = formHook;
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('simulateError') === 'upload' || urlParams.get('uploadError') === 'true') {
-        setUploadError({
-          fileName: 'high-res-hero-banner.png',
-          fileSizeMb: 14.2,
-          message: '"high-res-hero-banner.png" (14.2 MB) exceeds the maximum 10MB limit.',
-        });
-      }
+    if (typeof window === 'undefined') return;
+    if (shouldSimulateMenuItemUploadError()) {
+      setUploadError({
+        fileName: 'high-res-hero-banner.png',
+        fileSizeMb: 14.2,
+        message: '"high-res-hero-banner.png" (14.2 MB) exceeds the maximum 10MB limit.',
+      });
     }
   }, [setUploadError]);
 

@@ -39,12 +39,36 @@ const envelope = <T extends z.ZodType>(data: T) =>
   });
 
 export const menuCategoriesEnvelopeSchema = envelope(pagedMenuCategoriesDataSchema);
+export const menuCategoryDetailEnvelopeSchema = envelope(menuCategoryResponseSchema);
 
 export const menuCategoryResponseListSchema = z.array(menuCategoryResponseSchema);
+
+/** POST /api/v1/restaurant/menu/categories */
+export const createMenuCategoryBodySchema = z.object({
+  name: z.string().trim().min(1),
+  description: z.string().trim().optional(),
+  parent_id: z.number().int().optional(),
+  display_order: z.number().int().optional(),
+  /** `branch` for branch admin; otherwise `company`. */
+  scope: catalogueScopeSchema,
+  /** Required when `scope` is `branch`. */
+  assign_branch_id: z.number().int().positive().optional(),
+});
+
+/** PATCH /api/v1/restaurant/menu/categories/{category_id} */
+export const updateMenuCategoryBodySchema = z.object({
+  name: z.string().trim().min(1),
+  description: z.string().trim().optional(),
+  parent_id: z.number().int().optional(),
+  display_order: z.number().int(),
+  status: statusBasicSchema,
+});
 
 export type StatusBasic = z.infer<typeof statusBasicSchema>;
 export type MenuCategoryResponse = z.infer<typeof menuCategoryResponseSchema>;
 export type PagedMenuCategoriesData = z.infer<typeof pagedMenuCategoriesDataSchema>;
+export type CreateMenuCategoryBody = z.infer<typeof createMenuCategoryBodySchema>;
+export type UpdateMenuCategoryBody = z.infer<typeof updateMenuCategoryBodySchema>;
 
 export type MenuCategoryListParams = {
   status?: StatusBasic;
@@ -76,4 +100,17 @@ export function parseMenuCategoryList(payload: unknown): PagedMenuCategoriesData
   }
 
   throw new ApiError('Unexpected menu categories response', 502);
+}
+
+/** POST /api/v1/restaurant/menu/categories — created category in `data`. */
+export function parseMenuCategoryRecord(payload: unknown): MenuCategoryResponse {
+  const parsed = menuCategoryDetailEnvelopeSchema.safeParse(payload);
+  if (parsed.success && parsed.data.success && parsed.data.data) {
+    return parsed.data.data;
+  }
+
+  const direct = menuCategoryResponseSchema.safeParse(payload);
+  if (direct.success) return direct.data;
+
+  throw new ApiError('Unexpected menu category response', 502);
 }

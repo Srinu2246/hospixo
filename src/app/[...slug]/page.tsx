@@ -29,10 +29,8 @@ import {
   MenusPage,
 } from '@/features/menu';
 import type { MenuAvailabilityScope } from '@/lib/schemas/menu/menuAvailabilitySchema';
-import type {
-  MenuCreationScope,
-  MenuCreationViewMode,
-} from '@/lib/schemas/menu/menuCreationSchema';
+import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
+import { parseMenuCreationSearchParams } from '@/lib/params/menu';
 
 interface CatchAllPageProps {
   params: Promise<{
@@ -400,27 +398,15 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
         : path.startsWith('branch')
           ? 'branch'
           : 'organization';
-      let initialViewMode: MenuCreationViewMode = 'list';
-      if (
-        path.endsWith('create-menu-item') ||
-        path.endsWith('menu-creation/create') ||
-        searchParams?.view === 'create-item'
-      ) {
-        initialViewMode = 'create-item';
-      } else if (searchParams?.view === 'edit-item') {
-        initialViewMode = 'edit-item';
-      } else if (searchParams?.view === 'view-item') {
-        initialViewMode = 'view-item';
-      } else if (searchParams?.view === 'create-category') {
-        initialViewMode = 'create-category';
-      }
-      const initialItemId =
-        typeof searchParams?.itemId === 'string' ? searchParams.itemId : undefined;
+      const parsed = parseMenuCreationSearchParams(searchParams, path);
       return (
         <MenuCreationLayout
           scope={scope}
-          initialViewMode={initialViewMode}
-          initialItemId={initialItemId}
+          initialViewMode={parsed.viewMode}
+          initialItemId={parsed.itemId}
+          initialCategoryId={
+            parsed.viewMode === 'edit-category' ? parsed.categoryId : parsed.categoryFilterId
+          }
         />
       );
     },

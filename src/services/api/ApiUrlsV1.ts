@@ -167,6 +167,11 @@ export function restaurantMenuCategoriesPath(): string {
   return ApiUrlsV1.restaurant.menuCategories.list;
 }
 
+/** GET/PATCH /v1/restaurant/menu/categories/{category_id} */
+export function restaurantMenuCategoryPath(categoryId: number | string): string {
+  return ApiUrlsV1.restaurant.menuCategories.detail(String(categoryId));
+}
+
 /** GET/POST /v1/restaurant/menu/items */
 export function restaurantMenuItemsPath(): string {
   return ApiUrlsV1.restaurant.menuItems.list;
