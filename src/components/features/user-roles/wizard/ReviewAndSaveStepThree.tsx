@@ -13,7 +13,7 @@ import type {
   PermissionCategory,
   RoleTemplateItem,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
-import { PermissionGroupsGrid } from './PermissionGroupsGrid';
+import { PermissionGroupsGrid } from '../PermissionGroupsGrid';
 
 export interface ReviewAndSaveStepThreeProps {
   formValues: CreateUserFormValues;
