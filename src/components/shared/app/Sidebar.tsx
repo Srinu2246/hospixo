@@ -435,8 +435,8 @@ export function Sidebar({
     return null;
   }, [context]);
 
-  // Open 15.5rem, collapsed icon rail 4.75rem — same widths as the main access sidebar.
-  const sidebarWidth = isOpen ? 248 : 76;
+  // Open 17.5rem, collapsed icon rail 4.75rem — same widths as the main access sidebar.
+  const sidebarWidth = isOpen ? 280 : 76;
 
   // Longest / exact match among visible nav hrefs — avoids All Companies + Analytics both lighting up.
   // When several items share the same href (e.g. Kitchen Display / Incoming / Preparing), only the first stays active.

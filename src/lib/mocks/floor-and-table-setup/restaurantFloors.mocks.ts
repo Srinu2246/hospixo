@@ -1,5 +1,8 @@
 import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
-import { mergeSectionTablesWithOpenOrders } from '@/lib/schemas/pos/point-of-sale/tables/openOrdersSchema';
+import {
+  mapTableAvailabilityToPosTables,
+  type TableAvailabilityRow,
+} from '@/lib/schemas/pos/point-of-sale/tables/tableAvailabilitySchema';
 import { ApiError, type HttpMethod, type QueryParams } from '@/services/api/types';
 
 type MockRequest = {
@@ -157,11 +160,29 @@ let nextId = 200;
 
 const FLOOR_PATH = /^\/v1\/branches\/(\d+)\/floors(?:\/(.*))?$/;
 const BRANCH_ORDERS_PATH = /^\/v1\/branches\/(\d+)\/orders$/;
+const BRANCH_MEAL_SESSIONS_PATH = /^\/v1\/branches\/(\d+)\/meal-sessions$/;
+const BRANCH_TABLES_AVAILABILITY_PATH = /^\/v1\/branches\/(\d+)\/tables\/availability$/;
 
 export function resolveRestaurantFloorMock(request: MockRequest): unknown | undefined {
+  const mealSessionsMatch = BRANCH_MEAL_SESSIONS_PATH.exec(request.path);
+  if (mealSessionsMatch?.[1] && request.method === 'GET') {
+    return mealSessionsList(Number(mealSessionsMatch[1]));
+  }
+
+  const availabilityMatch = BRANCH_TABLES_AVAILABILITY_PATH.exec(request.path);
+  if (availabilityMatch?.[1] && request.method === 'GET') {
+    return tablesAvailabilityList(Number(availabilityMatch[1]), request.params);
+  }
+
   const ordersMatch = BRANCH_ORDERS_PATH.exec(request.path);
-  if (ordersMatch?.[1] && request.method === 'GET') {
-    return openOrdersList(Number(ordersMatch[1]), request.params);
+  if (ordersMatch?.[1]) {
+    const branchId = Number(ordersMatch[1]);
+    if (request.method === 'GET') {
+      return openOrdersList(branchId, request.params);
+    }
+    if (request.method === 'POST') {
+      return createBranchOrder(branchId, request.body);
+    }
   }
 
   const match = FLOOR_PATH.exec(request.path);
@@ -500,22 +521,192 @@ function floorMap(branchId: number, floorId?: number, sectionId?: number) {
   };
 }
 
-/** Legacy POS list endpoints: section tables merged with open dine-in orders. */
+/** Legacy POS list endpoints — same rows as tables/availability. */
 export function getMockPosTablesData(branchId = 49): PosTableItem[] {
-  return floors
-    .filter((floor) => floor.branch_id === branchId)
-    .flatMap((floor) =>
-      sections
-        .filter((section) => section.floor_id === floor.id)
-        .flatMap((section) =>
-          mergeSectionTablesWithOpenOrders(
-            tables.filter((table) => table.section_id === section.id),
-            MOCK_OPEN_ORDERS.filter((order) => order.section_id === section.id),
-            floor.id,
-            section.id,
-          ),
-        ),
-    );
+  return mapTableAvailabilityToPosTables(buildAvailabilityRows(branchId));
+}
+
+/** GET /v1/branches/{branch_id}/tables/availability */
+function tablesAvailabilityList(branchId: number, params?: QueryParams) {
+  const floorId = queryNumber(params, 'floor_id');
+  const sectionId = queryNumber(params, 'section_id');
+  const page = queryNumber(params, 'page') ?? 1;
+  const pageSize = queryNumber(params, 'page_size') ?? 50;
+  const items = buildAvailabilityRows(branchId, floorId, sectionId);
+
+  return {
+    success: true,
+    data: {
+      items,
+      total: items.length,
+      page,
+      page_size: pageSize,
+    },
+    message: 'Table availability retrieved',
+    request_id: 'mock-tables-availability',
+  };
+}
+
+function buildAvailabilityRows(
+  branchId: number,
+  floorId?: number,
+  sectionId?: number,
+): TableAvailabilityRow[] {
+  const ordersByTable = new Map(MOCK_OPEN_ORDERS.map((order) => [order.table_id, order]));
+  const floorNameById = new Map(floors.map((floor) => [floor.id, floor.name]));
+  const sectionNameById = new Map(sections.map((section) => [section.id, section.name]));
+
+  return tables
+    .filter((table) => {
+      if (table.branch_id !== branchId) return false;
+      if (table.status.toLowerCase() === 'inactive' || table.archived_at) return false;
+      if (floorId != null && table.floor_id !== floorId) return false;
+      if (sectionId != null && table.section_id !== sectionId) return false;
+      return true;
+    })
+    .map((table) => {
+      const order = ordersByTable.get(table.id);
+      const occupied = Boolean(order);
+      return {
+        id: table.id,
+        name: table.name,
+        floor_id: table.floor_id,
+        floor_name: floorNameById.get(table.floor_id) ?? null,
+        section_id: table.section_id,
+        section_name: sectionNameById.get(table.section_id) ?? null,
+        status: 'active',
+        occupancy_status: occupied
+          ? order?.status === 'billing'
+            ? 'billing'
+            : 'occupied'
+          : 'available',
+        active_order_id: order?.id ?? null,
+        available_for_order: !occupied,
+        capacity: table.capacity,
+      };
+    });
+}
+
+/** GET /v1/branches/{branch_id}/meal-sessions */
+function mealSessionsList(branchId: number) {
+  const now = new Date().toISOString();
+  return {
+    success: true,
+    data: [
+      {
+        id: 2,
+        public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d85',
+        branch_id: branchId,
+        name: 'breakfast',
+        start_time: '08:01:52.581000',
+        end_time: '23:01:52.581000',
+        display_order: 0,
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        id: 3,
+        public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d86',
+        branch_id: branchId,
+        name: 'lunch',
+        start_time: '12:00:00.000000',
+        end_time: '16:00:00.000000',
+        display_order: 1,
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        id: 4,
+        public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d87',
+        branch_id: branchId,
+        name: 'dinner',
+        start_time: '18:00:00.000000',
+        end_time: '23:00:00.000000',
+        display_order: 2,
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+      },
+    ],
+    message: 'Meal sessions retrieved',
+    request_id: 'mock-meal-sessions',
+  };
+}
+
+/** POST /v1/branches/{branch_id}/orders — create dine-in order and keep it in the open list. */
+function createBranchOrder(branchId: number, body: unknown) {
+  const record = isRecord(body) ? body : {};
+  const tableId = Number(record.table_id);
+  const guestCount = Number(record.guest_count);
+  const mealSessionId = Number(record.meal_session_id);
+  const table = tables.find((row) => row.id === tableId && row.branch_id === branchId);
+  const now = new Date().toISOString();
+  const orderId = 600 + MOCK_OPEN_ORDERS.length;
+  const order = {
+    id: orderId,
+    public_id: `mock-order-${orderId}`,
+    order_number: `ORD-${tableId || orderId}`,
+    order_type: 'dine_in',
+    branch_id: branchId,
+    table_id: Number.isFinite(tableId) ? tableId : 0,
+    table_name: table?.name ?? `Table ${tableId}`,
+    floor_id: table?.floor_id ?? 0,
+    section_id: table?.section_id ?? 0,
+    guest_count:
+      Number.isFinite(guestCount) && guestCount > 0 ? guestCount : (table?.capacity ?? 2),
+    business_date: now.slice(0, 10),
+    meal_session_id: Number.isFinite(mealSessionId) ? mealSessionId : 0,
+    currency: 'INR',
+    status: 'draft',
+    payment_status: 'pending',
+    opened_at: now,
+    created_by_user_id: 1,
+    version: 1,
+    subtotal: 0,
+    discount_total: 0,
+    tax_total: 0,
+    cgst_total: 0,
+    sgst_total: 0,
+    igst_total: 0,
+    calculated_total: 0,
+    round_off: 0,
+    grand_total: 0,
+    amount_paid: 0,
+    tip_total: 0,
+    balance_due: 0,
+    invoice_number: null,
+    closed_at: null,
+    items: [],
+    payments: [],
+    cancellation_reason: null,
+    kitchen_badge: 'ordering',
+  };
+
+  MOCK_OPEN_ORDERS.push({
+    id: order.id,
+    public_id: order.public_id,
+    order_number: order.order_number,
+    order_type: order.order_type,
+    table_id: order.table_id,
+    table_name: order.table_name,
+    floor_id: order.floor_id,
+    section_id: order.section_id,
+    guest_count: order.guest_count,
+    status: order.status,
+    kitchen_badge: order.kitchen_badge,
+    payment_status: order.payment_status,
+    grand_total: order.grand_total,
+    opened_at: order.opened_at,
+  });
+
+  return {
+    success: true,
+    data: order,
+    message: 'OK',
+    request_id: 'mock-create-branch-order',
+  };
 }
 
 /** GET /v1/branches/{branch_id}/orders — returns the mock rows as stored. */

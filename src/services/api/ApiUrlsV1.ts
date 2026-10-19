@@ -127,9 +127,19 @@ export function branchKitchenStatusPath(
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders/${encodeURIComponent(String(orderId))}/kitchen-status`;
 }
 
-/** GET /v1/branches/{branch_id}/orders */
+/** GET/POST /v1/branches/{branch_id}/orders */
 export function branchOrdersPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders`;
+}
+
+/** GET /v1/branches/{branch_id}/meal-sessions */
+export function branchMealSessionsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/meal-sessions`;
+}
+
+/** GET /v1/branches/{branch_id}/tables/availability */
+export function branchTablesAvailabilityPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/tables/availability`;
 }
 
 /** GET /v2/platform/organizations/{organization_id}/companies */

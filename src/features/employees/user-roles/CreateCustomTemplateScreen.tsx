@@ -16,7 +16,6 @@ import { Card } from '@/components/shared/ui/Card';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
-import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { colors } from '@/lib/theme/mui/colors';
 
@@ -109,21 +108,6 @@ export function CreateCustomTemplateScreen({
       setCategories(remoteCategories);
     }
   }
-
-  // Toast feedback state
-  const [toastFeedback, setToastFeedback] = useState<{
-    open: boolean;
-    message: string;
-    severity: ToastSeverity;
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
-
-  const showToast = (message: string, severity: ToastSeverity = 'success') => {
-    setToastFeedback({ open: true, message, severity });
-  };
 
   const footerTarget = useAppShellFooterTarget();
 
@@ -223,10 +207,9 @@ export function CreateCustomTemplateScreen({
     try {
       await createCustomRole.mutateAsync({ values: data, categories });
       onSaveTemplate?.(data, categories);
-      showToast(`Role template "${data.templateName}" created successfully!`, 'success');
       handleBack();
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to create role.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   };
 
@@ -551,13 +534,6 @@ export function CreateCustomTemplateScreen({
           </Box>
         );
       })()}
-
-      <Toast
-        open={toastFeedback.open}
-        message={toastFeedback.message}
-        severity={toastFeedback.severity}
-        onClose={() => setToastFeedback((prev) => ({ ...prev, open: false }))}
-      />
     </Box>
   );
 }

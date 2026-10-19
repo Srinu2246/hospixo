@@ -1,15 +1,25 @@
 import { clearSidebarSession } from '@/lib/auth/session';
+import { getErrorMessage, getSuccessMessage } from '@/lib/helpers/getErrorMessage';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import { useToastStore } from '@/stores/toastStore';
 
 import ApiUrlsV1 from './ApiUrlsV1';
 import { isApiServerFetchEnabled } from './fetchMode';
 import { readResponse } from './readResponse';
 import { ApiError, type HttpMethod, type QueryParams } from './types';
 
+export type BrowserWriteOptions = {
+  signal?: AbortSignal;
+  /** When true, skip automatic success/error toasts for POST/PATCH. */
+  silent?: boolean;
+};
+
 type BrowserRequestOptions = {
   params?: QueryParams;
   body?: unknown;
   signal?: AbortSignal;
+  silent?: boolean;
+  toastOnWrite?: boolean;
 };
 
 let redirectingToLogin = false;
@@ -59,6 +69,21 @@ function isClientGetAllowed(endpoint: string): boolean {
   return endpoint === ApiUrlsV1.auth.me;
 }
 
+function showToast(message: string, severity: 'success' | 'error') {
+  if (typeof window === 'undefined') return;
+  useToastStore.getState().show(message, severity);
+}
+
+function resolveWriteOptions(
+  options?: AbortSignal | BrowserWriteOptions,
+): Pick<BrowserRequestOptions, 'signal' | 'silent'> {
+  if (!options) return {};
+  if (typeof AbortSignal !== 'undefined' && options instanceof AbortSignal) {
+    return { signal: options };
+  }
+  return options as BrowserWriteOptions;
+}
+
 async function request<T>(
   method: HttpMethod,
   endpoint: string,
@@ -88,11 +113,21 @@ async function request<T>(
     cache: 'no-store',
   });
 
+  const shouldToastWrite =
+    options.toastOnWrite === true && !options.silent && !isAuthPath(endpoint);
+
   try {
-    return await readResponse<T>(response);
+    const payload = await readResponse<T>(response);
+    if (shouldToastWrite) {
+      showToast(getSuccessMessage(payload, 'Request completed successfully.'), 'success');
+    }
+    return payload;
   } catch (error) {
     if (error instanceof ApiError && error.status === 401 && !isAuthPath(endpoint)) {
       redirectToLoginAfterUnauthorized();
+    }
+    if (shouldToastWrite) {
+      showToast(getErrorMessage(error), 'error');
     }
     throw error;
   }
@@ -103,16 +138,36 @@ export const api = {
     return request<T>('GET', endpoint, { params, signal });
   },
 
-  post<T>(endpoint: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-    return request<T>('POST', endpoint, { body, signal });
+  post<T>(
+    endpoint: string,
+    body?: unknown,
+    options?: AbortSignal | BrowserWriteOptions,
+  ): Promise<T> {
+    const write = resolveWriteOptions(options);
+    return request<T>('POST', endpoint, {
+      body,
+      signal: write.signal,
+      silent: write.silent,
+      toastOnWrite: true,
+    });
   },
 
   put<T>(endpoint: string, body?: unknown, signal?: AbortSignal): Promise<T> {
     return request<T>('PUT', endpoint, { body, signal });
   },
 
-  patch<T>(endpoint: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-    return request<T>('PATCH', endpoint, { body, signal });
+  patch<T>(
+    endpoint: string,
+    body?: unknown,
+    options?: AbortSignal | BrowserWriteOptions,
+  ): Promise<T> {
+    const write = resolveWriteOptions(options);
+    return request<T>('PATCH', endpoint, {
+      body,
+      signal: write.signal,
+      silent: write.silent,
+      toastOnWrite: true,
+    });
   },
 
   delete<T>(endpoint: string, signal?: AbortSignal): Promise<T> {

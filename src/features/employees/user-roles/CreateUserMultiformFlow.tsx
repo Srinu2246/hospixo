@@ -330,10 +330,9 @@ export function CreateUserMultiformFlow({
         },
       });
       onUserCreated?.(formValues);
-      showToast(`User ${formValues.email} created successfully.`, 'success');
       navigateToStep('success');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to create user.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     } finally {
       setIsSubmitting(false);
     }

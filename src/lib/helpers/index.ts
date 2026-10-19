@@ -5,3 +5,4 @@ export * from './formatUpdatedAgo';
 export * from './floorAndTableSetup';
 export * from './organizationCompanies';
 export * from './organizationBranches';
+export * from './getErrorMessage';
