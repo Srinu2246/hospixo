@@ -59,7 +59,6 @@ function CategoryNavItem({
         title={label}
       >
         {label}
-        {inactive ? ' (Inactive)' : ''}
       </Typography>
       <Box
         component="span"
@@ -76,6 +75,7 @@ function CategoryNavItem({
   );
 }
 
+/** Categories from GET /v1/restaurant/menu/categories (same as Menu Creation). */
 export function MenuAvailabilitySidebar() {
   const { categories, activeCategoryId, setActiveCategoryId, categoryCounts, totalItemCount } =
     useMenuAvailability();
@@ -144,6 +144,7 @@ export function MenuAvailabilitySidebar() {
                 label={category.name}
                 count={categoryCounts[category.id] ?? 0}
                 selected={activeCategoryId === category.id}
+                inactive={category.status === 'inactive'}
                 onSelect={() => setActiveCategoryId(category.id)}
               />
             </Box>

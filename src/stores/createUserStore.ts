@@ -12,6 +12,7 @@ export interface CreateUserState {
   scope: ScopeType;
   step: CreateUserStep;
   selectedTemplate: RoleTemplateItem | null;
+  selectedRoleId: string | number | null;
   formValues: CreateUserFormValues;
   categories: PermissionCategory[];
   errors: Partial<Record<keyof CreateUserFormValues, string>>;
@@ -20,12 +21,15 @@ export interface CreateUserState {
   setScope: (scope: ScopeType) => void;
   setStep: (step: CreateUserStep) => void;
   setSelectedTemplate: (template: RoleTemplateItem | null) => void;
-  setRoleAndDescription: (role: string, description: string) => void;
+  setSelectedRoleId: (id: string | number | null) => void;
+  setRoleAndDescription: (role: string, description: string, roleId?: string | number) => void;
   setFormValues: (values: Partial<CreateUserFormValues>) => void;
   updateFormField: (field: keyof CreateUserFormValues, value: string | boolean) => void;
   setErrors: (errors: Partial<Record<keyof CreateUserFormValues, string>>) => void;
   clearError: (field: keyof CreateUserFormValues) => void;
-  setCategories: (categories: PermissionCategory[]) => void;
+  setCategories: (
+    categories: PermissionCategory[] | ((prev: PermissionCategory[]) => PermissionCategory[]),
+  ) => void;
   togglePermission: (categoryId: string, permissionId: string) => void;
   toggleCategoryAll: (categoryId: string, enableAll: boolean) => void;
   setIsSubmitting: (isSubmitting: boolean) => void;
@@ -36,6 +40,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
   scope: 'company',
   step: 'template',
   selectedTemplate: null,
+  selectedRoleId: null,
   formValues: { ...DEFAULT_CREATE_USER_FORM_VALUES },
   categories: [],
   errors: {},
@@ -45,25 +50,34 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
 
   setStep: (step) => set({ step }),
 
+  setSelectedRoleId: (selectedRoleId) => set({ selectedRoleId }),
+
   setSelectedTemplate: (template) =>
     set((state) => ({
       selectedTemplate: template,
+      selectedRoleId: template?.id != null ? template.id : state.selectedRoleId,
       formValues: {
         ...state.formValues,
         role: template?.roleName || state.formValues.role || 'Branch Manager',
       },
     })),
 
-  setRoleAndDescription: (role, description) =>
+  setRoleAndDescription: (role, description, roleId) =>
     set((state) => ({
+      selectedRoleId: roleId !== undefined ? roleId : state.selectedRoleId,
       formValues: {
         ...state.formValues,
         role,
       },
       selectedTemplate: state.selectedTemplate
-        ? { ...state.selectedTemplate, roleName: role, description }
+        ? {
+            ...state.selectedTemplate,
+            roleName: role,
+            description,
+            ...(roleId !== undefined ? { id: String(roleId) } : {}),
+          }
         : {
-            id: 'custom-role',
+            id: roleId !== undefined ? String(roleId) : 'custom-role',
             title: role,
             description,
             icon: 'restaurant',
@@ -84,12 +98,15 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
 
   setErrors: (errors) => set({ errors }),
 
-  clearError: (field) =>
+  clearError: (field: keyof CreateUserFormValues) =>
     set((state) => ({
       errors: { ...state.errors, [field]: undefined },
     })),
 
-  setCategories: (categories) => set({ categories }),
+  setCategories: (categories) =>
+    set((state) => ({
+      categories: typeof categories === 'function' ? categories(state.categories) : categories,
+    })),
 
   togglePermission: (categoryId, permissionId) =>
     set((state) => ({
@@ -124,6 +141,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
         scope: scopeToUse,
         step: 'template',
         selectedTemplate: null,
+        selectedRoleId: null,
         formValues: {
           ...DEFAULT_CREATE_USER_FORM_VALUES,
           branch:

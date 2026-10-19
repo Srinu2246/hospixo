@@ -89,7 +89,9 @@ export function AvailabilityStatsRow({ stats }: Readonly<AvailabilityStatsRowPro
 
 export interface AvailabilityItemsTableProps {
   items: readonly AvailabilityItem[];
-  onToggleMark: (itemId: string) => void;
+  /** nextActive true = active, false = inactive */
+  onToggleMark: (itemId: string, nextActive: boolean) => void | Promise<void>;
+  toggleDisabled?: boolean;
 }
 
 function visibilityLabel(item: AvailabilityItem): string {
@@ -101,6 +103,7 @@ function visibilityLabel(item: AvailabilityItem): string {
 export function AvailabilityItemsTable({
   items,
   onToggleMark,
+  toggleDisabled = false,
 }: Readonly<AvailabilityItemsTableProps>) {
   const columns: DataGridColumn<AvailabilityItem>[] = [
     {
@@ -144,13 +147,13 @@ export function AvailabilityItemsTable({
     },
     {
       field: 'mark',
-      headerName: 'Mark As',
+      headerName: 'Status',
       minWidth: 160,
       align: 'right',
       headerAlign: 'right',
       sortable: true,
       renderCell: ({ row }) => {
-        const isAvailable = row.mark === 'available';
+        const isActive = row.isActive ?? row.mark === 'available';
         return (
           <Stack
             direction="row"
@@ -163,23 +166,25 @@ export function AvailabilityItemsTable({
                 fontWeight: 700,
                 minWidth: 72,
                 textAlign: 'right',
-                color: isAvailable ? 'success.main' : 'error.main',
+                color: isActive ? 'success.main' : 'text.secondary',
               }}
             >
-              {isAvailable ? 'Available' : "86'd"}
+              {isActive ? 'Active' : 'Inactive'}
             </Typography>
             <Switch
-              checked={isAvailable}
-              onChange={() => onToggleMark(row.id)}
-              color="success"
+              checked={isActive}
+              disabled={toggleDisabled}
+              onChange={(_event, next) => {
+                void onToggleMark(row.id, next);
+              }}
+              color="primary"
               slotProps={{
-                input: { 'aria-label': `Mark ${row.name} as available` },
+                input: {
+                  'aria-label': `${row.name} ${isActive ? 'active' : 'inactive'}`,
+                },
               }}
               sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: 'success.main' },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                  bgcolor: 'success.main',
-                },
+                '& .MuiSwitch-switchBase.Mui-checked': { color: 'primary.main' },
               }}
             />
           </Stack>

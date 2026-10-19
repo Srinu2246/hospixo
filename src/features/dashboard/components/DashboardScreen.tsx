@@ -17,6 +17,7 @@ import { OrganizationDashboard } from './organization/OrganizationDashboard';
 import { CompanyDashboard } from './company/CompanyDashboard';
 import { BranchSalesDashboard } from './branch/BranchSalesDashboard';
 import { LowStockAlertBanner } from './branch/LowStockAlertBanner';
+import { FeatureGate, ExampleFeatureUsage } from '@/integrations/growthbook';
 
 export interface DashboardScreenProps {
   /** Fallback when role/path cannot be resolved. */
@@ -203,6 +204,12 @@ export function DashboardScreen({
             </Box>
           </Fade>
         )}
+
+        <FeatureGate flag="new-test-generation">
+          <Box sx={{ mt: 3 }}>
+            <ExampleFeatureUsage />
+          </Box>
+        </FeatureGate>
       </Box>
 
       <Toast

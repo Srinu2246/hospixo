@@ -46,8 +46,8 @@ export function homePathForRole(role: string): string {
   if (key === 'kitchen') return `/${segment}/management/kitchen-display`;
   // Chef → full-screen KDS (same screen, no sidebar)
   if (key === 'chef') return `/${segment}/management/kitchen-display`;
-  // Cashier → POS Dashboard (first CASHIER_SIDEBAR item)
-  if (key === 'cashier') return `/${segment}/pos/point-of-sale/dashboard`;
+  // Cashier → New Order (VERSION_1: dashboard nav deferred)
+  if (key === 'cashier') return `/${segment}/pos/point-of-sale/tables`;
   if (key === 'company') return '/company/dashboard';
   if (key === 'organization' || key === 'super_admin') return '/organization/dashboard';
   // Branch manager and other branch-scoped roles → Dashboard

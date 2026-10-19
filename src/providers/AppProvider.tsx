@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { QueryProvider } from './QueryProvider';
+import { GrowthBookAppProvider } from '@/integrations/growthbook';
 import { theme, darkTheme } from '@/lib/theme/mui/theme';
 import { useThemeStore } from '@/stores/themeStore';
 
@@ -56,7 +57,9 @@ export function AppProvider({ children }: AppProviderProps) {
   return (
     <ThemeProvider theme={currentTheme}>
       <CssBaseline />
-      <QueryProvider>{children}</QueryProvider>
+      <QueryProvider>
+        <GrowthBookAppProvider>{children}</GrowthBookAppProvider>
+      </QueryProvider>
     </ThemeProvider>
   );
 }

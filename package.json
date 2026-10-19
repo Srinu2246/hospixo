@@ -16,6 +16,8 @@
     "format:check": "prettier --check .",
     "cspell": "cspell .",
     "knip": "knip",
+    "test": "node --import ./scripts/test-loader.mjs --test src/**/*.test.ts",
+    "test:growthbook": "node --import ./scripts/test-loader.mjs --test src/integrations/growthbook/growthbook.test.ts",
     "codequality": "pnpm lint && pnpm typecheck && pnpm format:check && pnpm cspell && pnpm knip",
     "prepare": "husky"
   },
@@ -31,6 +33,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@growthbook/growthbook-react": "^1.8.0",
     "@hookform/resolvers": "^5.9.1",
     "@mui/icons-material": "^9.4.0",
     "@mui/material": "^9.4.0",

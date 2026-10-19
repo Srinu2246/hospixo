@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import { parseTableList } from '@/lib/schemas/floor-and-table-setup/floors';
 import {

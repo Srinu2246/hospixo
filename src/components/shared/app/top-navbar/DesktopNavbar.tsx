@@ -162,34 +162,32 @@ export function DesktopNavbar({
           </ActionButton>
         )}
 
-        {/* Theme Toggle: Sun / Moon Handler (hidden on branch-manager routes to match Figma) */}
-        {!isBranchView && (
-          <Tooltip title={mode === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}>
-            <span>
-              <ActionButton
-                variant="icon"
-                size="medium"
-                ariaLabel="Toggle theme mode"
-                onClick={onToggleMode}
-                sx={{
-                  borderRadius: '8px',
-                  borderColor: (theme) => theme.palette.divider,
-                  color: (theme) => theme.palette.text.secondary,
-                  '&:hover': {
-                    color: (theme) => theme.palette.text.primary,
-                    backgroundColor: 'action.hover',
-                  },
-                }}
-              >
-                {mode === 'dark' ? (
-                  <LightModeOutlinedIcon sx={{ fontSize: 20, color: colors.warning.light }} />
-                ) : (
-                  <DarkModeOutlinedIcon sx={{ fontSize: 20 }} />
-                )}
-              </ActionButton>
-            </span>
-          </Tooltip>
-        )}
+        {/* Theme toggle — available for every role that uses the top navbar */}
+        <Tooltip title={mode === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}>
+          <span>
+            <ActionButton
+              variant="icon"
+              size="medium"
+              ariaLabel="Toggle theme mode"
+              onClick={onToggleMode}
+              sx={{
+                borderRadius: '8px',
+                borderColor: (theme) => theme.palette.divider,
+                color: (theme) => theme.palette.text.secondary,
+                '&:hover': {
+                  color: (theme) => theme.palette.text.primary,
+                  backgroundColor: 'action.hover',
+                },
+              }}
+            >
+              {mode === 'dark' ? (
+                <LightModeOutlinedIcon sx={{ fontSize: 20, color: colors.warning.light }} />
+              ) : (
+                <DarkModeOutlinedIcon sx={{ fontSize: 20 }} />
+              )}
+            </ActionButton>
+          </span>
+        </Tooltip>
 
         {/* Notifications Button */}
         <Tooltip title="Notifications">

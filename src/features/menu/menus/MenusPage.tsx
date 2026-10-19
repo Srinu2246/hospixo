@@ -1,59 +1,287 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Plus } from 'lucide-react';
 
+import { MenuCard } from '@/components/features/menu/menus/MenuCard';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import {
-  MENU_DAY_FILTER_OPTIONS,
-  MENU_STATUS_FILTER_OPTIONS,
-  MOCK_MENUS,
-  type MenuDayFilter,
-  type MenuSessionItem,
-  type MenuStatusFilter,
-} from '@/lib/mocks/menu/useMenus.mocks';
+  branchMenusQueryKey,
+  useActiveBranchId,
+  useBranchMenus,
+} from '@/lib/hooks/menu/menus/useBranchMenus';
+import { MENU_STATUS_FILTER_OPTIONS, type MenuStatusFilter } from '@/lib/mocks/menu/useMenus.mocks';
+import type { MenuAssignment } from '@/lib/schemas/menu/menus/menuListSchema';
+import type { MenuSessionFormValues } from '@/lib/schemas/menu/menus/menuSessionFormSchema';
+import { useToastStore } from '@/stores/toastStore';
 
-import { MenuCard } from './MenuCard';
+import { CreateMenuSessionForm } from './CreateMenuSessionForm';
+
+type MenusMode = 'list' | 'create' | 'edit';
+
+function parseMenusPath(pathname: string): {
+  basePath: string;
+  mode: MenusMode;
+  menuId?: number;
+} {
+  const marker = '/menu/menus';
+  const idx = pathname.indexOf(marker);
+  const basePath = idx >= 0 ? pathname.slice(0, idx + marker.length) : pathname.replace(/\/$/, '');
+  const rest = idx >= 0 ? pathname.slice(idx + marker.length) : '';
+
+  if (rest === '/create' || rest.startsWith('/create/')) {
+    return { basePath, mode: 'create' };
+  }
+
+  const editMatch = rest.match(/^\/(\d+)\/edit\/?$/);
+  if (editMatch) {
+    const menuId = Number(editMatch[1]);
+    if (Number.isFinite(menuId) && menuId > 0) {
+      return { basePath, mode: 'edit', menuId };
+    }
+  }
+
+  return { basePath, mode: 'list' };
+}
 
 /**
- * Menus list
- * 1. Header + Create Menus
- * 2. Search / status / days filters
- * 3. Menu session card grid
+ * Menus list / create / edit
+ * List: GET /v1/restaurant/branches/{branch_id}/menus
  */
 export function MenusPage() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const showToast = useToastStore((state) => state.show);
+  const branchId = useActiveBranchId();
+  const { basePath, mode, menuId } = parseMenusPath(pathname);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<MenuStatusFilter>('all');
-  const [dayFilter, setDayFilter] = useState<MenuDayFilter>('any');
-  const [menus, setMenus] = useState<MenuSessionItem[]>(MOCK_MENUS);
+  const [submitting, setSubmitting] = useState(false);
+
+  const listParams = useMemo(
+    () => ({
+      status: statusFilter === 'all' ? undefined : statusFilter,
+      page: 1,
+      page_size: 50,
+    }),
+    [statusFilter],
+  );
+
+  const menusQuery = useBranchMenus(listParams, branchId);
+  const menus = useMemo(() => menusQuery.data ?? [], [menusQuery.data]);
+
+  const editingMenu = useMemo(
+    () => (mode === 'edit' && menuId != null ? menus.find((row) => row.id === menuId) : undefined),
+    [mode, menuId, menus],
+  );
 
   const visibleMenus = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return menus.filter((menu) => {
-      if (statusFilter !== 'all' && menu.status !== statusFilter) return false;
-      if (dayFilter !== 'any' && !menu.days.includes(dayFilter)) return false;
-      if (!query) return true;
-      return menu.name.toLowerCase().includes(query) || menu.menuType.toLowerCase().includes(query);
+    if (!query) return menus;
+    return menus.filter((row) => {
+      const { name, code, menu_type: menuType } = row.menu;
+      return (
+        name.toLowerCase().includes(query) ||
+        (code ?? '').toLowerCase().includes(query) ||
+        (menuType ?? '').toLowerCase().includes(query)
+      );
     });
-  }, [menus, search, statusFilter, dayFilter]);
+  }, [menus, search]);
 
-  function toggleStatus(target: MenuSessionItem) {
-    setMenus((prev) =>
+  function goToList() {
+    router.push(basePath);
+  }
+
+  function patchMenusCache(updater: (rows: MenuAssignment[]) => MenuAssignment[]) {
+    queryClient.setQueryData<MenuAssignment[]>(
+      branchMenusQueryKey(branchId, listParams),
+      (current) => updater(current ?? []),
+    );
+  }
+
+  function toggleStatus(target: MenuAssignment) {
+    const nextStatus = target.status.toLowerCase() === 'active' ? 'inactive' : 'active';
+    const now = new Date().toISOString();
+    patchMenusCache((prev) =>
       prev.map((row) =>
         row.id === target.id
           ? {
               ...row,
-              status: row.status === 'active' ? 'inactive' : 'active',
-              updatedAt: new Date().toISOString(),
+              status: nextStatus,
+              updated_at: now,
+              menu: { ...row.menu, status: nextStatus, updated_at: now },
             }
           : row,
       ),
+    );
+  }
+
+  function handleCreate(values: MenuSessionFormValues) {
+    setSubmitting(true);
+    const nextId = Math.max(0, ...menus.map((row) => row.id)) + 1;
+    const nextMenuId = Math.max(0, ...menus.map((row) => row.menu_id)) + 1;
+    const now = new Date().toISOString();
+    const sample = menus[0];
+    patchMenusCache((prev) => [
+      {
+        id: nextId,
+        organization_id: sample?.organization_id,
+        company_id: sample?.company_id,
+        branch_id: sample?.branch_id ?? branchId,
+        menu_id: nextMenuId,
+        display_order: 0,
+        is_default: false,
+        status: 'active',
+        menu: {
+          id: nextMenuId,
+          organization_id: sample?.organization_id,
+          company_id: sample?.company_id,
+          catalogue_scope: 'branch',
+          branch_id: sample?.branch_id ?? branchId,
+          name: values.name,
+          code: values.code.toUpperCase(),
+          description: values.description || null,
+          menu_type: values.menuType.toLowerCase(),
+          display_order: 0,
+          status: 'active',
+          branch_assignment_id: null,
+          created_at: now,
+          updated_at: now,
+        },
+        created_at: now,
+        updated_at: now,
+      },
+      ...prev,
+    ]);
+    setSubmitting(false);
+    showToast(`Created “${values.name}” session`, 'success');
+    goToList();
+  }
+
+  function handleSave(values: MenuSessionFormValues) {
+    if (menuId == null) return;
+    setSubmitting(true);
+    const now = new Date().toISOString();
+    patchMenusCache((prev) =>
+      prev.map((row) =>
+        row.id === menuId
+          ? {
+              ...row,
+              updated_at: now,
+              menu: {
+                ...row.menu,
+                name: values.name,
+                code: values.code.toUpperCase(),
+                menu_type: values.menuType.toLowerCase(),
+                description: values.description || null,
+                updated_at: now,
+              },
+            }
+          : row,
+      ),
+    );
+    setSubmitting(false);
+    showToast(`Saved “${values.name}” session`, 'success');
+    goToList();
+  }
+
+  if (mode === 'create') {
+    return (
+      <Box
+        sx={{
+          width: '100%',
+          height: '100%',
+          minHeight: 0,
+          overflow: 'hidden',
+          bgcolor: 'background.default',
+        }}
+      >
+        <CreateMenuSessionForm
+          mode="create"
+          submitting={submitting}
+          onCancel={goToList}
+          onSubmit={handleCreate}
+        />
+      </Box>
+    );
+  }
+
+  if (mode === 'edit') {
+    if (menusQuery.isPending) {
+      return (
+        <Box
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: 'background.default',
+          }}
+        >
+          <CircularProgress size={28} />
+        </Box>
+      );
+    }
+
+    if (!editingMenu) {
+      return (
+        <Box
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            bgcolor: 'background.default',
+          }}
+        >
+          <AlertMessage
+            variant="error"
+            title="Menu session not found"
+            message="This session may have been removed or the link is invalid."
+          />
+          <ActionButton onClick={goToList} sx={{ alignSelf: 'flex-start' }}>
+            Back to Menus
+          </ActionButton>
+        </Box>
+      );
+    }
+
+    return (
+      <Box
+        sx={{
+          width: '100%',
+          height: '100%',
+          minHeight: 0,
+          overflow: 'hidden',
+          bgcolor: 'background.default',
+        }}
+      >
+        <CreateMenuSessionForm
+          mode="edit"
+          initialValues={{
+            name: editingMenu.menu.name,
+            code: editingMenu.menu.code ?? '',
+            menuType: (editingMenu.menu.menu_type || 'all').toUpperCase(),
+            description: editingMenu.menu.description ?? '',
+          }}
+          submitting={submitting}
+          onCancel={goToList}
+          onSubmit={handleSave}
+        />
+      </Box>
     );
   }
 
@@ -103,7 +331,11 @@ export function MenusPage() {
           </Typography>
         </Box>
 
-        <ActionButton startIcon={<Plus size={16} />} sx={{ flexShrink: 0 }}>
+        <ActionButton
+          startIcon={<Plus size={16} />}
+          onClick={() => router.push(`${basePath}/create`)}
+          sx={{ flexShrink: 0 }}
+        >
           Create Menus
         </ActionButton>
       </Stack>
@@ -122,39 +354,47 @@ export function MenusPage() {
           width="100%"
           sx={{ flex: 1, minWidth: 0 }}
         />
-        <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, flexWrap: 'wrap' }}>
-          <Dropdown
-            options={[...MENU_STATUS_FILTER_OPTIONS]}
-            value={statusFilter}
-            onChange={(value) => setStatusFilter(value)}
-            prefix="Status:"
-            size="medium"
-            minWidth={140}
-          />
-          <Dropdown
-            options={[...MENU_DAY_FILTER_OPTIONS]}
-            value={dayFilter}
-            onChange={(value) => setDayFilter(value)}
-            prefix="Days:"
-            size="medium"
-            minWidth={150}
-          />
-        </Stack>
+        <Dropdown
+          options={[...MENU_STATUS_FILTER_OPTIONS]}
+          value={statusFilter}
+          onChange={(value) => setStatusFilter(value)}
+          prefix="Status:"
+          size="medium"
+          minWidth={140}
+        />
       </Stack>
 
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          overflow: 'auto',
-        }}
-      >
-        {visibleMenus.length === 0 ? (
+      {menusQuery.isError ? (
+        <AlertMessage
+          variant="error"
+          title="Unable to load menus"
+          message={
+            menusQuery.error instanceof Error
+              ? menusQuery.error.message
+              : 'Could not load branch menus.'
+          }
+        />
+      ) : null}
+
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        {menusQuery.isPending ? (
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 200,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <CircularProgress size={28} />
+          </Box>
+        ) : visibleMenus.length === 0 ? (
           <AlertMessage
             variant="info"
             title="No menus found"
             message={
-              search || statusFilter !== 'all' || dayFilter !== 'any'
+              search || statusFilter !== 'all'
                 ? 'Try adjusting your search or filters.'
                 : 'Create a meal session to get started.'
             }
@@ -177,6 +417,7 @@ export function MenusPage() {
               <MenuCard
                 key={menu.id}
                 menu={menu}
+                onEdit={(row) => router.push(`${basePath}/${row.id}/edit`)}
                 onDeactivate={toggleStatus}
                 onActivate={toggleStatus}
               />

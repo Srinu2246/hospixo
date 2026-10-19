@@ -1,6 +1,8 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import {
   parseGstRateList,

@@ -14,7 +14,7 @@ import { MobileNumberInput } from '@/components/shared/form-fields/MobileNumberI
 import { colors } from '@/lib/theme/mui/colors';
 
 import {
-  createUserMultiformSchema,
+  buildCreateUserStepOneSchema,
   parseRoleCatalog,
   type CreateUserFormValues,
   type ScopeType,
@@ -34,13 +34,22 @@ export function CreateUserStepOne({
   scope,
   companyName,
 }: Readonly<CreateUserStepOneProps>) {
-  const { formValues, updateFormField, setFormValues, scope: storeScope } = useCreateUserStore();
+  const {
+    formValues,
+    updateFormField,
+    setFormValues,
+    setRoleAndDescription,
+    setSelectedRoleId,
+    scope: storeScope,
+  } = useCreateUserStore();
   const currentScope = scope || storeScope || 'company';
   const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
   const accountCompanyId = useSidebarStore((state) => state.account?.company_id ?? undefined);
+  const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
   const contextOrgId = useSidebarStore((state) => state.context.organizationId);
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
   const contextCompanyName = useSidebarStore((state) => state.context.companyName);
+  const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
   const organizationId = contextOrgId ?? accountOrgId;
   const directoryCompanyId =
@@ -71,16 +80,68 @@ export function CreateUserStepOne({
     if (companies.length === 1) return companies[0]?.name;
     return undefined;
   }, [contextCompanyId, directory.data?.companies]);
+
+  // When in branch scope, resolve the company bound to the active branch
+  const branchBoundCompany = useMemo(() => {
+    const branches = directory.data?.branches ?? [];
+    const companies = directory.data?.companies ?? [];
+    const activeBranchName = contextBranchName || formValues.branch;
+    const branchId = contextBranchId ?? accountBranchId;
+
+    const matchedBranch =
+      branches.find(
+        (b) =>
+          (branchId != null && String(b.id) === String(branchId)) ||
+          (activeBranchName && activeBranchName !== '—' && b.name === activeBranchName),
+      ) ?? (branches.length === 1 ? branches[0] : undefined);
+
+    if (!matchedBranch) return undefined;
+
+    if (matchedBranch.companyName?.trim()) {
+      return {
+        id: matchedBranch.companyId,
+        name: matchedBranch.companyName.trim(),
+      };
+    }
+
+    if (matchedBranch.companyId != null && matchedBranch.companyId !== '') {
+      const matchedCompany = companies.find(
+        (c) => String(c.id) === String(matchedBranch.companyId),
+      );
+      if (matchedCompany?.name?.trim()) {
+        return {
+          id: matchedCompany.id,
+          name: matchedCompany.name.trim(),
+        };
+      }
+    }
+
+    return undefined;
+  }, [
+    directory.data?.branches,
+    directory.data?.companies,
+    contextBranchName,
+    formValues.branch,
+    contextBranchId,
+    accountBranchId,
+  ]);
+
   const resolvedCompanyLabel =
     contextCompanyName ??
+    branchBoundCompany?.name ??
     directoryCompanyName ??
     companyName ??
     (companyOptions.length === 1 ? companyOptions[0] : undefined);
   const lockedCompanyLabel = resolvedCompanyLabel || formValues.company || '—';
 
-  // Established React Hook Form v7 pattern with Zod v4 resolver
+  // Established React Hook Form v7 pattern with dynamic Zod v4 resolver per scope
+  const validationSchema = useMemo(
+    () => buildCreateUserStepOneSchema(roleCatalog, currentScope),
+    [roleCatalog, currentScope],
+  );
+
   const { control, handleSubmit, setValue, reset } = useForm<CreateUserFormValues>({
-    resolver: zodResolver(createUserMultiformSchema),
+    resolver: zodResolver(validationSchema),
     defaultValues: formValues,
     mode: 'onBlur',
   });
@@ -112,12 +173,54 @@ export function CreateUserStepOne({
   }, [formValues, reset]);
 
   useEffect(() => {
-    if (currentScope !== 'company') return;
+    if (currentScope !== 'company' && currentScope !== 'branch') return;
     if (!resolvedCompanyLabel || resolvedCompanyLabel === '—') return;
     if (formValues.company === resolvedCompanyLabel) return;
     setValue('company', resolvedCompanyLabel, { shouldValidate: true });
     updateFormField('company', resolvedCompanyLabel);
   }, [currentScope, formValues.company, resolvedCompanyLabel, setValue, updateFormField]);
+
+  useEffect(() => {
+    if (!formValues.role && roleOptions.length > 0) {
+      const defaultRole = roleOptions[0] || 'Captain';
+      setValue('role', defaultRole, { shouldValidate: true });
+      updateFormField('role', defaultRole);
+      const matched = roleCatalog.find(
+        (r) =>
+          r.name.toLowerCase() === defaultRole.toLowerCase() ||
+          r.code?.toLowerCase() === defaultRole.toLowerCase(),
+      );
+      if (matched) {
+        setSelectedRoleId(matched.id);
+        if (matched.description) {
+          setRoleAndDescription(matched.name, matched.description, matched.id);
+        }
+      }
+    }
+  }, [
+    formValues.role,
+    roleOptions,
+    roleCatalog,
+    setValue,
+    updateFormField,
+    setRoleAndDescription,
+    setSelectedRoleId,
+  ]);
+
+  useEffect(() => {
+    if (!formValues.role || roleCatalog.length === 0) return;
+    const matched = roleCatalog.find(
+      (r) =>
+        r.name.toLowerCase() === formValues.role.toLowerCase() ||
+        r.code?.toLowerCase() === formValues.role.toLowerCase(),
+    );
+    if (matched) {
+      setSelectedRoleId(matched.id);
+      if (matched.description) {
+        setRoleAndDescription(matched.name, matched.description, matched.id);
+      }
+    }
+  }, [formValues.role, roleCatalog, setRoleAndDescription, setSelectedRoleId]);
 
   useEffect(() => {
     if (isBranchLoading) return;
@@ -150,6 +253,19 @@ export function CreateUserStepOne({
   const handleFieldChange = (field: keyof CreateUserFormValues, value: string | boolean) => {
     setValue(field, value as string, { shouldValidate: true, shouldDirty: true });
     updateFormField(field, value);
+    if (field === 'role' && typeof value === 'string') {
+      const matched = roleCatalog.find(
+        (r) =>
+          r.name.toLowerCase() === value.trim().toLowerCase() ||
+          r.code?.toLowerCase() === value.trim().toLowerCase(),
+      );
+      if (matched) {
+        setSelectedRoleId(matched.id);
+        if (matched.description) {
+          setRoleAndDescription(matched.name, matched.description, matched.id);
+        }
+      }
+    }
   };
 
   const handleFormSubmit = (data: CreateUserFormValues) => {
@@ -264,7 +380,9 @@ export function CreateUserStepOne({
                   <MobileNumberInput
                     label="PHONE NUMBER"
                     required
-                    placeholder="555 000 0000"
+                    countryCode={formValues.countryCode || '+91'}
+                    onCountryCodeChange={(code) => handleFieldChange('countryCode', code)}
+                    placeholder="98765 43210"
                     phoneNumber={field.value}
                     onPhoneNumberChange={(value) => handleFieldChange('phoneNumber', value)}
                     error={Boolean(fieldState.error)}

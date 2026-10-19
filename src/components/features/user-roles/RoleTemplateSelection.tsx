@@ -7,6 +7,7 @@ import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { Card } from '@/components/shared/ui/Card';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 
 // Icons
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
@@ -59,14 +60,30 @@ export function RoleTemplateSelection({
 
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2.5, pb: 4 }}>
-      {/* Top Breadcrumbs */}
-      <Breadcrumbs
-        items={[
-          { label: 'Users & Roles', onClick: onBackToUsers },
-          { label: 'Template', active: true },
-        ]}
-        activeSx={{ color: colors.primary.default, fontWeight: 600 }}
-      />
+      {/* Top Breadcrumb Bar - White background ONLY for breadcrumb, solid light black line without padding on line */}
+      <Box
+        sx={{
+          mt: { [screen.mobile]: -2, [screen.desktop]: -3 },
+          mx: { [screen.mobile]: -2, [screen.desktop]: -3 },
+          px: { [screen.mobile]: 2, [screen.desktop]: 3 },
+          py: 1.5,
+          bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
+          borderBottom: '1px solid',
+          borderColor: (theme) =>
+            theme.palette.mode === 'dark' ? theme.palette.divider : 'rgba(0, 0, 0, 0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          mb: 0.5,
+        }}
+      >
+        <Breadcrumbs
+          items={[
+            { label: 'Users & Roles', onClick: onBackToUsers },
+            { label: 'Template', active: true },
+          ]}
+          activeSx={{ color: colors.primary.default, fontWeight: 600 }}
+        />
+      </Box>
 
       {templatesQuery.isError ? (
         <AlertMessage variant="error" message="Unable to load role templates." />

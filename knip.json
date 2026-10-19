@@ -18,6 +18,7 @@
     "@treelocator/runtime",
     "lint-staged"
   ],
+  "husky": false,
   "rules": {
     "files": "error",
     "exports": "error",

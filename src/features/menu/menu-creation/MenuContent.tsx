@@ -246,6 +246,8 @@ function MenuMainPane() {
     openEditItem,
     backToList,
     addCategory,
+    updateCategory,
+    editingCategory,
     deleteItem,
     isDeletingItem,
   } = useMenuCreation();
@@ -282,7 +284,26 @@ function MenuMainPane() {
   if (viewMode === 'create-category') {
     return (
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <CreateCategoryForm onCancel={backToList} onSubmit={addCategory} />
+        <CreateCategoryForm
+          key="create-category"
+          mode="create"
+          onCancel={backToList}
+          onSubmit={addCategory}
+        />
+      </Box>
+    );
+  }
+
+  if (viewMode === 'edit-category') {
+    return (
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <CreateCategoryForm
+          key={editingCategory?.id ?? 'edit-category'}
+          mode="edit"
+          initialCategory={editingCategory}
+          onCancel={backToList}
+          onSubmit={updateCategory}
+        />
       </Box>
     );
   }

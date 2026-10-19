@@ -45,9 +45,12 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
+import { useGrowthBook } from '@growthbook/growthbook-react';
+
 import { homePathForRole } from '@/lib/auth/session';
 import { colors } from '@/lib/theme/mui/colors';
 import {
+  filterSidebarByFeatureFlags,
   getSidebarNavigation,
   isSidebarSection,
   resolveSidebarEscape,
@@ -57,6 +60,7 @@ import {
   type SidebarContext,
   type SidebarUserProfile,
 } from '@/app/sidebar';
+import { isFeatureFlagDefaultOn } from '@/integrations/growthbook/featureFlags';
 import { Undo2 } from 'lucide-react';
 
 export type SidebarProps = {
@@ -331,17 +335,29 @@ export function Sidebar({
   } | null>(null);
   const [dismissedPath, setDismissedPath] = useState<string | null>(null);
 
+  const growthbook = useGrowthBook();
+
   // Resolved Navigation Entries — catalog follows the page, same as the main access sidebar.
   const navigationLevel = resolveSidebarLevel(effectivePathname, role);
   const hierarchyEscape = resolveSidebarEscape(role, navigationLevel);
   const navigationEntries = useMemo(() => {
-    return getSidebarNavigation({
+    const entries = getSidebarNavigation({
       role,
       userPermissions,
       context,
       pathname: effectivePathname,
     });
-  }, [role, userPermissions, context, effectivePathname]);
+
+    return filterSidebarByFeatureFlags(entries, (flag) => {
+      const fallback = isFeatureFlagDefaultOn(flag);
+      if (!growthbook) return fallback;
+      const features = growthbook.getFeatures();
+      if (features && Object.prototype.hasOwnProperty.call(features, flag)) {
+        return growthbook.isOn(flag);
+      }
+      return fallback;
+    });
+  }, [role, userPermissions, context, effectivePathname, growthbook]);
 
   // Find sub-flow matching current URL path
   let matchedSubFlow: { title: string; items: SidebarItem[] } | null = null;
