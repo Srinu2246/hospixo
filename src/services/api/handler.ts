@@ -235,6 +235,35 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
     const categoriesListPath = ApiUrlsV1.restaurant.menuCategories.list;
     if (
+      request.method === 'POST' &&
+      (request.path.endsWith('/activate') || request.path.endsWith('/deactivate')) &&
+      request.path.startsWith(`${categoriesListPath}/`)
+    ) {
+      const idSegment = request.path.slice(categoriesListPath.length + 1).split('/')[0];
+      const categoryId = Number(idSegment);
+      const existing = MOCK_MENU_CATEGORIES.find((item) => item.id === categoryId);
+      const now = new Date().toISOString();
+      const nextStatus = request.path.endsWith('/activate') ? 'active' : 'inactive';
+      return {
+        success: true,
+        data: {
+          id: Number.isFinite(categoryId) ? categoryId : Date.now(),
+          organization_id: existing?.organization_id ?? 126,
+          company_id: existing?.company_id ?? 94,
+          catalogue_scope: existing?.catalogue_scope ?? 'company',
+          parent_id: existing?.parent_id ?? null,
+          name: existing?.name ?? 'Category',
+          description: existing?.description ?? null,
+          display_order: existing?.display_order ?? 0,
+          status: nextStatus,
+          created_at: existing?.created_at ?? now,
+          updated_at: now,
+        },
+        message: nextStatus === 'active' ? 'Menu category activated' : 'Menu category deactivated',
+      };
+    }
+
+    if (
       (request.method === 'PUT' || request.method === 'PATCH') &&
       request.path.startsWith(`${categoriesListPath}/`) &&
       isRecord(request.body)

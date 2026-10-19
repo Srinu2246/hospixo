@@ -24,6 +24,7 @@ import { toCatalogDietary, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpe
 import {
   useCreateMenuCategory,
   useMenuCategories,
+  useSetMenuCategoryActive,
   useUpdateMenuCategory,
 } from '@/lib/hooks/menu/useMenuCategories';
 import {
@@ -104,7 +105,7 @@ export interface MenuCreationContextValue {
   addCategory: (input: CreateCategoryInput) => Promise<void>;
   /** PATCH /v1/restaurant/menu/categories/{id} — edit name/description */
   updateCategory: (input: CreateCategoryInput) => Promise<void>;
-  /** PATCH status active|inactive */
+  /** POST .../activate | .../deactivate */
   toggleCategoryStatus: (categoryId: string, nextActive: boolean) => Promise<void>;
   addItem: (data: CreateMenuItemFormValues) => void;
   updateItem: (id: string, data: CreateMenuItemFormValues) => void;
@@ -155,6 +156,7 @@ export function MenuCreationProvider({
   const deactivateMenuItem = useDeactivateMenuItem();
   const createMenuCategory = useCreateMenuCategory();
   const updateMenuCategory = useUpdateMenuCategory();
+  const setMenuCategoryActive = useSetMenuCategoryActive();
   const account = useSidebarStore((state) => state.account);
   const sidebarContext = useSidebarStore((state) => state.context);
 
@@ -359,7 +361,7 @@ export function MenuCreationProvider({
       editingCategory,
       isDeletingItem: deactivateMenuItem.isPending,
       isCreatingCategory: createMenuCategory.isPending,
-      isUpdatingCategory: updateMenuCategory.isPending,
+      isUpdatingCategory: updateMenuCategory.isPending || setMenuCategoryActive.isPending,
       backToList: () => {
         setSelectedItem(null);
         setEditingCategoryId(null);
@@ -429,12 +431,9 @@ export function MenuCreationProvider({
           throw new ApiError('Invalid category id.', 400);
         }
 
-        await updateMenuCategory.mutateAsync({
+        await setMenuCategoryActive.mutateAsync({
           categoryId: numericId,
-          body: toUpdateCategoryBody(category, {
-            status: nextActive ? 'active' : 'inactive',
-          }),
-          silent: true,
+          active: nextActive,
         });
 
         setLocalCategories([]);
@@ -508,6 +507,7 @@ export function MenuCreationProvider({
       deactivateMenuItem,
       createMenuCategory,
       updateMenuCategory,
+      setMenuCategoryActive,
       account,
       sidebarContext.branchId,
     ],

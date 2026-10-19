@@ -172,6 +172,16 @@ export function restaurantMenuCategoryPath(categoryId: number | string): string 
   return ApiUrlsV1.restaurant.menuCategories.detail(String(categoryId));
 }
 
+/** POST /v1/restaurant/menu/categories/{category_id}/activate */
+export function restaurantMenuCategoryActivatePath(categoryId: number | string): string {
+  return `${restaurantMenuCategoryPath(categoryId)}/activate`;
+}
+
+/** POST /v1/restaurant/menu/categories/{category_id}/deactivate */
+export function restaurantMenuCategoryDeactivatePath(categoryId: number | string): string {
+  return `${restaurantMenuCategoryPath(categoryId)}/deactivate`;
+}
+
 /** GET/POST /v1/restaurant/menu/items */
 export function restaurantMenuItemsPath(): string {
   return ApiUrlsV1.restaurant.menuItems.list;

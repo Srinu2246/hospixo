@@ -13,7 +13,12 @@ import {
 } from '@/lib/schemas/menu/menuCategoriesSchema';
 import { useToastStore } from '@/stores/toastStore';
 import { api } from '@/services/api/browserClient';
-import { restaurantMenuCategoriesPath, restaurantMenuCategoryPath } from '@/services/api/ApiUrlsV1';
+import {
+  restaurantMenuCategoriesPath,
+  restaurantMenuCategoryActivatePath,
+  restaurantMenuCategoryDeactivatePath,
+  restaurantMenuCategoryPath,
+} from '@/services/api/ApiUrlsV1';
 
 export const menuCategoriesQueryKey = (params?: MenuCategoryListParams) =>
   ['restaurant', 'menu-categories', params ?? {}] as const;
@@ -68,7 +73,7 @@ export type UpdateMenuCategoryVariables = {
 };
 
 /**
- * Update menu category (edit + active/inactive).
+ * Update menu category (edit name/description).
  * PATCH /v1/restaurant/menu/categories/{category_id}
  */
 export function useUpdateMenuCategory() {
@@ -85,6 +90,26 @@ export function useUpdateMenuCategory() {
       if (!variables.silent) {
         showToast('Category updated successfully.', 'success');
       }
+    },
+  });
+}
+
+/**
+ * Activate or deactivate a menu category.
+ * POST .../categories/{id}/activate | .../deactivate
+ */
+export function useSetMenuCategoryActive() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ categoryId, active }: { categoryId: number; active: boolean }) => {
+      const path = active
+        ? restaurantMenuCategoryActivatePath(categoryId)
+        : restaurantMenuCategoryDeactivatePath(categoryId);
+      await api.post(path, {});
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-categories'] });
     },
   });
 }
