@@ -1,21 +1,23 @@
-import type {
-  DashboardStatItem,
-  CompanyPerformanceRow,
-  OutletPerformanceRow,
-  TaxItem,
-  DiscountItem,
-  FinancialBreakdownItem,
-  TopPerformingBranch,
-  SubscriptionUsageData,
-  NeedsAttentionItem,
-  AiBusinessInsight,
-  AccountManagerInfo,
-  LeakageStats,
-  ExpenseItem,
-  OutletChartBarItem,
-  PaymentModeItem,
-  OnlineAggregatorItem,
-  ChannelCardItem,
+import {
+  DateRangeOption,
+  PeriodOption,
+  type DashboardStatItem,
+  type CompanyPerformanceRow,
+  type OutletPerformanceRow,
+  type TaxItem,
+  type DiscountItem,
+  type FinancialBreakdownItem,
+  type TopPerformingBranch,
+  type SubscriptionUsageData,
+  type NeedsAttentionItem,
+  type AiBusinessInsight,
+  type AccountManagerInfo,
+  type LeakageStats,
+  type ExpenseItem,
+  type OutletChartBarItem,
+  type PaymentModeItem,
+  type OnlineAggregatorItem,
+  type ChannelCardItem,
 } from '@/features/dashboard/types/dashboard.types';
 
 // ==========================================
@@ -416,10 +418,16 @@ export const BRANCH_STAT_CARDS: DashboardStatItem[] = [
   },
 ];
 
+export const MOCK_DATE_RANGE_OPTIONS: DateRangeOption[] = Object.values(DateRangeOption);
+
+export const MOCK_PERIOD_OPTIONS: PeriodOption[] = Object.values(PeriodOption);
+
 export const BRANCH_SALES_SUMMARY = {
   totalOrders: '932',
   totalSales: '₹48,560',
-  dateRange: '28 Jun - 4 Jul 2025',
+  dateRange: DateRangeOption.LAST_7_DAYS as string,
+  defaultStartDate: new Date('2025-06-28'),
+  defaultEndDate: new Date('2025-07-04'),
 };
 
 export const BRANCH_SALES_CHART_Y_AXIS = ['150k', '100k', '50k', '0k'] as const;

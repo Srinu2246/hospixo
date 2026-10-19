@@ -5,12 +5,6 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
-import TextField from '@mui/material/TextField';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import TakeoutDiningIcon from '@mui/icons-material/TakeoutDining';
 import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
@@ -25,8 +19,12 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 
 import { Card } from '@/components/shared/ui/Card';
+import { Modal } from '@/components/shared/ui/Modal';
+import { CalendarPicker } from '@/components/shared/form-fields/CalendarPicker';
+import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
 import { useToastStore } from '@/stores/toastStore';
+import { DateRangeOption, PeriodOption } from '@/features/dashboard/types/dashboard.types';
 import {
   BRANCH_STAT_CARDS,
   BRANCH_EXPENSES,
@@ -38,21 +36,11 @@ import {
   BRANCH_ONLINE_AGGREGATORS,
   BRANCH_LEAKAGE_STATS,
   BRANCH_CHANNEL_CARDS,
+  MOCK_DATE_RANGE_OPTIONS,
+  MOCK_PERIOD_OPTIONS,
 } from '@/lib/mocks/dashboard/dashboard.mocks';
 import { DashboardStatCard } from '../shared/DashboardStatCard';
 import { QuickHelpCard } from '../shared/QuickHelpCard';
-
-const DATE_OPTIONS = [
-  'Today',
-  'Yesterday',
-  'This Week (Mon - Sun)',
-  'Last 7 Days (28 Jun - 4 Jul 2025)',
-  'This Month',
-  'Last Month',
-  'Custom Range...',
-];
-
-const PERIOD_OPTIONS = ['Today', 'Yesterday', 'Last 7 Days', 'This Month'];
 
 export interface BranchSalesDashboardProps {
   onExportClick?: () => void;
@@ -64,16 +52,18 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
   );
   const [dateMenuAnchor, setDateMenuAnchor] = useState<HTMLElement | null>(null);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState('2025-06-28');
-  const [customEndDate, setCustomEndDate] = useState('2025-07-04');
+  const [customStartDate, setCustomStartDate] = useState<Date>(
+    BRANCH_SALES_SUMMARY.defaultStartDate,
+  );
+  const [customEndDate, setCustomEndDate] = useState<Date>(BRANCH_SALES_SUMMARY.defaultEndDate);
 
-  const [chartPeriod, setChartPeriod] = useState('Today');
+  const [chartPeriod, setChartPeriod] = useState<PeriodOption>(PeriodOption.TODAY);
   const [chartMenuAnchor, setChartMenuAnchor] = useState<HTMLElement | null>(null);
 
-  const [onlinePeriod, setOnlinePeriod] = useState('Today');
+  const [onlinePeriod, setOnlinePeriod] = useState<PeriodOption>(PeriodOption.TODAY);
   const [onlineMenuAnchor, setOnlineMenuAnchor] = useState<HTMLElement | null>(null);
 
-  const [expensesPeriod, setExpensesPeriod] = useState('Today');
+  const [expensesPeriod, setExpensesPeriod] = useState<PeriodOption>(PeriodOption.TODAY);
   const [expensesMenuAnchor, setExpensesMenuAnchor] = useState<HTMLElement | null>(null);
 
   const handleExport = () => {
@@ -88,9 +78,9 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
     useToastStore.getState().show('Refreshing branch dashboard data...', 'info');
   };
 
-  const handleDateSelect = (option: string) => {
+  const handleDateSelect = (option: DateRangeOption) => {
     setDateMenuAnchor(null);
-    if (option === 'Custom Range...') {
+    if (option === DateRangeOption.CUSTOM_RANGE) {
       setCustomDialogOpen(true);
       return;
     }
@@ -100,7 +90,9 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
 
   const handleApplyCustomDate = () => {
     if (customStartDate && customEndDate) {
-      const formatted = `${customStartDate} to ${customEndDate}`;
+      const formatDate = (date: Date) =>
+        date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      const formatted = `${formatDate(customStartDate)} to ${formatDate(customEndDate)}`;
       setSelectedDateRange(formatted);
       useToastStore.getState().show(`Filtered sales statistics for ${formatted}`, 'success');
     }
@@ -190,7 +182,7 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
               },
             }}
           >
-            {DATE_OPTIONS.map((range) => (
+            {MOCK_DATE_RANGE_OPTIONS.map((range) => (
               <MenuItem
                 key={range}
                 selected={range === selectedDateRange}
@@ -202,58 +194,55 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
             ))}
           </Menu>
 
-          {/* Custom Date Range Picker Dialog */}
-          <Dialog
+          {/* Custom Date Range Picker Modal */}
+          <Modal
             open={customDialogOpen}
             onClose={() => setCustomDialogOpen(false)}
-            slotProps={{
-              paper: {
-                sx: { borderRadius: '14px', p: 1, minWidth: { xs: 300, sm: 380 } },
-              },
-            }}
+            title="Select Custom Date Range"
+            width={400}
+            height="auto"
+            footer={
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, width: '100%' }}>
+                <ActionButton
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setCustomDialogOpen(false)}
+                >
+                  Cancel
+                </ActionButton>
+                <ActionButton variant="primary" size="small" onClick={handleApplyCustomDate}>
+                  Apply
+                </ActionButton>
+              </Box>
+            }
           >
-            <DialogTitle sx={{ fontWeight: 700, fontSize: '1.125rem' }}>
-              Select Custom Date Range
-            </DialogTitle>
-            <DialogContent
-              sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}
-            >
-              <TextField
-                label="Start Date"
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="End Date"
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-                size="small"
-              />
-            </DialogContent>
-            <DialogActions sx={{ pb: 1.5, px: 2 }}>
-              <Button
-                onClick={() => setCustomDialogOpen(false)}
-                color="inherit"
-                sx={{ fontSize: '0.8125rem' }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleApplyCustomDate}
-                variant="contained"
-                sx={{ fontSize: '0.8125rem' }}
-              >
-                Apply
-              </Button>
-            </DialogActions>
-          </Dialog>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                <Typography
+                  sx={{ fontSize: '0.8125rem', fontWeight: 600, color: 'text.secondary' }}
+                >
+                  Start Date
+                </Typography>
+                <CalendarPicker
+                  value={customStartDate}
+                  onChange={(date) => setCustomStartDate(date)}
+                  minWidth="100%"
+                />
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                <Typography
+                  sx={{ fontSize: '0.8125rem', fontWeight: 600, color: 'text.secondary' }}
+                >
+                  End Date
+                </Typography>
+                <CalendarPicker
+                  value={customEndDate}
+                  onChange={(date) => setCustomEndDate(date)}
+                  minWidth="100%"
+                />
+              </Box>
+            </Box>
+          </Modal>
 
           {/* Export Data Button - visible on all responsive devices up to 1050px (mobile + tablet) */}
           <ButtonBase
@@ -436,7 +425,7 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
                 onClose={() => setChartMenuAnchor(null)}
                 slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
               >
-                {PERIOD_OPTIONS.map((p) => (
+                {MOCK_PERIOD_OPTIONS.map((p) => (
                   <MenuItem
                     key={p}
                     selected={p === chartPeriod}
@@ -707,7 +696,7 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
               onClose={() => setOnlineMenuAnchor(null)}
               slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
             >
-              {PERIOD_OPTIONS.map((p) => (
+              {MOCK_PERIOD_OPTIONS.map((p) => (
                 <MenuItem
                   key={p}
                   selected={p === onlinePeriod}
@@ -986,7 +975,7 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
               onClose={() => setExpensesMenuAnchor(null)}
               slotProps={{ paper: { sx: { borderRadius: '8px', minWidth: 140 } } }}
             >
-              {PERIOD_OPTIONS.map((p) => (
+              {MOCK_PERIOD_OPTIONS.map((p) => (
                 <MenuItem
                   key={p}
                   selected={p === expensesPeriod}
