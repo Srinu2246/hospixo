@@ -67,10 +67,6 @@ export function EditStaffProfileScreen({
     }
   }, [queryUserId, storeSelectedUserId, setSelectedUserId]);
 
-  const selectedUserId = queryUserId || storeSelectedUserId;
-  const staffProfile = useStaffProfile(selectedUserId);
-  const userProfile = staffProfile.profile;
-  const router = useRouter();
   const pathname = usePathname() || '';
 
   const resolvedScope: ScopeType =
@@ -80,6 +76,11 @@ export function EditStaffProfileScreen({
       : pathname.includes('/branch')
         ? 'branch'
         : 'organization');
+
+  const selectedUserId = queryUserId || storeSelectedUserId;
+  const staffProfile = useStaffProfile(selectedUserId, { scope: resolvedScope });
+  const userProfile = staffProfile.profile;
+  const router = useRouter();
 
   const getBaseRoute = () => {
     const stripped = pathname.replace(/\/(edit|profile)$/, '');

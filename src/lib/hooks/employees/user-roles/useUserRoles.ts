@@ -386,15 +386,25 @@ export function useStaffProfile(
     );
   }, [resolvedRoleId, profile, userItem, roleCatalog]);
 
+  const contextCompanyId = useSidebarStore((state) => state.context.companyId);
+  const contextBranchId = useSidebarStore((state) => state.context.branchId);
+  const accountCompanyId = useSidebarStore((state) => state.account?.company_id);
+  const accountBranchId = useSidebarStore((state) => state.account?.branch_id);
+
   const userCompanyId = userItem?.companyId;
   const userBranchId = userItem?.branchId;
 
   const roleScope = matchedRole?.scope || userItem?.scope || options?.scope || UserRoleScope.Branch;
+  const permissionScope = options?.scope ?? roleScope;
+
+  const resolvedCompanyId =
+    options?.companyId ?? userCompanyId ?? contextCompanyId ?? accountCompanyId;
+  const resolvedBranchId = options?.branchId ?? userBranchId ?? contextBranchId ?? accountBranchId;
 
   const rolePermissionsQuery = useRolePermissions(resolvedRoleId, {
-    scope: roleScope,
-    companyId: options?.companyId ?? userCompanyId,
-    branchId: options?.branchId ?? userBranchId,
+    scope: permissionScope,
+    companyId: resolvedCompanyId,
+    branchId: resolvedBranchId,
   });
 
   const permissionsQuery = useGroupedPermissions(enabled);
@@ -459,7 +469,7 @@ export function useStaffProfile(
               context.branchId ??
               account?.branch_id ??
               undefined,
-            scope: matched?.scope || roleScope,
+            scope: matched?.scope || permissionScope,
           };
           try {
             await api.put(userRolesPath(userId), toReplaceRolesBody(roleCode, hints));
@@ -728,12 +738,16 @@ export function useRolePermissions(
   const companyId = rawCompanyId != null && rawCompanyId !== '' ? Number(rawCompanyId) : undefined;
   const branchId = rawBranchId != null && rawBranchId !== '' ? Number(rawBranchId) : undefined;
 
-  const requestedScope = options?.scope || UserRoleScope.Branch;
+  const requestedScope = options?.scope ?? UserRoleScope.Organization;
   let scopeType: UserRoleScope = UserRoleScope.Organization;
-  if (requestedScope === UserRoleScope.Branch && branchId) {
-    scopeType = UserRoleScope.Branch;
-  } else if (requestedScope === UserRoleScope.Company && companyId) {
+  if (requestedScope === UserRoleScope.Company && companyId != null && Number.isFinite(companyId)) {
     scopeType = UserRoleScope.Company;
+  } else if (
+    requestedScope === UserRoleScope.Branch &&
+    branchId != null &&
+    Number.isFinite(branchId)
+  ) {
+    scopeType = UserRoleScope.Branch;
   }
 
   return useQuery({
