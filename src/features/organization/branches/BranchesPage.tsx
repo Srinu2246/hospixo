@@ -21,6 +21,7 @@ import {
   type EntityTableColumn,
 } from '@/components/shared/entity-list';
 import { useOrganizationBranches } from '@/lib/hooks/organization/branches/useOrganizationBranches';
+import { branchDashboardHref } from '@/lib/helpers';
 import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
@@ -58,6 +59,8 @@ export function BranchesPage({
 }: Readonly<BranchesPageProps> = {}) {
   const router = useRouter();
   const setContext = useSidebarStore((state) => state.setContext);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const role = useSidebarStore((state) => state.role);
   const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
   const orgId = organizationId ?? accountOrgId;
@@ -84,15 +87,17 @@ export function BranchesPage({
   }, [rows, search, statusFilter]);
 
   const openBranch = (branch: BranchListItem) => {
-    setContext({
+    const nextContext = {
+      ...sidebarContext,
       organizationId: orgId,
       companyId: toNumber(branch.companyId),
       companyName: branch.companyName ?? undefined,
       branchId: toNumber(branch.id),
       branchName: branch.name,
-      branchSlug: branch.code ?? undefined,
-    });
-    router.push('/branch-manager/dashboard?level=branch');
+      branchSlug: branch.code?.trim() || String(branch.id),
+    };
+    setContext(nextContext);
+    router.push(branchDashboardHref(branch, nextContext, role));
   };
 
   const errorMessage = branches.isError

@@ -93,6 +93,13 @@ async function readJsonBody(request: NextRequest, method: HttpMethod): Promise<u
 
 function toErrorResponse(error: unknown): NextResponse {
   if (error instanceof ApiError) {
+    // Pass through the exact backend body when we have it.
+    if (error.details != null && typeof error.details === 'object') {
+      return NextResponse.json(error.details, { status: error.status });
+    }
+    if (typeof error.details === 'string' && error.details.trim()) {
+      return NextResponse.json({ message: error.details }, { status: error.status });
+    }
     return NextResponse.json({ message: error.message }, { status: error.status });
   }
 

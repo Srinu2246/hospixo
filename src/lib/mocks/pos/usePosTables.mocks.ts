@@ -8,6 +8,10 @@ export interface PosTableItem {
   status: PosTableStatus;
   /** Seat count from the table catalog. */
   capacity?: number;
+  /** Open dine-in order id when the table already has an order. */
+  orderId?: string;
+  /** Human-readable order number when present. */
+  orderNumber?: string;
   amount?: string;
   guests?: number;
   waiter?: string;

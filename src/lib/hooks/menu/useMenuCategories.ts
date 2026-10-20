@@ -11,7 +11,6 @@ import {
   type MenuCategoryListParams,
   type UpdateMenuCategoryBody,
 } from '@/lib/schemas/menu/menuCategoriesSchema';
-import { useToastStore } from '@/stores/toastStore';
 import { api } from '@/services/api/browserClient';
 import {
   restaurantMenuCategoriesPath,
@@ -51,7 +50,6 @@ export function useMenuCategories(params?: MenuCategoryListParams) {
  */
 export function useCreateMenuCategory() {
   const queryClient = useQueryClient();
-  const showToast = useToastStore((state) => state.show);
 
   return useMutation({
     mutationFn: async (body: CreateMenuCategoryBody) => {
@@ -60,7 +58,6 @@ export function useCreateMenuCategory() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-categories'] });
-      showToast('Category created successfully.', 'success');
     },
   });
 }
@@ -68,8 +65,6 @@ export function useCreateMenuCategory() {
 export type UpdateMenuCategoryVariables = {
   categoryId: number;
   body: UpdateMenuCategoryBody;
-  /** When false, skip the success toast (e.g. silent status toggle). */
-  silent?: boolean;
 };
 
 /**
@@ -78,18 +73,14 @@ export type UpdateMenuCategoryVariables = {
  */
 export function useUpdateMenuCategory() {
   const queryClient = useQueryClient();
-  const showToast = useToastStore((state) => state.show);
 
   return useMutation({
     mutationFn: async ({ categoryId, body }: UpdateMenuCategoryVariables) => {
       const payload = await api.patch(restaurantMenuCategoryPath(categoryId), body);
       return parseMenuCategoryRecord(payload);
     },
-    onSuccess: async (_data, variables) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-categories'] });
-      if (!variables.silent) {
-        showToast('Category updated successfully.', 'success');
-      }
     },
   });
 }

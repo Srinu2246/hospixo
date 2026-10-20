@@ -36,7 +36,19 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
   toggleOpen: () => set((state) => ({ isOpen: !state.isOpen })),
   setIsOpen: (isOpen) => set({ isOpen }),
   setRole: (role) => set({ role }),
-  setContext: (context) => set((state) => ({ context: { ...state.context, ...context } })),
+  setContext: (context) =>
+    set((state) => {
+      const nextContext = { ...state.context, ...context };
+      if (state.role) {
+        writeSidebarSession({
+          role: state.role,
+          context: nextContext,
+          user: state.user,
+          account: state.account ?? undefined,
+        });
+      }
+      return { context: nextContext };
+    }),
   setUser: (user) => set((state) => ({ user: { ...state.user, ...user } })),
   setSession: (session) => {
     writeSidebarSession(session);

@@ -198,9 +198,8 @@ export function EditStaffProfileScreen({
       await staffProfile.deactivate();
       setIsDeactivateModalOpen(false);
       setValue('userStatus', false);
-      showToast('User has been deactivated.', 'warning');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to deactivate user.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     } finally {
       setIsDeactivating(false);
     }
@@ -210,10 +209,9 @@ export function EditStaffProfileScreen({
     try {
       await staffProfile.saveProfile({ values: data, categories });
       onSave?.(data, categories);
-      showToast('Staff profile and permissions updated successfully!', 'success');
       setMode('view');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to save profile.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   };
 

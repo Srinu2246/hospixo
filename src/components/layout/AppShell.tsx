@@ -30,7 +30,7 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
   const toastSeverity = useToastStore((state) => state.severity);
   const clearToast = useToastStore((state) => state.clear);
   const theme = useTheme();
-  const compact = useMediaQuery(theme.breakpoints.down(screen.tablet), { noSsr: true });
+  const compact = useMediaQuery(theme.breakpoints.down(screen.desktop), { noSsr: true });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navPathname, setNavPathname] = useState(pathname);
   if (pathname !== navPathname) {
@@ -100,28 +100,32 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
       {/* 
         Fixed Left Sidebar:
         - Stationary on the left side
-        - Width: 248px (Open) / 76px (Closed)
+        - Width comes from Sidebar (320 open / 76 collapsed) for all roles
         - Does NOT scroll when page content scrolls
       */}
       <Box
         sx={{
-          display: { [screen.mobile]: 'block', [screen.tablet]: 'contents' },
-          width: { [screen.mobile]: 0 },
+          display: { [screen.mobile]: 'block', [screen.desktop]: 'contents' },
+          width: { [screen.mobile]: 0, [screen.desktop]: 'unset' },
           flexShrink: 0,
           '& > aside': {
-            position: { [screen.mobile]: 'fixed', [screen.tablet]: 'sticky' },
+            position: { [screen.mobile]: 'fixed', [screen.desktop]: 'sticky' },
             top: { [screen.mobile]: 0 },
-            left: { [screen.mobile]: 0 },
+            left: { [screen.mobile]: 'auto', [screen.desktop]: 0 },
+            right: { [screen.mobile]: 0, [screen.desktop]: 'auto' },
             zIndex: { [screen.mobile]: 1300 },
-            // Mobile drawer stays full width; tablet+ lets Sidebar set 248 / 76.
-            width: { [screen.mobile]: 248, [screen.tablet]: 'unset' },
-            minWidth: { [screen.mobile]: 248, [screen.tablet]: 'unset' },
-            maxWidth: { [screen.mobile]: 248, [screen.tablet]: 'unset' },
-            transform: {
-              [screen.mobile]: mobileOpen ? 'none' : 'translateX(-100%)',
-              [screen.tablet]: 'none',
+            // Do not set width here — `& > aside { width: unset }` beats Sidebar’s
+            // own width class by specificity and pins the rail to content size.
+            // Sidebar owns open/collapsed width (320 / 76) for every role.
+            boxShadow: {
+              [screen.mobile]: mobileOpen ? '-4px 0 24px rgba(0, 0, 0, 0.35)' : 'none',
+              [screen.desktop]: 'none',
             },
-            transition: 'transform 0.25s ease',
+            transform: {
+              [screen.mobile]: mobileOpen ? 'none' : 'translateX(100%)',
+              [screen.desktop]: 'none',
+            },
+            transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           },
         }}
       >
@@ -140,7 +144,7 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
           aria-label="Close navigation"
           onClick={() => setMobileOpen(false)}
           sx={{
-            display: { [screen.mobile]: 'block', [screen.tablet]: 'none' },
+            display: { [screen.mobile]: 'block', [screen.desktop]: 'none' },
             position: 'fixed',
             inset: 0,
             zIndex: 1290,
