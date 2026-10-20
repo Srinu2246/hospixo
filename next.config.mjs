@@ -3,7 +3,20 @@ const nextConfig = {
   // Avoid dev-only double mount that aborts in-flight React Query fetches (shows as "canceled").
   reactStrictMode: false,
   reactCompiler: true,
-  turbopack: {},
+  turbopack: {
+    rules: {
+      '**/*.{tsx,jsx}': {
+        loaders: [
+          {
+            loader: '@locator/webpack-loader',
+            options: {
+              env: 'development',
+            },
+          },
+        ],
+      },
+    },
+  },
   webpack: (config, { dev }) => {
     if (dev) {
       config.module.rules.push({

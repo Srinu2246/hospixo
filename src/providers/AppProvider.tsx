@@ -46,7 +46,10 @@ export function AppProvider({ children }: AppProviderProps) {
     if (process.env.NODE_ENV === 'development') {
       import('@locator/runtime')
         .then((locator) => {
-          locator.setup();
+          const init = locator.default || locator.setup;
+          if (typeof init === 'function') {
+            init();
+          }
         })
         .catch(() => {
           // ignore error if locator failed to load
