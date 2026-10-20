@@ -43,7 +43,10 @@ export function AppProvider({ children }: AppProviderProps) {
   const currentTheme = activeMode === 'dark' ? darkTheme : theme;
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
+    if (
+      process.env.NODE_ENV === 'development' &&
+      process.env.NEXT_PUBLIC_ENABLE_LOCATOR === 'true'
+    ) {
       import('@locator/runtime')
         .then((locator) => {
           const init = locator.default || locator.setup;
