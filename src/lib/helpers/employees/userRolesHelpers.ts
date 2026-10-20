@@ -6,6 +6,8 @@ import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/user
 import {
   isRecord,
   roleRequiresBranchId,
+  rolePermissionsPayloadSchema,
+  type RolePermissionsPayload,
   unwrapEnvelope,
   type CreateUserRequestContext,
   type RoleCatalogItem,
@@ -44,12 +46,29 @@ export type CreateUserNameHints = {
   branch?: string;
 };
 
+/**
+ * Compares two values for equality.
+ * Supports string case-insensitive matching and id/number string coercion.
+ */
+export function isMatch(
+  current: string | number | null | undefined,
+  expected: string | number | null | undefined,
+  options?: { caseSensitive?: boolean },
+): boolean {
+  if (current == null || expected == null) return false;
+  const currentStr = String(current).trim();
+  const expectedStr = String(expected).trim();
+  return options?.caseSensitive
+    ? currentStr === expectedStr
+    : currentStr.toLowerCase() === expectedStr.toLowerCase();
+}
+
 export function companiesFromBranches(branches: readonly BranchListItem[]): CompanyListItem[] {
   const counts = new Map<string, { item: CompanyListItem; branchCount: number }>();
 
-  for (const branch of branches) {
+  branches.forEach((branch) => {
     const companyId = branch.companyId;
-    if (companyId === '' || companyId == null) continue;
+    if (companyId === '' || companyId == null) return;
 
     const key = String(companyId);
     const existing = counts.get(key);
@@ -58,7 +77,7 @@ export function companiesFromBranches(branches: readonly BranchListItem[]): Comp
       if (branch.companyName?.trim()) {
         existing.item.name = branch.companyName.trim();
       }
-      continue;
+      return;
     }
 
     counts.set(key, {
@@ -73,7 +92,7 @@ export function companiesFromBranches(branches: readonly BranchListItem[]): Comp
         userCount: 0,
       },
     });
-  }
+  });
 
   return [...counts.values()].map(({ item, branchCount }) => ({
     ...item,
@@ -370,18 +389,14 @@ export function autoEnableRolePermissions(
     .map((category) => {
       const permissions = category.permissions
         .map((perm) => {
-          const candidateCode =
-            'code' in perm && typeof (perm as Record<string, unknown>).code === 'string'
-              ? ((perm as Record<string, unknown>).code as string)
-              : undefined;
+          const permCode = perm.code || perm.id;
           const isAssigned =
             assignedKeys.has(perm.id) ||
             assignedKeys.has(perm.id.toLowerCase()) ||
             assignedKeys.has(perm.name) ||
             assignedKeys.has(perm.name.toLowerCase()) ||
-            (candidateCode
-              ? assignedKeys.has(candidateCode) || assignedKeys.has(candidateCode.toLowerCase())
-              : false);
+            assignedKeys.has(permCode) ||
+            assignedKeys.has(permCode.toLowerCase());
 
           return {
             ...perm,
@@ -441,23 +456,10 @@ export async function resolveAssignmentPermissionsPayload(
   let inheritedCodes: string[] = [];
   try {
     const raw = await get(userRolePermissionsPath(userId, userRoleId));
-    const unwrapped =
-      typeof raw === 'object' && raw !== null && 'data' in raw
-        ? (raw as { data: unknown }).data
-        : raw;
-    if (
-      typeof unwrapped === 'object' &&
-      unwrapped !== null &&
-      'inherited_permission_codes' in unwrapped &&
-      Array.isArray(
-        (unwrapped as { inherited_permission_codes: unknown }).inherited_permission_codes,
-      )
-    ) {
-      inheritedCodes = (
-        unwrapped as { inherited_permission_codes: unknown[] }
-      ).inherited_permission_codes.filter(
-        (code): code is string => typeof code === 'string' && code.length > 0,
-      );
+    const parsed = rolePermissionsPayloadSchema.safeParse(unwrapEnvelope(raw));
+    if (parsed.success) {
+      const payload: RolePermissionsPayload = parsed.data;
+      inheritedCodes = payload.inherited_permission_codes;
     }
   } catch {
     // If GET permissions endpoint fails, fallback to empty list
@@ -466,29 +468,26 @@ export async function resolveAssignmentPermissionsPayload(
   const enabledFromUI = new Set<string>();
   const disabledFromUI = new Set<string>();
 
-  for (const cat of categories) {
-    for (const perm of cat.permissions) {
-      const code =
-        'code' in perm && typeof (perm as Record<string, unknown>).code === 'string'
-          ? ((perm as Record<string, unknown>).code as string)
-          : perm.id;
+  categories.forEach((cat) => {
+    cat.permissions.forEach((perm) => {
+      const code = perm.code || perm.id;
       if (perm.enabled) {
         enabledFromUI.add(code);
       } else {
         disabledFromUI.add(code);
       }
-    }
-  }
+    });
+  });
 
   const finalCodes = new Set<string>(inheritedCodes);
 
-  for (const code of enabledFromUI) {
+  enabledFromUI.forEach((code) => {
     finalCodes.add(code);
-  }
+  });
 
-  for (const code of disabledFromUI) {
+  disabledFromUI.forEach((code) => {
     finalCodes.delete(code);
-  }
+  });
 
   const permissionCodesList = Array.from(finalCodes);
 

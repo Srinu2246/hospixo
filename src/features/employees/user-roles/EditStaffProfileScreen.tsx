@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
@@ -56,7 +56,18 @@ export function EditStaffProfileScreen({
   onSave,
   scope,
 }: Readonly<EditStaffProfileScreenProps>) {
-  const selectedUserId = useUserRolesUiStore((state) => state.selectedUserId);
+  const searchParams = useSearchParams();
+  const queryUserId = searchParams?.get('id') || searchParams?.get('userId') || null;
+  const storeSelectedUserId = useUserRolesUiStore((state) => state.selectedUserId);
+  const setSelectedUserId = useUserRolesUiStore((state) => state.setSelectedUserId);
+
+  useEffect(() => {
+    if (queryUserId && queryUserId !== storeSelectedUserId) {
+      setSelectedUserId(queryUserId);
+    }
+  }, [queryUserId, storeSelectedUserId, setSelectedUserId]);
+
+  const selectedUserId = queryUserId || storeSelectedUserId;
   const staffProfile = useStaffProfile(selectedUserId);
   const userProfile = staffProfile.profile;
   const router = useRouter();

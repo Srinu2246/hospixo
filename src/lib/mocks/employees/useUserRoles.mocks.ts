@@ -1,12 +1,11 @@
 import { z } from 'zod';
 
 import {
-  permissionCategorySchema,
+  DEFAULT_STAFF_PROFILE_PERMISSIONS,
   roleTemplateItemSchema,
   userRoleListSchema,
   type UserRoleItem,
   type RoleTemplateItem,
-  type PermissionCategory,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { HttpMethod, QueryParams } from '@/services/api/types';
 
@@ -219,7 +218,7 @@ export const INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(
     const scope = isOrg ? 'organization' : isCompany ? 'company' : 'branch';
     return {
       ...u,
-      phone: '+919876543210',
+      phone: 'phone' in u && typeof u.phone === 'string' ? u.phone : undefined,
       scope,
     };
   }),
@@ -422,103 +421,8 @@ export const COMPANY_ROLE_TEMPLATES: RoleTemplateItem[] = roleTemplateListSchema
 ]);
 
 // ============================================================================
-// 5. Permission Categories
+// 5. Permission Categories (imported from schema)
 // ============================================================================
-
-const permissionCategoryListSchema = z.array(permissionCategorySchema);
-
-const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = permissionCategoryListSchema.parse([
-  {
-    id: 'dashboard',
-    title: 'Dashboard',
-    permissions: [
-      {
-        id: 'dashboard.view',
-        name: 'View Dashboard',
-        description: 'Access to the main overview and KPI tiles',
-        enabled: true,
-      },
-      {
-        id: 'dashboard.analytics',
-        name: 'View Analytics',
-        description: 'Detailed charts and data trends analysis',
-        enabled: true,
-      },
-    ],
-  },
-  {
-    id: 'user_management',
-    title: 'User Management',
-    permissions: [
-      {
-        id: 'users.view',
-        name: 'View Users',
-        description: 'Access and view the team member directory',
-        enabled: true,
-      },
-      {
-        id: 'users.create',
-        name: 'Create Users',
-        description: 'Invite and add new members to the system',
-        enabled: true,
-      },
-      {
-        id: 'users.edit',
-        name: 'Edit Users',
-        description: 'Modify existing user details and status',
-        enabled: true,
-      },
-      {
-        id: 'users.delete',
-        name: 'Delete Users',
-        description: 'Remove users permanently from the organization',
-        enabled: true,
-      },
-      {
-        id: 'roles.view',
-        name: 'View Roles',
-        description: 'Access and view system roles and permissions',
-        enabled: true,
-      },
-    ],
-  },
-  {
-    id: 'branch_management',
-    title: 'Branch Management',
-    permissions: [
-      {
-        id: 'branches.view',
-        name: 'View Branches',
-        description: 'See details of all connected branch locations',
-        enabled: true,
-      },
-      {
-        id: 'branches.manage',
-        name: 'Manage Branches',
-        description: 'Edit branch info, opening hours, and zones',
-        enabled: true,
-      },
-    ],
-  },
-  {
-    id: 'inventory',
-    title: 'Inventory',
-    permissions: [
-      {
-        id: 'inventory.view',
-        name: 'View Inventory',
-        description: 'Monitor stock levels and tracking',
-        enabled: false,
-      },
-      {
-        id: 'inventory.items',
-        name: 'Manage Items',
-        description: 'Add or edit items in the product catalog',
-        enabled: false,
-      },
-    ],
-  },
-]);
 
 // ============================================================================
 // 6. Mock Request Resolver (for serverClient / handler.ts)
@@ -544,8 +448,8 @@ function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
         ...found,
         first_name: found.name.split(' ')[0] ?? 'User',
         last_name: found.name.split(' ').slice(1).join(' ') ?? '',
-        phone: found.phone ?? '+919876543210',
-        phone_number: found.phone ?? '+919876543210',
+        phone: found.phone ?? '',
+        phone_number: found.phone ?? '',
         username: found.email.split('@')[0] ?? 'user',
         description: template?.description ?? `Operations for ${found.role}.`,
         role_description: template?.description ?? `Operations for ${found.role}.`,
@@ -583,7 +487,11 @@ function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
       role: String(body.role ?? 'Staff'),
       branch: String(body.branch_name ?? body.branch ?? 'Downtown Branch'),
       status: 'active',
-      phone: String(body.phone ?? '+919876543210'),
+      phone: body.phone
+        ? String(body.phone)
+        : body.phone_number
+          ? String(body.phone_number)
+          : undefined,
       scope: 'branch',
     };
     mockUsersDataset.unshift(newUser);
@@ -603,6 +511,7 @@ function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
       firstName || lastName
         ? [firstName, lastName].filter(Boolean).join(' ')
         : (existing?.name ?? 'User');
+    const updatedPhone = body.phone ?? body.phone_number ?? existing?.phone;
     const updated: UserRoleItem = {
       id: itemId,
       name: String(name),
@@ -610,7 +519,7 @@ function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
       role: String(body.role ?? existing?.role ?? 'Staff'),
       branch: String(body.branch ?? existing?.branch ?? 'Downtown Branch'),
       status: (body.status as UserRoleItem['status']) ?? existing?.status ?? 'active',
-      phone: String(body.phone ?? body.phone_number ?? existing?.phone ?? '+919876543210'),
+      phone: updatedPhone ? String(updatedPhone) : undefined,
       scope: existing?.scope ?? 'branch',
       avatar: existing?.avatar,
       createdAt: existing?.createdAt,
@@ -772,8 +681,8 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
         ...user,
         first_name: user?.name.split(' ')[0] ?? 'User',
         last_name: user?.name.split(' ').slice(1).join(' ') ?? '',
-        phone: '+919876543210',
-        phone_number: '+919876543210',
+        phone: user?.phone ?? '',
+        phone_number: user?.phone ?? '',
         username: user?.email.split('@')[0] ?? 'user',
         description: `Operations for ${user?.role}.`,
         role_description: `Operations for ${user?.role}.`,
@@ -841,8 +750,8 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
       first_name: firstName,
       last_name: lastName,
       email: (body.email as string) || 'user@hospixo.com',
-      phone: (body.phone as string) || (body.phone_number as string) || '+919876543210',
-      phone_number: (body.phone as string) || (body.phone_number as string) || '+919876543210',
+      phone: (body.phone as string) || (body.phone_number as string) || '',
+      phone_number: (body.phone as string) || (body.phone_number as string) || '',
       username: (body.username as string) || 'user',
       role: (body.role as string) || 'Staff',
       role_description: (body.description as string) || '',

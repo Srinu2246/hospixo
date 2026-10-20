@@ -4,13 +4,25 @@ import { z } from 'zod';
 // 1. Primitive Domain Types & Enums
 // ============================================================================
 
-export const scopeTypeSchema = z.enum(['organization', 'company', 'branch']);
+export const UserRoleScope = {
+  Organization: 'organization',
+  Company: 'company',
+  Branch: 'branch',
+} as const;
+
+export type UserRoleScope = (typeof UserRoleScope)[keyof typeof UserRoleScope];
+
+export const scopeTypeSchema = z.enum([
+  UserRoleScope.Organization,
+  UserRoleScope.Company,
+  UserRoleScope.Branch,
+]);
 export type ScopeType = z.infer<typeof scopeTypeSchema>;
 
 export function resolveScope(raw?: string | null): ScopeType {
-  if (raw === 'company') return 'company';
-  if (raw === 'branch' || raw === 'branch-manager') return 'branch';
-  return 'organization';
+  if (raw === UserRoleScope.Company) return UserRoleScope.Company;
+  if (raw === UserRoleScope.Branch || raw === 'branch-manager') return UserRoleScope.Branch;
+  return UserRoleScope.Organization;
 }
 
 export function resolveScopeFromPathname(
@@ -18,16 +30,16 @@ export function resolveScopeFromPathname(
   explicitScope?: ScopeType | null,
 ): ScopeType {
   if (
-    explicitScope === 'company' ||
-    explicitScope === 'branch' ||
-    explicitScope === 'organization'
+    explicitScope === UserRoleScope.Company ||
+    explicitScope === UserRoleScope.Branch ||
+    explicitScope === UserRoleScope.Organization
   ) {
     return explicitScope;
   }
   const path = pathname ?? '';
-  if (path.includes('/company')) return 'company';
-  if (path.includes('/branch')) return 'branch';
-  return 'organization';
+  if (path.includes('/company')) return UserRoleScope.Company;
+  if (path.includes('/branch')) return UserRoleScope.Branch;
+  return UserRoleScope.Organization;
 }
 
 export function getUsersAndRolesBaseRoute(
@@ -41,8 +53,8 @@ export function getUsersAndRolesBaseRoute(
   );
   if (stripped) return stripped;
   const resolved = resolveScopeFromPathname(path, scope);
-  if (resolved === 'company') return '/company/employees/users-and-roles';
-  if (resolved === 'branch') return '/branch-manager/employees/users-and-roles';
+  if (resolved === UserRoleScope.Company) return '/company/employees/users-and-roles';
+  if (resolved === UserRoleScope.Branch) return '/branch-manager/employees/users-and-roles';
   return '/organization/employees/users-and-roles';
 }
 
@@ -64,6 +76,8 @@ export const userRoleItemSchema = z.object({
   avatar: z.string().optional(),
   createdAt: z.string().optional(),
   company: z.string().optional(),
+  companyId: z.number().optional(),
+  branchId: z.number().optional(),
   scope: scopeTypeSchema.optional(),
   phone: z.string().optional(),
   /** Present when the list API only returns role ids/codes; used to resolve labels from the roles catalog. */
@@ -93,6 +107,7 @@ export const permissionItemSchema = z.object({
   name: z.string(),
   description: z.string(),
   enabled: z.boolean(),
+  code: z.string().optional(),
 });
 
 export const permissionCategorySchema = z.object({
@@ -102,6 +117,147 @@ export const permissionCategorySchema = z.object({
 });
 
 export type PermissionCategory = z.infer<typeof permissionCategorySchema>;
+
+export const rolePermissionsPayloadSchema = z.object({
+  role_id: z.union([z.number(), z.string()]).optional(),
+  inherited_permission_codes: z.array(z.string()).default([]),
+  permission_codes: z.array(z.string()).default([]),
+});
+
+export type RolePermissionsPayload = z.infer<typeof rolePermissionsPayloadSchema>;
+
+export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    permissions: [
+      {
+        id: 'dashboard.view',
+        code: 'dashboard.view',
+        name: 'View Dashboard',
+        description: 'Access to the main overview and KPI tiles',
+        enabled: true,
+      },
+      {
+        id: 'dashboard.analytics',
+        code: 'dashboard.analytics',
+        name: 'View Analytics',
+        description: 'Detailed charts and data trends analysis',
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: 'user_management',
+    title: 'User Management',
+    permissions: [
+      {
+        id: 'users.view',
+        code: 'users.view',
+        name: 'View Users',
+        description: 'Access and view the team member directory',
+        enabled: true,
+      },
+      {
+        id: 'users.create',
+        code: 'users.create',
+        name: 'Create Users',
+        description: 'Invite and add new members to the system',
+        enabled: true,
+      },
+      {
+        id: 'users.edit',
+        code: 'users.edit',
+        name: 'Edit Users',
+        description: 'Modify existing user details and status',
+        enabled: true,
+      },
+      {
+        id: 'users.delete',
+        code: 'users.delete',
+        name: 'Delete Users',
+        description: 'Remove users permanently from the organization',
+        enabled: false,
+      },
+      {
+        id: 'roles.view',
+        code: 'roles.view',
+        name: 'View Roles',
+        description: 'Access and view system roles and permissions',
+        enabled: true,
+      },
+    ],
+  },
+  {
+    id: 'branch_management',
+    title: 'Branch Management',
+    permissions: [
+      {
+        id: 'branches.view',
+        code: 'branches.view',
+        name: 'View Branches',
+        description: 'See details of all connected branch locations',
+        enabled: true,
+      },
+      {
+        id: 'branches.manage',
+        code: 'branches.manage',
+        name: 'Manage Branches',
+        description: 'Edit branch info, opening hours, and zones',
+        enabled: false,
+      },
+    ],
+  },
+  {
+    id: 'inventory',
+    title: 'Inventory',
+    permissions: [
+      {
+        id: 'inventory.view',
+        code: 'inventory.view',
+        name: 'View Inventory',
+        description: 'Monitor stock levels and tracking',
+        enabled: false,
+      },
+      {
+        id: 'inventory.items',
+        code: 'inventory.items',
+        name: 'Manage Items',
+        description: 'Add or edit items in the product catalog',
+        enabled: false,
+      },
+    ],
+  },
+  {
+    id: 'reports',
+    title: 'Reports',
+    permissions: [
+      {
+        id: 'reports.view',
+        code: 'reports.view',
+        name: 'View Reports',
+        description: 'Financial and operational summary reports',
+        enabled: false,
+      },
+      {
+        id: 'reports.export',
+        code: 'reports.export',
+        name: 'Export Reports',
+        description: 'Download CSV and PDF reports',
+        enabled: false,
+      },
+    ],
+  },
+];
+
+export interface UseUserRolesOptions {
+  pageSize?: number;
+  scope?: ScopeType;
+  companyName?: string;
+  initialUserList?: UserRoleListResponse;
+  companyId?: number | string | null;
+  branchId?: number | string | null;
+}
 
 export const roleTemplateItemSchema = z.object({
   id: z.string(),
@@ -170,6 +326,8 @@ export type ParsedUserList = {
   items: UserRoleItem[];
   total: number;
 };
+
+export type UserRoleListResponse = ParsedUserList;
 
 export function parseUserList(payload: unknown): ParsedUserList {
   const rows = unwrapUsers(payload);
@@ -308,6 +466,34 @@ export function parseRoleTemplates(payload: unknown): RoleTemplateItem[] {
 export function parseGroupedPermissions(payload: unknown): PermissionCategory[] {
   const unwrapped = unwrapEnvelope(payload);
   const groups = extractPermissionGroups(unwrapped);
+
+  if (
+    groups.length > 0 &&
+    groups.every(
+      (g) => isRecord(g) && !('permissions' in g) && !('items' in g) && !('children' in g),
+    )
+  ) {
+    const map = new Map<string, unknown[]>();
+    groups.forEach((item) => {
+      if (!isRecord(item)) return;
+      const moduleName =
+        text(item.module) ?? text(item.resource) ?? text(item.code)?.split('.')[0] ?? 'Other';
+      const existing = map.get(moduleName) ?? [];
+      existing.push(item);
+      map.set(moduleName, existing);
+    });
+    const synthesizedGroups = Array.from(map.entries()).map(([moduleName, items]) => ({
+      title: moduleName,
+      permissions: items,
+    }));
+    const categories = synthesizedGroups.flatMap((group, groupIndex) => {
+      const mapped = mapPermissionGroup(group, groupIndex);
+      const parsed = permissionCategorySchema.safeParse(mapped);
+      return parsed.success ? [parsed.data] : [];
+    });
+    return ensureUniqueCategoryIds(categories);
+  }
+
   const categories = groups.flatMap((group, groupIndex) => {
     if (!isRecord(group)) return [];
     const mapped = mapPermissionGroup(group, groupIndex);
@@ -472,12 +658,27 @@ function mapPermissionGroup(raw: Record<string, unknown>, groupIndex: number): P
   const permissionsRaw = raw.permissions ?? raw.items ?? raw.children ?? [];
   const permissions = Array.isArray(permissionsRaw)
     ? permissionsRaw.flatMap((entry, permissionIndex) => {
+        if (typeof entry === 'string') {
+          const name = resolvePermissionItemName({ code: entry }, title, permissionIndex);
+          const description = resolvePermissionItemDescription({ code: entry }, name);
+          return [
+            {
+              id: entry,
+              code: entry,
+              name,
+              description,
+              enabled: false,
+            },
+          ];
+        }
         if (!isRecord(entry)) return [];
         const name = resolvePermissionItemName(entry, title, permissionIndex);
         const description = resolvePermissionItemDescription(entry, name);
+        const code = text(entry.code) ?? text(entry.permission_code);
         return [
           {
             id: readPermissionItemId(entry, name, categoryId, permissionIndex),
+            ...(code ? { code } : {}),
             name,
             description,
             enabled: Boolean(entry.enabled ?? entry.granted ?? entry.active ?? false),
@@ -1101,6 +1302,18 @@ function mapUserRow(raw: Record<string, unknown>): UserRoleItem {
       textOrNumber(source.contact_number) ??
       textOrNumber(source.contactNumber),
     scope: readRoleScope(source.scope) ?? readRoleScope(source.scope_type),
+    companyId:
+      typeof source.company_id === 'number'
+        ? source.company_id
+        : typeof source.companyId === 'number'
+          ? source.companyId
+          : undefined,
+    branchId:
+      typeof source.branch_id === 'number'
+        ? source.branch_id
+        : typeof source.branchId === 'number'
+          ? source.branchId
+          : undefined,
   };
 }
 
@@ -1182,6 +1395,13 @@ function extractPermissionGroups(payload: unknown): unknown[] {
   for (const key of ['groups', 'categories', 'items', 'data', 'permissions'] as const) {
     const value = payload[key];
     if (Array.isArray(value)) return value;
+  }
+  const entries = Object.entries(payload);
+  if (entries.length > 0 && entries.every(([, v]) => Array.isArray(v))) {
+    return entries.map(([category, items]) => ({
+      title: category,
+      permissions: items,
+    }));
   }
   return [];
 }

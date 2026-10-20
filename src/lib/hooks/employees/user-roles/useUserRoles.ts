@@ -9,12 +9,14 @@ import {
   autoEnableRolePermissions,
   enrichDirectoryWithSession,
   extractAssignedPermissionKeys,
+  isMatch,
   loadEmployeeDirectory,
   resolveAssignmentPermissionsPayload,
   resolveCreateUserRequestContext,
   type CreateUserIdHints,
 } from '@/lib/helpers/employees/userRolesHelpers';
 import {
+  DEFAULT_STAFF_PROFILE_PERMISSIONS,
   enrichUserListRoles,
   parseGroupedPermissions,
   parseRoleCatalog,
@@ -32,7 +34,7 @@ import {
   toReplaceRolesBody,
   toUpdateUserBody,
   toUserStatusBody,
-  type ParsedUserList,
+  UserRoleScope,
   type CreateUserFormValues,
   type CustomTemplateFormValues,
   type PermissionCategory,
@@ -43,8 +45,10 @@ import {
   type StaffProfileFormValues,
   type UserRoleFormValues,
   type UserRoleItem,
+  type UserRoleListResponse,
   type UserRoleStatsData,
   type UserStatus,
+  type UseUserRolesOptions,
   isUserEditDisabled,
   getUsersAndRolesBaseRoute,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
@@ -56,22 +60,12 @@ import ApiUrlsV1, {
   userRolesPath,
   userStatusPath,
 } from '@/services/api/ApiUrlsV1';
-import { ApiError } from '@/services/api/types';
 import { useSidebarStore } from '@/stores/sidebarStore';
 const usersQueryRoot = ['api', ApiUrlsV1.users.list] as const;
 
 // ---------------------------------------------------------------------------
 // Users list, filters, and CRUD mutations
 // ---------------------------------------------------------------------------
-
-export interface UseUserRolesOptions {
-  pageSize?: number;
-  scope?: ScopeType;
-  companyName?: string;
-  initialUserList?: ParsedUserList;
-  companyId?: number;
-  branchId?: number;
-}
 
 export interface UseUserRolesReturn {
   users: UserRoleItem[];
@@ -109,27 +103,26 @@ export function useUserRoles(
 ): UseUserRolesReturn {
   const options =
     typeof pageSizeOrOptions === 'number'
-      ? { pageSize: pageSizeOrOptions, scope: 'organization' as ScopeType }
-      : {
-          pageSize: pageSizeOrOptions.pageSize ?? 8,
-          scope: pageSizeOrOptions.scope ?? 'company',
-          companyName: pageSizeOrOptions.companyName,
-          initialUserList: pageSizeOrOptions.initialUserList,
-          companyId: pageSizeOrOptions.companyId,
-          branchId: pageSizeOrOptions.branchId,
-        };
+      ? { pageSize: pageSizeOrOptions, scope: UserRoleScope.Organization }
+      : pageSizeOrOptions;
 
-  const pageSize = options.pageSize;
-  const scope = options.scope;
-  const initialUserList = options.initialUserList;
+  const {
+    pageSize = 8,
+    scope = UserRoleScope.Company,
+    initialUserList,
+    companyId,
+    branchId,
+  } = options;
 
-  const contextCompanyId = useSidebarStore((state) => state.context.companyId);
-  const accountCompanyId = useSidebarStore((state) => state.account?.company_id);
-  const contextBranchId = useSidebarStore((state) => state.context.branchId);
-  const accountBranchId = useSidebarStore((state) => state.account?.branch_id);
+  const storeCompanyId = useSidebarStore(
+    (state) => state.context.companyId ?? state.account?.company_id,
+  );
+  const storeBranchId = useSidebarStore(
+    (state) => state.context.branchId ?? state.account?.branch_id,
+  );
 
-  const resolvedCompanyId = options.companyId ?? contextCompanyId ?? accountCompanyId ?? undefined;
-  const resolvedBranchId = options.branchId ?? contextBranchId ?? accountBranchId ?? undefined;
+  const resolvedCompanyId = companyId ?? storeCompanyId;
+  const resolvedBranchId = branchId ?? storeBranchId;
 
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQueryState] = useState('');
@@ -179,10 +172,6 @@ export function useUserRoles(
       !selectedStatus
         ? initialUserList
         : undefined,
-    retry: (failureCount, error) => {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return false;
-      return failureCount < 2;
-    },
     placeholderData: (previous) => previous,
   });
 
@@ -224,10 +213,7 @@ export function useUserRoles(
 
   const syncUserRoles = async (userId: string, roleName: string, catalog: RoleCatalogItem[]) => {
     const matched = catalog.find(
-      (r) =>
-        r.name.toLowerCase() === roleName.toLowerCase() ||
-        String(r.id) === roleName ||
-        r.code?.toLowerCase() === roleName.toLowerCase(),
+      (r) => isMatch(r.name, roleName) || isMatch(r.id, roleName) || isMatch(r.code, roleName),
     );
     const roleCode = matched?.code || resolveRoleCode(roleName, catalog);
     if (!roleCode) return;
@@ -359,7 +345,7 @@ export function useStaffProfile(
   });
 
   const rolesQuery = useRoleCatalogQuery();
-  const roleCatalog = useMemo(() => {
+  const roleCatalog: RoleCatalogItem[] = useMemo(() => {
     if (Array.isArray(rolesQuery.data)) return rolesQuery.data;
     if (rolesQuery.data) return parseRoleCatalog(rolesQuery.data);
     return [];
@@ -369,10 +355,10 @@ export function useStaffProfile(
     if (rawUserQuery.data) {
       return parseUserRecord(rawUserQuery.data);
     }
-    const cachedList = queryClient.getQueryData<unknown>([...usersQueryRoot]);
+    const cachedList = queryClient.getQueryData<UserRoleListResponse>([...usersQueryRoot]);
     if (cachedList && userId) {
       const parsed = parseUserList(cachedList);
-      const found = parsed.items.find((u: UserRoleItem) => String(u.id) === String(userId));
+      const found = parsed.items.find((u: UserRoleItem) => isMatch(u.id, userId));
       if (found) return found;
     }
     return null;
@@ -392,57 +378,18 @@ export function useStaffProfile(
 
   const matchedRole = useMemo(() => {
     if (!resolvedRoleId && !profile?.roleName && !userItem?.role) return undefined;
-    return roleCatalog.find((r) => {
-      if (resolvedRoleId != null && resolvedRoleId !== '') {
-        return String(r.id) === String(resolvedRoleId);
-      }
-      if (profile?.roleName) {
-        return r.name.toLowerCase() === profile.roleName.toLowerCase();
-      }
-      if (userItem?.role) {
-        return r.name.toLowerCase() === userItem.role.toLowerCase();
-      }
-      return false;
-    });
+    return roleCatalog.find(
+      (r) =>
+        isMatch(r.id, resolvedRoleId) ||
+        isMatch(r.name, profile?.roleName) ||
+        isMatch(r.name, userItem?.role),
+    );
   }, [resolvedRoleId, profile, userItem, roleCatalog]);
 
-  const userCompanyId = useMemo(() => {
-    if (!rawUserQuery.data || typeof rawUserQuery.data !== 'object') return undefined;
-    const rec = rawUserQuery.data as Record<string, unknown>;
-    const data = (rec.data && typeof rec.data === 'object' ? rec.data : rec) as Record<
-      string,
-      unknown
-    >;
-    if (typeof data.company_id === 'number') return data.company_id;
-    if (typeof data.companyId === 'number') return data.companyId;
-    if (Array.isArray(data.branches) && data.branches[0] && typeof data.branches[0] === 'object') {
-      const b = data.branches[0] as Record<string, unknown>;
-      if (typeof b.company_id === 'number') return b.company_id;
-    }
-    return undefined;
-  }, [rawUserQuery.data]);
+  const userCompanyId = userItem?.companyId;
+  const userBranchId = userItem?.branchId;
 
-  const userBranchId = useMemo(() => {
-    if (!rawUserQuery.data || typeof rawUserQuery.data !== 'object') return undefined;
-    const rec = rawUserQuery.data as Record<string, unknown>;
-    const data = (rec.data && typeof rec.data === 'object' ? rec.data : rec) as Record<
-      string,
-      unknown
-    >;
-    if (typeof data.branch_id === 'number') return data.branch_id;
-    if (typeof data.branchId === 'number') return data.branchId;
-    if (Array.isArray(data.branches) && data.branches[0] && typeof data.branches[0] === 'object') {
-      const b = data.branches[0] as Record<string, unknown>;
-      if (typeof b.branch_id === 'number') return b.branch_id;
-    }
-    if (Array.isArray(data.roles) && data.roles[0] && typeof data.roles[0] === 'object') {
-      const r = data.roles[0] as Record<string, unknown>;
-      if (r.scope === 'branch' && typeof r.scope_id === 'number') return r.scope_id;
-    }
-    return undefined;
-  }, [rawUserQuery.data]);
-
-  const roleScope = matchedRole?.scope || userItem?.scope || options?.scope || 'branch';
+  const roleScope = matchedRole?.scope || userItem?.scope || options?.scope || UserRoleScope.Branch;
 
   const rolePermissionsQuery = useRolePermissions(resolvedRoleId, {
     scope: roleScope,
@@ -453,8 +400,10 @@ export function useStaffProfile(
   const permissionsQuery = useGroupedPermissions(enabled);
 
   const categories = useMemo(() => {
-    const baseCategories = permissionsQuery.data ?? [];
-    if (baseCategories.length === 0) return [];
+    const baseCategories =
+      permissionsQuery.data && permissionsQuery.data.length > 0
+        ? permissionsQuery.data
+        : DEFAULT_STAFF_PROFILE_PERMISSIONS;
 
     if (rolePermissionsQuery.data) {
       const assignedKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);
@@ -484,16 +433,15 @@ export function useStaffProfile(
       const existingRoleName = profile?.roleName || userItem?.role;
       const roleChanged = Boolean(
         input.values.roleName &&
-        (!existingRoleName ||
-          input.values.roleName.trim().toLowerCase() !== existingRoleName.trim().toLowerCase()),
+        (!existingRoleName || !isMatch(input.values.roleName, existingRoleName)),
       );
 
       if (roleChanged) {
         const matched = roleCatalog.find(
           (r) =>
-            r.name.toLowerCase() === input.values.roleName.toLowerCase() ||
-            String(r.id) === input.values.roleName ||
-            r.code?.toLowerCase() === input.values.roleName.toLowerCase(),
+            isMatch(r.name, input.values.roleName) ||
+            isMatch(r.id, input.values.roleName) ||
+            isMatch(r.code, input.values.roleName),
         );
         const roleCode = matched?.code || resolveRoleCode(input.values.roleName, roleCatalog);
         if (roleCode) {
@@ -641,9 +589,7 @@ export function useCreateStaffUser() {
 
       if (roleCode) {
         const matched = roleCatalog.find(
-          (r) =>
-            r.code?.toLowerCase() === roleCode.toLowerCase() ||
-            r.name.toLowerCase() === input.values.role.toLowerCase(),
+          (r) => isMatch(r.code, roleCode) || isMatch(r.name, input.values.role),
         );
         const roleHints: RoleAssignmentHints = {
           companyId: context.companyId,
@@ -776,25 +722,18 @@ export function useRolePermissions(
   },
 ) {
   const { context, account } = useSidebarStore.getState();
-  const rawCompanyId = options?.companyId ?? context.companyId ?? account?.company_id ?? undefined;
-  const rawBranchId = options?.branchId ?? context.branchId ?? account?.branch_id ?? undefined;
+  const rawCompanyId = options?.companyId ?? context.companyId ?? account?.company_id;
+  const rawBranchId = options?.branchId ?? context.branchId ?? account?.branch_id;
 
   const companyId = rawCompanyId != null && rawCompanyId !== '' ? Number(rawCompanyId) : undefined;
   const branchId = rawBranchId != null && rawBranchId !== '' ? Number(rawBranchId) : undefined;
 
-  const requestedScope = options?.scope || 'branch';
-  let scopeType: ScopeType = 'organization';
-  if (requestedScope === 'branch') {
-    scopeType =
-      branchId != null && Number.isFinite(branchId)
-        ? 'branch'
-        : companyId != null && Number.isFinite(companyId)
-          ? 'company'
-          : 'organization';
-  } else if (requestedScope === 'company') {
-    scopeType = companyId != null && Number.isFinite(companyId) ? 'company' : 'organization';
-  } else {
-    scopeType = 'organization';
+  const requestedScope = options?.scope || UserRoleScope.Branch;
+  let scopeType: UserRoleScope = UserRoleScope.Organization;
+  if (requestedScope === UserRoleScope.Branch && branchId) {
+    scopeType = UserRoleScope.Branch;
+  } else if (requestedScope === UserRoleScope.Company && companyId) {
+    scopeType = UserRoleScope.Company;
   }
 
   return useQuery({
@@ -812,7 +751,7 @@ export function useRolePermissions(
       const params: ScopedRolePermissionsParams = {
         scope_type: scopeType,
         ...(companyId != null && Number.isFinite(companyId) ? { company_id: companyId } : {}),
-        ...(scopeType === 'branch' && branchId != null && Number.isFinite(branchId)
+        ...(scopeType === UserRoleScope.Branch && branchId != null && Number.isFinite(branchId)
           ? { branch_id: branchId }
           : {}),
         page_size: 100,
@@ -862,15 +801,10 @@ export function useGroupedPermissions(enabled = true) {
         const parsed = parseGroupedPermissions(payload);
         if (parsed.length > 0) return parsed;
       } catch {
-        // Try fallback endpoint
+        // Fallback to default categories
       }
 
-      try {
-        const fallback = await api.get<unknown>('/v1/permissions', undefined, signal);
-        return parseGroupedPermissions(fallback);
-      } catch {
-        return [];
-      }
+      return DEFAULT_STAFF_PROFILE_PERMISSIONS;
     },
     staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
@@ -882,27 +816,33 @@ export function useGroupedPermissions(enabled = true) {
 // ---------------------------------------------------------------------------
 
 export function useEmployeeDirectory(organizationId?: number, companyId?: number) {
-  const account = useSidebarStore((state) => state.account);
-  const context = useSidebarStore((state) => state.context);
+  const storeOrgId = useSidebarStore(
+    (state) => state.context.organizationId ?? state.account?.org_id ?? undefined,
+  );
+  const storeCompanyId = useSidebarStore(
+    (state) => state.context.companyId ?? state.account?.company_id ?? undefined,
+  );
   const role = useSidebarStore((state) => state.role);
+  const hasAccount = useSidebarStore((state) => Boolean(state.account));
 
-  const resolvedOrgId = organizationId ?? context.organizationId ?? account?.org_id ?? undefined;
-  const resolvedCompanyId = companyId ?? context.companyId ?? account?.company_id ?? undefined;
+  const resolvedOrgId = organizationId ?? storeOrgId ?? undefined;
+  const resolvedCompanyId = companyId ?? storeCompanyId ?? undefined;
 
-  const sessionReady = Boolean(role || account);
+  const sessionReady = Boolean(role || hasAccount);
   const hasDirectoryScope = resolvedOrgId != null || resolvedCompanyId != null;
 
   return useQuery({
     queryKey: ['employees', 'directory', resolvedOrgId ?? 'none', resolvedCompanyId ?? 'none'],
     enabled: sessionReady && hasDirectoryScope,
     queryFn: async ({ signal }) => {
+      const { context, account } = useSidebarStore.getState();
       const get = (
         path: string,
         params?: Record<string, string | number | boolean | null | undefined>,
       ) => api.get<unknown>(path, params, signal);
 
       const sessionHints = {
-        companyId: resolvedCompanyId,
+        companyId: resolvedCompanyId ?? undefined,
         companyName: context.companyName,
         branchId: context.branchId ?? account?.branch_id ?? undefined,
         branchName: context.branchName,
@@ -911,8 +851,8 @@ export function useEmployeeDirectory(organizationId?: number, companyId?: number
       try {
         return await loadEmployeeDirectory(
           {
-            organizationId: resolvedOrgId,
-            companyId: resolvedCompanyId,
+            organizationId: resolvedOrgId ?? undefined,
+            companyId: resolvedCompanyId ?? undefined,
             session: sessionHints,
           },
           get,

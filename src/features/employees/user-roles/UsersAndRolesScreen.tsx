@@ -73,13 +73,14 @@ export function UsersAndRolesScreen({
         : 'organization');
 
   const setSelectedUserId = useUserRolesUiStore((state) => state.setSelectedUserId);
-  const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
-  const contextOrgId = useSidebarStore((state) => state.context.organizationId);
-  const contextCompanyId = useSidebarStore((state) => state.context.companyId);
-  const accountCompanyId = useSidebarStore((state) => state.account?.company_id ?? undefined);
-  const organizationId = contextOrgId ?? accountOrgId;
+  const organizationId = useSidebarStore(
+    (state) => state.context.organizationId ?? state.account?.org_id ?? undefined,
+  );
+  const storeCompanyId = useSidebarStore(
+    (state) => state.context.companyId ?? state.account?.company_id ?? undefined,
+  );
   const directoryCompanyId =
-    resolvedScope === 'organization' ? undefined : (contextCompanyId ?? accountCompanyId);
+    resolvedScope === 'organization' ? undefined : (storeCompanyId ?? undefined);
   const directory = useEmployeeDirectory(organizationId, directoryCompanyId);
 
   const {
@@ -197,7 +198,7 @@ export function UsersAndRolesScreen({
     handleCloseActionMenu();
     if (targetUser) {
       setSelectedUserId(targetUser.id);
-      router.push(`${baseRoute}/edit`);
+      router.push(`${baseRoute}/edit?id=${encodeURIComponent(targetUser.id)}`);
     }
   };
 
@@ -206,7 +207,7 @@ export function UsersAndRolesScreen({
     handleCloseActionMenu();
     if (targetUser) {
       setSelectedUserId(targetUser.id);
-      router.push(`${baseRoute}/profile`);
+      router.push(`${baseRoute}/profile?id=${encodeURIComponent(targetUser.id)}`);
     }
   };
 

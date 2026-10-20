@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { EditStaffProfileScreen } from '@/features/employees/user-roles';
 import { resolveScope } from '@/types/user-roles';
 
@@ -13,5 +14,9 @@ interface ScopeRouteProps {
 
 export default async function ScopedEditStaffProfilePage({ params }: Readonly<ScopeRouteProps>) {
   const resolvedParams = await params;
-  return <EditStaffProfileScreen initialMode="edit" scope={resolveScope(resolvedParams.scope)} />;
+  return (
+    <Suspense fallback={null}>
+      <EditStaffProfileScreen initialMode="edit" scope={resolveScope(resolvedParams.scope)} />
+    </Suspense>
+  );
 }
