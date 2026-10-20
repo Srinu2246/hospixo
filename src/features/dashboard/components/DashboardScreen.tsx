@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Fade from '@mui/material/Fade';
 
-import { normalizeRoleKey } from '@/app/sidebar';
+import { normalizeRoleKey, type SidebarContext } from '@/app/sidebar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Toast } from '@/components/shared/ui/Toast';
 import { useDashboardDirectory } from '@/lib/hooks/dashboard/useDashboardDirectory';
@@ -32,7 +32,22 @@ function dashboardLevelFromRole(role?: string | null): DashboardLevel {
   return 'branch';
 }
 
-function dashboardLevelFromPath(pathname: string): DashboardLevel | null {
+function normalizeSlug(value: string): string {
+  return decodeURIComponent(value).trim().toLowerCase();
+}
+
+function dashboardLevelFromPath(
+  pathname: string,
+  context?: Pick<
+    SidebarContext,
+    | 'organizationSlug'
+    | 'organizationName'
+    | 'companySlug'
+    | 'companyName'
+    | 'branchSlug'
+    | 'branchName'
+  >,
+): DashboardLevel | null {
   if (!pathname) return null;
   if (pathname === '/company' || pathname.startsWith('/company/')) return 'company';
   if (
@@ -44,6 +59,23 @@ function dashboardLevelFromPath(pathname: string): DashboardLevel | null {
     return 'branch';
   }
   if (pathname === '/organization' || pathname.startsWith('/organization/')) return 'organization';
+
+  const scopedDashboard = pathname.match(/^\/([^/]+)\/dashboard\/?$/);
+  if (scopedDashboard) {
+    const segment = normalizeSlug(scopedDashboard[1]);
+    const orgSlug = context?.organizationSlug ?? context?.organizationName;
+    const companySlug = context?.companySlug ?? context?.companyName;
+    const branchSlug = context?.branchSlug ?? context?.branchName;
+
+    if (orgSlug && segment === normalizeSlug(String(orgSlug))) return 'organization';
+    if (companySlug && segment === normalizeSlug(String(companySlug))) return 'company';
+    if (branchSlug && segment === normalizeSlug(String(branchSlug))) return 'branch';
+    if (segment === 'organization') return 'organization';
+    if (segment === 'company') return 'company';
+    if (segment === 'branch-manager' || segment === 'branch') return 'branch';
+    return 'branch';
+  }
+
   return null;
 }
 
@@ -62,6 +94,7 @@ export function DashboardScreen({
 }: Readonly<DashboardScreenProps> = {}) {
   const pathname = usePathname() ?? '';
   const role = useSidebarStore((state) => state.role);
+  const sidebarContext = useSidebarStore((state) => state.context);
   const organizationId = useSidebarStore(
     (state) => state.account?.org_id ?? state.context.organizationId,
   );
@@ -70,11 +103,11 @@ export function DashboardScreen({
   );
 
   const currentLevel = useMemo(() => {
-    const fromPath = dashboardLevelFromPath(pathname);
+    const fromPath = dashboardLevelFromPath(pathname, sidebarContext);
     const fromRole = dashboardLevelFromRole(role);
     // Path wins when drilling into a lower catalog (e.g. org → /company/dashboard).
     return fromPath ?? fromRole ?? initialLevel;
-  }, [pathname, role, initialLevel]);
+  }, [pathname, role, initialLevel, sidebarContext]);
 
   const [selectedScopeByLevel, setSelectedScopeByLevel] =
     useState<Record<DashboardLevel, string>>(DEFAULT_SCOPE_BY_LEVEL);

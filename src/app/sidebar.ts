@@ -196,13 +196,23 @@ export function resolveSidebarRoute(href: string, context?: SidebarContext, role
   if (!href) return href;
   let resolved = href;
 
-  if (role) {
-    resolved = resolved.replace(/\/branch-manager(\/|$)/g, `/${rolePathSegment(role)}$1`);
-  }
-
   const org = context?.organizationSlug || context?.organizationName;
   const comp = context?.companySlug || context?.companyName;
   const branch = context?.branchSlug || context?.branchName;
+
+  const targetsBranchScope =
+    Boolean(branch) &&
+    (/\/branch-manager(\/|$)/.test(resolved) ||
+      /\/branch(\/|$)/.test(resolved) ||
+      /:branch(\/|$)/.test(resolved));
+
+  if (targetsBranchScope) {
+    resolved = resolved.replace(/\/branch-manager(\/|$)/g, `/${encodeURIComponent(branch!)}$1`);
+    resolved = resolved.replace(/\/branch(\/|$)/g, `/${encodeURIComponent(branch!)}$1`);
+    resolved = resolved.replace(/:branch(\/|$)/g, `${encodeURIComponent(branch!)}$1`);
+  } else if (role) {
+    resolved = resolved.replace(/\/branch-manager(\/|$)/g, `/${rolePathSegment(role)}$1`);
+  }
 
   if (org) {
     resolved = resolved.replace(/\/organization(\/|$)/g, `/${encodeURIComponent(org)}$1`);
@@ -212,12 +222,6 @@ export function resolveSidebarRoute(href: string, context?: SidebarContext, role
   if (comp) {
     resolved = resolved.replace(/\/company(\/|$)/g, `/${encodeURIComponent(comp)}$1`);
     resolved = resolved.replace(/:company(\/|$)/g, `${encodeURIComponent(comp)}$1`);
-  }
-
-  if (branch) {
-    resolved = resolved.replace(/\/branch-manager(\/|$)/g, `/${encodeURIComponent(branch)}$1`);
-    resolved = resolved.replace(/\/branch(\/|$)/g, `/${encodeURIComponent(branch)}$1`);
-    resolved = resolved.replace(/:branch(\/|$)/g, `${encodeURIComponent(branch)}$1`);
   }
 
   return resolved.replace(/\/+/g, '/');
@@ -1006,7 +1010,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
       {
         id: 1,
         name: 'All Branches',
-        href: '/organization/branches',
+        href: '/organization/branches/all-branches',
         featureFlag: FEATURE_FLAGS.org_branches_allBranches_nav,
         icon: 'storefront',
         permission: PERMISSIONS.BRANCHES_VIEW,
@@ -1193,8 +1197,32 @@ const SIDEBAR_RANK: Record<string, number> = {
   chef: 0,
 };
 
+function normalizeScopeSlug(value: string): string {
+  return decodeURIComponent(value).trim().toLowerCase();
+}
+
+/** `/PH/...` or `/TEST-BRANCH1/dashboard` — match slug to sidebar context from drill-down. */
+function sidebarLevelFromScopedSegment(segment: string, context?: SidebarContext): string | null {
+  if (!context) return null;
+
+  const token = normalizeScopeSlug(segment);
+  const branchSlug = context.branchSlug ?? context.branchName;
+  const companySlug = context.companySlug ?? context.companyName;
+  const orgSlug = context.organizationSlug ?? context.organizationName;
+
+  if (branchSlug && token === normalizeScopeSlug(String(branchSlug))) return 'branch_manager';
+  if (companySlug && token === normalizeScopeSlug(String(companySlug))) return 'company';
+  if (orgSlug && token === normalizeScopeSlug(String(orgSlug))) return 'organization';
+
+  if (token === 'organization') return 'organization';
+  if (token === 'company') return 'company';
+  if (token === 'branch-manager' || token === 'branch') return 'branch_manager';
+
+  return null;
+}
+
 /** Hierarchy level implied by the URL. Shared module routes such as `/pos` return null. */
-export function sidebarLevelFromPath(pathname: string): string | null {
+export function sidebarLevelFromPath(pathname: string, context?: SidebarContext): string | null {
   if (!pathname) return null;
   if (pathname === '/organization' || pathname.startsWith('/organization/')) return 'organization';
   if (pathname === '/company' || pathname.startsWith('/company/')) return 'company';
@@ -1210,6 +1238,13 @@ export function sidebarLevelFromPath(pathname: string): string | null {
   ) {
     return 'branch_manager';
   }
+
+  const scopedRoot = pathname.match(/^\/([^/]+)(?:\/|$)/);
+  if (scopedRoot) {
+    const fromContext = sidebarLevelFromScopedSegment(scopedRoot[1], context);
+    if (fromContext) return fromContext;
+  }
+
   return null;
 }
 
@@ -1217,9 +1252,13 @@ export function sidebarLevelFromPath(pathname: string): string | null {
  * Sidebar catalog for the current page.
  * A higher role can drill into a lower catalog. A lower role never sees a wider one.
  */
-export function resolveSidebarLevel(pathname: string, role?: string): string {
+export function resolveSidebarLevel(
+  pathname: string,
+  role?: string,
+  context?: SidebarContext,
+): string {
   const userKey = normalizeRoleKey(role || '');
-  const pathKey = sidebarLevelFromPath(pathname);
+  const pathKey = sidebarLevelFromPath(pathname, context);
   if (!userKey) return pathKey || '';
   if (!pathKey) return userKey;
 
@@ -1334,7 +1373,7 @@ export function getSidebarNavigation({
   if (!role?.trim()) return [];
 
   const normalized = normalizeRoleKey(role);
-  const level = resolveSidebarLevel(pathname, role);
+  const level = resolveSidebarLevel(pathname, role, context);
   const rawEntries = ROLE_SIDEBAR_REGISTRY[level] || ROLE_SIDEBAR_REGISTRY[normalized];
   if (!rawEntries) return [];
 
