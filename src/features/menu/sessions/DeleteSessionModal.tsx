@@ -2,11 +2,14 @@
 
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
 import { AlertTriangle } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Modal } from '@/components/shared/ui/Modal';
 import type { SessionRecord } from '@/lib/schemas/menu/sessions/sessionSchema';
+import { colors } from '@/lib/theme/mui/colors';
+import { useThemeStore } from '@/stores/themeStore';
 
 export interface DeleteSessionModalProps {
   open: boolean;
@@ -23,6 +26,13 @@ export function DeleteSessionModal({
   session,
   loading = false,
 }: Readonly<DeleteSessionModalProps>) {
+  const mode = useThemeStore((state) => state.mode);
+  const isDark = mode === 'dark';
+  const textPrimary = isDark ? colors.text.darkPrimary : colors.text.primary;
+  const textSecondary = isDark ? colors.text.darkSecondary : colors.text.secondary;
+  const surfaceBg = isDark ? colors.surface.dark : colors.surface.default;
+  const borderColor = isDark ? colors.border.dark : colors.border.default;
+
   if (!session) return null;
 
   return (
@@ -47,8 +57,9 @@ export function DeleteSessionModal({
             sx={{
               minWidth: 90,
               borderRadius: '8px',
-              borderColor: '#D1D5DB',
-              color: '#374151',
+              borderColor,
+              color: textPrimary,
+              bgcolor: surfaceBg,
             }}
           >
             Cancel
@@ -61,8 +72,8 @@ export function DeleteSessionModal({
             sx={{
               minWidth: 120,
               borderRadius: '8px',
-              bgcolor: '#DC2626',
-              '&:hover': { bgcolor: '#B91C1C' },
+              bgcolor: colors.danger.default,
+              '&:hover': { bgcolor: colors.danger.dark },
             }}
           >
             Delete Session
@@ -77,8 +88,8 @@ export function DeleteSessionModal({
               width: 40,
               height: 40,
               borderRadius: '50%',
-              bgcolor: '#FEE2E2',
-              color: '#DC2626',
+              bgcolor: alpha(colors.danger.default, isDark ? 0.18 : 0.12),
+              color: colors.danger.default,
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
@@ -86,14 +97,17 @@ export function DeleteSessionModal({
           >
             <AlertTriangle size={22} />
           </Stack>
-          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.125rem', color: '#111827' }}>
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700, fontSize: '1.125rem', color: textPrimary }}
+          >
             Delete Session
           </Typography>
         </Stack>
 
         <Typography
           variant="body2"
-          sx={{ color: '#4B5563', fontSize: '0.875rem', lineHeight: 1.5 }}
+          sx={{ color: textSecondary, fontSize: '0.875rem', lineHeight: 1.5 }}
         >
           Are you sure you want to delete <strong>{session.name}</strong> ({session.startTime} -{' '}
           {session.endTime})? This action cannot be undone.

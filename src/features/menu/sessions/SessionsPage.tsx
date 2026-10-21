@@ -20,6 +20,7 @@ import {
 } from '@/lib/mocks/menu/useSessions.mocks';
 import type { SessionFormValues, SessionRecord } from '@/lib/schemas/menu/sessions/sessionSchema';
 import { colors } from '@/lib/theme/mui/colors';
+import { useThemeStore } from '@/stores/themeStore';
 import { useToastStore } from '@/stores/toastStore';
 
 import { DeleteSessionModal } from './DeleteSessionModal';
@@ -51,6 +52,14 @@ export function SessionsPage({
 }: Readonly<SessionsPageProps>) {
   const pathname = usePathname();
   const showToast = useToastStore((state) => state.show);
+  const themeMode = useThemeStore((state) => state.mode);
+  const isDark = themeMode === 'dark';
+  const textPrimary = isDark ? colors.text.darkPrimary : colors.text.primary;
+  const textSecondary = isDark ? colors.text.darkSecondary : colors.text.secondary;
+  const surfaceBg = isDark ? colors.surface.dark : colors.surface.default;
+  const surfaceMuted = isDark ? colors.surface.darkMuted : colors.background.default;
+  const borderColor = isDark ? colors.border.dark : colors.border.default;
+  const fieldBorder = isDark ? colors.border.dark : colors.border.default;
   const basePath = basePathProp ?? sessionsBasePathFromPathname(pathname);
 
   // Determine mode from pathname or initialMode
@@ -216,7 +225,7 @@ export function SessionsPage({
             sx={{
               fontWeight: 700,
               fontSize: { xs: '1.5rem', sm: '1.875rem' },
-              color: '#111827',
+              color: textPrimary,
               lineHeight: 1.2,
               letterSpacing: '-0.02em',
             }}
@@ -228,7 +237,7 @@ export function SessionsPage({
             variant="body2"
             sx={{
               mt: 0.75,
-              color: '#6B7280',
+              color: textSecondary,
               fontSize: '0.9375rem',
             }}
           >
@@ -243,13 +252,13 @@ export function SessionsPage({
           sx={{
             flexShrink: 0,
             borderRadius: '8px',
-            bgcolor: colors.primary.default || '#2563EB',
+            bgcolor: colors.primary.default,
             px: 2.5,
             py: 1.2,
             fontWeight: 600,
             boxShadow: 'none',
             '&:hover': {
-              bgcolor: colors.primary.dark || '#1D4ED8',
+              bgcolor: colors.primary.dark,
             },
           }}
         >
@@ -260,15 +269,15 @@ export function SessionsPage({
       {/* Filter Card: Search input & Status dropdown */}
       <Box
         sx={{
-          bgcolor: '#FFFFFF',
-          border: '1px solid #E5E7EB',
+          bgcolor: surfaceBg,
+          border: `1px solid ${borderColor}`,
           borderRadius: '12px',
           p: { xs: 1.5, sm: 2 },
           display: 'flex',
           flexDirection: { xs: 'column', sm: 'row' },
           gap: 1.5,
           alignItems: 'center',
-          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+          boxShadow: isDark ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.03)',
         }}
       >
         <TextField
@@ -281,7 +290,7 @@ export function SessionsPage({
             input: {
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search size={18} color="#9CA3AF" />
+                  <Search size={18} color={textSecondary} />
                 </InputAdornment>
               ),
             },
@@ -290,11 +299,12 @@ export function SessionsPage({
             flex: 1,
             '& .MuiOutlinedInput-root': {
               borderRadius: '8px',
-              bgcolor: '#F9FAFB',
+              bgcolor: surfaceMuted,
+              color: textPrimary,
               fontSize: '0.875rem',
-              '& fieldset': { borderColor: '#E5E7EB' },
-              '&:hover fieldset': { borderColor: '#D1D5DB' },
-              '&.Mui-focused fieldset': { borderColor: colors.primary.default || '#2563EB' },
+              '& fieldset': { borderColor: fieldBorder },
+              '&:hover fieldset': { borderColor: textSecondary },
+              '&.Mui-focused fieldset': { borderColor: colors.primary.default },
             },
           }}
         />
@@ -306,16 +316,19 @@ export function SessionsPage({
           sx={{
             minWidth: { xs: '100%', sm: 150 },
             borderRadius: '8px',
-            bgcolor: '#FFFFFF',
+            bgcolor: surfaceBg,
             fontSize: '0.875rem',
-            color: '#374151',
-            '& fieldset': { borderColor: '#E5E7EB' },
-            '&:hover fieldset': { borderColor: '#D1D5DB' },
-            '&.Mui-focused fieldset': { borderColor: colors.primary.default || '#2563EB' },
+            color: textPrimary,
+            '& fieldset': { borderColor: fieldBorder },
+            '&:hover fieldset': { borderColor: textSecondary },
+            '&.Mui-focused fieldset': { borderColor: colors.primary.default },
           }}
           renderValue={(selected) => (
             <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
-              <Typography component="span" sx={{ color: '#6B7280', mr: 0.5, fontSize: '0.875rem' }}>
+              <Typography
+                component="span"
+                sx={{ color: textSecondary, mr: 0.5, fontSize: '0.875rem' }}
+              >
                 Status:
               </Typography>
               <Typography component="span" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>

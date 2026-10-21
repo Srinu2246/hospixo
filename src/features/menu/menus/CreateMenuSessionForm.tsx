@@ -15,6 +15,7 @@ import {
   type MenuSessionFormValues,
 } from '@/lib/schemas/menu/menus/menuSessionFormSchema';
 import { colors } from '@/lib/theme/mui/colors';
+import { useThemeStore } from '@/stores/themeStore';
 
 export interface CreateMenuSessionFormProps {
   mode?: 'create' | 'edit';
@@ -36,6 +37,10 @@ export function CreateMenuSessionForm({
   onSubmit,
 }: Readonly<CreateMenuSessionFormProps>) {
   const isEdit = mode === 'edit';
+  const themeMode = useThemeStore((state) => state.mode);
+  const isDark = themeMode === 'dark';
+  const surfaceBg = isDark ? colors.surface.dark : colors.surface.default;
+  const borderColor = isDark ? colors.border.dark : colors.border.default;
   const [name, setName] = useState(initialValues?.name ?? '');
   const [code, setCode] = useState(initialValues?.code ?? '');
   const [menuType, setMenuType] = useState(initialValues?.menuType ?? '');
@@ -138,8 +143,8 @@ export function CreateMenuSessionForm({
           flexShrink: 0,
           p: { xs: 2, sm: 3 },
           borderRadius: '12px',
-          borderColor: colors.border.default,
-          bgcolor: colors.surface.default,
+          borderColor,
+          bgcolor: surfaceBg,
         }}
       >
         <Typography

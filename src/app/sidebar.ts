@@ -401,7 +401,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
       {
         id: 2,
         name: 'Open Business',
-        href: '/company/pos/point-of-sale/cash-shift/new',
+        href: '/company/operations/open-business',
         featureFlag: FEATURE_FLAGS.company_operations_openBusiness_nav,
         icon: 'business',
         permission: PERMISSIONS.POS_SESSIONS_OPEN,
@@ -758,7 +758,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
       {
         id: 3,
         name: 'Open Business',
-        href: '/branch-manager/pos/point-of-sale/cash-shift/new',
+        href: '/branch-manager/management/open-business',
         featureFlag: FEATURE_FLAGS.branch_management_openBusiness_nav,
         icon: 'business',
         permission: PERMISSIONS.POS_SESSIONS_OPEN,
@@ -895,7 +895,7 @@ export const CASHIER_SIDEBAR: SidebarEntry[] = [
   {
     id: 6,
     name: 'Open Business',
-    href: '/branch-manager/pos/point-of-sale/cash-shift/new',
+    href: '/branch-manager/management/open-business',
     icon: 'business',
     permission: PERMISSIONS.POS_SESSIONS_OPEN,
     featureFlag: FEATURE_FLAGS.cashier_pos_openBusiness_nav,

@@ -5,11 +5,13 @@ import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
 import { Pencil, Trash2 } from 'lucide-react';
 
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import type { SessionRecord } from '@/lib/schemas/menu/sessions/sessionSchema';
 import { colors } from '@/lib/theme/mui/colors';
+import { useThemeStore } from '@/stores/themeStore';
 
 export interface SessionCardProps {
   session: SessionRecord;
@@ -22,28 +24,34 @@ export interface SessionCardProps {
  * relative updated timestamp, and edit/delete action buttons.
  */
 export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardProps>) {
+  const mode = useThemeStore((state) => state.mode);
+  const isDark = mode === 'dark';
+  const textPrimary = isDark ? colors.text.darkPrimary : colors.text.primary;
+  const textSecondary = isDark ? colors.text.darkSecondary : colors.text.secondary;
+  const surfaceBg = isDark ? colors.surface.dark : colors.surface.default;
+  const borderColor = isDark ? colors.border.dark : colors.border.default;
+  const dividerColor = isDark ? colors.divider.dark : colors.divider.default;
   const isActive = session.status === 'active';
 
   return (
     <Box
       sx={{
-        bgcolor: '#FFFFFF',
+        bgcolor: surfaceBg,
         border: '1px solid',
-        borderColor: '#E5E7EB',
+        borderColor,
         borderRadius: '14px',
         p: 2.5,
         display: 'flex',
         flexDirection: 'column',
         gap: 2,
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+        boxShadow: isDark ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.04)',
         transition: 'all 0.2s ease',
         '&:hover': {
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
-          borderColor: '#D1D5DB',
+          boxShadow: isDark ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.06)',
+          borderColor: isDark ? colors.border.darkSubtle : colors.border.dark,
         },
       }}
     >
-      {/* Top Header: Title & Status Badge */}
       <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Typography
           variant="h6"
@@ -52,7 +60,7 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
             fontWeight: 700,
             fontSize: '1.125rem',
             lineHeight: 1.25,
-            color: '#111827',
+            color: textPrimary,
             letterSpacing: '-0.01em',
           }}
         >
@@ -69,13 +77,16 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
             fontSize: '0.75rem',
             height: 24,
             px: 1,
-            bgcolor: isActive ? '#DCFCE7' : '#F3F4F6',
-            color: isActive ? '#15803D' : '#6B7280',
+            bgcolor: isActive
+              ? alpha(colors.success.default, isDark ? 0.18 : 0.14)
+              : isDark
+                ? colors.surface.darkMuted
+                : colors.surface.muted,
+            color: isActive ? (isDark ? colors.success.light : colors.success.dark) : textSecondary,
           }}
         />
       </Stack>
 
-      {/* Middle: Start Time & End Time */}
       <Box
         sx={{
           display: 'grid',
@@ -88,7 +99,7 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
             variant="caption"
             sx={{
               display: 'block',
-              color: '#6B7280',
+              color: textSecondary,
               fontSize: '0.8125rem',
               mb: 0.5,
               fontWeight: 500,
@@ -101,7 +112,7 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
             sx={{
               fontWeight: 600,
               fontSize: '0.9375rem',
-              color: '#111827',
+              color: textPrimary,
             }}
           >
             {session.startTime}
@@ -113,7 +124,7 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
             variant="caption"
             sx={{
               display: 'block',
-              color: '#6B7280',
+              color: textSecondary,
               fontSize: '0.8125rem',
               mb: 0.5,
               fontWeight: 500,
@@ -126,7 +137,7 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
             sx={{
               fontWeight: 600,
               fontSize: '0.9375rem',
-              color: '#111827',
+              color: textPrimary,
             }}
           >
             {session.endTime}
@@ -134,10 +145,8 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
         </Box>
       </Box>
 
-      {/* Subtle Divider */}
-      <Divider sx={{ borderColor: '#F3F4F6', my: 0.5 }} />
+      <Divider sx={{ borderColor: dividerColor, my: 0.5 }} />
 
-      {/* Footer: Updated Timestamp & Action Icons */}
       <Stack
         direction="row"
         sx={{
@@ -148,7 +157,7 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
         <Typography
           variant="caption"
           sx={{
-            color: '#6B7280',
+            color: textSecondary,
             fontSize: '0.8125rem',
             fontWeight: 400,
           }}
@@ -162,12 +171,12 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
             aria-label={`Edit ${session.name}`}
             onClick={() => onEdit(session)}
             sx={{
-              color: colors.primary.default || '#2563EB',
+              color: colors.primary.default,
               p: 0.75,
               borderRadius: '6px',
               transition: 'all 0.15s ease',
               '&:hover': {
-                bgcolor: 'rgba(37, 99, 235, 0.08)',
+                bgcolor: alpha(colors.primary.default, isDark ? 0.16 : 0.08),
               },
             }}
           >
@@ -179,12 +188,12 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
             aria-label={`Delete ${session.name}`}
             onClick={() => onDelete(session)}
             sx={{
-              color: '#DC2626',
+              color: colors.danger.default,
               p: 0.75,
               borderRadius: '6px',
               transition: 'all 0.15s ease',
               '&:hover': {
-                bgcolor: 'rgba(220, 38, 38, 0.08)',
+                bgcolor: alpha(colors.danger.default, isDark ? 0.16 : 0.08),
               },
             }}
           >

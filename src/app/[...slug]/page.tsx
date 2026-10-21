@@ -10,8 +10,9 @@ import {
   CashAndShiftPage,
   CloseShiftPage,
   CloseShiftSuccessPage,
-  CreateNewShiftPage,
+  OpenBusinessPage,
 } from '@/features/pos/point-of-sale/cash-and-shift';
+import { CreateNewShiftPage } from '@/features/pos/point-of-sale/cash-and-shift/CreateNewShiftPage';
 import { UnderConstructionPage } from '@/components/shared/UnderConstruction';
 import {
   UsersAndRolesScreen,
@@ -68,6 +69,12 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     name: 'POS Close Shift',
     match: (path) => path.endsWith('pos/point-of-sale/cash-shift/close'),
     render: () => <CloseShiftPage />,
+  },
+  {
+    name: 'Open Business',
+    match: (path) =>
+      path.endsWith('management/open-business') || path.endsWith('operations/open-business'),
+    render: () => <OpenBusinessPage />,
   },
   {
     name: 'POS Create New Shift',
