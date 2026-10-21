@@ -42,7 +42,6 @@ import {
   type ReceiptData,
 } from '@/features/pos/point-of-sale/components/OrderSuccessReceipt';
 import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
-import { CaptainOrderReviewCard } from '@/features/pos/point-of-sale/components/CaptainOrderReviewCard';
 import { SplitPaymentDialog } from '@/features/pos/point-of-sale/components/SplitPaymentDialog';
 import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 
@@ -494,7 +493,11 @@ export function OrderSettle({
           >
             <Box sx={captainCompact ? captainScrollSx : { overflowY: 'auto', height: '100%' }}>
               {captainCompact ? (
-                <CaptainOrderReviewCard order={reviewOrder} onApplyCoupon={handleApplyCoupon} />
+                <OrderReviewSection
+                  variant="captain"
+                  order={reviewOrder}
+                  onApplyCoupon={handleApplyCoupon}
+                />
               ) : (
                 <OrderReviewSection
                   order={reviewOrder}

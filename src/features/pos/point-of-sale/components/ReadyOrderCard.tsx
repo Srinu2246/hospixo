@@ -16,8 +16,6 @@ export interface ReadyOrderCardProps {
   onViewOrder?: (order: ReadyOrderItem) => void;
   onServe?: (order: ReadyOrderItem) => void;
   isServing?: boolean;
-  /** Captain mobile card density (Figma). */
-  compact?: boolean;
   sx?: SxProps<Theme>;
 }
 
@@ -79,95 +77,8 @@ export function ReadyOrderCard({
   onViewOrder,
   onServe,
   isServing = false,
-  compact = false,
   sx,
 }: Readonly<ReadyOrderCardProps>) {
-  if (compact) {
-    return (
-      <Card
-        variant="outlined"
-        borderRadius="12px"
-        padding="14px 16px"
-        sx={{
-          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
-          ...((sx as object) || {}),
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>{order.table}</Typography>
-            <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary' }}>
-              {order.readyTimeAgo}
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography sx={{ fontSize: '0.875rem', color: 'text.secondary', fontWeight: 500 }}>
-              {order.token}
-            </Typography>
-            <StatusChip
-              label={order.priority}
-              variantType={order.priority === 'HIGH' ? 'danger' : 'info'}
-              size="small"
-              pill
-              sx={{ fontWeight: 700, fontSize: '0.6875rem', height: 22 }}
-            />
-          </Box>
-
-          <Box
-            sx={{
-              bgcolor: (theme) =>
-                theme.palette.mode === 'dark' ? 'action.hover' : colors.surface.muted,
-              borderRadius: '10px',
-              p: 1.25,
-            }}
-          >
-            <Typography
-              sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'primary.main', mb: 0.35 }}
-            >
-              {order.itemsCount} Items
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {order.dishSummary}
-            </Typography>
-          </Box>
-
-          <Stack direction="row" spacing={1.25}>
-            <ActionButton
-              variant="outlined"
-              fullWidth
-              onClick={() => onViewOrder?.(order)}
-              sx={{
-                minHeight: 40,
-                borderRadius: '8px',
-                borderColor: 'divider',
-                fontWeight: 600,
-                boxShadow: 'none',
-              }}
-            >
-              Details
-            </ActionButton>
-            <ActionButton
-              variant="primary"
-              fullWidth
-              onClick={() => onServe?.(order)}
-              loading={isServing}
-              sx={{
-                minHeight: 40,
-                borderRadius: '8px',
-                fontWeight: 700,
-                bgcolor: colors.primary.default,
-                boxShadow: 'none',
-              }}
-            >
-              Mark Served
-            </ActionButton>
-          </Stack>
-        </Box>
-      </Card>
-    );
-  }
-
   return (
     <Card
       variant="outlined"

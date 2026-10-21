@@ -397,15 +397,4 @@ export const MOCK_READY_ORDERS: ReadyOrderItem[] = [
     dishSummary: 'Mango Lassi',
     paymentStatus: 'PENDING',
   },
-  {
-    id: 'ready-6',
-    table: 'Table 22',
-    readyTimeAgo: 'Ready 5 min ago',
-    token: 'Token #131',
-    priority: 'NORMAL',
-    itemsCount: 1,
-    status: 'Ready',
-    dishSummary: 'Mango Lassi',
-    paymentStatus: 'PENDING',
-  },
 ];

@@ -2,7 +2,12 @@ import type { ReactNode } from 'react';
 import { PosDashboard } from '@/features/pos/point-of-sale/dashboard';
 import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
 import { ReservationList, ReservationDetails } from '@/features/pos/point-of-sale/reservation';
-import { AllOrdersPage, OrderSettle } from '@/features/pos/point-of-sale/all-orders';
+import {
+  OrderSettle,
+  PosAllOrdersRoutePage,
+  PosOrderSettleRoutePage,
+} from '@/features/pos/point-of-sale/all-orders';
+import { DineInPage } from '@/features/pos/point-of-sale/dine-in';
 import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway';
 import { ReadyListPage } from '@/features/pos/point-of-sale/ready-list';
 import { DuePaymentsPage } from '@/features/pos/point-of-sale/due-payments';
@@ -92,7 +97,10 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
         )
           ? slug[slug.length - 2]
           : undefined;
-      return <OrderSettle initialStep="checkout" orderId={tableId} />;
+      if (tableId) {
+        return <PosOrderSettleRoutePage orderId={tableId} initialStep="checkout" />;
+      }
+      return <OrderSettle initialStep="checkout" />;
     },
   },
 
@@ -123,7 +131,10 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
         )
           ? slug[slug.length - 2]
           : undefined;
-      return <OrderSettle initialStep="success" orderId={tableId} />;
+      if (tableId) {
+        return <PosOrderSettleRoutePage orderId={tableId} initialStep="success" />;
+      }
+      return <OrderSettle initialStep="success" />;
     },
   },
 
@@ -135,7 +146,7 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     },
     render: (_, slug) => {
       const orderId = slug[slug.length - 1];
-      return <OrderSettle orderId={orderId} />;
+      return <PosOrderSettleRoutePage orderId={orderId} />;
     },
   },
 
@@ -184,8 +195,11 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
         slug[slug.length - 1] !== 'checkout'
       );
     },
-    render: (_, slug) => {
+    render: (path, slug) => {
       const tableId = slug[slug.length - 1];
+      if (path.includes('captain-flow')) {
+        return <DineInPage initialTableId={tableId} />;
+      }
       return <PosTableSelection isDineIn initialTableId={tableId} />;
     },
   },
@@ -255,7 +269,7 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/captain-flow/all-orders') ||
       path.endsWith('captain-flow/all-orders') ||
       path.endsWith('pos/all-orders'),
-    render: () => <AllOrdersPage />,
+    render: () => <PosAllOrdersRoutePage />,
   },
 
   {
