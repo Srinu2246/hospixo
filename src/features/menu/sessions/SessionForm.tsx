@@ -17,6 +17,7 @@ import {
   type SessionRecord,
 } from '@/lib/schemas/menu/sessions/sessionSchema';
 import { colors } from '@/lib/theme/mui/colors';
+import { useThemeStore } from '@/stores/themeStore';
 
 export interface SessionFormProps {
   mode: 'create' | 'edit';
@@ -41,6 +42,15 @@ export function SessionForm({
   submitting = false,
 }: Readonly<SessionFormProps>) {
   const isEdit = mode === 'edit';
+  const themeMode = useThemeStore((state) => state.mode);
+  const isDark = themeMode === 'dark';
+  const textPrimary = isDark ? colors.text.darkPrimary : colors.text.primary;
+  const textSecondary = isDark ? colors.text.darkSecondary : colors.text.secondary;
+  const surfaceBg = isDark ? colors.surface.dark : colors.surface.default;
+  const surfaceMuted = isDark ? colors.surface.darkMuted : colors.background.default;
+  const borderColor = isDark ? colors.border.dark : colors.border.default;
+  const fieldBorder = isDark ? colors.border.dark : '#D1D5DB';
+  const labelColor = isDark ? colors.text.darkSecondary : '#374151';
 
   const [name, setName] = useState(initialSession?.name ?? '');
   const [startTime, setStartTime] = useState(initialSession?.startTime ?? '06:00 AM');
@@ -48,6 +58,18 @@ export function SessionForm({
   const [isActive, setIsActive] = useState(initialSession?.status !== 'inactive');
   const [errors, setErrors] = useState<Partial<Record<keyof SessionFormValues, string>>>({});
   const sessionDisplayName = initialSession?.name?.trim() || 'Session';
+
+  const fieldSx = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: '8px',
+      bgcolor: surfaceBg,
+      color: textPrimary,
+      fontSize: '0.9375rem',
+      '& fieldset': { borderColor: fieldBorder },
+      '&:hover fieldset': { borderColor: textSecondary },
+      '&.Mui-focused fieldset': { borderColor: colors.primary.default },
+    },
+  } as const;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +140,7 @@ export function SessionForm({
           sx={{
             fontWeight: 700,
             fontSize: { xs: '1.5rem', sm: '1.875rem' },
-            color: '#111827',
+            color: textPrimary,
             lineHeight: 1.2,
             letterSpacing: '-0.02em',
           }}
@@ -130,7 +152,7 @@ export function SessionForm({
           variant="body2"
           sx={{
             mt: 0.75,
-            color: '#6B7280',
+            color: textSecondary,
             fontSize: '0.9375rem',
           }}
         >
@@ -143,14 +165,14 @@ export function SessionForm({
       {/* Session Details Card */}
       <Box
         sx={{
-          bgcolor: '#FFFFFF',
-          border: '1px solid #E5E7EB',
+          bgcolor: surfaceBg,
+          border: `1px solid ${borderColor}`,
           borderRadius: '16px',
           p: { xs: 2.5, sm: 3.5 },
           display: 'flex',
           flexDirection: 'column',
           gap: 3,
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+          boxShadow: isDark ? 'none' : '0 1px 3px rgba(0, 0, 0, 0.05)',
         }}
       >
         <Typography
@@ -159,7 +181,7 @@ export function SessionForm({
           sx={{
             fontWeight: 700,
             fontSize: '1.0625rem',
-            color: '#111827',
+            color: textPrimary,
           }}
         >
           Session Details
@@ -174,7 +196,7 @@ export function SessionForm({
               display: 'block',
               fontSize: '0.875rem',
               fontWeight: 600,
-              color: '#374151',
+              color: labelColor,
               mb: 1,
             }}
           >
@@ -194,16 +216,7 @@ export function SessionForm({
             error={Boolean(errors.name)}
             helperText={errors.name}
             size="small"
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '8px',
-                bgcolor: '#FFFFFF',
-                fontSize: '0.9375rem',
-                '& fieldset': { borderColor: '#D1D5DB' },
-                '&:hover fieldset': { borderColor: '#9CA3AF' },
-                '&.Mui-focused fieldset': { borderColor: colors.primary.default || '#2563EB' },
-              },
-            }}
+            sx={fieldSx}
           />
         </Box>
 
@@ -223,7 +236,7 @@ export function SessionForm({
                 display: 'block',
                 fontSize: '0.875rem',
                 fontWeight: 600,
-                color: '#374151',
+                color: labelColor,
                 mb: 1,
               }}
             >
@@ -247,21 +260,12 @@ export function SessionForm({
                 input: {
                   endAdornment: (
                     <InputAdornment position="end">
-                      <Clock size={18} color="#9CA3AF" />
+                      <Clock size={18} color={textSecondary} />
                     </InputAdornment>
                   ),
                 },
               }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '8px',
-                  bgcolor: '#FFFFFF',
-                  fontSize: '0.9375rem',
-                  '& fieldset': { borderColor: '#D1D5DB' },
-                  '&:hover fieldset': { borderColor: '#9CA3AF' },
-                  '&.Mui-focused fieldset': { borderColor: colors.primary.default || '#2563EB' },
-                },
-              }}
+              sx={fieldSx}
             />
           </Box>
 
@@ -273,7 +277,7 @@ export function SessionForm({
                 display: 'block',
                 fontSize: '0.875rem',
                 fontWeight: 600,
-                color: '#374151',
+                color: labelColor,
                 mb: 1,
               }}
             >
@@ -297,21 +301,12 @@ export function SessionForm({
                 input: {
                   endAdornment: (
                     <InputAdornment position="end">
-                      <Clock size={18} color="#9CA3AF" />
+                      <Clock size={18} color={textSecondary} />
                     </InputAdornment>
                   ),
                 },
               }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '8px',
-                  bgcolor: '#FFFFFF',
-                  fontSize: '0.9375rem',
-                  '& fieldset': { borderColor: '#D1D5DB' },
-                  '&:hover fieldset': { borderColor: '#9CA3AF' },
-                  '&.Mui-focused fieldset': { borderColor: colors.primary.default || '#2563EB' },
-                },
-              }}
+              sx={fieldSx}
             />
           </Box>
         </Box>
@@ -322,7 +317,7 @@ export function SessionForm({
             sx={{
               fontSize: '0.875rem',
               fontWeight: 600,
-              color: '#374151',
+              color: labelColor,
               mb: 1,
             }}
           >
@@ -336,17 +331,17 @@ export function SessionForm({
               color="primary"
               sx={{
                 '& .MuiSwitch-switchBase.Mui-checked': {
-                  color: colors.primary.default || '#2563EB',
+                  color: colors.primary.default,
                 },
                 '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                  backgroundColor: colors.primary.default || '#2563EB',
+                  backgroundColor: colors.primary.default,
                 },
               }}
             />
             <Typography
               sx={{
                 fontSize: '0.9375rem',
-                color: '#111827',
+                color: textPrimary,
                 fontWeight: 500,
               }}
             >
@@ -374,13 +369,13 @@ export function SessionForm({
           sx={{
             minWidth: 100,
             borderRadius: '8px',
-            borderColor: '#D1D5DB',
-            color: '#374151',
-            bgcolor: '#FFFFFF',
+            borderColor: fieldBorder,
+            color: textPrimary,
+            bgcolor: surfaceBg,
             fontWeight: 500,
             '&:hover': {
-              borderColor: '#9CA3AF',
-              bgcolor: '#F9FAFB',
+              borderColor: textSecondary,
+              bgcolor: surfaceMuted,
             },
           }}
         >
@@ -395,9 +390,9 @@ export function SessionForm({
           sx={{
             minWidth: 150,
             borderRadius: '8px',
-            bgcolor: colors.primary.default || '#2563EB',
+            bgcolor: colors.primary.default,
             '&:hover': {
-              bgcolor: colors.primary.dark || '#1D4ED8',
+              bgcolor: colors.primary.dark,
             },
           }}
         >
