@@ -24,7 +24,7 @@ const PAYMENT_OPTIONS: readonly PaymentOption[] = [
   { id: 'cash', label: 'Cash' },
   { id: 'card', label: 'Card' },
   { id: 'upi', label: 'UPI' },
-  { id: 'part_payment', label: 'Part Payment' },
+  { id: 'part_payment', label: 'Split Payment' },
   { id: 'sodexo', label: 'Sodexo' },
 ];
 

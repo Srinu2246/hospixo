@@ -3,10 +3,9 @@
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Bell, Settings2 } from 'lucide-react';
+import { Bell } from 'lucide-react';
 
 import {
-  AvailabilityFooterBar,
   AvailabilityItemsTable,
   AvailabilityStatsRow,
   ChannelSelector,
@@ -16,10 +15,13 @@ import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { Tabs } from '@/components/shared/form-fields/Tabs';
 import { useMenuAvailability } from '@/features/menu/context';
+import { FEATURE_FLAGS, useFeatureFlag } from '@/integrations/growthbook';
 import {
-  ADDON_STATUS_OPTIONS,
+  AVAILABILITY_DIETARY_OPTIONS,
   AVAILABILITY_GROUP_TABS,
-  STORE_STATUS_OPTIONS,
+  AVAILABILITY_STATUS_OPTIONS,
+  type AvailabilityDietaryFilter,
+  type AvailabilityStatusFilter,
 } from '@/lib/mocks/menu/useMenuAvailability.mocks';
 import type { AvailabilityChannelGroup } from '@/lib/schemas/menu/menuAvailabilitySchema';
 
@@ -34,20 +36,21 @@ export function MenuAvailabilityContent() {
     filteredItems,
     channels,
     stats,
-    changedCount,
     searchQuery,
     setSearchQuery,
     channelGroup,
     setChannelGroup,
     activeChannelId,
     setActiveChannelId,
-    addonStatus,
-    setAddonStatus,
-    storeStatus,
-    setStoreStatus,
+    dietaryFilter,
+    setDietaryFilter,
+    statusFilter,
+    setStatusFilter,
     toggleItemMark,
-    updateAvailability,
+    isUpdatingItemStatus,
   } = useMenuAvailability();
+
+  const showAllOnlineTabs = useFeatureFlag(FEATURE_FLAGS.branch_menu_availability_allOnlineTabs);
 
   return (
     <Box
@@ -142,18 +145,22 @@ export function MenuAvailabilityContent() {
             </Stack>
           </Stack>
 
-          <Tabs
-            fullWidth={false}
-            tabs={[...AVAILABILITY_GROUP_TABS]}
-            value={channelGroup}
-            onChange={(value) => setChannelGroup(value as AvailabilityChannelGroup)}
-          />
+          {showAllOnlineTabs ? (
+            <>
+              <Tabs
+                fullWidth={false}
+                tabs={[...AVAILABILITY_GROUP_TABS]}
+                value={channelGroup}
+                onChange={(value) => setChannelGroup(value as AvailabilityChannelGroup)}
+              />
 
-          <ChannelSelector
-            channels={channels}
-            value={activeChannelId}
-            onChange={setActiveChannelId}
-          />
+              <ChannelSelector
+                channels={channels}
+                value={activeChannelId}
+                onChange={setActiveChannelId}
+              />
+            </>
+          ) : null}
 
           <AvailabilityStatsRow stats={stats} />
         </Box>
@@ -185,20 +192,17 @@ export function MenuAvailabilityContent() {
             sx={{ flex: 1, maxWidth: { sm: 360 } }}
           />
           <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap', flexShrink: 0 }}>
-            <ActionButton variant="outlined" startIcon={<Settings2 size={16} />}>
-              Quick Section Controller
-            </ActionButton>
             <Dropdown
-              options={[...ADDON_STATUS_OPTIONS]}
-              value={addonStatus}
-              onChange={setAddonStatus}
-              minWidth={130}
+              options={[...AVAILABILITY_DIETARY_OPTIONS]}
+              value={dietaryFilter}
+              onChange={(value) => setDietaryFilter(value as AvailabilityDietaryFilter)}
+              minWidth={140}
               size="medium"
             />
             <Dropdown
-              options={[...STORE_STATUS_OPTIONS]}
-              value={storeStatus}
-              onChange={setStoreStatus}
+              options={[...AVAILABILITY_STATUS_OPTIONS]}
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value as AvailabilityStatusFilter)}
               minWidth={130}
               size="medium"
             />
@@ -221,15 +225,15 @@ export function MenuAvailabilityContent() {
           }}
         >
           <MenuAvailabilitySidebar />
-          <AvailabilityItemsTable items={filteredItems} onToggleMark={toggleItemMark} />
+          <AvailabilityItemsTable
+            items={filteredItems}
+            toggleDisabled={Boolean(isUpdatingItemStatus)}
+            onToggleMark={(itemId, nextActive) => {
+              void toggleItemMark(itemId, nextActive);
+            }}
+          />
         </Box>
       </Box>
-
-      <AvailabilityFooterBar
-        changedCount={changedCount}
-        eightySixCount={stats.eightySixCount}
-        onUpdate={updateAvailability}
-      />
     </Box>
   );
 }

@@ -33,7 +33,7 @@ import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 export interface OrderSettleProps {
   orderId?: string;
   initialData?: OrderSettleDetail;
-  initialStep?: 'checkout' | 'success';
+  initialStep?: 'review' | 'checkout' | 'success';
   onBack?: () => void;
   reviewOrderData?: OrderReviewData;
   onNewOrder?: () => void;
@@ -71,9 +71,11 @@ export function OrderSettle({
   const isSuccessRoute = Boolean(
     pathname?.endsWith('/success') || pathname?.endsWith('/payment-success'),
   );
-  const [currentStep, setCurrentStep] = useState<'checkout' | 'success'>(() => {
+  const [currentStep, setCurrentStep] = useState<'review' | 'checkout' | 'success'>(() => {
     if (isSuccessRoute) return 'success';
-    return initialStep;
+    if (initialStep === 'success' || initialStep === 'checkout') return initialStep;
+    if (captainCompact && orderId) return 'review';
+    return initialStep ?? 'checkout';
   });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodId>('cash');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -168,6 +170,11 @@ export function OrderSettle({
       return;
     }
 
+    if (captainCompact && currentStep === 'checkout') {
+      setCurrentStep('review');
+      return;
+    }
+
     if (onBack) {
       onBack();
       return;
@@ -237,7 +244,7 @@ export function OrderSettle({
       case 'upi':
         return 'UPI';
       case 'part_payment':
-        return 'Part Payment';
+        return 'Split Payment';
       case 'sodexo':
         return 'Sodexo';
       default:
@@ -274,11 +281,17 @@ export function OrderSettle({
         overflow: 'hidden',
       }}
     >
-      {captainCompact && currentStep === 'checkout' ? (
+      {captainCompact && currentStep !== 'success' ? (
         <Box sx={{ flexShrink: 0, mb: 1 }}>
           <CaptainWorkspaceSubheader
-            title="Checkout Payment"
-            subtitle={`${reviewOrder.orderNumber} · ${reviewOrder.table}`}
+            title={
+              currentStep === 'review' ? `Order ${reviewOrder.orderNumber}` : 'Checkout Payment'
+            }
+            subtitle={
+              currentStep === 'review'
+                ? `${reviewOrder.table} · Dine In`
+                : `${reviewOrder.orderNumber} · ${reviewOrder.table}`
+            }
             onBack={handleBack}
           />
         </Box>
@@ -407,7 +420,25 @@ export function OrderSettle({
               : 'background.default',
         }}
       >
-        {currentStep === 'checkout' ? (
+        {currentStep === 'review' ? (
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              minHeight: 0,
+              overflowY: 'auto',
+              mx: 'auto',
+            }}
+          >
+            <OrderReviewSection
+              order={reviewOrder}
+              onApplyCoupon={handleApplyCoupon}
+              appliedCouponMessage={appliedCoupon}
+              onProceed={() => setCurrentStep('checkout')}
+              proceedLabel="Generate Receipt"
+            />
+          </Box>
+        ) : currentStep === 'checkout' ? (
           /* Step 1: Proceed to Checkout View (Image 1) */
           <Box
             sx={{

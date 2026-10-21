@@ -127,9 +127,19 @@ export function branchKitchenStatusPath(
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders/${encodeURIComponent(String(orderId))}/kitchen-status`;
 }
 
-/** GET /v1/branches/{branch_id}/orders */
+/** GET/POST /v1/branches/{branch_id}/orders */
 export function branchOrdersPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders`;
+}
+
+/** GET /v1/branches/{branch_id}/meal-sessions */
+export function branchMealSessionsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/meal-sessions`;
+}
+
+/** GET /v1/branches/{branch_id}/tables/availability */
+export function branchTablesAvailabilityPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/tables/availability`;
 }
 
 /** GET /v2/platform/organizations/{organization_id}/companies */
@@ -167,6 +177,21 @@ export function restaurantMenuCategoriesPath(): string {
   return ApiUrlsV1.restaurant.menuCategories.list;
 }
 
+/** GET/PATCH /v1/restaurant/menu/categories/{category_id} */
+export function restaurantMenuCategoryPath(categoryId: number | string): string {
+  return ApiUrlsV1.restaurant.menuCategories.detail(String(categoryId));
+}
+
+/** POST /v1/restaurant/menu/categories/{category_id}/activate */
+export function restaurantMenuCategoryActivatePath(categoryId: number | string): string {
+  return `${restaurantMenuCategoryPath(categoryId)}/activate`;
+}
+
+/** POST /v1/restaurant/menu/categories/{category_id}/deactivate */
+export function restaurantMenuCategoryDeactivatePath(categoryId: number | string): string {
+  return `${restaurantMenuCategoryPath(categoryId)}/deactivate`;
+}
+
 /** GET/POST /v1/restaurant/menu/items */
 export function restaurantMenuItemsPath(): string {
   return ApiUrlsV1.restaurant.menuItems.list;
@@ -175,6 +200,11 @@ export function restaurantMenuItemsPath(): string {
 /** GET /v1/restaurant/menu/items/{item_id} */
 export function restaurantMenuItemPath(itemId: number | string): string {
   return ApiUrlsV1.restaurant.menuItems.detail(String(itemId));
+}
+
+/** POST /v1/restaurant/menu/items/{item_id}/activate */
+export function restaurantMenuItemActivatePath(itemId: number | string): string {
+  return `${restaurantMenuItemPath(itemId)}/activate`;
 }
 
 /** POST /v1/restaurant/menu/items/{item_id}/deactivate */

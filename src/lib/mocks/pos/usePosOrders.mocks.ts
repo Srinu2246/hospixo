@@ -13,6 +13,8 @@ export interface PosOrderItem {
   amountFormatted: string; // Formatted amount string (e.g. ₹882)
   /** Relative time label for captain mobile cards (Figma). */
   elapsedLabel?: string;
+  /** Dine-in table route id when known (API / floor tables). */
+  tableId?: string;
 }
 
 export const MOCK_POS_ORDERS: PosOrderItem[] = [
@@ -22,6 +24,7 @@ export const MOCK_POS_ORDERS: PosOrderItem[] = [
     type: 'dine-in',
     typeLabel: 'Dine-in',
     reference: 'Table T4',
+    tableId: 't-4',
     kitchenStatus: 'ready',
     kitchenStatusLabel: 'Ready',
     amount: 882,
@@ -46,6 +49,7 @@ export const MOCK_POS_ORDERS: PosOrderItem[] = [
     type: 'dine-in',
     typeLabel: 'Dine-in',
     reference: 'Table T6',
+    tableId: 't-6',
     kitchenStatus: 'kot sent',
     kitchenStatusLabel: 'Pending',
     amount: 620,

@@ -47,6 +47,9 @@ export interface OrderReviewSectionProps {
   order: OrderReviewData;
   onApplyCoupon?: (code: string) => void;
   appliedCouponMessage?: string | null;
+  /** Captain mobile: primary action below totals (e.g. proceed to payment). */
+  onProceed?: () => void;
+  proceedLabel?: string;
   sx?: SxProps<Theme>;
 }
 
@@ -64,6 +67,8 @@ export function OrderReviewSection({
   order,
   onApplyCoupon,
   appliedCouponMessage,
+  onProceed,
+  proceedLabel = 'Generate Receipt',
   sx,
 }: Readonly<OrderReviewSectionProps>) {
   const [couponCode, setCouponCode] = useState('');
@@ -502,6 +507,26 @@ export function OrderReviewSection({
           Rs {order.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
         </Typography>
       </Box>
+
+      {onProceed ? (
+        <ButtonBase
+          onClick={onProceed}
+          sx={{
+            mt: 2,
+            width: '100%',
+            py: 1.5,
+            borderRadius: '10px',
+            bgcolor: colors.primary.default,
+            color: colors.white.default,
+            fontWeight: 700,
+            fontSize: '0.9375rem',
+            transition: 'background-color 0.15s ease',
+            '&:hover': { bgcolor: colors.primary.dark },
+          }}
+        >
+          {proceedLabel}
+        </ButtonBase>
+      ) : null}
     </Box>
   );
 }

@@ -91,6 +91,8 @@
     "Cgst",
     "Sgst",
     "Igst",
+    "mweb",
+    "topbar",
     "Masala",
     "masala",
     "Raita",
@@ -104,6 +106,7 @@
     "GrowthBook",
     "featurename",
     "subfeature",
+    "subfeatures",
     "retarget",
     "unbilled",
     "providerspecific"

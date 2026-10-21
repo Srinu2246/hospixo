@@ -1,15 +1,17 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import {
   parseMenuItemList,
   parseMenuItemRecord,
   type MenuItemListParams,
 } from '@/lib/schemas/menu/menuItemsSchema';
-import { useToastStore } from '@/stores/toastStore';
 import { api } from '@/services/api/browserClient';
 import {
+  restaurantMenuItemActivatePath,
   restaurantMenuItemDeactivatePath,
   restaurantMenuItemPath,
   restaurantMenuItemsPath,
@@ -66,7 +68,6 @@ export function useMenuItem(itemId: number | undefined) {
  */
 export function useDeactivateMenuItem() {
   const queryClient = useQueryClient();
-  const showToast = useToastStore((state) => state.show);
 
   return useMutation({
     mutationFn: async (itemId: number) => {
@@ -75,7 +76,27 @@ export function useDeactivateMenuItem() {
     onSuccess: async (_data, itemId) => {
       await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
       await queryClient.invalidateQueries({ queryKey: menuItemQueryKey(itemId) });
-      showToast('Menu item deleted successfully.', 'success');
+    },
+  });
+}
+
+/**
+ * Activate or deactivate a menu item (Menu Availability toggle).
+ * POST .../items/{id}/activate | .../deactivate
+ */
+export function useSetMenuItemActive() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ itemId, active }: { itemId: number; active: boolean }) => {
+      const path = active
+        ? restaurantMenuItemActivatePath(itemId)
+        : restaurantMenuItemDeactivatePath(itemId);
+      await api.post(path, {});
+    },
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
+      await queryClient.invalidateQueries({ queryKey: menuItemQueryKey(variables.itemId) });
     },
   });
 }

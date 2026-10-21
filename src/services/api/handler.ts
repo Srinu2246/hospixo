@@ -113,6 +113,21 @@ export function isMockApiEnabled(): boolean {
   return process.env.API_MOCK === 'true';
 }
 
+/**
+ * When true, `/api/v1|v2` BFF routes forward to `API_BASE_URL` on the server.
+ * Browser never receives the backend origin — only same-origin `/api/...` paths.
+ * Defaults to on when `API_BASE_URL` is set (unless explicitly `false`).
+ */
+export function isApiProxyEnabled(): boolean {
+  if (isMockApiEnabled()) return false;
+
+  const flag = process.env.API_PROXY_ENABLED?.trim().toLowerCase();
+  if (flag === 'false' || flag === '0' || flag === 'off') return false;
+  if (flag === 'true' || flag === '1' || flag === 'on') return true;
+
+  return Boolean(process.env.API_BASE_URL?.trim());
+}
+
 export function resolveMock(request: MockRequest): unknown | undefined {
   // Floors, sections, tables, and floor-map under /v1/branches/:id/floors/**
   const restaurant = resolveRestaurantFloorMock(request);
@@ -137,6 +152,153 @@ export function resolveMock(request: MockRequest): unknown | undefined {
     if (request.path === ApiUrlsV1.auth.login || request.path === ApiUrlsV1.auth.logout) {
       return LIST_MOCKS[request.path];
     }
+
+    if (
+      request.method === 'POST' &&
+      request.path === ApiUrlsV1.restaurant.menuCategories.create &&
+      isRecord(request.body)
+    ) {
+      const now = new Date().toISOString();
+      return {
+        success: true,
+        data: {
+          id: Date.now(),
+          organization_id: 126,
+          company_id: 94,
+          catalogue_scope: request.body.scope === 'branch' ? 'branch' : 'company',
+          parent_id: typeof request.body.parent_id === 'number' ? request.body.parent_id : null,
+          name: String(request.body.name ?? 'Category'),
+          description:
+            typeof request.body.description === 'string' ? request.body.description : null,
+          display_order:
+            typeof request.body.display_order === 'number' ? request.body.display_order : 0,
+          status: 'active',
+          created_at: now,
+          updated_at: now,
+        },
+        message: 'Menu category created',
+      };
+    }
+
+    const menuItemsListPath = ApiUrlsV1.restaurant.menuItems.list;
+    if (
+      request.method === 'POST' &&
+      (request.path.endsWith('/activate') || request.path.endsWith('/deactivate')) &&
+      request.path.startsWith(`${menuItemsListPath}/`)
+    ) {
+      const idSegment = request.path.slice(menuItemsListPath.length + 1).split('/')[0];
+      const itemId = Number(idSegment);
+      const existing = MOCK_MENU_ITEMS.find((item) => item.id === itemId);
+      const now = new Date().toISOString();
+      const nextStatus = request.path.endsWith('/activate') ? 'active' : 'inactive';
+      return {
+        success: true,
+        data: {
+          ...(existing ?? {
+            id: itemId,
+            organization_id: 126,
+            company_id: 94,
+            catalogue_scope: 'company',
+            branch_id: null,
+            category_id: 1,
+            taxes: [],
+            preparation_stations: [],
+            modifier_groups: [],
+            name: 'Menu item',
+            code: null,
+            description: null,
+            sku: null,
+            barcode: null,
+            base_price: 0,
+            profit_margin_percent: null,
+            allow_dine_in: true,
+            allow_takeaway: true,
+            allow_delivery: true,
+            expose_captain_app: true,
+            is_favorite: false,
+            is_combo: false,
+            tag_ids: [],
+            tags: [],
+            dietary_type: 'veg',
+            variants: [],
+            images: [],
+            created_at: now,
+          }),
+          id: Number.isFinite(itemId) ? itemId : Date.now(),
+          status: nextStatus,
+          updated_at: now,
+        },
+        message: nextStatus === 'active' ? 'Menu item activated' : 'Menu item deactivated',
+      };
+    }
+
+    const categoriesListPath = ApiUrlsV1.restaurant.menuCategories.list;
+    if (
+      request.method === 'POST' &&
+      (request.path.endsWith('/activate') || request.path.endsWith('/deactivate')) &&
+      request.path.startsWith(`${categoriesListPath}/`)
+    ) {
+      const idSegment = request.path.slice(categoriesListPath.length + 1).split('/')[0];
+      const categoryId = Number(idSegment);
+      const existing = MOCK_MENU_CATEGORIES.find((item) => item.id === categoryId);
+      const now = new Date().toISOString();
+      const nextStatus = request.path.endsWith('/activate') ? 'active' : 'inactive';
+      return {
+        success: true,
+        data: {
+          id: Number.isFinite(categoryId) ? categoryId : Date.now(),
+          organization_id: existing?.organization_id ?? 126,
+          company_id: existing?.company_id ?? 94,
+          catalogue_scope: existing?.catalogue_scope ?? 'company',
+          parent_id: existing?.parent_id ?? null,
+          name: existing?.name ?? 'Category',
+          description: existing?.description ?? null,
+          display_order: existing?.display_order ?? 0,
+          status: nextStatus,
+          created_at: existing?.created_at ?? now,
+          updated_at: now,
+        },
+        message: nextStatus === 'active' ? 'Menu category activated' : 'Menu category deactivated',
+      };
+    }
+
+    if (
+      (request.method === 'PUT' || request.method === 'PATCH') &&
+      request.path.startsWith(`${categoriesListPath}/`) &&
+      isRecord(request.body)
+    ) {
+      const idSegment = request.path.slice(categoriesListPath.length + 1).split('/')[0];
+      const categoryId = Number(idSegment);
+      const existing = MOCK_MENU_CATEGORIES.find((item) => item.id === categoryId);
+      const now = new Date().toISOString();
+      return {
+        success: true,
+        data: {
+          id: Number.isFinite(categoryId) ? categoryId : Date.now(),
+          organization_id: existing?.organization_id ?? 126,
+          company_id: existing?.company_id ?? 94,
+          catalogue_scope: existing?.catalogue_scope ?? 'company',
+          parent_id:
+            typeof request.body.parent_id === 'number'
+              ? request.body.parent_id
+              : (existing?.parent_id ?? null),
+          name: String(request.body.name ?? existing?.name ?? 'Category'),
+          description:
+            typeof request.body.description === 'string'
+              ? request.body.description
+              : (existing?.description ?? null),
+          display_order:
+            typeof request.body.display_order === 'number'
+              ? request.body.display_order
+              : (existing?.display_order ?? 0),
+          status: request.body.status === 'inactive' ? 'inactive' : 'active',
+          created_at: existing?.created_at ?? now,
+          updated_at: now,
+        },
+        message: 'Menu category updated',
+      };
+    }
+
     return { success: true, ...(isRecord(request.body) ? request.body : {}) };
   }
 

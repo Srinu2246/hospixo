@@ -18,6 +18,8 @@ import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { buildPosAddItemsPath, buildPosSettleOrderPath } from '@/lib/helpers/posOrderHelpers';
+import { POS_CAPTAIN_LIST_BOTTOM_GAP } from '@/lib/helpers/posCaptainFlow';
 import { colors } from '@/lib/theme/mui/colors';
 import {
   MOCK_POS_ORDERS,
@@ -98,45 +100,14 @@ export function AllOrdersPage() {
   // Action handlers
   const handleAddItems = useCallback(
     (order: PosOrderItem) => {
-      const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
-
-      // Derive base flow URL dynamically from the current pathname to preserve branch/tenant prefixes
-      // e.g. /indiranagar/pos/captain-flow/all-orders -> /indiranagar/pos/captain-flow
-      const baseFlow = pathname
-        ? pathname.replace(/\/all-orders(\/.*)?$/, '')
-        : '/pos/point-of-sale';
-
-      const isCaptain = baseFlow.includes('captain-flow');
-
-      // Parse table from reference (e.g. "Table T4" -> "t-4")
-      const tableMatch = order.reference.match(/Table\s*(T\d+|[A-Za-z0-9_-]+)/i);
-      const tableParam = tableMatch
-        ? tableMatch[1].toLowerCase().replace(/^t(\d+)$/, 't-$1')
-        : null;
-
-      let targetUrl = '';
-      if (isCaptain) {
-        if (order.type === 'dine-in' && tableParam) {
-          targetUrl = `${baseFlow}/tables?orderId=${cleanOrderNumber}`;
-        } else {
-          targetUrl = `${baseFlow}/order-menu?orderId=${cleanOrderNumber}`;
-        }
-      } else if (order.type === 'dine-in' && tableParam) {
-        targetUrl = `${baseFlow}/dine-in/${tableParam}?orderId=${cleanOrderNumber}`;
-      } else {
-        targetUrl = `${baseFlow}/takeaway?orderId=${cleanOrderNumber}`;
-      }
-
-      router.push(targetUrl);
+      router.push(buildPosAddItemsPath(pathname ?? '', order));
     },
     [pathname, router],
   );
 
   const handleSettle = useCallback(
     (order: PosOrderItem) => {
-      const basePath = pathname ? pathname.replace(/\/+$/, '') : '/pos/point-of-sale/all-orders';
-      const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
-      router.push(`${basePath}/${cleanOrderNumber}`);
+      router.push(buildPosSettleOrderPath(pathname ?? '', order));
     },
     [pathname, router],
   );
@@ -351,6 +322,7 @@ export function AllOrdersPage() {
             display: 'flex',
             flexDirection: 'column',
             gap: 1.5,
+            pb: `${POS_CAPTAIN_LIST_BOTTOM_GAP}px`,
           }}
         >
           {paginatedRows.length === 0 ? (

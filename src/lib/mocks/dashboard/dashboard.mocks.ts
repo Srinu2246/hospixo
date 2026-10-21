@@ -1,3 +1,4 @@
+import { DateRangeOption, PeriodOption } from '@/features/dashboard/enums';
 import type {
   DashboardStatItem,
   CompanyPerformanceRow,
@@ -416,10 +417,14 @@ export const BRANCH_STAT_CARDS: DashboardStatItem[] = [
   },
 ];
 
+export const MOCK_PERIOD_OPTIONS: PeriodOption[] = Object.values(PeriodOption);
+
 export const BRANCH_SALES_SUMMARY = {
   totalOrders: '932',
   totalSales: '₹48,560',
-  dateRange: '28 Jun - 4 Jul 2025',
+  dateRange: DateRangeOption.LAST_7_DAYS as string,
+  defaultStartDate: new Date('2025-06-28'),
+  defaultEndDate: new Date('2025-07-04'),
 };
 
 export const BRANCH_SALES_CHART_Y_AXIS = ['150k', '100k', '50k', '0k'] as const;

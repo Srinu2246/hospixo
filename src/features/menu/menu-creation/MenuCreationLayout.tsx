@@ -14,6 +14,8 @@ export interface MenuCreationLayoutProps {
   scope?: MenuCreationScope;
   initialViewMode?: MenuCreationViewMode;
   initialItemId?: string;
+  /** Category id from `?category=` so selection survives refresh. */
+  initialCategoryId?: string;
 }
 
 /**
@@ -24,6 +26,7 @@ export function MenuCreationLayout({
   scope = 'company',
   initialViewMode = 'list',
   initialItemId,
+  initialCategoryId,
 }: Readonly<MenuCreationLayoutProps>) {
   const pageConfig = getMenuCreationPageConfig(scope);
 
@@ -32,6 +35,7 @@ export function MenuCreationLayout({
       pageConfig={pageConfig}
       initialViewMode={initialViewMode}
       initialItemId={initialItemId}
+      initialCategoryId={initialCategoryId}
     >
       <Box
         sx={{

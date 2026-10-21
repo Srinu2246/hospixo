@@ -14,6 +14,8 @@ export const availabilityCategorySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   displayOrder: z.number().int(),
+  /** From GET /v1/restaurant/menu/categories — active | inactive */
+  status: z.enum(['active', 'inactive']).default('active'),
 });
 
 export const availabilityItemSchema = z.object({
@@ -22,7 +24,10 @@ export const availabilityItemSchema = z.object({
   categoryId: z.string().min(1),
   categoryName: z.string().min(1),
   dietary: dietaryTypeSchema,
+  /** Maps API item status: active → available, inactive → 86d */
   mark: itemAvailabilityMarkSchema,
+  /** True when API `status` is `active`. */
+  isActive: z.boolean().default(true),
   visibility: itemVisibilitySchema,
   tag: z.string().min(1),
   isHidden: z.boolean().default(false),

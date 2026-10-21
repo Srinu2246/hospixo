@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import { parseMenuAssignments } from '@/lib/schemas/menu/menus/menuListSchema';
 import { useSidebarStore } from '@/stores/sidebarStore';

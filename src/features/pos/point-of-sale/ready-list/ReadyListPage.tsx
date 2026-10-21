@@ -21,6 +21,7 @@ import {
   type ReadyOrderItem,
 } from '@/lib/mocks/pos/usePosOrders.mocks';
 import { FilterChips } from '@/components/shared/form-fields/FilterChips';
+import { POS_CAPTAIN_LIST_BOTTOM_GAP } from '@/lib/helpers/posCaptainFlow';
 
 type ReadyListTab = 'active' | 'pending' | 'history';
 import { colors } from '@/lib/theme/mui/colors';
@@ -93,13 +94,26 @@ export function ReadyListPage() {
       sx={{
         width: '100%',
         height: '100%',
+        flex: 1,
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'background.default',
-        overflowY: 'auto',
+        overflow: captainCompact ? 'hidden' : 'auto',
       }}
     >
-      <Box sx={{ maxWidth: 1440, width: '100%', mx: 'auto' }}>
+      <Box
+        sx={{
+          maxWidth: 1440,
+          width: '100%',
+          mx: 'auto',
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: captainCompact ? 'hidden' : 'visible',
+        }}
+      >
         {captainCompact ? (
           <Stack spacing={1.5} sx={{ mb: 1.5 }}>
             <CaptainWorkspaceSubheader title="Ready to Serve" subtitle="Kitchen updates live" />
@@ -284,6 +298,10 @@ export function ReadyListPage() {
         ) : (
           <Box
             sx={{
+              flex: captainCompact ? 1 : undefined,
+              minHeight: captainCompact ? 0 : undefined,
+              overflowY: captainCompact ? 'auto' : 'visible',
+              pb: captainCompact ? `${POS_CAPTAIN_LIST_BOTTOM_GAP}px` : 0,
               display: 'grid',
               gridTemplateColumns: {
                 xs: '1fr',

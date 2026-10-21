@@ -1,3 +1,5 @@
+import { extractCode, extractMessage } from '@/lib/helpers/getErrorMessage';
+
 import { ApiError } from './types';
 
 export async function readResponse<T>(response: Response): Promise<T> {
@@ -8,7 +10,7 @@ export async function readResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
 
   if (!response.ok) {
-    throw new ApiError(await readErrorMessage(response, contentType), response.status);
+    throw await buildApiError(response, contentType);
   }
 
   if (!contentType.includes('application/json')) {
@@ -18,38 +20,31 @@ export async function readResponse<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function readErrorMessage(response: Response, contentType: string): Promise<string> {
-  if (!contentType.includes('application/json')) {
-    return `Request failed with status ${response.status}`;
+async function buildApiError(response: Response, contentType: string): Promise<ApiError> {
+  const fallback = `Request failed with status ${response.status}`;
+
+  if (contentType.includes('application/json')) {
+    try {
+      const payload: unknown = await response.json();
+      return new ApiError(
+        extractMessage(payload) ?? fallback,
+        response.status,
+        extractCode(payload),
+        payload,
+      );
+    } catch {
+      return new ApiError(fallback, response.status);
+    }
   }
 
   try {
-    const payload: unknown = await response.json();
-    const message = readPayloadMessage(payload);
-    if (message) return message;
+    const text = (await response.text()).trim();
+    if (text) {
+      return new ApiError(text, response.status, undefined, text);
+    }
   } catch {
-    // Ignore invalid error payloads.
+    // Ignore unreadable bodies.
   }
 
-  return `Request failed with status ${response.status}`;
-}
-
-function readPayloadMessage(value: unknown): string | null {
-  if (!value || typeof value !== 'object') return null;
-
-  const record = value as Record<string, unknown>;
-  if (typeof record.message === 'string' && record.message) return record.message;
-  if (typeof record.detail === 'string' && record.detail) return record.detail;
-
-  if (Array.isArray(record.detail)) {
-    const messages = record.detail
-      .map((item) => {
-        if (!item || typeof item !== 'object' || !('msg' in item)) return '';
-        return typeof item.msg === 'string' ? item.msg : '';
-      })
-      .filter(Boolean);
-    if (messages.length > 0) return messages.join(' ');
-  }
-
-  return null;
+  return new ApiError(fallback, response.status);
 }

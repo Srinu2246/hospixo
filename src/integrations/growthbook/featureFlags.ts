@@ -57,6 +57,8 @@ export const FEATURE_FLAGS = {
   branch_menu_creation_nav: 'branch_menu_creation_nav',
   branch_menu_menus_nav: 'branch_menu_menus_nav',
   branch_menu_availability_nav: 'branch_menu_availability_nav',
+  /** All / Online channel group tabs + channel chips on Menu Availability. */
+  branch_menu_availability_allOnlineTabs: 'branch_menu_availability_allOnlineTabs',
   branch_menu_gstRates_nav: 'branch_menu_gstRates_nav',
   branch_menu_prepStations_nav: 'branch_menu_prepStations_nav',
   branch_menu_modifierGroups_nav: 'branch_menu_modifierGroups_nav',
@@ -176,6 +178,7 @@ export const FEATURE_FLAG_DEFAULTS: Record<FeatureFlagName, boolean> = {
   branch_menu_creation_nav: true,
   branch_menu_menus_nav: true,
   branch_menu_availability_nav: true,
+  branch_menu_availability_allOnlineTabs: false,
   branch_menu_gstRates_nav: false,
   branch_menu_prepStations_nav: false,
   branch_menu_modifierGroups_nav: false,

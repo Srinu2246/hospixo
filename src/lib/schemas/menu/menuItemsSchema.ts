@@ -28,7 +28,7 @@ export const menuItemTaxSchema = z.object({
 export const menuItemPreparationStationRefSchema = z.object({
   id: z.number().int(),
   name: z.string(),
-  code: z.string(),
+  code: nullableText,
 });
 
 export const menuItemPreparationStationSchema = z.object({
@@ -58,7 +58,7 @@ export const menuItemModifierGroupSchema = z.object({
 export const menuItemTagSchema = z.object({
   id: z.number().int(),
   name: z.string(),
-  code: z.string(),
+  code: nullableText,
 });
 
 export const menuItemVariantSchema = z.object({

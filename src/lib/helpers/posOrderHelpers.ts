@@ -1,4 +1,5 @@
-import { getMockOrderSettleDetail } from '@/lib/mocks/pos/usePosOrders.mocks';
+import { resolveCaptainFlowBase } from '@/lib/helpers/posCaptainFlow';
+import { getMockOrderSettleDetail, type PosOrderItem } from '@/lib/mocks/pos/usePosOrders.mocks';
 import {
   INITIAL_CART_ITEMS,
   type CartItem,
@@ -13,6 +14,45 @@ const EXISTING_ORDER_IMAGE =
 /**
  * Shared helpers for takeaway, dine-in, and tables ordering (same TakeawayPage).
  */
+
+/** Table route segment for dine-in navigation (mock reference or explicit tableId). */
+export function resolvePosOrderTableId(order: PosOrderItem): string | null {
+  if (order.tableId?.trim()) return order.tableId.trim();
+  const tableMatch = order.reference.match(/Table\s*(T\d+|[A-Za-z0-9_-]+)/i);
+  if (!tableMatch?.[1]) return null;
+  const raw = tableMatch[1];
+  return raw.toLowerCase().replace(/^t(\d+)$/, 't-$1');
+}
+
+/** Add-items navigation from open orders / captain all-orders. */
+export function buildPosAddItemsPath(pathname: string, order: PosOrderItem): string {
+  const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/pos/point-of-sale/all-orders';
+  const isCaptain = normalizedPath.includes('captain-flow');
+  const baseFlow = isCaptain
+    ? resolveCaptainFlowBase(normalizedPath)
+    : normalizedPath.replace(/\/all-orders(\/.*)?$/, '') || '/pos/point-of-sale';
+
+  const tableId = resolvePosOrderTableId(order);
+  const orderQuery = `orderId=${encodeURIComponent(cleanOrderNumber)}`;
+
+  if (order.type === 'dine-in' && tableId) {
+    return `${baseFlow}/dine-in/${tableId}?${orderQuery}`;
+  }
+
+  if (isCaptain) {
+    return `${baseFlow}/order-menu?${orderQuery}`;
+  }
+
+  return `${baseFlow}/takeaway?${orderQuery}`;
+}
+
+/** Settle flow URL for an open order (preserves branch / tenant prefix). */
+export function buildPosSettleOrderPath(pathname: string, order: PosOrderItem): string {
+  const basePath = pathname.replace(/\/+$/, '') || '/pos/point-of-sale/all-orders';
+  const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
+  return `${basePath}/${cleanOrderNumber}`;
+}
 
 export function createCartLineId(): string {
   return `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
