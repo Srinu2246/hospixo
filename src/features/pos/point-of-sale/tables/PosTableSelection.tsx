@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Box, Stack, Typography } from '@mui/material';
 import { Plus } from 'lucide-react';
@@ -191,10 +191,16 @@ export function PosTableSelection({
   }, [routeTableId, tables, manualActiveTable]);
 
   // Deep-link to an available table opens the create-order modal instead of the menu.
-  useEffect(() => {
-    if (!routeTableId || !activeOrderTable || activeOrderTable.orderId) return;
+  const [autoOpenedRouteTableId, setAutoOpenedRouteTableId] = useState<string | null>(null);
+  if (
+    routeTableId &&
+    activeOrderTable &&
+    !activeOrderTable.orderId &&
+    autoOpenedRouteTableId !== routeTableId
+  ) {
+    setAutoOpenedRouteTableId(routeTableId);
     setOrderModalTable((current) => current ?? activeOrderTable);
-  }, [routeTableId, activeOrderTable]);
+  }
 
   const selectedTableMatch = tables.find((t) => t.id === selectedTableId);
   const selectedTable: PosTableItem | undefined =

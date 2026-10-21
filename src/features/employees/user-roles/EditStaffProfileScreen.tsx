@@ -93,11 +93,13 @@ export function EditStaffProfileScreen({
   const [mode, setMode] = useState<'view' | 'edit'>(initialMode);
   const remoteCategories = staffProfile.categories;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
+  const [syncedRemoteCategories, setSyncedRemoteCategories] = useState<PermissionCategory[]>([]);
 
-  useEffect(() => {
-    if (remoteCategories.length === 0) return;
+  // Sync draft permissions when remote categories first load / change (render-time adjust).
+  if (remoteCategories.length > 0 && remoteCategories !== syncedRemoteCategories) {
+    setSyncedRemoteCategories(remoteCategories);
     setCategories(remoteCategories);
-  }, [remoteCategories]);
+  }
 
   // Deactivation confirmation modal state
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);

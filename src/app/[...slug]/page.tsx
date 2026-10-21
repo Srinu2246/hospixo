@@ -27,6 +27,7 @@ import {
   MenuAvailabilityLayout,
   MenuCreationLayout,
   MenusPage,
+  SessionsPage,
 } from '@/features/menu';
 import type { MenuAvailabilityScope } from '@/lib/schemas/menu/menuAvailabilitySchema';
 import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
@@ -426,14 +427,21 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     },
   },
 
-  // 16. Menus (meal sessions): .../menu/menus[/create|/:id/edit]
+  // 16. Sessions: .../menu/sessions[/create|/:id/edit] or .../session-management/sessions
+  {
+    name: 'Sessions',
+    match: (path) => path.includes('menu/sessions') || path.includes('session-management'),
+    render: () => <SessionsPage />,
+  },
+
+  // 17. Menus (meal menus list): .../menu/menus[/create|/:id|/:id/edit]
   {
     name: 'Menus',
     match: (path) => path.includes('menu/menus'),
     render: () => <MenusPage />,
   },
 
-  // 17. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
+  // 18. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
   {
     name: 'GST Rates',
     match: (path) => path.includes('menu/gst-rates'),

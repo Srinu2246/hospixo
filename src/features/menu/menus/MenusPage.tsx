@@ -25,8 +25,9 @@ import type { MenuSessionFormValues } from '@/lib/schemas/menu/menus/menuSession
 import { useToastStore } from '@/stores/toastStore';
 
 import { CreateMenuSessionForm } from './CreateMenuSessionForm';
+import { MenuSessionDetailPage } from './MenuSessionDetailPage';
 
-type MenusMode = 'list' | 'create' | 'edit';
+type MenusMode = 'list' | 'create' | 'edit' | 'detail';
 
 function parseMenusPath(pathname: string): {
   basePath: string;
@@ -47,6 +48,14 @@ function parseMenusPath(pathname: string): {
     const menuId = Number(editMatch[1]);
     if (Number.isFinite(menuId) && menuId > 0) {
       return { basePath, mode: 'edit', menuId };
+    }
+  }
+
+  const detailMatch = rest.match(/^\/(\d+)\/?$/);
+  if (detailMatch) {
+    const menuId = Number(detailMatch[1]);
+    if (Number.isFinite(menuId) && menuId > 0) {
+      return { basePath, mode: 'detail', menuId };
     }
   }
 
@@ -81,8 +90,11 @@ export function MenusPage() {
   const menusQuery = useBranchMenus(listParams, branchId);
   const menus = useMemo(() => menusQuery.data ?? [], [menusQuery.data]);
 
-  const editingMenu = useMemo(
-    () => (mode === 'edit' && menuId != null ? menus.find((row) => row.id === menuId) : undefined),
+  const activeMenu = useMemo(
+    () =>
+      (mode === 'edit' || mode === 'detail') && menuId != null
+        ? menus.find((row) => row.id === menuId)
+        : undefined,
     [mode, menuId, menus],
   );
 
@@ -217,7 +229,7 @@ export function MenusPage() {
     );
   }
 
-  if (mode === 'edit') {
+  if (mode === 'detail' || mode === 'edit') {
     if (menusQuery.isPending) {
       return (
         <Box
@@ -235,7 +247,7 @@ export function MenusPage() {
       );
     }
 
-    if (!editingMenu) {
+    if (!activeMenu) {
       return (
         <Box
           sx={{
@@ -259,6 +271,17 @@ export function MenusPage() {
       );
     }
 
+    if (mode === 'detail') {
+      return (
+        <MenuSessionDetailPage
+          menu={activeMenu}
+          menusBasePath={basePath}
+          onEdit={() => router.push(`${basePath}/${activeMenu.id}/edit`)}
+          onToggleStatus={() => toggleStatus(activeMenu)}
+        />
+      );
+    }
+
     return (
       <Box
         sx={{
@@ -272,10 +295,10 @@ export function MenusPage() {
         <CreateMenuSessionForm
           mode="edit"
           initialValues={{
-            name: editingMenu.menu.name,
-            code: editingMenu.menu.code ?? '',
-            menuType: (editingMenu.menu.menu_type || 'all').toUpperCase(),
-            description: editingMenu.menu.description ?? '',
+            name: activeMenu.menu.name,
+            code: activeMenu.menu.code ?? '',
+            menuType: (activeMenu.menu.menu_type || 'all').toUpperCase(),
+            description: activeMenu.menu.description ?? '',
           }}
           submitting={submitting}
           onCancel={goToList}
@@ -417,6 +440,7 @@ export function MenusPage() {
               <MenuCard
                 key={menu.id}
                 menu={menu}
+                onView={(row) => router.push(`${basePath}/${row.id}`)}
                 onEdit={(row) => router.push(`${basePath}/${row.id}/edit`)}
                 onDeactivate={toggleStatus}
                 onActivate={toggleStatus}
