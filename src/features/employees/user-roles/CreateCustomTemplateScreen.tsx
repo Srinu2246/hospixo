@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import { useForm, Controller, useWatch } from 'react-hook-form';
@@ -97,17 +97,13 @@ export function CreateCustomTemplateScreen({
   // Template permissions state
   const groupedPermissions = useGroupedPermissions();
   const createCustomRole = useCreateCustomRole();
-  const remoteCategories = groupedPermissions.data ?? [];
+  const remoteCategories = groupedPermissions.data;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
-  const [syncedRemoteCategories, setSyncedRemoteCategories] =
-    useState<PermissionCategory[]>(remoteCategories);
 
-  if (remoteCategories !== syncedRemoteCategories) {
-    setSyncedRemoteCategories(remoteCategories);
-    if (remoteCategories.length > 0) {
-      setCategories(remoteCategories);
-    }
-  }
+  useEffect(() => {
+    if (!remoteCategories?.length) return;
+    setCategories(remoteCategories);
+  }, [remoteCategories]);
 
   const footerTarget = useAppShellFooterTarget();
 
@@ -454,6 +450,7 @@ export function CreateCustomTemplateScreen({
               categories={categories}
               onTogglePermission={handleTogglePermission}
               onToggleCategoryAll={handleToggleCategoryAll}
+              showEnabledOnly={false}
               badgeMode="enabled"
             />
           </Box>

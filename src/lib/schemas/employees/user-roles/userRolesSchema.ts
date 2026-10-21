@@ -4,8 +4,59 @@ import { z } from 'zod';
 // 1. Primitive Domain Types & Enums
 // ============================================================================
 
-export const scopeTypeSchema = z.enum(['organization', 'company', 'branch']);
+export const UserRoleScope = {
+  Organization: 'organization',
+  Company: 'company',
+  Branch: 'branch',
+} as const;
+
+export type UserRoleScope = (typeof UserRoleScope)[keyof typeof UserRoleScope];
+
+export const scopeTypeSchema = z.enum([
+  UserRoleScope.Organization,
+  UserRoleScope.Company,
+  UserRoleScope.Branch,
+]);
 export type ScopeType = z.infer<typeof scopeTypeSchema>;
+
+export function resolveScope(raw?: string | null): ScopeType {
+  if (raw === UserRoleScope.Company) return UserRoleScope.Company;
+  if (raw === UserRoleScope.Branch || raw === 'branch-manager') return UserRoleScope.Branch;
+  return UserRoleScope.Organization;
+}
+
+export function resolveScopeFromPathname(
+  pathname?: string | null,
+  explicitScope?: ScopeType | null,
+): ScopeType {
+  if (
+    explicitScope === UserRoleScope.Company ||
+    explicitScope === UserRoleScope.Branch ||
+    explicitScope === UserRoleScope.Organization
+  ) {
+    return explicitScope;
+  }
+  const path = pathname ?? '';
+  if (path.includes('/company')) return UserRoleScope.Company;
+  if (path.includes('/branch')) return UserRoleScope.Branch;
+  return UserRoleScope.Organization;
+}
+
+export function getUsersAndRolesBaseRoute(
+  pathname?: string | null,
+  scope?: ScopeType | null,
+): string {
+  const path = pathname ?? '';
+  const stripped = path.replace(
+    /\/(edit|profile|custom-template|create|permissions|review|success|template)$/,
+    '',
+  );
+  if (stripped) return stripped;
+  const resolved = resolveScopeFromPathname(path, scope);
+  if (resolved === UserRoleScope.Company) return '/company/employees/users-and-roles';
+  if (resolved === UserRoleScope.Branch) return '/branch-manager/employees/users-and-roles';
+  return '/organization/employees/users-and-roles';
+}
 
 export const userStatusSchema = z.enum(['active', 'invited', 'disabled', 'inactive']);
 export type UserStatus = z.infer<typeof userStatusSchema>;
@@ -18,13 +69,17 @@ export const userRoleItemSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
+  username: z.string().optional(),
   role: z.string(),
   branch: z.string(),
   status: userStatusSchema,
   avatar: z.string().optional(),
   createdAt: z.string().optional(),
   company: z.string().optional(),
+  companyId: z.number().optional(),
+  branchId: z.number().optional(),
   scope: scopeTypeSchema.optional(),
+  phone: z.string().optional(),
   /** Present when the list API only returns role ids/codes; used to resolve labels from the roles catalog. */
   roleId: z.union([z.string(), z.number()]).optional(),
   roleCode: z.string().optional(),
@@ -52,6 +107,7 @@ export const permissionItemSchema = z.object({
   name: z.string(),
   description: z.string(),
   enabled: z.boolean(),
+  code: z.string().optional(),
 });
 
 export const permissionCategorySchema = z.object({
@@ -61,6 +117,75 @@ export const permissionCategorySchema = z.object({
 });
 
 export type PermissionCategory = z.infer<typeof permissionCategorySchema>;
+
+export const rolePermissionsPayloadSchema = z.object({
+  role_id: z.union([z.number(), z.string()]).optional(),
+  inherited_permission_codes: z.array(z.string()).default([]),
+  permission_codes: z.array(z.string()).default([]),
+});
+
+export type RolePermissionsPayload = z.infer<typeof rolePermissionsPayloadSchema>;
+
+function makePermissionCategory(
+  id: string,
+  title: string,
+  items: ReadonlyArray<[code: string, name: string, description: string]>,
+): PermissionCategory {
+  return {
+    id,
+    title,
+    permissions: items.map(([code, name, description]) => ({
+      id: code,
+      code,
+      name,
+      description,
+      enabled: false,
+    })),
+  };
+}
+
+export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
+  makePermissionCategory('dashboard', 'Dashboard', [
+    ['dashboard.view', 'View Dashboard', 'Access to the main overview and KPI tiles'],
+    ['dashboard.analytics', 'View Analytics', 'Detailed charts and data trends analysis'],
+  ]),
+  makePermissionCategory('user_management', 'User Management', [
+    ['users.view', 'View Users', 'Access and view the team member directory'],
+    ['users.create', 'Create Users', 'Invite and add new members to the system'],
+    ['users.edit', 'Edit Users', 'Modify existing user details and status'],
+    ['users.delete', 'Delete Users', 'Remove users permanently from the organization'],
+    ['roles.view', 'View Roles', 'Access and view system roles and permissions'],
+  ]),
+  makePermissionCategory('company_management', 'Company Management', [
+    ['company.view', 'View Company', 'Access company profile, branches, and operational settings'],
+    [
+      'company.manage',
+      'Manage Company',
+      'Update company details, policies, and business configurations',
+    ],
+  ]),
+  makePermissionCategory('branch_management', 'Branch Management', [
+    ['branches.view', 'View Branches', 'See details of all connected branch locations'],
+    ['branches.manage', 'Manage Branches', 'Edit branch info, opening hours, and zones'],
+  ]),
+  makePermissionCategory('inventory', 'Inventory', [
+    ['inventory.view', 'View Inventory', 'Monitor stock levels and tracking'],
+    ['inventory.items', 'Manage Items', 'Add or edit items in the product catalog'],
+  ]),
+  makePermissionCategory('reports', 'Reports', [
+    ['reports.view', 'View Reports', 'Financial and operational summary reports'],
+    ['reports.export', 'Export Reports', 'Download CSV and PDF reports'],
+  ]),
+];
+
+export interface UseUserRolesOptions {
+  pageSize?: number;
+  scope?: ScopeType;
+  companyName?: string;
+  initialUserList?: UserRoleListResponse;
+  companyId?: number | string | null;
+  branchId?: number | string | null;
+}
 
 export const roleTemplateItemSchema = z.object({
   id: z.string(),
@@ -92,6 +217,7 @@ export const createUserRequestSchema = z.object({
   password: z.string().min(6),
   phone: z.string().min(1),
   role_code: z.string().min(1),
+  username: z.string().min(1),
 });
 
 export type CreateUserRequest = z.infer<typeof createUserRequestSchema>;
@@ -129,6 +255,8 @@ export type ParsedUserList = {
   total: number;
 };
 
+export type UserRoleListResponse = ParsedUserList;
+
 export function parseUserList(payload: unknown): ParsedUserList {
   const rows = unwrapUsers(payload);
   const items = rows.flatMap((row) => {
@@ -153,11 +281,28 @@ export function enrichUserListRoles(
       catalog,
     );
 
-    if (!fromCatalog) return user;
-    if (!user.role || user.role === '—' || looksLikeRoleCode(user.role)) {
-      return { ...user, role: fromCatalog };
-    }
-    return user;
+    const matched = catalog.find((r) => {
+      if (user.roleId != null && user.roleId !== '') return String(r.id) === String(user.roleId);
+      if (user.roleCode) return r.code?.toLowerCase() === user.roleCode.toLowerCase();
+      if (user.role && user.role !== '—') return r.name.toLowerCase() === user.role.toLowerCase();
+      return false;
+    });
+
+    const nextRole =
+      (!user.role || user.role === '—' || looksLikeRoleCode(user.role)) && fromCatalog
+        ? fromCatalog
+        : user.role;
+    const nextScope = user.scope ?? matched?.scope;
+    const nextRoleId = user.roleId ?? matched?.id;
+    const nextRoleCode = user.roleCode ?? matched?.code;
+
+    return {
+      ...user,
+      role: nextRole,
+      ...(nextScope ? { scope: nextScope } : {}),
+      ...(nextRoleId != null ? { roleId: nextRoleId } : {}),
+      ...(nextRoleCode ? { roleCode: nextRoleCode } : {}),
+    };
   });
 }
 
@@ -249,6 +394,34 @@ export function parseRoleTemplates(payload: unknown): RoleTemplateItem[] {
 export function parseGroupedPermissions(payload: unknown): PermissionCategory[] {
   const unwrapped = unwrapEnvelope(payload);
   const groups = extractPermissionGroups(unwrapped);
+
+  if (
+    groups.length > 0 &&
+    groups.every(
+      (g) => isRecord(g) && !('permissions' in g) && !('items' in g) && !('children' in g),
+    )
+  ) {
+    const map = new Map<string, unknown[]>();
+    groups.forEach((item) => {
+      if (!isRecord(item)) return;
+      const moduleName =
+        text(item.module) ?? text(item.resource) ?? text(item.code)?.split('.')[0] ?? 'Other';
+      const existing = map.get(moduleName) ?? [];
+      existing.push(item);
+      map.set(moduleName, existing);
+    });
+    const synthesizedGroups = Array.from(map.entries()).map(([moduleName, items]) => ({
+      title: moduleName,
+      permissions: items,
+    }));
+    const categories = synthesizedGroups.flatMap((group, groupIndex) => {
+      const mapped = mapPermissionGroup(group, groupIndex);
+      const parsed = permissionCategorySchema.safeParse(mapped);
+      return parsed.success ? [parsed.data] : [];
+    });
+    return ensureUniqueCategoryIds(categories);
+  }
+
   const categories = groups.flatMap((group, groupIndex) => {
     if (!isRecord(group)) return [];
     const mapped = mapPermissionGroup(group, groupIndex);
@@ -263,35 +436,51 @@ const RESOURCE_TITLE_OVERRIDES: Record<string, string> = {
   users: 'User Management',
   user: 'User Management',
   user_management: 'User Management',
+  company: 'Company Management',
+  company_management: 'Company Management',
   branches: 'Branch Management',
   branch: 'Branch Management',
   branch_management: 'Branch Management',
   inventory: 'Inventory',
   inventory_management: 'Inventory',
+  reports: 'Reports',
+  report: 'Reports',
 };
 
 const PERMISSION_LABEL_OVERRIDES: Record<string, string> = {
   'dashboard.view': 'View Dashboard',
   'dashboard.analytics': 'View Analytics',
+  'users.view': 'View Users',
   'users.create': 'Create Users',
   'users.edit': 'Edit Users',
   'users.delete': 'Delete Users',
+  'roles.view': 'View Roles',
+  'company.view': 'View Company',
+  'company.manage': 'Manage Company',
   'branches.view': 'View Branches',
   'branches.manage': 'Manage Branches',
   'inventory.view': 'View Inventory',
   'inventory.items': 'Manage Items',
+  'reports.view': 'View Reports',
+  'reports.export': 'Export Reports',
 };
 
 const PERMISSION_DESCRIPTION_OVERRIDES: Record<string, string> = {
   'dashboard.view': 'Access to the main overview and KPI tiles',
   'dashboard.analytics': 'Detailed charts and data trends analysis',
+  'users.view': 'Access and view the team member directory',
   'users.create': 'Invite and add new members to the system',
   'users.edit': 'Modify existing user details and status',
   'users.delete': 'Remove users permanently from the organization',
+  'roles.view': 'Access and view system roles and permissions',
+  'company.view': 'Access company profile, branches, and operational settings',
+  'company.manage': 'Update company details, policies, and business configurations',
   'branches.view': 'See details of all connected branch locations',
   'branches.manage': 'Edit branch info, opening hours, and zones',
   'inventory.view': 'Monitor stock levels and tracking',
   'inventory.items': 'Add or edit items in the product catalog',
+  'reports.view': 'Financial and operational summary reports',
+  'reports.export': 'Download CSV and PDF reports',
 };
 
 function toTitleCase(value: string): string {
@@ -409,12 +598,27 @@ function mapPermissionGroup(raw: Record<string, unknown>, groupIndex: number): P
   const permissionsRaw = raw.permissions ?? raw.items ?? raw.children ?? [];
   const permissions = Array.isArray(permissionsRaw)
     ? permissionsRaw.flatMap((entry, permissionIndex) => {
+        if (typeof entry === 'string') {
+          const name = resolvePermissionItemName({ code: entry }, title, permissionIndex);
+          const description = resolvePermissionItemDescription({ code: entry }, name);
+          return [
+            {
+              id: entry,
+              code: entry,
+              name,
+              description,
+              enabled: false,
+            },
+          ];
+        }
         if (!isRecord(entry)) return [];
         const name = resolvePermissionItemName(entry, title, permissionIndex);
         const description = resolvePermissionItemDescription(entry, name);
+        const code = text(entry.code) ?? text(entry.permission_code);
         return [
           {
             id: readPermissionItemId(entry, name, categoryId, permissionIndex),
+            ...(code ? { code } : {}),
             name,
             description,
             enabled: Boolean(entry.enabled ?? entry.granted ?? entry.active ?? false),
@@ -506,7 +710,11 @@ export function resolveRoleCode(
       role.name.trim().toLowerCase() === normalized ||
       role.code?.trim().toLowerCase() === normalized,
   );
-  return match?.code?.trim().toLowerCase() ?? undefined;
+  if (match?.code?.trim()) return match.code.trim().toLowerCase();
+  if (/^[a-z0-9\s_-]+$/i.test(trimmed)) {
+    return trimmed.toLowerCase().replace(/[\s-]+/g, '_');
+  }
+  return undefined;
 }
 
 export function findRoleInCatalog(
@@ -523,8 +731,15 @@ export function roleRequiresBranchId(
   catalog: readonly RoleCatalogItem[],
 ): boolean {
   const role = findRoleInCatalog(roleCode, catalog);
-  if (!role?.scope) return false;
-  return role.scope === 'branch';
+  if (role?.scope) return role.scope === 'branch';
+  const normalized = roleCode.trim().toLowerCase();
+  return (
+    normalized.startsWith('branch') ||
+    normalized.includes('branch_') ||
+    normalized.includes('branch-') ||
+    normalized === 'branch_admin' ||
+    normalized === 'branch_manager'
+  );
 }
 
 // ============================================================================
@@ -681,7 +896,7 @@ export function buildCreateUserRequest(
 
   return createUserRequestSchema.parse(
     compact({
-      ...(needsBranch ? { branch_id: context.branchId } : {}),
+      ...(context.branchId != null ? { branch_id: context.branchId } : {}),
       company_id: context.companyId,
       organization_id: context.organizationId,
       email: values.email.trim().toLowerCase(),
@@ -690,6 +905,7 @@ export function buildCreateUserRequest(
       password: values.password,
       phone: formatPhoneNumberWithCountryCode(values.phoneNumber, values.countryCode || '+91'),
       role_code: roleCode,
+      username: values.username?.trim() || values.email.trim().toLowerCase(),
     }),
   );
 }
@@ -725,47 +941,192 @@ export function toCreateUserBody(
   });
 }
 
+export function parsePhoneNumberAndCountryCode(phone?: string | null): {
+  phoneNumber: string;
+  countryCode: string;
+} {
+  if (!phone) return { phoneNumber: '', countryCode: '+91' };
+  const trimmed = phone.trim();
+  if (trimmed.startsWith('+')) {
+    const knownCodes = ['+971', '+91', '+44', '+49', '+65', '+61', '+1'];
+    for (const code of knownCodes) {
+      if (trimmed.startsWith(code)) {
+        return {
+          countryCode: code,
+          phoneNumber: trimmed.slice(code.length).trim(),
+        };
+      }
+    }
+    const match = trimmed.match(/^(\+\d{1,4})\s*(.*)$/);
+    if (match) {
+      return { countryCode: match[1], phoneNumber: match[2].trim() };
+    }
+  }
+  return { phoneNumber: trimmed, countryCode: '+91' };
+}
+
+export function isUserEditDisabled(
+  userRoleScope: ScopeType | string | undefined | null,
+  currentScope: ScopeType | string,
+): boolean {
+  const normUserScope = userRoleScope ? String(userRoleScope).toLowerCase().trim() : undefined;
+  const normCurrentScope = String(currentScope).toLowerCase().trim();
+
+  if (normCurrentScope === 'company') {
+    return normUserScope === 'organization';
+  }
+  if (normCurrentScope === 'branch') {
+    return normUserScope === 'organization' || normUserScope === 'company';
+  }
+  return false;
+}
+
 export function toUpdateUserBody(values: StaffProfileFormValues): Record<string, unknown> {
+  const formattedPhone = formatPhoneNumberWithCountryCode(
+    values.phoneNumber,
+    values.countryCode || '+91',
+  );
   return compact({
     first_name: values.firstName.trim(),
     last_name: values.lastName.trim(),
     email: values.email.trim().toLowerCase(),
     username: values.username.trim(),
-    phone: formatPhoneNumberWithCountryCode(values.phoneNumber, values.countryCode || '+91'),
+    phone: formattedPhone,
+    phone_number: formattedPhone,
+    ...(values.roleDescription ? { description: values.roleDescription.trim() } : {}),
     ...(values.password ? { password: values.password } : {}),
   });
 }
 
 export function toUserStatusBody(status: UserStatus): Record<string, unknown> {
-  return { status };
+  const normalized = status === 'disabled' ? 'inactive' : status;
+  return { status: normalized };
 }
 
-export function toReplaceRolesBody(roleIds: readonly (string | number)[]): Record<string, unknown> {
-  return { role_ids: roleIds.map(String) };
+export type RoleAssignmentHints = {
+  companyId?: number | string | null;
+  branchId?: number | string | null;
+  scope?: ScopeType | string | null;
+};
+
+function toRoleEntry(roleCode: string, hints?: RoleAssignmentHints): Record<string, unknown> {
+  const branchId =
+    hints?.branchId != null && hints.branchId !== '' ? Number(hints.branchId) : undefined;
+  const companyId =
+    hints?.companyId != null && hints.companyId !== '' ? Number(hints.companyId) : undefined;
+
+  return compact({
+    role_code: String(roleCode).trim(),
+    ...(companyId != null && Number.isFinite(companyId) ? { company_id: companyId } : {}),
+    ...(branchId != null && Number.isFinite(branchId) ? { branch_id: branchId } : {}),
+  });
 }
 
-export function toAssignRoleBody(roleId: string | number): Record<string, unknown> {
-  return { role_id: String(roleId) };
+export function toReplaceRolesBody(
+  roleCodeOrCodes: string | readonly string[],
+  hints?: RoleAssignmentHints,
+): Record<string, unknown> {
+  const codes = Array.isArray(roleCodeOrCodes) ? roleCodeOrCodes : [roleCodeOrCodes];
+  const roles = codes
+    .map((code) => String(code).trim())
+    .filter(Boolean)
+    .map((role_code) => toRoleEntry(role_code, hints));
+
+  return { roles };
+}
+
+export function toAssignRoleBody(
+  roleCode: string,
+  hints?: RoleAssignmentHints,
+): Record<string, unknown> {
+  return toRoleEntry(roleCode, hints);
 }
 
 export function toCreateRoleBody(name: string, description?: string): Record<string, unknown> {
   return compact({ name, description });
 }
 
-export function staffProfileFromUser(user: UserRoleItem): StaffProfileFormValues {
-  const { firstName, lastName } = splitName(user.name);
+export function staffProfileFromUser(
+  user: UserRoleItem,
+  raw?: unknown,
+  catalog?: readonly RoleCatalogItem[],
+): StaffProfileFormValues {
+  const rawRecord = isRecord(raw)
+    ? flattenUserRecord(unwrapEnvelope(raw) as Record<string, unknown>)
+    : undefined;
+  const { firstName: splitFirst, lastName: splitLast } = splitName(user.name);
+  const firstName =
+    (rawRecord ? (text(rawRecord.first_name) ?? text(rawRecord.firstName)) : undefined) ??
+    splitFirst;
+  const lastName =
+    (rawRecord ? (text(rawRecord.last_name) ?? text(rawRecord.lastName)) : undefined) ?? splitLast;
+
+  const rawPhone =
+    (rawRecord
+      ? (textOrNumber(rawRecord.phone) ??
+        textOrNumber(rawRecord.phone_number) ??
+        textOrNumber(rawRecord.phoneNumber) ??
+        textOrNumber(rawRecord.mobile) ??
+        textOrNumber(rawRecord.mobile_number) ??
+        textOrNumber(rawRecord.mobileNumber) ??
+        textOrNumber(rawRecord.contact) ??
+        textOrNumber(rawRecord.contact_number) ??
+        textOrNumber(rawRecord.contactNumber))
+      : undefined) ?? user.phone;
+  const { phoneNumber, countryCode } = parsePhoneNumberAndCountryCode(rawPhone);
+
+  const username =
+    (rawRecord ? text(rawRecord.username) : undefined) ??
+    user.username ??
+    user.email.split('@')[0] ??
+    user.email;
+
+  const roleName =
+    user.role && user.role !== '—'
+      ? user.role
+      : ((rawRecord ? (text(rawRecord.role_name) ?? text(rawRecord.role)) : undefined) ?? '');
+
+  const matchedRole = catalog?.find(
+    (r) =>
+      r.name.toLowerCase() === roleName.toLowerCase() ||
+      (user.roleId && String(r.id) === String(user.roleId)) ||
+      (user.roleCode && r.code?.toLowerCase() === user.roleCode.toLowerCase()),
+  );
+
+  const roleDescription =
+    (rawRecord
+      ? (text(rawRecord.role_description) ??
+        text(rawRecord.roleDescription) ??
+        text(rawRecord.description))
+      : undefined) ??
+    matchedRole?.description ??
+    '';
+
   return {
     firstName,
     lastName,
     email: user.email,
-    phoneNumber: '',
-    countryCode: '+1',
-    username: user.email.split('@')[0] ?? user.email,
+    phoneNumber,
+    countryCode,
+    username,
     password: '',
     userStatus: user.status === 'active',
-    roleName: user.role,
-    roleDescription: '',
+    roleName,
+    roleDescription,
   };
+}
+
+export function isMatch(
+  current: string | number | null | undefined,
+  expected: string | number | null | undefined,
+  options?: { caseSensitive?: boolean },
+): boolean {
+  if (current == null || expected == null) return false;
+  const currentStr = String(current).trim();
+  const expectedStr = String(expected).trim();
+  return options?.caseSensitive
+    ? currentStr === expectedStr
+    : currentStr.toLowerCase() === expectedStr.toLowerCase();
 }
 
 export function resolveRoleId(
@@ -774,20 +1135,65 @@ export function resolveRoleId(
 ): string | number | null {
   const normalized = roleName.trim().toLowerCase();
   if (!normalized) return null;
-  const match = catalog.find(
+
+  // 1. Exact match by name, id, or code
+  const exactMatch = catalog.find(
     (role) =>
-      role.name.trim().toLowerCase() === normalized ||
-      String(role.id).toLowerCase() === normalized ||
-      role.code?.trim().toLowerCase() === normalized,
+      isMatch(role.name, normalized) ||
+      isMatch(role.id, normalized) ||
+      isMatch(role.code, normalized),
   );
-  return match?.id ?? null;
+  if (exactMatch) return exactMatch.id;
+
+  // 2. Normalized alphanumeric match
+  const clean = normalized.replace(/[^a-z0-9]/g, '');
+  const tokenMatch = catalog.find((role) => {
+    const roleClean = role.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const codeClean = role.code ? role.code.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    return roleClean === clean || (codeClean && codeClean === clean);
+  });
+  if (tokenMatch) return tokenMatch.id;
+
+  // 3. Known role alias / keyword matching
+  const aliasMatch = catalog.find((role) => {
+    const roleLower = role.name.toLowerCase();
+    if (normalized.includes('company') && roleLower.includes('company')) return true;
+    if (normalized.includes('finance') && roleLower.includes('finance')) return true;
+    if (normalized.includes('accountant') && roleLower.includes('accountant')) return true;
+    if (normalized.includes('hr') && roleLower.includes('hr')) return true;
+    if (normalized.includes('inventory') && roleLower.includes('inventory')) return true;
+    if (
+      normalized.includes('branch') &&
+      (roleLower.includes('branch admin') || roleLower.includes('branch manager'))
+    ) {
+      return true;
+    }
+    if (normalized.includes('restaurant') && roleLower.includes('restaurant')) return true;
+    if (
+      (normalized.includes('cashier') || normalized.includes('pos')) &&
+      roleLower.includes('cashier')
+    ) {
+      return true;
+    }
+    if (
+      (normalized.includes('waiter') || normalized.includes('captain')) &&
+      (roleLower.includes('waiter') || roleLower.includes('captain'))
+    ) {
+      return true;
+    }
+    if (normalized.includes('kitchen') && roleLower.includes('kitchen')) return true;
+    return false;
+  });
+  if (aliasMatch) return aliasMatch.id;
+
+  return null;
 }
 
 export function readPrimaryUserRoleId(assignmentsPayload: unknown): string | null {
   const rows = unwrapAssignments(assignmentsPayload);
   const first = rows[0];
   if (!first) return null;
-  const id = first.id ?? first.user_role_id ?? first.userRoleId;
+  const id = first.user_role_id ?? first.userRoleId ?? first.id ?? first.role_id ?? first.roleId;
   return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
 }
 
@@ -868,6 +1274,7 @@ function mapUserRow(raw: Record<string, unknown>): UserRoleItem {
       readNestedName(source.company) ??
       undefined,
     status: normalizeStatus(source),
+    username: text(source.username) ?? undefined,
     avatar:
       text(source.avatar) ??
       text(source.avatar_url) ??
@@ -875,6 +1282,29 @@ function mapUserRow(raw: Record<string, unknown>): UserRoleItem {
       text(source.profile_image) ??
       undefined,
     createdAt: text(source.created_at) ?? text(source.createdAt) ?? undefined,
+    phone:
+      textOrNumber(source.phone) ??
+      textOrNumber(source.phone_number) ??
+      textOrNumber(source.phoneNumber) ??
+      textOrNumber(source.mobile) ??
+      textOrNumber(source.mobile_number) ??
+      textOrNumber(source.mobileNumber) ??
+      textOrNumber(source.contact) ??
+      textOrNumber(source.contact_number) ??
+      textOrNumber(source.contactNumber),
+    scope: readRoleScope(source.scope) ?? readRoleScope(source.scope_type),
+    companyId:
+      typeof source.company_id === 'number'
+        ? source.company_id
+        : typeof source.companyId === 'number'
+          ? source.companyId
+          : undefined,
+    branchId:
+      typeof source.branch_id === 'number'
+        ? source.branch_id
+        : typeof source.branchId === 'number'
+          ? source.branchId
+          : undefined,
   };
 }
 
@@ -896,6 +1326,7 @@ function mapRoleTemplateRow(raw: Record<string, unknown>): RoleTemplateItem {
   const id = raw.id ?? raw.template_id ?? raw.role_id;
   const roleName = readRoleLabel(raw) ?? 'Role';
   const iconSource = `${roleName} ${text(raw.code) ?? ''}`;
+  const scope = readRoleScope(raw.scope);
   return {
     id: typeof id === 'number' || typeof id === 'string' ? String(id) : String(id ?? roleName),
     title: roleName,
@@ -907,6 +1338,7 @@ function mapRoleTemplateRow(raw: Record<string, unknown>): RoleTemplateItem {
       '',
     icon: inferTemplateIcon(iconSource),
     roleName,
+    ...(scope ? { scope } : {}),
   };
 }
 
@@ -931,9 +1363,20 @@ function readRoleLabel(raw: Record<string, unknown>): string | undefined {
 function inferTemplateIcon(roleName: string): RoleTemplateItem['icon'] {
   const value = roleName.toLowerCase();
   if (value.includes('kitchen')) return 'kitchen';
-  if (value.includes('pos') || value.includes('cashier')) return 'pos';
-  if (value.includes('captain') || value.includes('waiter')) return 'captain';
-  if (value.includes('company')) return 'company';
+  if (value.includes('pos') || value.includes('cashier') || value.includes('billing')) return 'pos';
+  if (value.includes('captain') || value.includes('waiter') || value.includes('steward'))
+    return 'captain';
+  if (
+    value.includes('company') ||
+    value.includes('admin') ||
+    value.includes('hotel') ||
+    value.includes('hr') ||
+    value.includes('accountant') ||
+    value.includes('finance') ||
+    value.includes('inventory')
+  ) {
+    return 'company';
+  }
   return 'restaurant';
 }
 
@@ -944,18 +1387,41 @@ function extractPermissionGroups(payload: unknown): unknown[] {
     const value = payload[key];
     if (Array.isArray(value)) return value;
   }
+  const entries = Object.entries(payload);
+  if (entries.length > 0 && entries.every(([, v]) => Array.isArray(v))) {
+    return entries.map(([category, items]) => ({
+      title: category,
+      permissions: items,
+    }));
+  }
   return [];
 }
 
-function unwrapAssignments(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  for (const key of ['items', 'assignments', 'roles', 'data'] as const) {
-    const value = unwrapped[key];
-    if (Array.isArray(value)) return value.filter(isRecord);
+function unwrapRecords(
+  payload: unknown,
+  keys: readonly string[],
+  fallbackToRecord = false,
+): Record<string, unknown>[] {
+  const root = unwrapEnvelope(payload);
+  if (Array.isArray(root)) return root.filter(isRecord);
+  if (!isRecord(root)) return [];
+
+  for (let idx = 0; idx < keys.length; idx += 1) {
+    const candidate = root[keys[idx]];
+    if (Array.isArray(candidate)) return candidate.filter(isRecord);
+    if (isRecord(candidate)) {
+      const nested = unwrapRecords(candidate, keys, false);
+      if (nested.length > 0) return nested;
+    }
   }
-  return [];
+
+  return fallbackToRecord ? [root] : [];
+}
+
+const ASSIGNMENT_KEYS = ['items', 'assignments', 'roles', 'data'] as const;
+
+function unwrapAssignments(payload: unknown): Record<string, unknown>[] {
+  return unwrapRecords(payload, ASSIGNMENT_KEYS, true);
 }
 
 function readPrimaryRoleName(value: unknown): string | undefined {
@@ -992,12 +1458,11 @@ type UserRoleFields = {
 };
 
 function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
-  const directRole = source.role;
-  if (typeof directRole === 'string' && directRole.trim()) {
-    return { label: directRole.trim() };
-  }
+  const directRole =
+    typeof source.role === 'string' && source.role.trim() ? source.role.trim() : undefined;
 
   const label =
+    directRole ??
     text(source.role_name) ??
     text(source.roleName) ??
     text(source.primary_role_name) ??
@@ -1016,6 +1481,7 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
     readRoleId(source.roleId) ??
     readRoleId(source.primary_role_id) ??
     readRoleId(source.primaryRoleId) ??
+    (isRecord(source.role) ? readRoleId(source.role) : undefined) ??
     readRoleIdFromCollection(source.roles) ??
     readRoleIdFromCollection(source.user_roles) ??
     readRoleIdFromCollection(source.assignments);
@@ -1024,6 +1490,7 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
     text(source.role_code) ??
     text(source.roleCode) ??
     text(source.primary_role_code) ??
+    (isRecord(source.role) ? text(source.role.code) : undefined) ??
     readRoleCodeFromCollection(source.roles) ??
     readRoleCodeFromCollection(source.user_roles);
 
@@ -1032,6 +1499,10 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
 
 function readRoleId(value: unknown): string | number | undefined {
   if (typeof value === 'number' || typeof value === 'string') return value;
+  if (isRecord(value)) {
+    const id = value.id ?? value.role_id ?? value.roleId;
+    if (typeof id === 'number' || typeof id === 'string') return id;
+  }
   return undefined;
 }
 
@@ -1063,7 +1534,7 @@ function normalizeStatus(raw: Record<string, unknown> | string): UserStatus {
   }
 
   if (raw.is_active === false || raw.isActive === false || raw.active === false) {
-    return 'disabled';
+    return 'inactive';
   }
   if (raw.is_active === true || raw.isActive === true || raw.active === true) {
     return 'active';
@@ -1078,55 +1549,41 @@ function normalizeStatus(raw: Record<string, unknown> | string): UserStatus {
 function normalizeStatusToken(value: string): UserStatus {
   const status = value.toLowerCase().trim();
   if (status === 'invited' || status === 'pending' || status === 'invite') return 'invited';
-  if (status === 'disabled' || status === 'suspended' || status === 'deactivated') {
-    return 'disabled';
+  if (
+    status === 'disabled' ||
+    status === 'suspended' ||
+    status === 'deactivated' ||
+    status === 'inactive'
+  ) {
+    return 'inactive';
   }
-  if (status === 'inactive') return 'inactive';
   return 'active';
 }
 
+const USER_KEYS = [
+  'items',
+  'users',
+  'results',
+  'result',
+  'rows',
+  'list',
+  'data',
+  'records',
+  'content',
+  'members',
+  'staff',
+  'team',
+  'employees',
+] as const;
+
+const ROLE_KEYS = ['items', 'roles', 'templates', 'results', 'rows', 'data'] as const;
+
 function unwrapUsers(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  for (const key of [
-    'items',
-    'users',
-    'results',
-    'result',
-    'rows',
-    'list',
-    'data',
-    'records',
-    'content',
-    'members',
-    'staff',
-    'team',
-    'employees',
-  ] as const) {
-    const value = unwrapped[key];
-    if (Array.isArray(value)) return value.filter(isRecord);
-    if (isRecord(value)) {
-      const nested = unwrapUsers(value);
-      if (nested.length > 0) return nested;
-    }
-  }
-  return [];
+  return unwrapRecords(payload, USER_KEYS);
 }
 
 function unwrapRoles(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  for (const key of ['items', 'roles', 'templates', 'results', 'rows', 'data'] as const) {
-    const value = unwrapped[key];
-    if (Array.isArray(value)) return value.filter(isRecord);
-    if (isRecord(value)) {
-      const nested = unwrapRoles(value);
-      if (nested.length > 0) return nested;
-    }
-  }
-  return [];
+  return unwrapRecords(payload, ROLE_KEYS);
 }
 
 function readTotal(payload: unknown, fallback: number): number {
@@ -1192,6 +1649,12 @@ function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function textOrNumber(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && !Number.isNaN(value)) return String(value);
+  return undefined;
+}
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

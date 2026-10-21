@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { EditStaffProfileScreen } from '@/features/employees/user-roles';
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function EditStaffProfilePage() {
-  return <EditStaffProfileScreen initialMode="edit" />;
+  return (
+    <Suspense fallback={null}>
+      <EditStaffProfileScreen initialMode="edit" />
+    </Suspense>
+  );
 }

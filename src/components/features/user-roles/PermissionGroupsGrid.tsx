@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Switch, { type SwitchProps } from '@mui/material/Switch';
@@ -74,6 +74,8 @@ export interface PermissionGroupsGridProps {
   onTogglePermission?: (categoryId: string, permissionId: string) => void;
   onToggleCategoryAll?: (categoryId: string, enableAll: boolean) => void;
   readOnly?: boolean;
+  /** When true (staff profile view), lists only permissions that are enabled. Template authoring should leave this false. */
+  showEnabledOnly?: boolean;
   badgeMode?: 'enabled' | 'disabled';
   maxHeight?: number | string | Record<string, number | string>;
   sx?: SxProps<Theme>;
@@ -89,14 +91,25 @@ export function PermissionGroupsGrid({
   onTogglePermission,
   onToggleCategoryAll,
   readOnly = false,
+  showEnabledOnly = false,
   badgeMode = 'enabled',
   maxHeight,
   sx,
 }: Readonly<PermissionGroupsGridProps>) {
+  const visibleCategories = useMemo(() => {
+    if (!showEnabledOnly) return categories;
+    return categories
+      .map((category) => ({
+        ...category,
+        permissions: category.permissions.filter((permission) => permission.enabled),
+      }))
+      .filter((category) => category.permissions.length > 0);
+  }, [categories, showEnabledOnly]);
+
   // Category expanded state (default all expanded for high usability)
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
-    for (const cat of categories) {
+    for (const cat of visibleCategories) {
       initial[cat.id] = true;
     }
     return initial;
@@ -107,9 +120,9 @@ export function PermissionGroupsGrid({
   };
 
   // Split into left and right columns
-  const half = Math.ceil(categories.length / 2);
-  const leftCategories = categories.slice(0, half);
-  const rightCategories = categories.slice(half);
+  const half = Math.ceil(visibleCategories.length / 2);
+  const leftCategories = visibleCategories.slice(0, half);
+  const rightCategories = visibleCategories.slice(half);
 
   const renderCategoryCard = (category: PermissionCategory, listKey: string) => {
     const isCategoryExpanded = expanded[category.id] ?? true;

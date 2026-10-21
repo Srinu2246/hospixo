@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
@@ -56,10 +56,17 @@ export function EditStaffProfileScreen({
   onSave,
   scope,
 }: Readonly<EditStaffProfileScreenProps>) {
-  const selectedUserId = useUserRolesUiStore((state) => state.selectedUserId);
-  const staffProfile = useStaffProfile(selectedUserId);
-  const userProfile = staffProfile.profile;
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryUserId = searchParams?.get('id') || searchParams?.get('userId') || null;
+  const storeSelectedUserId = useUserRolesUiStore((state) => state.selectedUserId);
+  const setSelectedUserId = useUserRolesUiStore((state) => state.setSelectedUserId);
+
+  useEffect(() => {
+    if (queryUserId && queryUserId !== storeSelectedUserId) {
+      setSelectedUserId(queryUserId);
+    }
+  }, [queryUserId, storeSelectedUserId, setSelectedUserId]);
+
   const pathname = usePathname() || '';
 
   const resolvedScope: ScopeType =
@@ -69,6 +76,11 @@ export function EditStaffProfileScreen({
       : pathname.includes('/branch')
         ? 'branch'
         : 'organization');
+
+  const selectedUserId = queryUserId || storeSelectedUserId;
+  const staffProfile = useStaffProfile(selectedUserId, { scope: resolvedScope });
+  const userProfile = staffProfile.profile;
+  const router = useRouter();
 
   const getBaseRoute = () => {
     const stripped = pathname.replace(/\/(edit|profile)$/, '');
@@ -81,15 +93,11 @@ export function EditStaffProfileScreen({
   const [mode, setMode] = useState<'view' | 'edit'>(initialMode);
   const remoteCategories = staffProfile.categories;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
-  const [syncedRemoteCategories, setSyncedRemoteCategories] =
-    useState<PermissionCategory[]>(remoteCategories);
 
-  if (remoteCategories !== syncedRemoteCategories) {
-    setSyncedRemoteCategories(remoteCategories);
-    if (remoteCategories.length > 0) {
-      setCategories(remoteCategories);
-    }
-  }
+  useEffect(() => {
+    if (remoteCategories.length === 0) return;
+    setCategories(remoteCategories);
+  }, [remoteCategories]);
 
   // Deactivation confirmation modal state
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
@@ -646,14 +654,18 @@ export function EditStaffProfileScreen({
               Permissions
             </Typography>
 
-            {/* Reusable Permission Groups Grid */}
-            <PermissionGroupsGrid
-              categories={categories}
-              onTogglePermission={handleTogglePermission}
-              onToggleCategoryAll={handleToggleCategoryAll}
-              readOnly={isReadOnly}
-              badgeMode="enabled"
-            />
+            {staffProfile.isPermissionsLoading ? (
+              <Loading message="Loading permissions…" />
+            ) : (
+              <PermissionGroupsGrid
+                categories={categories}
+                onTogglePermission={handleTogglePermission}
+                onToggleCategoryAll={handleToggleCategoryAll}
+                readOnly={isReadOnly}
+                showEnabledOnly
+                badgeMode="enabled"
+              />
+            )}
           </Box>
 
           {/* SECTION 3: Danger Zone */}
