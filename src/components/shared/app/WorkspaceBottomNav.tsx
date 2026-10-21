@@ -4,64 +4,35 @@ import { useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { ClipboardCheck, Receipt, UtensilsCrossed } from 'lucide-react';
-
 import TableBarOutlinedIcon from '@mui/icons-material/TableBarOutlined';
+import { ClipboardCheck, Receipt, UtensilsCrossed } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
+import type { WaiterWorkspaceNavId } from '@/app/sidebar';
 import {
+  captainFlowNavSuffix,
   POS_CAPTAIN_BOTTOM_NAV_HEIGHT,
   POS_CAPTAIN_COMPACT_PADDING,
   resolveCaptainFlowBase,
 } from '@/lib/helpers/posCaptainFlow';
+import { useWorkspaceBottomNav } from '@/lib/hooks/useWorkspaceBottomNav';
 import { colors } from '@/lib/theme/mui/colors';
 
-type CaptainNavTab = 'tables' | 'menu' | 'ready' | 'orders';
-
-const NAV_ITEMS: readonly {
-  id: CaptainNavTab;
-  label: string;
-  suffix: string;
-  icon: typeof TableBarOutlinedIcon;
-  lucide?: typeof UtensilsCrossed;
-}[] = [
-  { id: 'tables', label: 'Tables', suffix: '/tables', icon: TableBarOutlinedIcon },
-  {
-    id: 'menu',
-    label: 'Menu',
-    suffix: '/order-menu',
-    icon: TableBarOutlinedIcon,
-    lucide: UtensilsCrossed,
-  },
-  {
-    id: 'ready',
-    label: 'Ready',
-    suffix: '/ready-list',
-    icon: TableBarOutlinedIcon,
-    lucide: ClipboardCheck,
-  },
-  {
-    id: 'orders',
-    label: 'Orders',
-    suffix: '/all-orders',
-    icon: TableBarOutlinedIcon,
-    lucide: Receipt,
-  },
-];
-
-function activeTabFromPath(pathname: string): CaptainNavTab {
-  if (pathname.includes('/order-menu') || pathname.includes('/takeaway')) return 'menu';
-  if (pathname.includes('/ready-list')) return 'ready';
-  if (pathname.includes('/all-orders')) return 'orders';
-  if (/\/dine-in\/[^/?#]+/.test(pathname)) return 'menu';
-  if (pathname.includes('/dine-in')) return 'tables';
-  return 'tables';
-}
+const BOTTOM_NAV_ICONS: Record<
+  WaiterWorkspaceNavId,
+  { mui?: typeof TableBarOutlinedIcon; lucide?: LucideIcon }
+> = {
+  tables: { mui: TableBarOutlinedIcon },
+  orders: { lucide: Receipt },
+  ready: { lucide: ClipboardCheck },
+  menu: { lucide: UtensilsCrossed },
+};
 
 export function WorkspaceBottomNav() {
   const pathname = usePathname() ?? '';
   const router = useRouter();
   const base = useMemo(() => resolveCaptainFlowBase(pathname), [pathname]);
-  const active = activeTabFromPath(pathname);
+  const { items, activeId } = useWorkspaceBottomNav(pathname);
 
   return (
     <Box
@@ -80,16 +51,20 @@ export function WorkspaceBottomNav() {
         boxSizing: 'border-box',
       }}
     >
-      {NAV_ITEMS.map(({ id, label, suffix, icon: MuiIcon, lucide: LucideIcon }) => {
-        const isActive = active === id;
+      {items.map((item) => {
+        const isActive = activeId === item.id;
         const activeColor = colors.captainFlow.primary;
         const inactiveColor = colors.captainFlow.navInactive;
+        const icons = BOTTOM_NAV_ICONS[item.id];
+        const MuiIcon = icons.mui;
+        const LucideIconComponent = icons.lucide;
+
         return (
           <Box
-            key={id}
+            key={item.id}
             component="button"
             type="button"
-            onClick={() => router.push(`${base}${suffix}`)}
+            onClick={() => router.push(`${base}${captainFlowNavSuffix(item.captainFlowSuffix)}`)}
             sx={{
               flex: 1,
               border: 0,
@@ -119,10 +94,10 @@ export function WorkspaceBottomNav() {
                 }}
               />
             ) : null}
-            {id === 'tables' ? (
+            {MuiIcon ? (
               <MuiIcon sx={{ fontSize: 22, color: 'inherit' }} />
-            ) : LucideIcon ? (
-              <LucideIcon size={21} strokeWidth={isActive ? 2.35 : 2} />
+            ) : LucideIconComponent ? (
+              <LucideIconComponent size={21} strokeWidth={isActive ? 2.35 : 2} />
             ) : null}
             <Typography
               sx={{
@@ -132,7 +107,7 @@ export function WorkspaceBottomNav() {
                 color: 'inherit',
               }}
             >
-              {label}
+              {item.bottomNavLabel}
             </Typography>
           </Box>
         );

@@ -9,6 +9,12 @@ import {
 } from '@/features/pos/point-of-sale/all-orders';
 import { DineInPage } from '@/features/pos/point-of-sale/dine-in';
 import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway';
+import {
+  CaptainFlowAllOrdersRoutePage,
+  CaptainFlowOrderMenuRoutePage,
+  CaptainFlowReadyListRoutePage,
+  CaptainFlowTablesRoutePage,
+} from '@/features/pos/captain-flow';
 import { ReadyListPage } from '@/features/pos/point-of-sale/ready-list';
 import { DuePaymentsPage } from '@/features/pos/point-of-sale/due-payments';
 import {
@@ -218,14 +224,19 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/point-of-sale/tables') ||
       path.endsWith('pos/captain-flow/tables') ||
       path.endsWith('captain-flow/tables'),
-    render: () => <PosTableSelection isDineIn={false} />,
+    render: (path) =>
+      path.includes('captain-flow') ? (
+        <CaptainFlowTablesRoutePage />
+      ) : (
+        <PosTableSelection isDineIn={false} />
+      ),
   },
 
   // Captain Flow Root -> Tables
   {
     name: 'Captain Flow',
     match: (path) => path.endsWith('pos/captain-flow') || path.endsWith('captain-flow'),
-    render: () => <PosTableSelection isDineIn={false} />,
+    render: () => <CaptainFlowTablesRoutePage />,
   },
 
   // 6. POS Take Away / Order Menu
@@ -236,7 +247,12 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/point-of-sale/take-away') ||
       path.endsWith('pos/captain-flow/order-menu') ||
       path.endsWith('captain-flow/order-menu'),
-    render: () => <TakeawayPage mode="takeaway" />,
+    render: (path) =>
+      path.includes('captain-flow') ? (
+        <CaptainFlowOrderMenuRoutePage />
+      ) : (
+        <TakeawayPage mode="takeaway" />
+      ),
   },
 
   // 6. POS Ready List / Captain Ready List
@@ -246,7 +262,8 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/point-of-sale/ready-list') ||
       path.endsWith('pos/captain-flow/ready-list') ||
       path.endsWith('captain-flow/ready-list'),
-    render: () => <ReadyListPage />,
+    render: (path) =>
+      path.includes('captain-flow') ? <CaptainFlowReadyListRoutePage /> : <ReadyListPage />,
   },
 
   // 7. POS Online Orders
@@ -269,23 +286,24 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/captain-flow/all-orders') ||
       path.endsWith('captain-flow/all-orders') ||
       path.endsWith('pos/all-orders'),
-    render: () => <PosAllOrdersRoutePage />,
+    render: (path) =>
+      path.includes('captain-flow') ? <CaptainFlowAllOrdersRoutePage /> : <PosAllOrdersRoutePage />,
   },
 
   {
     name: 'Role POS Tables',
     match: (path) => path.endsWith('pos/tables'),
-    render: () => <PosTableSelection isDineIn={false} />,
+    render: () => <CaptainFlowTablesRoutePage />,
   },
   {
     name: 'Role POS Order Menu',
     match: (path) => path.endsWith('pos/order-menu'),
-    render: () => <TakeawayPage mode="takeaway" />,
+    render: () => <CaptainFlowOrderMenuRoutePage />,
   },
   {
     name: 'Role POS Ready List',
     match: (path) => path.endsWith('pos/ready-list'),
-    render: () => <ReadyListPage />,
+    render: () => <CaptainFlowReadyListRoutePage />,
   },
 
   // 10. POS Due Payments

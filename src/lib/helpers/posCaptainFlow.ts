@@ -63,3 +63,11 @@ export function resolveCaptainFlowBase(pathname: string): string {
 
   return '/pos/captain-flow';
 }
+
+/** Tab href suffix relative to `resolveCaptainFlowBase` (e.g. `/tables`). */
+export function captainFlowNavSuffix(captainFlowSuffix: string): string {
+  const marker = '/captain-flow';
+  const index = captainFlowSuffix.indexOf(marker);
+  if (index === -1) return captainFlowSuffix;
+  return captainFlowSuffix.slice(index + marker.length) || '/tables';
+}
