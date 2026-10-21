@@ -6,5 +6,5 @@ interface PosOrderSettleRouteProps {
 
 export default async function PosOrderSettleRoute({ params }: PosOrderSettleRouteProps) {
   const resolvedParams = await params;
-  return <OrderSettle orderId={resolvedParams.orderId} />;
+  return <OrderSettle orderId={resolvedParams.orderId} initialStep="review" />;
 }

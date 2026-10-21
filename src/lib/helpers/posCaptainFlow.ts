@@ -8,7 +8,7 @@ export const POS_CAPTAIN_BOTTOM_NAV_HEIGHT = 64;
 export const POS_CAPTAIN_STICKY_FOOTER_HEIGHT = 72;
 
 /** Gap between scrollable list content and captain bottom nav (ready-list, all-orders). */
-export const POS_CAPTAIN_LIST_BOTTOM_GAP = 30;
+export const POS_CAPTAIN_LIST_BOTTOM_GAP = 20;
 
 const MOBILE_CAPTAIN_POS_SCREEN =
   /\/pos\/(?:captain-flow|point-of-sale\/(?:tables|dine-in|order-menu|ready-list|all-orders|takeaway))(?:\/|$)/;
@@ -18,7 +18,7 @@ export function isCaptainFlowPath(pathname: string | null | undefined): boolean 
   return pathname.includes('captain-flow');
 }
 
-/** Captain list index screens (ready-list, all-orders index) — 30px gap above bottom nav. */
+/** Captain list index screens (ready-list, all-orders index) — gap above bottom nav. */
 export function isCaptainListScreenPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   if (pathname.includes('/ready-list')) return true;
@@ -26,10 +26,16 @@ export function isCaptainListScreenPath(pathname: string | null | undefined): bo
   return pathname.includes('/all-orders');
 }
 
+/** Captain order settle route (`.../all-orders/:orderId`). */
+export function isCaptainOrderSettlePath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return /\/all-orders\/[^/?#]+/.test(pathname);
+}
+
 export function captainMainUsesStickyFooter(pathname: string | null | undefined): boolean {
   if (!isCaptainWorkspacePath(pathname)) return false;
   if (isCaptainListScreenPath(pathname)) return false;
-  if (pathname?.includes('/all-orders/')) return false;
+  if (isCaptainOrderSettlePath(pathname)) return true;
   return true;
 }
 

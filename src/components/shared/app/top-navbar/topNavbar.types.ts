@@ -28,6 +28,8 @@ export interface BaseResponsiveNavbarProps {
   /** Captain-flow mobile title (replaces logo + branch selector when set). */
   captainWorkspaceTitle?: string;
   captainWorkspaceSubtitle?: string;
+  /** Branch outlet selector on captain mobile (branch-manager routes). */
+  showBranchSelector?: boolean;
   /** Optional layout style overrides from the caller */
   sx?: SxProps<Theme>;
 }

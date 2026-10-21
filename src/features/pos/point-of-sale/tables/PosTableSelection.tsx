@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Box, Stack, Typography } from '@mui/material';
@@ -20,7 +20,6 @@ import {
 } from '@/features/pos/point-of-sale/reservation/ReservationDialog';
 import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway/TakeawayPage';
 import { useFloorSections } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
-import { useCreateBranchOrder } from '@/lib/hooks/pos/point-of-sale/tables/useCreateBranchOrder';
 import { usePosFloorLayout } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorLayout';
 import { usePosFloorTables } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorTables';
 import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
@@ -32,14 +31,15 @@ import {
   type PosTableItem,
   type PosTableStatus,
 } from '@/lib/mocks/pos/usePosTables.mocks';
-import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
 import { colors } from '@/lib/theme/mui/colors';
-import { POS_CAPTAIN_COMPACT_PADDING } from '@/lib/helpers/posCaptainFlow';
+import {
+  POS_CAPTAIN_COMPACT_PADDING,
+  POS_CAPTAIN_LIST_BOTTOM_GAP,
+} from '@/lib/helpers/posCaptainFlow';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
 import { useSidebarStore } from '@/stores/sidebarStore';
-import { CreateTableOrderModal, type CreateTableOrderValues } from './CreateTableOrderModal';
 import { PosFloorTableCard } from './PosFloorTableCard';
 
 function getTableIdFromPathname(pathname?: string | null): string | null {
@@ -99,11 +99,8 @@ export function PosTableSelection({
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTableId, setSelectedTableId] = useState(initialSelectedTableId);
   const [manualActiveTable, setManualActiveTable] = useState<PosTableItem | null>(null);
-  const [orderModalTable, setOrderModalTable] = useState<PosTableItem | null>(null);
-  const [createOrderError, setCreateOrderError] = useState<string | null>(null);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const createBranchOrder = useCreateBranchOrder();
 
   const floorTabs = useMemo(
     () =>
@@ -197,12 +194,6 @@ export function PosTableSelection({
     return manualActiveTable;
   }, [routeTableId, tables, manualActiveTable]);
 
-  // Deep-link to an available table opens the create-order modal instead of the menu.
-  useEffect(() => {
-    if (!routeTableId || !activeOrderTable || activeOrderTable.orderId) return;
-    setOrderModalTable((current) => current ?? activeOrderTable);
-  }, [routeTableId, activeOrderTable]);
-
   const selectedTableMatch = tables.find((t) => t.id === selectedTableId);
   const selectedTable: PosTableItem | undefined =
     !selectedTableMatch || (isDineIn && !isDineInActiveStatus(selectedTableMatch.status))
@@ -257,65 +248,7 @@ export function PosTableSelection({
   };
 
   const handleTableClick = (t: PosTableItem) => {
-    // Existing open order → menu; available table → create-order modal.
-    if (t.orderId) {
-      handleOpenTableMenu(t);
-      return;
-    }
-    setCreateOrderError(null);
-    setSelectedTableId(t.id);
-    setOrderModalTable(t);
-  };
-
-  const handleCreateTableOrder = async ({ guestCount, mealSessionId }: CreateTableOrderValues) => {
-    if (!orderModalTable) return;
-    if (typeof branchId !== 'number') {
-      setCreateOrderError('Branch context is required to create an order.');
-      return;
-    }
-
-    const tableId = Number(orderModalTable.id);
-    if (!Number.isFinite(tableId) || tableId <= 0) {
-      setCreateOrderError('Invalid table id.');
-      return;
-    }
-
-    try {
-      setCreateOrderError(null);
-      const order = await createBranchOrder.mutateAsync({
-        branchId,
-        body: {
-          table_id: tableId,
-          order_type: 'dine_in',
-          guest_count: guestCount,
-          meal_session_id: mealSessionId,
-        },
-      });
-
-      const nextTable: PosTableItem = {
-        ...orderModalTable,
-        status: 'occupied',
-        orderId: String(order.id),
-        orderNumber: order.order_number ?? undefined,
-        guests: order.guest_count ?? guestCount,
-        message: order.order_number ? `Order ${order.order_number}` : 'Open order',
-      };
-
-      setTableOverrides((prev) => ({
-        ...prev,
-        [orderModalTable.id]: {
-          status: nextTable.status,
-          orderId: nextTable.orderId,
-          orderNumber: nextTable.orderNumber,
-          guests: nextTable.guests,
-          message: nextTable.message,
-        },
-      }));
-      setOrderModalTable(null);
-      handleOpenTableMenu(nextTable);
-    } catch (error) {
-      setCreateOrderError(getErrorMessage(error, 'Unable to create order for this table.'));
-    }
+    handleOpenTableMenu(t);
   };
 
   const handleBackToTables = () => {
@@ -382,7 +315,7 @@ export function PosTableSelection({
 
   const hasNoDineInTables = isDineIn && dineInEligibleTables.length === 0;
 
-  if (activeOrderTable?.orderId) {
+  if (activeOrderTable) {
     const allowMenu =
       !isDineIn ||
       Boolean(routeTableId) ||
@@ -742,7 +675,7 @@ export function PosTableSelection({
                     lg: 'repeat(4, 1fr)',
                   },
               gap: captainCompact ? '12px' : '20px',
-              pb: captainCompact ? 0 : 2,
+              pb: captainCompact ? `${POS_CAPTAIN_LIST_BOTTOM_GAP}px` : 2,
             }}
           >
             {filteredTables.length === 0 ? (
@@ -776,20 +709,6 @@ export function PosTableSelection({
         onConfirm={handleConfirmReservation}
         title={selectedTable ? `Reserve Table ${selectedTable.name}` : 'Reserve a Table'}
         initialData={{ guestCount: selectedTable?.guests || 2 }}
-      />
-
-      <CreateTableOrderModal
-        open={Boolean(orderModalTable)}
-        table={orderModalTable}
-        branchId={branchId}
-        loading={createBranchOrder.isPending}
-        errorMessage={createOrderError}
-        onClose={() => {
-          if (createBranchOrder.isPending) return;
-          setOrderModalTable(null);
-          setCreateOrderError(null);
-        }}
-        onConfirm={handleCreateTableOrder}
       />
 
       <Toast

@@ -1,15 +1,12 @@
 'use client';
 
-import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
-import Switch from '@mui/material/Switch';
-import InputBase from '@mui/material/InputBase';
 import { alpha } from '@mui/material/styles';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { CreditCard, QrCode, Lock, MessageSquare, MessageCircle } from 'lucide-react';
+import { CreditCard, QrCode, Lock } from 'lucide-react';
 
 import { colors } from '@/lib/theme/mui/colors';
 
@@ -34,6 +31,13 @@ export interface PaymentMethodSectionProps {
   onSelectMethod: (method: PaymentMethodId) => void;
   onConfirmPayment: () => void;
   isProcessing?: boolean;
+  /** Captain mobile checkout (Figma): summary strip + full-width methods. */
+  compact?: boolean;
+  subtotal?: number;
+  taxAmount?: number;
+  couponAmount?: number;
+  /** When true, parent renders confirm CTA in `#app-shell-footer`. */
+  hideConfirmButton?: boolean;
   sx?: SxProps<Theme>;
 }
 
@@ -45,7 +49,6 @@ export interface PaymentMethodSectionProps {
  * - Active state with royal blue fill, custom icons, and checked radio
  * - Total row and vibrant coral "Confirm Payment" button
  * - Secured 256-bit encryption banner
- * - Customer notification subcard with toggle, phone input, and SMS/WhatsApp triggers
  */
 export function PaymentMethodSection({
   total,
@@ -53,17 +56,13 @@ export function PaymentMethodSection({
   onSelectMethod,
   onConfirmPayment,
   isProcessing = false,
+  compact = false,
+  subtotal,
+  taxAmount,
+  couponAmount = 0,
+  hideConfirmButton = false,
   sx,
 }: Readonly<PaymentMethodSectionProps>) {
-  const [sendDetails, setSendDetails] = useState(true);
-  const [phoneNumber, setPhoneNumber] = useState('+91 98765 43210');
-  const [notifiedChannel, setNotifiedChannel] = useState<'sms' | 'whatsapp' | null>(null);
-
-  const handleChannelNotify = (channel: 'sms' | 'whatsapp') => {
-    setNotifiedChannel(channel);
-    setTimeout(() => setNotifiedChannel(null), 2000);
-  };
-
   const renderMethodIcon = (id: PaymentMethodId, isSelected: boolean) => {
     switch (id) {
       case 'cash':
@@ -126,39 +125,110 @@ export function PaymentMethodSection({
     }
   };
 
+  const formatRs = (value: number) =>
+    value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <Box
       sx={{
         width: '100%',
-        bgcolor: 'background.paper',
-        borderRadius: '16px',
-        p: { xs: 2.5, sm: 3 },
-        border: '1px solid',
+        bgcolor: compact ? 'transparent' : 'background.paper',
+        borderRadius: compact ? 0 : '16px',
+        p: compact ? 0 : { xs: 2.5, sm: 3 },
+        border: compact ? 'none' : '1px solid',
         borderColor: 'divider',
-        boxShadow: (theme) =>
-          theme.palette.mode === 'dark'
-            ? '0 2px 8px rgba(0, 0, 0, 0.4)'
-            : '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
+        boxShadow: compact
+          ? 'none'
+          : (theme) =>
+              theme.palette.mode === 'dark'
+                ? '0 2px 8px rgba(0, 0, 0, 0.4)'
+                : '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
         display: 'flex',
         flexDirection: 'column',
         ...((sx as object) || {}),
       }}
     >
+      {compact && subtotal != null && taxAmount != null ? (
+        <Box
+          sx={{
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark' ? 'action.hover' : colors.surface.muted,
+            borderRadius: '12px',
+            border: '1px solid',
+            borderColor: 'divider',
+            p: 2,
+            mb: 2,
+          }}
+        >
+          <Stack spacing={1}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                Sub Total
+              </Typography>
+              <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>
+                Rs {formatRs(subtotal)}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                Tax (5%)
+              </Typography>
+              <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>
+                Rs {formatRs(taxAmount)}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                Coupon Discount
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: couponAmount > 0 ? colors.danger.default : 'text.primary',
+                }}
+              >
+                - Rs {formatRs(couponAmount)}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                pt: 1,
+                mt: 0.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Typography sx={{ fontSize: '0.9375rem', fontWeight: 800, letterSpacing: '0.02em' }}>
+                TOTAL AMOUNT
+              </Typography>
+              <Typography
+                sx={{ fontSize: '1.0625rem', fontWeight: 800, color: colors.primary.default }}
+              >
+                Rs {formatRs(total)}
+              </Typography>
+            </Box>
+          </Stack>
+        </Box>
+      ) : null}
+
       {/* ------------------------------------------------------------- */}
       {/* 1. Card Header                                                */}
       {/* ------------------------------------------------------------- */}
       <Typography
         sx={{
-          fontSize: '0.8125rem',
+          fontSize: compact ? '0.6875rem' : '0.8125rem',
           fontWeight: 800,
-          letterSpacing: '0.06em',
+          letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          textAlign: 'center',
-          color: 'text.primary',
-          mb: 2.5,
+          textAlign: compact ? 'left' : 'center',
+          color: compact ? 'text.secondary' : 'text.primary',
+          mb: 2,
         }}
       >
-        PAYMENT METHOD
+        {compact ? 'CHOOSE PAYMENT METHOD' : 'PAYMENT METHOD'}
       </Typography>
 
       {/* ------------------------------------------------------------- */}
@@ -167,6 +237,8 @@ export function PaymentMethodSection({
       <Stack spacing={1.5} sx={{ mb: 2.5 }}>
         {PAYMENT_OPTIONS.map((option) => {
           const isSelected = selectedMethod === option.id;
+
+          const compactSelected = compact && isSelected;
 
           return (
             <ButtonBase
@@ -179,27 +251,44 @@ export function PaymentMethodSection({
                 justifyContent: 'space-between',
                 p: '12px 16px',
                 borderRadius: '12px',
-                bgcolor: isSelected
-                  ? colors.primary.dark
-                  : (theme) =>
-                      theme.palette.mode === 'dark' ? 'action.hover' : 'background.paper',
-                color: isSelected ? colors.white.default : 'text.primary',
-                border: isSelected ? 'none' : '1px solid',
-                borderColor: isSelected ? 'transparent' : 'divider',
+                bgcolor: compact
+                  ? 'background.paper'
+                  : isSelected
+                    ? colors.primary.dark
+                    : (theme) =>
+                        theme.palette.mode === 'dark' ? 'action.hover' : 'background.paper',
+                color: compact || !isSelected ? 'text.primary' : colors.white.default,
+                border: compactSelected
+                  ? `2px solid ${colors.primary.default}`
+                  : isSelected && !compact
+                    ? 'none'
+                    : '1px solid',
+                borderColor: compactSelected
+                  ? colors.primary.default
+                  : compact
+                    ? 'divider'
+                    : isSelected
+                      ? 'transparent'
+                      : 'divider',
+                boxShadow: compact ? '0 1px 2px rgba(15, 23, 42, 0.04)' : 'none',
                 transition: 'all 0.15s ease-in-out',
                 '&:hover': {
-                  bgcolor: isSelected ? colors.primary.hover : 'action.hover',
+                  bgcolor: compact
+                    ? 'action.hover'
+                    : isSelected
+                      ? colors.primary.hover
+                      : 'action.hover',
                 },
               }}
             >
               {/* Left Icon + Label */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75 }}>
-                {renderMethodIcon(option.id, isSelected)}
+                {renderMethodIcon(option.id, compact ? false : isSelected)}
                 <Typography
                   sx={{
                     fontSize: '0.9375rem',
                     fontWeight: isSelected ? 700 : 600,
-                    color: isSelected ? colors.white.default : 'text.primary',
+                    color: compact || !isSelected ? 'text.primary' : colors.white.default,
                   }}
                 >
                   {option.label}
@@ -213,7 +302,9 @@ export function PaymentMethodSection({
                   height: 20,
                   borderRadius: '50%',
                   border: isSelected
-                    ? `2px solid ${colors.white.default}`
+                    ? compact
+                      ? `2px solid ${colors.primary.default}`
+                      : `2px solid ${colors.white.default}`
                     : (theme) =>
                         `2px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.3)' : colors.gray.light}`,
                   display: 'flex',
@@ -225,10 +316,10 @@ export function PaymentMethodSection({
                 {isSelected && (
                   <Box
                     sx={{
-                      width: 10,
-                      height: 10,
+                      width: compact ? 10 : 10,
+                      height: compact ? 10 : 10,
                       borderRadius: '50%',
-                      bgcolor: colors.white.default,
+                      bgcolor: compact ? colors.primary.default : colors.white.default,
                     }}
                   />
                 )}
@@ -238,219 +329,84 @@ export function PaymentMethodSection({
         })}
       </Stack>
 
-      {/* ------------------------------------------------------------- */}
-      {/* 3. Total Row & Confirm Payment Button                         */}
-      {/* ------------------------------------------------------------- */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          pt: 1,
-          pb: 2,
-        }}
-      >
-        <Typography sx={{ fontSize: '0.9375rem', color: 'text.secondary', fontWeight: 500 }}>
-          Total
-        </Typography>
-        <Typography sx={{ fontSize: '1.125rem', color: 'text.primary', fontWeight: 800 }}>
-          Rs {total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-        </Typography>
-      </Box>
-
-      {/* Vibrant Coral Confirm Payment CTA */}
-      <ButtonBase
-        onClick={onConfirmPayment}
-        disabled={isProcessing}
-        sx={{
-          width: '100%',
-          bgcolor: colors.danger.default,
-          color: colors.white.default,
-          py: 1.6,
-          borderRadius: '12px',
-          fontSize: '0.9375rem',
-          fontWeight: 700,
-          letterSpacing: '-0.01em',
-          boxShadow: `0 4px 14px 0 ${alpha(colors.danger.default, 0.3)}`,
-          transition: 'all 0.15s ease-in-out',
-          opacity: isProcessing ? 0.7 : 1,
-          cursor: isProcessing ? 'not-allowed' : 'pointer',
-          '&:hover': {
-            bgcolor: colors.danger.dark,
-            boxShadow: `0 6px 18px 0 ${alpha(colors.danger.default, 0.4)}`,
-          },
-        }}
-      >
-        {isProcessing ? 'Processing Payment...' : 'Confirm Payment'}
-      </ButtonBase>
-
-      {/* 256-bit Encryption Note */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 0.75,
-          mt: 1.5,
-          mb: 1,
-        }}
-      >
-        <Box
-          component="span"
-          sx={{ display: 'inline-flex', color: 'text.disabled', alignItems: 'center' }}
-        >
-          <Lock size={12} />
-        </Box>
-        <Typography
-          sx={{
-            fontSize: '0.71875rem',
-            color: 'text.disabled',
-            fontWeight: 500,
-          }}
-        >
-          Secured by 256-bit encryption
-        </Typography>
-      </Box>
-
-      {/* ------------------------------------------------------------- */}
-      {/* 4. Customer Communication Sub-card                            */}
-      {/* ------------------------------------------------------------- */}
-      <Box
-        sx={{
-          bgcolor: (theme) =>
-            theme.palette.mode === 'dark' ? 'action.hover' : colors.surface.default,
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: '14px',
-          p: 2,
-          mt: 2,
-        }}
-      >
-        {/* Toggle Header */}
+      {!compact ? (
         <Box
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            pt: 1,
+            pb: 2,
           }}
         >
+          <Typography sx={{ fontSize: '0.9375rem', color: 'text.secondary', fontWeight: 500 }}>
+            Total
+          </Typography>
+          <Typography sx={{ fontSize: '1.125rem', color: 'text.primary', fontWeight: 800 }}>
+            Rs {formatRs(total)}
+          </Typography>
+        </Box>
+      ) : null}
+
+      {!hideConfirmButton ? (
+        <ButtonBase
+          onClick={onConfirmPayment}
+          disabled={isProcessing}
+          sx={{
+            width: '100%',
+            bgcolor: colors.danger.default,
+            color: colors.white.default,
+            py: 1.6,
+            borderRadius: '12px',
+            fontSize: '0.9375rem',
+            fontWeight: 700,
+            letterSpacing: '-0.01em',
+            boxShadow: `0 4px 14px 0 ${alpha(colors.danger.default, 0.3)}`,
+            transition: 'all 0.15s ease-in-out',
+            opacity: isProcessing ? 0.7 : 1,
+            cursor: isProcessing ? 'not-allowed' : 'pointer',
+            '&:hover': {
+              bgcolor: colors.danger.dark,
+              boxShadow: `0 6px 18px 0 ${alpha(colors.danger.default, 0.4)}`,
+            },
+          }}
+        >
+          {isProcessing
+            ? 'Processing Payment...'
+            : compact
+              ? `Confirm Payment (Rs ${formatRs(total)})`
+              : 'Confirm Payment'}
+        </ButtonBase>
+      ) : null}
+
+      {!compact ? (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.75,
+            mt: 1.5,
+            mb: 1,
+          }}
+        >
+          <Box
+            component="span"
+            sx={{ display: 'inline-flex', color: 'text.disabled', alignItems: 'center' }}
+          >
+            <Lock size={12} />
+          </Box>
           <Typography
             sx={{
-              fontSize: '0.8125rem',
-              fontWeight: 700,
-              color: 'text.primary',
+              fontSize: '0.71875rem',
+              color: 'text.disabled',
+              fontWeight: 500,
             }}
           >
-            Send order details to customer
+            Secured by 256-bit encryption
           </Typography>
-
-          <Switch
-            checked={sendDetails}
-            onChange={(e) => setSendDetails(e.target.checked)}
-            size="small"
-            sx={{
-              '& .MuiSwitch-switchBase.Mui-checked': {
-                color: colors.primary.default,
-              },
-              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                backgroundColor: colors.primary.default,
-              },
-            }}
-          />
         </Box>
-
-        {sendDetails && (
-          <Box sx={{ mt: 1.5 }}>
-            <Typography
-              sx={{
-                fontSize: '0.75rem',
-                color: 'text.secondary',
-                fontWeight: 500,
-                mb: 0.5,
-              }}
-            >
-              Customer phone number
-            </Typography>
-
-            {/* Phone Input */}
-            <Box
-              sx={{
-                bgcolor: 'background.paper',
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: '8px',
-                p: '8px 12px',
-                '&:focus-within': {
-                  borderColor: 'primary.main',
-                },
-              }}
-            >
-              <InputBase
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                fullWidth
-                sx={{
-                  fontSize: '0.875rem',
-                  color: 'text.primary',
-                }}
-              />
-            </Box>
-
-            {/* SMS & WhatsApp Action Buttons */}
-            <Stack direction="row" spacing={1.5} sx={{ mt: 1.5 }}>
-              <ButtonBase
-                onClick={() => handleChannelNotify('sms')}
-                sx={{
-                  flex: 1,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: '8px',
-                  py: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 1,
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  color: 'text.primary',
-                  transition: 'background-color 0.15s ease',
-                  '&:hover': {
-                    bgcolor: 'action.hover',
-                  },
-                }}
-              >
-                <MessageSquare size={16} strokeWidth={2} />
-                {notifiedChannel === 'sms' ? 'Sent!' : 'SMS'}
-              </ButtonBase>
-
-              <ButtonBase
-                onClick={() => handleChannelNotify('whatsapp')}
-                sx={{
-                  flex: 1,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: '8px',
-                  py: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 1,
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  color: 'text.primary',
-                  transition: 'background-color 0.15s ease',
-                  '&:hover': {
-                    bgcolor: 'action.hover',
-                  },
-                }}
-              >
-                <MessageCircle size={16} strokeWidth={2} />
-                {notifiedChannel === 'whatsapp' ? 'Sent!' : 'WhatsApp'}
-              </ButtonBase>
-            </Stack>
-          </Box>
-        )}
-      </Box>
+      ) : null}
     </Box>
   );
 }

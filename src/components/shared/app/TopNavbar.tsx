@@ -216,6 +216,7 @@ export function TopNavbar({
         onOpenMenu={onOpenMenu}
         captainWorkspaceTitle={captainWorkspacePath ? 'Hospixo Tables' : undefined}
         captainWorkspaceSubtitle={captainWorkspacePath ? workspaceSubtitle : undefined}
+        showBranchSelector={captainWorkspacePath && isBranchView}
       />
 
       <TabletNavbar

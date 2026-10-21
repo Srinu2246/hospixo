@@ -10,5 +10,5 @@ export default async function BranchManagerCaptainOrderSettleRoute({
   params,
 }: BranchManagerCaptainOrderSettleRouteProps) {
   const { orderId } = await params;
-  return <OrderSettle orderId={orderId} />;
+  return <OrderSettle orderId={orderId} initialStep="review" />;
 }

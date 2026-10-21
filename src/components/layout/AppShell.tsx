@@ -12,6 +12,7 @@ import type { SidebarSession } from '@/lib/auth/session';
 import {
   captainMainUsesStickyFooter,
   isCaptainListScreenPath,
+  isCaptainOrderSettlePath,
   isCaptainWorkspacePath,
   POS_CAPTAIN_BOTTOM_NAV_HEIGHT,
   POS_CAPTAIN_COMPACT_PADDING,
@@ -44,6 +45,7 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
   const compact = useMediaQuery(theme.breakpoints.down(screen.desktop), { noSsr: true });
   const captainPath = isCaptainWorkspacePath(pathname);
   const captainListPath = isCaptainListScreenPath(pathname);
+  const captainOrderSettlePath = isCaptainOrderSettlePath(pathname);
   const captainStickyFooter = captainMainUsesStickyFooter(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navPathname, setNavPathname] = useState(pathname);
@@ -120,7 +122,11 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
       <Box
         sx={{
           display: captainPath
-            ? { [screen.mobile]: 'none', [screen.tablet]: 'none', [screen.desktop]: 'contents' }
+            ? {
+                [screen.mobile]: mobileOpen ? 'block' : 'none',
+                [screen.tablet]: mobileOpen ? 'block' : 'none',
+                [screen.desktop]: 'contents',
+              }
             : { [screen.mobile]: 'block', [screen.desktop]: 'contents' },
           width: { [screen.mobile]: 0, [screen.desktop]: 'unset' },
           flexShrink: 0,
@@ -147,7 +153,12 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
       >
         <Sidebar
           isOpen={compact ? true : isOpen}
-          onToggle={compact ? setMobileOpen : setIsOpen}
+          onToggle={(open) => {
+            if (compact) setMobileOpen(open);
+            else setIsOpen(open);
+          }}
+          forcePrimaryNavigation={captainPath && compact && mobileOpen}
+          onRequestClose={compact ? () => setMobileOpen(false) : undefined}
           role={role}
           context={context}
           user={user}
@@ -248,12 +259,14 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
                 : { [screen.mobile]: 2, [screen.desktop]: 3 },
               pb: captainPath
                 ? {
-                    [screen.mobile]: captainListPath
-                      ? `${POS_CAPTAIN_LIST_BOTTOM_GAP}px`
-                      : POS_CAPTAIN_COMPACT_PADDING,
-                    [screen.tablet]: captainListPath
-                      ? `${POS_CAPTAIN_LIST_BOTTOM_GAP}px`
-                      : POS_CAPTAIN_COMPACT_PADDING,
+                    [screen.mobile]:
+                      captainListPath || captainOrderSettlePath
+                        ? `${POS_CAPTAIN_LIST_BOTTOM_GAP}px`
+                        : POS_CAPTAIN_COMPACT_PADDING,
+                    [screen.tablet]:
+                      captainListPath || captainOrderSettlePath
+                        ? `${POS_CAPTAIN_LIST_BOTTOM_GAP}px`
+                        : POS_CAPTAIN_COMPACT_PADDING,
                     [screen.desktop]: 3,
                   }
                 : undefined,

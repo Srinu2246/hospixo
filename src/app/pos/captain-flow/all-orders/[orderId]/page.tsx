@@ -8,5 +8,5 @@ interface CaptainOrderSettleRouteProps {
 
 export default async function CaptainOrderSettleRoute({ params }: CaptainOrderSettleRouteProps) {
   const { orderId } = await params;
-  return <OrderSettle orderId={orderId} />;
+  return <OrderSettle orderId={orderId} initialStep="review" />;
 }

@@ -21,6 +21,36 @@ export interface CaptainWorkspaceSubheaderProps {
   sectionDisabled?: boolean;
 }
 
+const CAPTAIN_FILTER_DROPDOWN_SX = {
+  flex: '0 1 auto',
+  width: 104,
+  maxWidth: 104,
+  minWidth: 88,
+  height: 36,
+  borderRadius: '10px',
+  '& .MuiOutlinedInput-root': {
+    height: 36,
+  },
+  '& .MuiSelect-select': {
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    py: '8px !important',
+    pl: '10px !important',
+    pr: '26px !important',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    lineHeight: 1.2,
+    boxSizing: 'border-box',
+    display: 'block',
+  },
+  '& .MuiSelect-icon': {
+    right: 6,
+    width: 16,
+    height: 16,
+  },
+} as const;
+
 /** Screen title row under AppShell “Hospixo Tables” header (captain mobile/tablet). */
 export function CaptainWorkspaceSubheader({
   title,
@@ -82,36 +112,30 @@ export function CaptainWorkspaceSubheader({
           </Box>
         </Stack>
         {showFloorFilter || showSectionFilter ? (
-          <Stack direction="row" spacing={1} sx={{ flexShrink: 0, maxWidth: '52%' }}>
+          <Stack
+            direction="row"
+            spacing={0.75}
+            sx={{ flexShrink: 0, alignItems: 'center', pt: 0.25, ml: 0.5 }}
+          >
             {showFloorFilter ? (
               <Dropdown
-                size="large"
+                size="small"
                 value={floorValue!}
                 onChange={onFloorChange!}
                 options={floorOptions!}
                 minWidth={0}
-                sx={{
-                  width: 108,
-                  height: 40,
-                  borderRadius: '10px',
-                  '& .MuiSelect-select': { fontSize: '0.8125rem', fontWeight: 600 },
-                }}
+                sx={CAPTAIN_FILTER_DROPDOWN_SX}
               />
             ) : null}
             {showSectionFilter ? (
               <Dropdown
-                size="large"
+                size="small"
                 value={sectionValue!}
                 onChange={onSectionChange!}
                 options={sectionOptions!}
                 disabled={sectionDisabled}
                 minWidth={0}
-                sx={{
-                  width: 108,
-                  height: 40,
-                  borderRadius: '10px',
-                  '& .MuiSelect-select': { fontSize: '0.8125rem', fontWeight: 600 },
-                }}
+                sx={CAPTAIN_FILTER_DROPDOWN_SX}
               />
             ) : null}
           </Stack>

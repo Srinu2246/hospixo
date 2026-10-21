@@ -1,5 +1,10 @@
 import { resolveCaptainFlowBase } from '@/lib/helpers/posCaptainFlow';
-import { getMockOrderSettleDetail, type PosOrderItem } from '@/lib/mocks/pos/usePosOrders.mocks';
+import {
+  getMockOrderSettleDetail,
+  type OrderSettleDetail,
+  type PosOrderItem,
+} from '@/lib/mocks/pos/usePosOrders.mocks';
+import type { OrderReviewData } from '@/features/pos/point-of-sale/components/OrderReviewSection';
 import {
   INITIAL_CART_ITEMS,
   type CartItem,
@@ -52,6 +57,20 @@ export function buildPosSettleOrderPath(pathname: string, order: PosOrderItem): 
   const basePath = pathname.replace(/\/+$/, '') || '/pos/point-of-sale/all-orders';
   const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
   return `${basePath}/${cleanOrderNumber}`;
+}
+
+/** Strip settle step suffixes (`/checkout`, `/success`) from the current URL. */
+export function resolvePosOrderSettleBasePath(pathname: string): string {
+  const trimmed = pathname.replace(/\/+$/, '');
+  return trimmed.replace(/\/(checkout|success|payment-success)$/, '') || trimmed;
+}
+
+export function buildPosSettleCheckoutPath(pathname: string): string {
+  return `${resolvePosOrderSettleBasePath(pathname)}/checkout`;
+}
+
+export function buildPosSettleSuccessPath(pathname: string): string {
+  return `${resolvePosOrderSettleBasePath(pathname)}/success`;
 }
 
 export function createCartLineId(): string {
@@ -194,5 +213,35 @@ export function buildReviewOrderData(
     taxRate: 0.05,
     taxAmount: tax,
     total: grandTotal,
+  };
+}
+
+const FIGMA_ORDER_1024_COUPON = 640;
+
+/** Captain order review card payload from settle detail (Figma #1024 coupon line). */
+export function mapSettleDetailToReviewOrder(detail: OrderSettleDetail): OrderReviewData {
+  const clean = detail.orderNumber.replace(/^#/, '').toLowerCase();
+  const is1024 = clean === '1024' || detail.id.includes('1024');
+  const couponAmount = is1024 ? FIGMA_ORDER_1024_COUPON : 0;
+
+  return {
+    orderNumber: detail.orderNumber,
+    table: detail.reference,
+    items: detail.items.map((it) => ({
+      id: it.id,
+      name: it.name,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      totalPrice: it.totalPrice,
+    })),
+    subtotal: detail.subtotal,
+    discounts:
+      couponAmount > 0 ? [{ id: 'coupon-figma', label: 'Coupon', amount: couponAmount }] : [],
+    platformFee: 0,
+    serviceChargeRate: 0,
+    serviceChargeAmount: 0,
+    taxRate: detail.taxRate,
+    taxAmount: detail.taxAmount,
+    total: detail.grandTotal,
   };
 }

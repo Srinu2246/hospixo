@@ -409,29 +409,3 @@ export const MOCK_READY_ORDERS: ReadyOrderItem[] = [
     paymentStatus: 'PENDING',
   },
 ];
-
-/** Kitchen queue not yet marked ready (captain Ready tab — Pending). */
-export const MOCK_READY_PENDING: ReadyOrderItem[] = [
-  {
-    id: 'pending-1',
-    table: 'Table T2',
-    readyTimeAgo: 'Cooking · 12 min',
-    token: 'Token #118',
-    priority: 'NORMAL',
-    itemsCount: 2,
-    status: 'Ready',
-    dishSummary: 'Margherita Pizza',
-    paymentStatus: 'PENDING',
-  },
-  {
-    id: 'pending-2',
-    table: 'Table T9',
-    readyTimeAgo: 'Cooking · 18 min',
-    token: 'Token #119',
-    priority: 'HIGH',
-    itemsCount: 4,
-    status: 'Ready',
-    dishSummary: 'Chicken Biryani, Raita',
-    paymentStatus: 'PAID',
-  },
-];
