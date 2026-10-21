@@ -44,6 +44,7 @@ export function MenuCard({
       headerPadding={2}
       footerPadding={2}
       borderRadius="12px"
+      onClick={onView ? () => onView(menu) : undefined}
       title={
         <Typography
           component="span"
