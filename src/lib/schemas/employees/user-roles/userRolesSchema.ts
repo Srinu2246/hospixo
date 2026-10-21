@@ -1193,7 +1193,7 @@ export function readPrimaryUserRoleId(assignmentsPayload: unknown): string | nul
   const rows = unwrapAssignments(assignmentsPayload);
   const first = rows[0];
   if (!first) return null;
-  const id = first.id ?? first.user_role_id ?? first.userRoleId ?? first.role_id ?? first.roleId;
+  const id = first.user_role_id ?? first.userRoleId ?? first.id ?? first.role_id ?? first.roleId;
   return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
 }
 

@@ -365,6 +365,71 @@ export function extractAssignedPermissionKeys(payload: unknown): Set<string> {
   return keys;
 }
 
+const ASSIGNMENT_ROW_KEYS = ['items', 'assignments', 'roles', 'data'] as const;
+
+function unwrapAssignmentRows(payload: unknown): Record<string, unknown>[] {
+  const unwrapped = unwrapEnvelope(payload);
+  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
+  if (!isRecord(unwrapped)) return [];
+  const found = ASSIGNMENT_ROW_KEYS.find((k) => Array.isArray(unwrapped[k]));
+  return found ? (unwrapped[found] as unknown[]).filter(isRecord) : [unwrapped];
+}
+
+/** Reads permission code lists from user role assignment rows (ignores role/user ids). */
+export function extractAssignmentPermissionKeys(payload: unknown): Set<string> {
+  const keys = new Set<string>();
+  const props = [
+    'permission_codes',
+    'permissionCodes',
+    'effective_permission_codes',
+    'effectivePermissionCodes',
+  ] as const;
+
+  unwrapAssignmentRows(payload).forEach((row) => {
+    props.forEach((prop) => {
+      const list = row[prop];
+      if (Array.isArray(list)) {
+        list.forEach((item) => {
+          extractAssignedPermissionKeys(item).forEach((key) => keys.add(key));
+        });
+      }
+    });
+  });
+  return keys;
+}
+
+export function extractStructuredPermissionKeys(payload: unknown): Set<string> {
+  const keys = extractAssignedPermissionKeys(payload);
+  const parsed = rolePermissionsPayloadSchema.safeParse(unwrapEnvelope(payload));
+  if (parsed.success) {
+    const payloadData: RolePermissionsPayload = parsed.data;
+    [...payloadData.permission_codes, ...payloadData.inherited_permission_codes].forEach((code) => {
+      if (typeof code === 'string' && code.trim()) {
+        keys.add(code.trim());
+        keys.add(code.trim().toLowerCase());
+      }
+    });
+  }
+  return keys;
+}
+
+export function buildStaffProfileAssignedKeys(sources: readonly unknown[]): Set<string> {
+  const keys = new Set<string>();
+  sources.forEach((source) => {
+    if (source) {
+      extractStructuredPermissionKeys(source).forEach((key) => keys.add(key));
+    }
+  });
+  return keys;
+}
+
+function normalizePermissionMatchKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s.-]+/g, '_');
+}
+
 export function autoEnableRolePermissions(
   categories: readonly PermissionCategory[],
   assignedKeys: Set<string>,
@@ -373,13 +438,23 @@ export function autoEnableRolePermissions(
     ...category,
     permissions: category.permissions.map((perm) => {
       const permCode = perm.code || perm.id;
+      const permCandidates = [perm.id, permCode, perm.name].map(normalizePermissionMatchKey);
       const isAssigned =
         assignedKeys.has(perm.id) ||
         assignedKeys.has(perm.id.toLowerCase()) ||
         assignedKeys.has(perm.name) ||
         assignedKeys.has(perm.name.toLowerCase()) ||
         assignedKeys.has(permCode) ||
-        assignedKeys.has(permCode.toLowerCase());
+        assignedKeys.has(permCode.toLowerCase()) ||
+        [...assignedKeys].some((key) => {
+          const normalized = normalizePermissionMatchKey(key);
+          return permCandidates.some(
+            (candidate) =>
+              candidate === normalized ||
+              candidate.endsWith(`_${normalized}`) ||
+              normalized.endsWith(`_${candidate}`),
+          );
+        });
 
       return {
         ...perm,

@@ -93,15 +93,11 @@ export function EditStaffProfileScreen({
   const [mode, setMode] = useState<'view' | 'edit'>(initialMode);
   const remoteCategories = staffProfile.categories;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
-  const [syncedRemoteCategories, setSyncedRemoteCategories] =
-    useState<PermissionCategory[]>(remoteCategories);
 
-  if (remoteCategories !== syncedRemoteCategories) {
-    setSyncedRemoteCategories(remoteCategories);
-    if (remoteCategories.length > 0) {
-      setCategories(remoteCategories);
-    }
-  }
+  useEffect(() => {
+    if (remoteCategories.length === 0) return;
+    setCategories(remoteCategories);
+  }, [remoteCategories]);
 
   // Deactivation confirmation modal state
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
@@ -658,14 +654,18 @@ export function EditStaffProfileScreen({
               Permissions
             </Typography>
 
-            {/* Reusable Permission Groups Grid */}
-            <PermissionGroupsGrid
-              categories={categories}
-              onTogglePermission={handleTogglePermission}
-              onToggleCategoryAll={handleToggleCategoryAll}
-              readOnly={isReadOnly}
-              badgeMode="enabled"
-            />
+            {staffProfile.isPermissionsLoading ? (
+              <Loading message="Loading permissions…" />
+            ) : (
+              <PermissionGroupsGrid
+                categories={categories}
+                onTogglePermission={handleTogglePermission}
+                onToggleCategoryAll={handleToggleCategoryAll}
+                readOnly={isReadOnly}
+                showEnabledOnly
+                badgeMode="enabled"
+              />
+            )}
           </Box>
 
           {/* SECTION 3: Danger Zone */}

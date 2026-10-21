@@ -7,8 +7,9 @@ import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import {
   autoEnableRolePermissions,
+  buildStaffProfileAssignedKeys,
   enrichDirectoryWithSession,
-  extractAssignedPermissionKeys,
+  extractAssignmentPermissionKeys,
   isMatch,
   loadEmployeeDirectory,
   resolveAssignmentPermissionsPayload,
@@ -369,16 +370,6 @@ async function syncUserPermissions(
   }
 }
 
-function extractCombinedPermissionKeys(sources: readonly unknown[]): Set<string> {
-  const keys = new Set<string>();
-  sources.forEach((source) => {
-    if (source) {
-      extractAssignedPermissionKeys(source).forEach((k) => keys.add(k));
-    }
-  });
-  return keys;
-}
-
 function useResolvedRoleCatalog(data: unknown): RoleCatalogItem[] {
   return useMemo(() => {
     if (Array.isArray(data)) return data;
@@ -540,27 +531,19 @@ export function useStaffProfile(
         ? permissionsQuery.data
         : DEFAULT_STAFF_PROFILE_PERMISSIONS;
 
-    // 1. User-assigned permissions take priority over role template defaults
-    const userKeys = extractCombinedPermissionKeys([
+    const assignedKeys = buildStaffProfileAssignedKeys([
       userDirectPermissionsQuery.data,
       userRolePermissionsQuery.data,
-      assignmentsQuery.data,
       rawUserQuery.data,
+      rolePermissionsQuery.data,
     ]);
+    extractAssignmentPermissionKeys(assignmentsQuery.data).forEach((key) => assignedKeys.add(key));
 
-    if (userKeys.size > 0) {
-      return autoEnableRolePermissions(baseCategories, userKeys);
+    if (assignedKeys.size > 0) {
+      return autoEnableRolePermissions(baseCategories, assignedKeys);
     }
 
-    // 2. Fall back to role template defaults ONLY for seed/system users without customized permissions
-    if (rolePermissionsQuery.data) {
-      const roleKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);
-      if (roleKeys.size > 0) {
-        return autoEnableRolePermissions(baseCategories, roleKeys);
-      }
-    }
-
-    return autoEnableRolePermissions(baseCategories, new Set<string>());
+    return baseCategories;
   }, [
     permissionsQuery.data,
     userDirectPermissionsQuery.data,
@@ -643,7 +626,7 @@ export function useStaffProfile(
     categories,
     matchedRole,
     roleCatalog,
-    isLoading: (rawUserQuery.isLoading && !userItem) || isPermissionsLoading,
+    isLoading: rawUserQuery.isLoading && !userItem,
     isPermissionsLoading,
     isError: rawUserQuery.isError && !userItem,
     error: rawUserQuery.error,
