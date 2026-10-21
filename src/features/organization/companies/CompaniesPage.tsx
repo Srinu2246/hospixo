@@ -21,6 +21,7 @@ import {
   type EntityTableColumn,
 } from '@/components/shared/entity-list';
 import { useOrganizationCompanies } from '@/lib/hooks/organization/companies/useOrganizationCompanies';
+import { companyDashboardHref } from '@/lib/helpers';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
@@ -53,6 +54,8 @@ export function CompaniesPage({
 }: Readonly<CompaniesPageProps> = {}) {
   const router = useRouter();
   const setContext = useSidebarStore((state) => state.setContext);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const role = useSidebarStore((state) => state.role);
   const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
   const orgId = organizationId ?? accountOrgId;
   const companies = useOrganizationCompanies(orgId, initialCompanies);
@@ -78,13 +81,15 @@ export function CompaniesPage({
 
   const openCompany = (company: CompanyListItem) => {
     const numericId = typeof company.id === 'number' ? company.id : Number(company.id);
-    setContext({
+    const nextContext = {
+      ...sidebarContext,
       organizationId: orgId,
       companyId: Number.isFinite(numericId) ? numericId : undefined,
       companyName: company.name,
-      companySlug: company.code ?? undefined,
-    });
-    router.push('/company/dashboard?level=company');
+      companySlug: company.code?.trim() || company.name,
+    };
+    setContext(nextContext);
+    router.push(companyDashboardHref(nextContext, role));
   };
 
   const errorMessage = companies.isError

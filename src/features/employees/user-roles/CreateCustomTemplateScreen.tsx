@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,7 +12,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Card } from '@/components/shared/ui/Card';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { Input } from '@/components/shared/form-fields/Input';
-import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { Loading } from '@/components/shared/ui/Loading';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
@@ -56,31 +55,13 @@ export function CreateCustomTemplateScreen({
 
   const groupedPermissions = useGroupedPermissions();
   const createCustomRole = useCreateCustomRole();
-  const remoteCategories = groupedPermissions.data ?? [];
+  const remoteCategories = groupedPermissions.data;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
-  const [syncedRemoteCategories, setSyncedRemoteCategories] =
-    useState<PermissionCategory[]>(remoteCategories);
 
-  if (remoteCategories !== syncedRemoteCategories) {
-    setSyncedRemoteCategories(remoteCategories);
-    if (remoteCategories.length > 0) {
-      setCategories(remoteCategories);
-    }
-  }
-
-  const [toastFeedback, setToastFeedback] = useState<{
-    open: boolean;
-    message: string;
-    severity: ToastSeverity;
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
-
-  const showToast = (message: string, severity: ToastSeverity = 'success') => {
-    setToastFeedback({ open: true, message, severity });
-  };
+  useEffect(() => {
+    if (!remoteCategories?.length) return;
+    setCategories(remoteCategories);
+  }, [remoteCategories]);
 
   const footerTarget = useAppShellFooterTarget();
 
@@ -157,10 +138,9 @@ export function CreateCustomTemplateScreen({
     try {
       await createCustomRole.mutateAsync({ values: data, categories });
       onSaveTemplate?.(data, categories);
-      showToast(`Role template "${data.templateName}" created successfully!`, 'success');
       handleBack();
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to create role.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   };
 
@@ -336,6 +316,7 @@ export function CreateCustomTemplateScreen({
                   categories={categories}
                   onTogglePermission={handleTogglePermission}
                   onToggleCategoryAll={handleToggleCategoryAll}
+                  showEnabledOnly={false}
                 />
               )}
             </Box>
@@ -347,13 +328,6 @@ export function CreateCustomTemplateScreen({
         isSubmitting={isSubmitting}
         footerTarget={footerTarget}
         onCancel={handleBack}
-      />
-
-      <Toast
-        open={toastFeedback.open}
-        message={toastFeedback.message}
-        severity={toastFeedback.severity}
-        onClose={() => setToastFeedback((prev) => ({ ...prev, open: false }))}
       />
     </Box>
   );

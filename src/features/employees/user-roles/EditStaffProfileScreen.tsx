@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -53,10 +53,17 @@ export function EditStaffProfileScreen({
   const pathname = usePathname() || '';
   const searchParams = useSearchParams();
 
-  const resolvedScope = resolveScopeFromPathname(pathname, scope);
+  const queryUserId = searchParams?.get('id') || searchParams?.get('userId') || null;
+  const storeSelectedUserId = useUserRolesUiStore((state) => state.selectedUserId);
+  const setSelectedUserId = useUserRolesUiStore((state) => state.setSelectedUserId);
 
-  const queryUserId = searchParams.get('id') || searchParams.get('userId');
-  const storeUserId = useUserRolesUiStore((state) => state.selectedUserId);
+  useEffect(() => {
+    if (queryUserId && queryUserId !== storeSelectedUserId) {
+      setSelectedUserId(queryUserId);
+    }
+  }, [queryUserId, storeSelectedUserId, setSelectedUserId]);
+
+  const resolvedScope = resolveScopeFromPathname(pathname, scope);
 
   const [savedUserId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -65,7 +72,7 @@ export function EditStaffProfileScreen({
     return null;
   });
 
-  const selectedUserId = queryUserId || storeUserId || savedUserId;
+  const selectedUserId = queryUserId || storeSelectedUserId || savedUserId;
 
   const staffProfile = useStaffProfile(selectedUserId, { scope: resolvedScope });
   const userProfile = staffProfile.profile;
@@ -81,26 +88,21 @@ export function EditStaffProfileScreen({
   });
 
   const isReadOnly = isEditDisabled || mode === 'view';
-
   const remoteCategories = staffProfile.categories;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
-  const [syncedRemoteCategories, setSyncedRemoteCategories] =
-    useState<PermissionCategory[]>(remoteCategories);
 
-  if (remoteCategories !== syncedRemoteCategories) {
-    setSyncedRemoteCategories(remoteCategories);
-    if (remoteCategories.length > 0) {
-      setCategories(remoteCategories);
-    }
-  }
+  useEffect(() => {
+    if (remoteCategories.length === 0) return;
+    setCategories(remoteCategories);
+  }, [remoteCategories]);
 
   const enabledPermissionIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const cat of remoteCategories) {
-      for (const p of cat.permissions) {
+    remoteCategories.forEach((cat) => {
+      cat.permissions.forEach((p) => {
         if (p.enabled) ids.add(p.id);
-      }
-    }
+      });
+    });
     return ids;
   }, [remoteCategories]);
 
@@ -193,8 +195,8 @@ export function EditStaffProfileScreen({
       setIsDeactivateModalOpen(false);
       setValue('userStatus', false);
       showToast('User has been inactivated.', 'warning');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to inactivate user.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     } finally {
       setIsDeactivating(false);
     }
@@ -207,8 +209,8 @@ export function EditStaffProfileScreen({
       setIsActivateModalOpen(false);
       setValue('userStatus', true);
       showToast('User has been activated successfully!', 'success');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to activate user.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     } finally {
       setIsActivating(false);
     }
@@ -218,10 +220,9 @@ export function EditStaffProfileScreen({
     try {
       await staffProfile.saveProfile({ values: data, categories });
       onSave?.(data, categories);
-      showToast('Staff profile and permissions updated successfully!', 'success');
       setMode('view');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to save profile.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   };
 

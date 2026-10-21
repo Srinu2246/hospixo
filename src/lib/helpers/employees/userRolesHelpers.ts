@@ -6,9 +6,12 @@ import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/user
 import {
   isRecord,
   roleRequiresBranchId,
+  rolePermissionsPayloadSchema,
+  type RolePermissionsPayload,
   unwrapEnvelope,
   type CreateUserRequestContext,
   type RoleCatalogItem,
+  isMatch,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { QueryParams } from '@/services/api/types';
 import { userRolePermissionsPath } from '@/services/api/ApiUrlsV1';
@@ -44,12 +47,14 @@ export type CreateUserNameHints = {
   branch?: string;
 };
 
+export { isMatch };
+
 export function companiesFromBranches(branches: readonly BranchListItem[]): CompanyListItem[] {
   const counts = new Map<string, { item: CompanyListItem; branchCount: number }>();
 
-  for (const branch of branches) {
+  branches.forEach((branch) => {
     const companyId = branch.companyId;
-    if (companyId === '' || companyId == null) continue;
+    if (companyId === '' || companyId == null) return;
 
     const key = String(companyId);
     const existing = counts.get(key);
@@ -58,7 +63,7 @@ export function companiesFromBranches(branches: readonly BranchListItem[]): Comp
       if (branch.companyName?.trim()) {
         existing.item.name = branch.companyName.trim();
       }
-      continue;
+      return;
     }
 
     counts.set(key, {
@@ -73,7 +78,7 @@ export function companiesFromBranches(branches: readonly BranchListItem[]): Comp
         userCount: 0,
       },
     });
-  }
+  });
 
   return [...counts.values()].map(({ item, branchCount }) => ({
     ...item,
@@ -360,42 +365,103 @@ export function extractAssignedPermissionKeys(payload: unknown): Set<string> {
   return keys;
 }
 
+const ASSIGNMENT_ROW_KEYS = ['items', 'assignments', 'roles', 'data'] as const;
+
+function unwrapAssignmentRows(payload: unknown): Record<string, unknown>[] {
+  const unwrapped = unwrapEnvelope(payload);
+  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
+  if (!isRecord(unwrapped)) return [];
+  const found = ASSIGNMENT_ROW_KEYS.find((k) => Array.isArray(unwrapped[k]));
+  return found ? (unwrapped[found] as unknown[]).filter(isRecord) : [unwrapped];
+}
+
+/** Reads permission code lists from user role assignment rows (ignores role/user ids). */
+export function extractAssignmentPermissionKeys(payload: unknown): Set<string> {
+  const keys = new Set<string>();
+  const props = [
+    'permission_codes',
+    'permissionCodes',
+    'effective_permission_codes',
+    'effectivePermissionCodes',
+  ] as const;
+
+  unwrapAssignmentRows(payload).forEach((row) => {
+    props.forEach((prop) => {
+      const list = row[prop];
+      if (Array.isArray(list)) {
+        list.forEach((item) => {
+          extractAssignedPermissionKeys(item).forEach((key) => keys.add(key));
+        });
+      }
+    });
+  });
+  return keys;
+}
+
+export function extractStructuredPermissionKeys(payload: unknown): Set<string> {
+  const keys = extractAssignedPermissionKeys(payload);
+  const parsed = rolePermissionsPayloadSchema.safeParse(unwrapEnvelope(payload));
+  if (parsed.success) {
+    const payloadData: RolePermissionsPayload = parsed.data;
+    [...payloadData.permission_codes, ...payloadData.inherited_permission_codes].forEach((code) => {
+      if (typeof code === 'string' && code.trim()) {
+        keys.add(code.trim());
+        keys.add(code.trim().toLowerCase());
+      }
+    });
+  }
+  return keys;
+}
+
+export function buildStaffProfileAssignedKeys(sources: readonly unknown[]): Set<string> {
+  const keys = new Set<string>();
+  sources.forEach((source) => {
+    if (source) {
+      extractStructuredPermissionKeys(source).forEach((key) => keys.add(key));
+    }
+  });
+  return keys;
+}
+
+function normalizePermissionMatchKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s.-]+/g, '_');
+}
+
 export function autoEnableRolePermissions(
   categories: readonly PermissionCategory[],
   assignedKeys: Set<string>,
 ): PermissionCategory[] {
-  if (assignedKeys.size === 0) return [...categories];
-
-  return categories
-    .map((category) => {
-      const permissions = category.permissions
-        .map((perm) => {
-          const candidateCode =
-            'code' in perm && typeof (perm as Record<string, unknown>).code === 'string'
-              ? ((perm as Record<string, unknown>).code as string)
-              : undefined;
-          const isAssigned =
-            assignedKeys.has(perm.id) ||
-            assignedKeys.has(perm.id.toLowerCase()) ||
-            assignedKeys.has(perm.name) ||
-            assignedKeys.has(perm.name.toLowerCase()) ||
-            (candidateCode
-              ? assignedKeys.has(candidateCode) || assignedKeys.has(candidateCode.toLowerCase())
-              : false);
-
-          return {
-            ...perm,
-            enabled: isAssigned,
-          };
-        })
-        .filter((perm) => perm.enabled);
+  return categories.map((category) => ({
+    ...category,
+    permissions: category.permissions.map((perm) => {
+      const permCode = perm.code || perm.id;
+      const permCandidates = [perm.id, permCode, perm.name].map(normalizePermissionMatchKey);
+      const isAssigned =
+        assignedKeys.has(perm.id) ||
+        assignedKeys.has(perm.id.toLowerCase()) ||
+        assignedKeys.has(perm.name) ||
+        assignedKeys.has(perm.name.toLowerCase()) ||
+        assignedKeys.has(permCode) ||
+        assignedKeys.has(permCode.toLowerCase()) ||
+        [...assignedKeys].some((key) => {
+          const normalized = normalizePermissionMatchKey(key);
+          return permCandidates.some(
+            (candidate) =>
+              candidate === normalized ||
+              candidate.endsWith(`_${normalized}`) ||
+              normalized.endsWith(`_${candidate}`),
+          );
+        });
 
       return {
-        ...category,
-        permissions,
+        ...perm,
+        enabled: isAssigned,
       };
-    })
-    .filter((category) => category.permissions.length > 0);
+    }),
+  }));
 }
 
 export function togglePermissionCategory(
@@ -441,23 +507,10 @@ export async function resolveAssignmentPermissionsPayload(
   let inheritedCodes: string[] = [];
   try {
     const raw = await get(userRolePermissionsPath(userId, userRoleId));
-    const unwrapped =
-      typeof raw === 'object' && raw !== null && 'data' in raw
-        ? (raw as { data: unknown }).data
-        : raw;
-    if (
-      typeof unwrapped === 'object' &&
-      unwrapped !== null &&
-      'inherited_permission_codes' in unwrapped &&
-      Array.isArray(
-        (unwrapped as { inherited_permission_codes: unknown }).inherited_permission_codes,
-      )
-    ) {
-      inheritedCodes = (
-        unwrapped as { inherited_permission_codes: unknown[] }
-      ).inherited_permission_codes.filter(
-        (code): code is string => typeof code === 'string' && code.length > 0,
-      );
+    const parsed = rolePermissionsPayloadSchema.safeParse(unwrapEnvelope(raw));
+    if (parsed.success) {
+      const payload: RolePermissionsPayload = parsed.data;
+      inheritedCodes = payload.inherited_permission_codes;
     }
   } catch {
     // If GET permissions endpoint fails, fallback to empty list
@@ -466,35 +519,37 @@ export async function resolveAssignmentPermissionsPayload(
   const enabledFromUI = new Set<string>();
   const disabledFromUI = new Set<string>();
 
-  for (const cat of categories) {
-    for (const perm of cat.permissions) {
-      const code =
-        'code' in perm && typeof (perm as Record<string, unknown>).code === 'string'
-          ? ((perm as Record<string, unknown>).code as string)
-          : perm.id;
+  categories.forEach((cat) => {
+    cat.permissions.forEach((perm) => {
+      const code = perm.code || perm.id;
       if (perm.enabled) {
         enabledFromUI.add(code);
       } else {
         disabledFromUI.add(code);
       }
+    });
+  });
+
+  const adjustments: Array<{ permission_code: string; effect: 'grant' | 'revoke' }> = [];
+  const inheritedSet = new Set<string>(inheritedCodes);
+
+  enabledFromUI.forEach((code) => {
+    if (!inheritedSet.has(code)) {
+      adjustments.push({ permission_code: code, effect: 'grant' });
     }
-  }
+  });
 
-  const finalCodes = new Set<string>(inheritedCodes);
+  disabledFromUI.forEach((code) => {
+    if (inheritedSet.has(code)) {
+      adjustments.push({ permission_code: code, effect: 'revoke' });
+    }
+  });
 
-  for (const code of enabledFromUI) {
-    finalCodes.add(code);
-  }
-
-  for (const code of disabledFromUI) {
-    finalCodes.delete(code);
-  }
-
-  const permissionCodesList = Array.from(finalCodes);
+  const permissionCodesList = Array.from(enabledFromUI);
 
   return {
     permission_codes: permissionCodesList,
     permission_ids: permissionCodesList,
-    assignment_adjustments: [],
+    assignment_adjustments: adjustments,
   };
 }

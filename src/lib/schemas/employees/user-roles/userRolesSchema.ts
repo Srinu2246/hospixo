@@ -4,13 +4,25 @@ import { z } from 'zod';
 // 1. Primitive Domain Types & Enums
 // ============================================================================
 
-export const scopeTypeSchema = z.enum(['organization', 'company', 'branch']);
+export const UserRoleScope = {
+  Organization: 'organization',
+  Company: 'company',
+  Branch: 'branch',
+} as const;
+
+export type UserRoleScope = (typeof UserRoleScope)[keyof typeof UserRoleScope];
+
+export const scopeTypeSchema = z.enum([
+  UserRoleScope.Organization,
+  UserRoleScope.Company,
+  UserRoleScope.Branch,
+]);
 export type ScopeType = z.infer<typeof scopeTypeSchema>;
 
 export function resolveScope(raw?: string | null): ScopeType {
-  if (raw === 'company') return 'company';
-  if (raw === 'branch' || raw === 'branch-manager') return 'branch';
-  return 'organization';
+  if (raw === UserRoleScope.Company) return UserRoleScope.Company;
+  if (raw === UserRoleScope.Branch || raw === 'branch-manager') return UserRoleScope.Branch;
+  return UserRoleScope.Organization;
 }
 
 export function resolveScopeFromPathname(
@@ -18,16 +30,16 @@ export function resolveScopeFromPathname(
   explicitScope?: ScopeType | null,
 ): ScopeType {
   if (
-    explicitScope === 'company' ||
-    explicitScope === 'branch' ||
-    explicitScope === 'organization'
+    explicitScope === UserRoleScope.Company ||
+    explicitScope === UserRoleScope.Branch ||
+    explicitScope === UserRoleScope.Organization
   ) {
     return explicitScope;
   }
   const path = pathname ?? '';
-  if (path.includes('/company')) return 'company';
-  if (path.includes('/branch')) return 'branch';
-  return 'organization';
+  if (path.includes('/company')) return UserRoleScope.Company;
+  if (path.includes('/branch')) return UserRoleScope.Branch;
+  return UserRoleScope.Organization;
 }
 
 export function getUsersAndRolesBaseRoute(
@@ -41,8 +53,8 @@ export function getUsersAndRolesBaseRoute(
   );
   if (stripped) return stripped;
   const resolved = resolveScopeFromPathname(path, scope);
-  if (resolved === 'company') return '/company/employees/users-and-roles';
-  if (resolved === 'branch') return '/branch-manager/employees/users-and-roles';
+  if (resolved === UserRoleScope.Company) return '/company/employees/users-and-roles';
+  if (resolved === UserRoleScope.Branch) return '/branch-manager/employees/users-and-roles';
   return '/organization/employees/users-and-roles';
 }
 
@@ -64,6 +76,8 @@ export const userRoleItemSchema = z.object({
   avatar: z.string().optional(),
   createdAt: z.string().optional(),
   company: z.string().optional(),
+  companyId: z.number().optional(),
+  branchId: z.number().optional(),
   scope: scopeTypeSchema.optional(),
   phone: z.string().optional(),
   /** Present when the list API only returns role ids/codes; used to resolve labels from the roles catalog. */
@@ -93,6 +107,7 @@ export const permissionItemSchema = z.object({
   name: z.string(),
   description: z.string(),
   enabled: z.boolean(),
+  code: z.string().optional(),
 });
 
 export const permissionCategorySchema = z.object({
@@ -102,6 +117,75 @@ export const permissionCategorySchema = z.object({
 });
 
 export type PermissionCategory = z.infer<typeof permissionCategorySchema>;
+
+export const rolePermissionsPayloadSchema = z.object({
+  role_id: z.union([z.number(), z.string()]).optional(),
+  inherited_permission_codes: z.array(z.string()).default([]),
+  permission_codes: z.array(z.string()).default([]),
+});
+
+export type RolePermissionsPayload = z.infer<typeof rolePermissionsPayloadSchema>;
+
+function makePermissionCategory(
+  id: string,
+  title: string,
+  items: ReadonlyArray<[code: string, name: string, description: string]>,
+): PermissionCategory {
+  return {
+    id,
+    title,
+    permissions: items.map(([code, name, description]) => ({
+      id: code,
+      code,
+      name,
+      description,
+      enabled: false,
+    })),
+  };
+}
+
+export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
+  makePermissionCategory('dashboard', 'Dashboard', [
+    ['dashboard.view', 'View Dashboard', 'Access to the main overview and KPI tiles'],
+    ['dashboard.analytics', 'View Analytics', 'Detailed charts and data trends analysis'],
+  ]),
+  makePermissionCategory('user_management', 'User Management', [
+    ['users.view', 'View Users', 'Access and view the team member directory'],
+    ['users.create', 'Create Users', 'Invite and add new members to the system'],
+    ['users.edit', 'Edit Users', 'Modify existing user details and status'],
+    ['users.delete', 'Delete Users', 'Remove users permanently from the organization'],
+    ['roles.view', 'View Roles', 'Access and view system roles and permissions'],
+  ]),
+  makePermissionCategory('company_management', 'Company Management', [
+    ['company.view', 'View Company', 'Access company profile, branches, and operational settings'],
+    [
+      'company.manage',
+      'Manage Company',
+      'Update company details, policies, and business configurations',
+    ],
+  ]),
+  makePermissionCategory('branch_management', 'Branch Management', [
+    ['branches.view', 'View Branches', 'See details of all connected branch locations'],
+    ['branches.manage', 'Manage Branches', 'Edit branch info, opening hours, and zones'],
+  ]),
+  makePermissionCategory('inventory', 'Inventory', [
+    ['inventory.view', 'View Inventory', 'Monitor stock levels and tracking'],
+    ['inventory.items', 'Manage Items', 'Add or edit items in the product catalog'],
+  ]),
+  makePermissionCategory('reports', 'Reports', [
+    ['reports.view', 'View Reports', 'Financial and operational summary reports'],
+    ['reports.export', 'Export Reports', 'Download CSV and PDF reports'],
+  ]),
+];
+
+export interface UseUserRolesOptions {
+  pageSize?: number;
+  scope?: ScopeType;
+  companyName?: string;
+  initialUserList?: UserRoleListResponse;
+  companyId?: number | string | null;
+  branchId?: number | string | null;
+}
 
 export const roleTemplateItemSchema = z.object({
   id: z.string(),
@@ -170,6 +254,8 @@ export type ParsedUserList = {
   items: UserRoleItem[];
   total: number;
 };
+
+export type UserRoleListResponse = ParsedUserList;
 
 export function parseUserList(payload: unknown): ParsedUserList {
   const rows = unwrapUsers(payload);
@@ -308,6 +394,34 @@ export function parseRoleTemplates(payload: unknown): RoleTemplateItem[] {
 export function parseGroupedPermissions(payload: unknown): PermissionCategory[] {
   const unwrapped = unwrapEnvelope(payload);
   const groups = extractPermissionGroups(unwrapped);
+
+  if (
+    groups.length > 0 &&
+    groups.every(
+      (g) => isRecord(g) && !('permissions' in g) && !('items' in g) && !('children' in g),
+    )
+  ) {
+    const map = new Map<string, unknown[]>();
+    groups.forEach((item) => {
+      if (!isRecord(item)) return;
+      const moduleName =
+        text(item.module) ?? text(item.resource) ?? text(item.code)?.split('.')[0] ?? 'Other';
+      const existing = map.get(moduleName) ?? [];
+      existing.push(item);
+      map.set(moduleName, existing);
+    });
+    const synthesizedGroups = Array.from(map.entries()).map(([moduleName, items]) => ({
+      title: moduleName,
+      permissions: items,
+    }));
+    const categories = synthesizedGroups.flatMap((group, groupIndex) => {
+      const mapped = mapPermissionGroup(group, groupIndex);
+      const parsed = permissionCategorySchema.safeParse(mapped);
+      return parsed.success ? [parsed.data] : [];
+    });
+    return ensureUniqueCategoryIds(categories);
+  }
+
   const categories = groups.flatMap((group, groupIndex) => {
     if (!isRecord(group)) return [];
     const mapped = mapPermissionGroup(group, groupIndex);
@@ -322,11 +436,15 @@ const RESOURCE_TITLE_OVERRIDES: Record<string, string> = {
   users: 'User Management',
   user: 'User Management',
   user_management: 'User Management',
+  company: 'Company Management',
+  company_management: 'Company Management',
   branches: 'Branch Management',
   branch: 'Branch Management',
   branch_management: 'Branch Management',
   inventory: 'Inventory',
   inventory_management: 'Inventory',
+  reports: 'Reports',
+  report: 'Reports',
 };
 
 const PERMISSION_LABEL_OVERRIDES: Record<string, string> = {
@@ -337,10 +455,14 @@ const PERMISSION_LABEL_OVERRIDES: Record<string, string> = {
   'users.edit': 'Edit Users',
   'users.delete': 'Delete Users',
   'roles.view': 'View Roles',
+  'company.view': 'View Company',
+  'company.manage': 'Manage Company',
   'branches.view': 'View Branches',
   'branches.manage': 'Manage Branches',
   'inventory.view': 'View Inventory',
   'inventory.items': 'Manage Items',
+  'reports.view': 'View Reports',
+  'reports.export': 'Export Reports',
 };
 
 const PERMISSION_DESCRIPTION_OVERRIDES: Record<string, string> = {
@@ -351,10 +473,14 @@ const PERMISSION_DESCRIPTION_OVERRIDES: Record<string, string> = {
   'users.edit': 'Modify existing user details and status',
   'users.delete': 'Remove users permanently from the organization',
   'roles.view': 'Access and view system roles and permissions',
+  'company.view': 'Access company profile, branches, and operational settings',
+  'company.manage': 'Update company details, policies, and business configurations',
   'branches.view': 'See details of all connected branch locations',
   'branches.manage': 'Edit branch info, opening hours, and zones',
   'inventory.view': 'Monitor stock levels and tracking',
   'inventory.items': 'Add or edit items in the product catalog',
+  'reports.view': 'Financial and operational summary reports',
+  'reports.export': 'Download CSV and PDF reports',
 };
 
 function toTitleCase(value: string): string {
@@ -472,12 +598,27 @@ function mapPermissionGroup(raw: Record<string, unknown>, groupIndex: number): P
   const permissionsRaw = raw.permissions ?? raw.items ?? raw.children ?? [];
   const permissions = Array.isArray(permissionsRaw)
     ? permissionsRaw.flatMap((entry, permissionIndex) => {
+        if (typeof entry === 'string') {
+          const name = resolvePermissionItemName({ code: entry }, title, permissionIndex);
+          const description = resolvePermissionItemDescription({ code: entry }, name);
+          return [
+            {
+              id: entry,
+              code: entry,
+              name,
+              description,
+              enabled: false,
+            },
+          ];
+        }
         if (!isRecord(entry)) return [];
         const name = resolvePermissionItemName(entry, title, permissionIndex);
         const description = resolvePermissionItemDescription(entry, name);
+        const code = text(entry.code) ?? text(entry.permission_code);
         return [
           {
             id: readPermissionItemId(entry, name, categoryId, permissionIndex),
+            ...(code ? { code } : {}),
             name,
             description,
             enabled: Boolean(entry.enabled ?? entry.granted ?? entry.active ?? false),
@@ -868,34 +1009,7 @@ export type RoleAssignmentHints = {
   scope?: ScopeType | string | null;
 };
 
-export function toReplaceRolesBody(
-  roleCodeOrCodes: string | readonly string[],
-  hints?: RoleAssignmentHints,
-): Record<string, unknown> {
-  const codes = Array.isArray(roleCodeOrCodes) ? roleCodeOrCodes : [roleCodeOrCodes];
-  const branchId =
-    hints?.branchId != null && hints.branchId !== '' ? Number(hints.branchId) : undefined;
-  const companyId =
-    hints?.companyId != null && hints.companyId !== '' ? Number(hints.companyId) : undefined;
-
-  const roles = codes
-    .map((code) => String(code).trim())
-    .filter(Boolean)
-    .map((role_code) =>
-      compact({
-        role_code,
-        ...(companyId != null && Number.isFinite(companyId) ? { company_id: companyId } : {}),
-        ...(branchId != null && Number.isFinite(branchId) ? { branch_id: branchId } : {}),
-      }),
-    );
-
-  return { roles };
-}
-
-export function toAssignRoleBody(
-  roleCode: string,
-  hints?: RoleAssignmentHints,
-): Record<string, unknown> {
+function toRoleEntry(roleCode: string, hints?: RoleAssignmentHints): Record<string, unknown> {
   const branchId =
     hints?.branchId != null && hints.branchId !== '' ? Number(hints.branchId) : undefined;
   const companyId =
@@ -906,6 +1020,26 @@ export function toAssignRoleBody(
     ...(companyId != null && Number.isFinite(companyId) ? { company_id: companyId } : {}),
     ...(branchId != null && Number.isFinite(branchId) ? { branch_id: branchId } : {}),
   });
+}
+
+export function toReplaceRolesBody(
+  roleCodeOrCodes: string | readonly string[],
+  hints?: RoleAssignmentHints,
+): Record<string, unknown> {
+  const codes = Array.isArray(roleCodeOrCodes) ? roleCodeOrCodes : [roleCodeOrCodes];
+  const roles = codes
+    .map((code) => String(code).trim())
+    .filter(Boolean)
+    .map((role_code) => toRoleEntry(role_code, hints));
+
+  return { roles };
+}
+
+export function toAssignRoleBody(
+  roleCode: string,
+  hints?: RoleAssignmentHints,
+): Record<string, unknown> {
+  return toRoleEntry(roleCode, hints);
 }
 
 export function toCreateRoleBody(name: string, description?: string): Record<string, unknown> {
@@ -982,26 +1116,84 @@ export function staffProfileFromUser(
   };
 }
 
+export function isMatch(
+  current: string | number | null | undefined,
+  expected: string | number | null | undefined,
+  options?: { caseSensitive?: boolean },
+): boolean {
+  if (current == null || expected == null) return false;
+  const currentStr = String(current).trim();
+  const expectedStr = String(expected).trim();
+  return options?.caseSensitive
+    ? currentStr === expectedStr
+    : currentStr.toLowerCase() === expectedStr.toLowerCase();
+}
+
 export function resolveRoleId(
   roleName: string,
   catalog: readonly RoleCatalogItem[],
 ): string | number | null {
   const normalized = roleName.trim().toLowerCase();
   if (!normalized) return null;
-  const match = catalog.find(
+
+  // 1. Exact match by name, id, or code
+  const exactMatch = catalog.find(
     (role) =>
-      role.name.trim().toLowerCase() === normalized ||
-      String(role.id).toLowerCase() === normalized ||
-      role.code?.trim().toLowerCase() === normalized,
+      isMatch(role.name, normalized) ||
+      isMatch(role.id, normalized) ||
+      isMatch(role.code, normalized),
   );
-  return match?.id ?? null;
+  if (exactMatch) return exactMatch.id;
+
+  // 2. Normalized alphanumeric match
+  const clean = normalized.replace(/[^a-z0-9]/g, '');
+  const tokenMatch = catalog.find((role) => {
+    const roleClean = role.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const codeClean = role.code ? role.code.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    return roleClean === clean || (codeClean && codeClean === clean);
+  });
+  if (tokenMatch) return tokenMatch.id;
+
+  // 3. Known role alias / keyword matching
+  const aliasMatch = catalog.find((role) => {
+    const roleLower = role.name.toLowerCase();
+    if (normalized.includes('company') && roleLower.includes('company')) return true;
+    if (normalized.includes('finance') && roleLower.includes('finance')) return true;
+    if (normalized.includes('accountant') && roleLower.includes('accountant')) return true;
+    if (normalized.includes('hr') && roleLower.includes('hr')) return true;
+    if (normalized.includes('inventory') && roleLower.includes('inventory')) return true;
+    if (
+      normalized.includes('branch') &&
+      (roleLower.includes('branch admin') || roleLower.includes('branch manager'))
+    ) {
+      return true;
+    }
+    if (normalized.includes('restaurant') && roleLower.includes('restaurant')) return true;
+    if (
+      (normalized.includes('cashier') || normalized.includes('pos')) &&
+      roleLower.includes('cashier')
+    ) {
+      return true;
+    }
+    if (
+      (normalized.includes('waiter') || normalized.includes('captain')) &&
+      (roleLower.includes('waiter') || roleLower.includes('captain'))
+    ) {
+      return true;
+    }
+    if (normalized.includes('kitchen') && roleLower.includes('kitchen')) return true;
+    return false;
+  });
+  if (aliasMatch) return aliasMatch.id;
+
+  return null;
 }
 
 export function readPrimaryUserRoleId(assignmentsPayload: unknown): string | null {
   const rows = unwrapAssignments(assignmentsPayload);
   const first = rows[0];
   if (!first) return null;
-  const id = first.id ?? first.user_role_id ?? first.userRoleId;
+  const id = first.user_role_id ?? first.userRoleId ?? first.id ?? first.role_id ?? first.roleId;
   return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
 }
 
@@ -1101,6 +1293,18 @@ function mapUserRow(raw: Record<string, unknown>): UserRoleItem {
       textOrNumber(source.contact_number) ??
       textOrNumber(source.contactNumber),
     scope: readRoleScope(source.scope) ?? readRoleScope(source.scope_type),
+    companyId:
+      typeof source.company_id === 'number'
+        ? source.company_id
+        : typeof source.companyId === 'number'
+          ? source.companyId
+          : undefined,
+    branchId:
+      typeof source.branch_id === 'number'
+        ? source.branch_id
+        : typeof source.branchId === 'number'
+          ? source.branchId
+          : undefined,
   };
 }
 
@@ -1183,18 +1387,41 @@ function extractPermissionGroups(payload: unknown): unknown[] {
     const value = payload[key];
     if (Array.isArray(value)) return value;
   }
+  const entries = Object.entries(payload);
+  if (entries.length > 0 && entries.every(([, v]) => Array.isArray(v))) {
+    return entries.map(([category, items]) => ({
+      title: category,
+      permissions: items,
+    }));
+  }
   return [];
 }
 
-function unwrapAssignments(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  for (const key of ['items', 'assignments', 'roles', 'data'] as const) {
-    const value = unwrapped[key];
-    if (Array.isArray(value)) return value.filter(isRecord);
+function unwrapRecords(
+  payload: unknown,
+  keys: readonly string[],
+  fallbackToRecord = false,
+): Record<string, unknown>[] {
+  const root = unwrapEnvelope(payload);
+  if (Array.isArray(root)) return root.filter(isRecord);
+  if (!isRecord(root)) return [];
+
+  for (let idx = 0; idx < keys.length; idx += 1) {
+    const candidate = root[keys[idx]];
+    if (Array.isArray(candidate)) return candidate.filter(isRecord);
+    if (isRecord(candidate)) {
+      const nested = unwrapRecords(candidate, keys, false);
+      if (nested.length > 0) return nested;
+    }
   }
-  return [];
+
+  return fallbackToRecord ? [root] : [];
+}
+
+const ASSIGNMENT_KEYS = ['items', 'assignments', 'roles', 'data'] as const;
+
+function unwrapAssignments(payload: unknown): Record<string, unknown>[] {
+  return unwrapRecords(payload, ASSIGNMENT_KEYS, true);
 }
 
 function readPrimaryRoleName(value: unknown): string | undefined {
@@ -1231,12 +1458,11 @@ type UserRoleFields = {
 };
 
 function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
-  const directRole = source.role;
-  if (typeof directRole === 'string' && directRole.trim()) {
-    return { label: directRole.trim() };
-  }
+  const directRole =
+    typeof source.role === 'string' && source.role.trim() ? source.role.trim() : undefined;
 
   const label =
+    directRole ??
     text(source.role_name) ??
     text(source.roleName) ??
     text(source.primary_role_name) ??
@@ -1255,6 +1481,7 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
     readRoleId(source.roleId) ??
     readRoleId(source.primary_role_id) ??
     readRoleId(source.primaryRoleId) ??
+    (isRecord(source.role) ? readRoleId(source.role) : undefined) ??
     readRoleIdFromCollection(source.roles) ??
     readRoleIdFromCollection(source.user_roles) ??
     readRoleIdFromCollection(source.assignments);
@@ -1263,6 +1490,7 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
     text(source.role_code) ??
     text(source.roleCode) ??
     text(source.primary_role_code) ??
+    (isRecord(source.role) ? text(source.role.code) : undefined) ??
     readRoleCodeFromCollection(source.roles) ??
     readRoleCodeFromCollection(source.user_roles);
 
@@ -1271,6 +1499,10 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
 
 function readRoleId(value: unknown): string | number | undefined {
   if (typeof value === 'number' || typeof value === 'string') return value;
+  if (isRecord(value)) {
+    const id = value.id ?? value.role_id ?? value.roleId;
+    if (typeof id === 'number' || typeof id === 'string') return id;
+  }
   return undefined;
 }
 
@@ -1328,48 +1560,30 @@ function normalizeStatusToken(value: string): UserStatus {
   return 'active';
 }
 
+const USER_KEYS = [
+  'items',
+  'users',
+  'results',
+  'result',
+  'rows',
+  'list',
+  'data',
+  'records',
+  'content',
+  'members',
+  'staff',
+  'team',
+  'employees',
+] as const;
+
+const ROLE_KEYS = ['items', 'roles', 'templates', 'results', 'rows', 'data'] as const;
+
 function unwrapUsers(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  for (const key of [
-    'items',
-    'users',
-    'results',
-    'result',
-    'rows',
-    'list',
-    'data',
-    'records',
-    'content',
-    'members',
-    'staff',
-    'team',
-    'employees',
-  ] as const) {
-    const value = unwrapped[key];
-    if (Array.isArray(value)) return value.filter(isRecord);
-    if (isRecord(value)) {
-      const nested = unwrapUsers(value);
-      if (nested.length > 0) return nested;
-    }
-  }
-  return [];
+  return unwrapRecords(payload, USER_KEYS);
 }
 
 function unwrapRoles(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  for (const key of ['items', 'roles', 'templates', 'results', 'rows', 'data'] as const) {
-    const value = unwrapped[key];
-    if (Array.isArray(value)) return value.filter(isRecord);
-    if (isRecord(value)) {
-      const nested = unwrapRoles(value);
-      if (nested.length > 0) return nested;
-    }
-  }
-  return [];
+  return unwrapRecords(payload, ROLE_KEYS);
 }
 
 function readTotal(payload: unknown, fallback: number): number {

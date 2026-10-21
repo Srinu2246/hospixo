@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
-import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 
 import {
@@ -179,20 +178,6 @@ export function CreateUserMultiformFlow({
 
   const footerTarget = useAppShellFooterTarget();
 
-  const [toastFeedback, setToastFeedback] = useState<{
-    open: boolean;
-    message: string;
-    severity: ToastSeverity;
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
-
-  const showToast = (message: string, severity: ToastSeverity = 'success') => {
-    setToastFeedback({ open: true, message, severity });
-  };
-
   const baseRoute = getUsersAndRolesBaseRoute(pathname, resolvedScope);
 
   const navigateToStep = (nextStep: CreateUserStep) => {
@@ -250,10 +235,9 @@ export function CreateUserMultiformFlow({
       });
 
       onUserCreated?.(formValues);
-      showToast('User created and invitation sent successfully!', 'success');
       navigateToStep('success');
-    } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Failed to create user', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     } finally {
       setIsSubmitting(false);
     }
@@ -378,13 +362,6 @@ export function CreateUserMultiformFlow({
         footerTarget={footerTarget}
         onBack={handleFooterBack}
         onNext={handleFooterNext}
-      />
-
-      <Toast
-        open={toastFeedback.open}
-        message={toastFeedback.message}
-        severity={toastFeedback.severity}
-        onClose={() => setToastFeedback((prev) => ({ ...prev, open: false }))}
       />
     </>
   );

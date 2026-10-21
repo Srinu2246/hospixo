@@ -5,7 +5,6 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
 import { Card } from '@/components/shared/ui/Card';
@@ -17,7 +16,10 @@ export interface QuickHelpCardProps {
   showPocBadge?: boolean;
   statusText?: string;
   description?: string;
+  availableStartTime?: string;
+  availableEndTime?: string;
   availableHours?: string;
+  compact?: boolean;
 }
 
 export function QuickHelpCard({
@@ -25,13 +27,21 @@ export function QuickHelpCard({
   showPocBadge = true,
   statusText = 'Online',
   description,
+  availableStartTime,
+  availableEndTime,
   availableHours,
+  compact,
 }: Readonly<QuickHelpCardProps>) {
   const cardDescription =
     description ??
     'Your dedicated account manager for all operational support and billing queries. Reach out anytime during working hours.';
-  const rawHours = availableHours ?? `Available ${ACCOUNT_MANAGER.availableHours}`;
-  const displayHours = rawHours.replace(/^Available\s*/i, '');
+  const displayHours =
+    availableStartTime && availableEndTime
+      ? `${availableStartTime} – ${availableEndTime}`
+      : (availableHours ?? `Available ${ACCOUNT_MANAGER.availableHours}`).replace(
+          /^Available\s*/i,
+          '',
+        );
 
   const handleWhatsAppClick = () => {
     window.open(`https://wa.me/${ACCOUNT_MANAGER.phoneWhatsapp.replace('+', '')}`, '_blank');
@@ -40,30 +50,41 @@ export function QuickHelpCard({
   const parsedLabel = idLabel.includes(':') ? idLabel.split(':')[0] + ':' : 'Outlet ID:';
   const parsedIdValue = idLabel.includes(':') ? idLabel.split(':')[1].trim() : idLabel;
 
+  const isAlwaysCompact = compact === true;
+  const isNeverCompact = compact === false;
+
   return (
     <Card
       variant="outlined"
-      padding={3}
+      padding={2.5}
       sx={{
-        borderRadius: '24px',
+        borderRadius: '14px',
         borderColor: (theme) => (theme.palette.mode === 'dark' ? theme.palette.divider : '#E2E8F0'),
         bgcolor: (theme) =>
           theme.palette.mode === 'dark' ? theme.palette.background.paper : '#FFFFFF',
         boxShadow: 'none',
         display: 'flex',
         flexDirection: 'column',
-        gap: 3,
+        justifyContent: 'space-between',
+        gap: isAlwaysCompact ? 2 : { xs: 2, sm: 2, md: 3 },
         height: '100%',
         boxSizing: 'border-box',
       }}
     >
       {/* 1. Header: Quick Help & Outlet ID Badge */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 1,
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-          <HelpOutlineRoundedIcon sx={{ fontSize: 24, color: 'text.primary' }} />
           <Typography
             sx={{
-              fontSize: '1.125rem',
+              fontSize: '1rem',
               fontWeight: 700,
               color: 'text.primary',
               letterSpacing: '-0.015em',
@@ -76,7 +97,7 @@ export function QuickHelpCard({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography
             sx={{
-              fontSize: '0.8125rem',
+              fontSize: '0.7125rem',
               color: '#64748B',
               fontWeight: 500,
             }}
@@ -91,7 +112,7 @@ export function QuickHelpCard({
               bgcolor: (theme) =>
                 theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#F1F5F9',
               color: 'text.primary',
-              fontSize: '0.875rem',
+              fontSize: '0.75rem',
               fontWeight: 700,
               lineHeight: 1.2,
             }}
@@ -102,17 +123,17 @@ export function QuickHelpCard({
       </Box>
 
       {/* 2. Account Manager Profile */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75 }}>
         <Avatar
           src="/images/kumar_reddy.jpg"
           alt="Kumar Reddy"
-          sx={{ width: 64, height: 64, borderRadius: '50%' }}
+          sx={{ width: 44, height: 44, borderRadius: '50%' }}
         />
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, my: 1 }}>
           <Typography
             sx={{
-              fontSize: '1.25rem',
+              fontSize: '1rem',
               fontWeight: 700,
               color: 'text.primary',
               letterSpacing: '-0.015em',
@@ -122,46 +143,65 @@ export function QuickHelpCard({
             Kumar Reddy
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-            {showPocBadge && (
-              <Box
-                sx={{
-                  px: 1.25,
-                  py: 0.4,
-                  borderRadius: '6px',
-                  bgcolor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#F1F5F9',
-                  color: '#64748B',
-                  fontSize: '0.6875rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.04em',
-                  lineHeight: 1.2,
-                }}
-              >
-                POINT OF CONTACT (POC)
-              </Box>
-            )}
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#10B981' }} />
-              <Typography sx={{ fontSize: '0.8125rem', color: '#10B981', fontWeight: 600 }}>
-                {statusText}
-              </Typography>
-            </Box>
-          </Box>
+          {showPocBadge && (
+            <Typography
+              sx={{
+                color: '#64748B',
+                fontSize: '0.6875rem',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                my: 1.25,
+              }}
+            >
+              POINT OF CONTACT (POC)
+            </Typography>
+          )}
         </Box>
       </Box>
 
-      {/* 3. Description Box */}
+      {/* 3. Status Box: Compact Pill vs Full Description */}
+      {/* Compact Pill (up to 1050px by default, or if compact=true) */}
       <Box
         sx={{
-          p: 3,
+          display: isAlwaysCompact ? 'flex' : isNeverCompact ? 'none' : 'flex',
+          '@media (min-width: 1051px)': {
+            display: isAlwaysCompact ? 'flex' : 'none',
+          },
+          py: 1,
+          px: 1.5,
+          borderRadius: '10px',
+          bgcolor: (theme) =>
+            theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : '#F8FAFC',
+          border: '1px solid',
+          borderColor: (theme) => (theme.palette.mode === 'dark' ? 'divider' : '#F1F5F9'),
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 1,
+        }}
+      >
+        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#10B981', flexShrink: 0 }} />
+        <Typography sx={{ fontSize: '0.75rem', color: '#10B981', fontWeight: 600 }}>
+          {statusText}
+        </Typography>
+        <Typography sx={{ fontSize: '0.75rem', color: '#64748B' }}>
+          - Available {displayHours}
+        </Typography>
+      </Box>
+
+      {/* Full Description Box (above 1050px by default, or if compact=false) */}
+      <Box
+        sx={{
+          display: isAlwaysCompact ? 'none' : isNeverCompact ? 'flex' : 'none',
+          '@media (min-width: 1051px)': {
+            display: isAlwaysCompact ? 'none' : 'flex',
+          },
+          p: { xs: 2, sm: 2.5, md: 3 },
           borderRadius: '16px',
           bgcolor: (theme) =>
             theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : '#F8FAFC',
-          display: 'flex',
           flexDirection: 'column',
-          gap: 2.5,
+          gap: { xs: 1.5, sm: 2 },
         }}
       >
         <Typography
@@ -201,6 +241,7 @@ export function QuickHelpCard({
           fontSize: '1rem',
           borderRadius: '14px',
           py: 1.6,
+          my: 1,
           boxShadow: 'none',
           '&:hover': {
             bgcolor: '#16A34A',

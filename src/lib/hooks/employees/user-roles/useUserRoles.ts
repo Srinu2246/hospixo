@@ -1,20 +1,23 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import {
   autoEnableRolePermissions,
+  buildStaffProfileAssignedKeys,
   enrichDirectoryWithSession,
-  extractAssignedPermissionKeys,
+  extractAssignmentPermissionKeys,
+  isMatch,
   loadEmployeeDirectory,
   resolveAssignmentPermissionsPayload,
   resolveCreateUserRequestContext,
   type CreateUserIdHints,
 } from '@/lib/helpers/employees/userRolesHelpers';
 import {
+  DEFAULT_STAFF_PROFILE_PERMISSIONS,
   enrichUserListRoles,
   parseGroupedPermissions,
   parseRoleCatalog,
@@ -32,7 +35,7 @@ import {
   toReplaceRolesBody,
   toUpdateUserBody,
   toUserStatusBody,
-  type ParsedUserList,
+  UserRoleScope,
   type CreateUserFormValues,
   type CustomTemplateFormValues,
   type PermissionCategory,
@@ -43,8 +46,10 @@ import {
   type StaffProfileFormValues,
   type UserRoleFormValues,
   type UserRoleItem,
+  type UserRoleListResponse,
   type UserRoleStatsData,
   type UserStatus,
+  type UseUserRolesOptions,
   isUserEditDisabled,
   getUsersAndRolesBaseRoute,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
@@ -56,22 +61,12 @@ import ApiUrlsV1, {
   userRolesPath,
   userStatusPath,
 } from '@/services/api/ApiUrlsV1';
-import { ApiError } from '@/services/api/types';
 import { useSidebarStore } from '@/stores/sidebarStore';
 const usersQueryRoot = ['api', ApiUrlsV1.users.list] as const;
 
 // ---------------------------------------------------------------------------
 // Users list, filters, and CRUD mutations
 // ---------------------------------------------------------------------------
-
-export interface UseUserRolesOptions {
-  pageSize?: number;
-  scope?: ScopeType;
-  companyName?: string;
-  initialUserList?: ParsedUserList;
-  companyId?: number;
-  branchId?: number;
-}
 
 export interface UseUserRolesReturn {
   users: UserRoleItem[];
@@ -109,27 +104,26 @@ export function useUserRoles(
 ): UseUserRolesReturn {
   const options =
     typeof pageSizeOrOptions === 'number'
-      ? { pageSize: pageSizeOrOptions, scope: 'organization' as ScopeType }
-      : {
-          pageSize: pageSizeOrOptions.pageSize ?? 8,
-          scope: pageSizeOrOptions.scope ?? 'company',
-          companyName: pageSizeOrOptions.companyName,
-          initialUserList: pageSizeOrOptions.initialUserList,
-          companyId: pageSizeOrOptions.companyId,
-          branchId: pageSizeOrOptions.branchId,
-        };
+      ? { pageSize: pageSizeOrOptions, scope: UserRoleScope.Organization }
+      : pageSizeOrOptions;
 
-  const pageSize = options.pageSize;
-  const scope = options.scope;
-  const initialUserList = options.initialUserList;
+  const {
+    pageSize = 8,
+    scope = UserRoleScope.Company,
+    initialUserList,
+    companyId,
+    branchId,
+  } = options;
 
-  const contextCompanyId = useSidebarStore((state) => state.context.companyId);
-  const accountCompanyId = useSidebarStore((state) => state.account?.company_id);
-  const contextBranchId = useSidebarStore((state) => state.context.branchId);
-  const accountBranchId = useSidebarStore((state) => state.account?.branch_id);
+  const storeCompanyId = useSidebarStore(
+    (state) => state.context.companyId ?? state.account?.company_id,
+  );
+  const storeBranchId = useSidebarStore(
+    (state) => state.context.branchId ?? state.account?.branch_id,
+  );
 
-  const resolvedCompanyId = options.companyId ?? contextCompanyId ?? accountCompanyId ?? undefined;
-  const resolvedBranchId = options.branchId ?? contextBranchId ?? accountBranchId ?? undefined;
+  const resolvedCompanyId = companyId ?? storeCompanyId;
+  const resolvedBranchId = branchId ?? storeBranchId;
 
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQueryState] = useState('');
@@ -179,20 +173,11 @@ export function useUserRoles(
       !selectedStatus
         ? initialUserList
         : undefined,
-    retry: (failureCount, error) => {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return false;
-      return failureCount < 2;
-    },
     placeholderData: (previous) => previous,
   });
 
   const rolesQuery = useRoleCatalogQuery(scope);
-
-  const roleCatalog: RoleCatalogItem[] = useMemo(() => {
-    if (Array.isArray(rolesQuery.data)) return rolesQuery.data;
-    if (rolesQuery.data) return parseRoleCatalog(rolesQuery.data);
-    return [];
-  }, [rolesQuery.data]);
+  const roleCatalog = useResolvedRoleCatalog(rolesQuery.data);
 
   const roleOptions = useMemo(
     () => (Array.isArray(roleCatalog) ? roleCatalog.map((role) => role.name) : []),
@@ -224,10 +209,7 @@ export function useUserRoles(
 
   const syncUserRoles = async (userId: string, roleName: string, catalog: RoleCatalogItem[]) => {
     const matched = catalog.find(
-      (r) =>
-        r.name.toLowerCase() === roleName.toLowerCase() ||
-        String(r.id) === roleName ||
-        r.code?.toLowerCase() === roleName.toLowerCase(),
+      (r) => isMatch(r.name, roleName) || isMatch(r.id, roleName) || isMatch(r.code, roleName),
     );
     const roleCode = matched?.code || resolveRoleCode(roleName, catalog);
     if (!roleCode) return;
@@ -337,6 +319,84 @@ export function useUserRoles(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers for role and permission synchronization
+// ---------------------------------------------------------------------------
+
+async function assignOrReplaceUserRole(
+  userId: string | number,
+  roleCode: string,
+  hints: RoleAssignmentHints,
+): Promise<void> {
+  try {
+    await api.put(userRolesPath(userId), toReplaceRolesBody(roleCode, hints));
+  } catch {
+    await api.post(userRolesPath(userId), toAssignRoleBody(roleCode, hints)).catch(() => null);
+  }
+}
+
+async function syncUserPermissions(
+  userId: string | number,
+  categories: readonly PermissionCategory[],
+): Promise<void> {
+  let userRoleId: string | null = null;
+  try {
+    const assignments = await api.get<unknown>(userAssignmentsPath(userId));
+    userRoleId = readPrimaryUserRoleId(assignments);
+  } catch {
+    userRoleId = null;
+  }
+
+  const payload = await resolveAssignmentPermissionsPayload(
+    userId,
+    userRoleId ?? '0',
+    categories,
+    (path) => api.get(path),
+  );
+
+  let synced = false;
+  if (userRoleId) {
+    try {
+      await api.put(userRolePermissionsPath(userId, userRoleId), payload);
+      synced = true;
+    } catch {
+      // fallback
+    }
+  }
+
+  if (!synced) {
+    await api
+      .put(`${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`, payload)
+      .catch(() => null);
+  }
+}
+
+function useResolvedRoleCatalog(data: unknown): RoleCatalogItem[] {
+  return useMemo(() => {
+    if (Array.isArray(data)) return data;
+    return data ? parseRoleCatalog(data) : [];
+  }, [data]);
+}
+
+async function invalidateUserQueries(
+  queryClient: QueryClient,
+  userId?: string | null,
+  includeDetails = false,
+): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
+  if (userId) {
+    await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
+    if (includeDetails) {
+      await queryClient.invalidateQueries({
+        queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'permissions'],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'assignments'],
+      });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Staff profile (edit) queries and mutations
 // ---------------------------------------------------------------------------
 
@@ -358,21 +418,24 @@ export function useStaffProfile(
       api.get<unknown>(ApiUrlsV1.users.detail(userId!), undefined, signal),
   });
 
+  const assignmentsQuery = useQuery({
+    queryKey: ['api', ApiUrlsV1.users.list, userId, 'assignments'],
+    enabled,
+    queryFn: async ({ signal }) =>
+      api.get<unknown>(userAssignmentsPath(userId!), undefined, signal).catch(() => null),
+  });
+
   const rolesQuery = useRoleCatalogQuery();
-  const roleCatalog = useMemo(() => {
-    if (Array.isArray(rolesQuery.data)) return rolesQuery.data;
-    if (rolesQuery.data) return parseRoleCatalog(rolesQuery.data);
-    return [];
-  }, [rolesQuery.data]);
+  const roleCatalog = useResolvedRoleCatalog(rolesQuery.data);
 
   const userItem = useMemo(() => {
     if (rawUserQuery.data) {
       return parseUserRecord(rawUserQuery.data);
     }
-    const cachedList = queryClient.getQueryData<unknown>([...usersQueryRoot]);
+    const cachedList = queryClient.getQueryData<UserRoleListResponse>([...usersQueryRoot]);
     if (cachedList && userId) {
       const parsed = parseUserList(cachedList);
-      const found = parsed.items.find((u: UserRoleItem) => String(u.id) === String(userId));
+      const found = parsed.items.find((u: UserRoleItem) => isMatch(u.id, userId));
       if (found) return found;
     }
     return null;
@@ -383,95 +446,112 @@ export function useStaffProfile(
     return staffProfileFromUser(userItem, rawUserQuery.data, roleCatalog);
   }, [userItem, rawUserQuery.data, roleCatalog]);
 
+  const assignmentRoleId = useMemo(
+    () => readPrimaryUserRoleId(assignmentsQuery.data),
+    [assignmentsQuery.data],
+  );
+
   const resolvedRoleId = useMemo(() => {
     if (userItem?.roleId) return userItem.roleId;
+    if (assignmentRoleId) return assignmentRoleId;
     if (profile?.roleName) return resolveRoleId(profile.roleName, roleCatalog);
     if (userItem?.role) return resolveRoleId(userItem.role, roleCatalog);
     return null;
-  }, [userItem, profile, roleCatalog]);
+  }, [userItem, assignmentRoleId, profile, roleCatalog]);
 
   const matchedRole = useMemo(() => {
     if (!resolvedRoleId && !profile?.roleName && !userItem?.role) return undefined;
-    return roleCatalog.find((r) => {
-      if (resolvedRoleId != null && resolvedRoleId !== '') {
-        return String(r.id) === String(resolvedRoleId);
-      }
-      if (profile?.roleName) {
-        return r.name.toLowerCase() === profile.roleName.toLowerCase();
-      }
-      if (userItem?.role) {
-        return r.name.toLowerCase() === userItem.role.toLowerCase();
-      }
-      return false;
-    });
+    return roleCatalog.find(
+      (r) =>
+        isMatch(r.id, resolvedRoleId) ||
+        isMatch(r.name, profile?.roleName) ||
+        isMatch(r.name, userItem?.role),
+    );
   }, [resolvedRoleId, profile, userItem, roleCatalog]);
 
-  const userCompanyId = useMemo(() => {
-    if (!rawUserQuery.data || typeof rawUserQuery.data !== 'object') return undefined;
-    const rec = rawUserQuery.data as Record<string, unknown>;
-    const data = (rec.data && typeof rec.data === 'object' ? rec.data : rec) as Record<
-      string,
-      unknown
-    >;
-    if (typeof data.company_id === 'number') return data.company_id;
-    if (typeof data.companyId === 'number') return data.companyId;
-    if (Array.isArray(data.branches) && data.branches[0] && typeof data.branches[0] === 'object') {
-      const b = data.branches[0] as Record<string, unknown>;
-      if (typeof b.company_id === 'number') return b.company_id;
-    }
-    return undefined;
-  }, [rawUserQuery.data]);
+  const contextCompanyId = useSidebarStore((state) => state.context.companyId);
+  const contextBranchId = useSidebarStore((state) => state.context.branchId);
+  const accountCompanyId = useSidebarStore((state) => state.account?.company_id);
+  const accountBranchId = useSidebarStore((state) => state.account?.branch_id);
 
-  const userBranchId = useMemo(() => {
-    if (!rawUserQuery.data || typeof rawUserQuery.data !== 'object') return undefined;
-    const rec = rawUserQuery.data as Record<string, unknown>;
-    const data = (rec.data && typeof rec.data === 'object' ? rec.data : rec) as Record<
-      string,
-      unknown
-    >;
-    if (typeof data.branch_id === 'number') return data.branch_id;
-    if (typeof data.branchId === 'number') return data.branchId;
-    if (Array.isArray(data.branches) && data.branches[0] && typeof data.branches[0] === 'object') {
-      const b = data.branches[0] as Record<string, unknown>;
-      if (typeof b.branch_id === 'number') return b.branch_id;
-    }
-    if (Array.isArray(data.roles) && data.roles[0] && typeof data.roles[0] === 'object') {
-      const r = data.roles[0] as Record<string, unknown>;
-      if (r.scope === 'branch' && typeof r.scope_id === 'number') return r.scope_id;
-    }
-    return undefined;
-  }, [rawUserQuery.data]);
+  const userCompanyId = userItem?.companyId;
+  const userBranchId = userItem?.branchId;
 
-  const roleScope = matchedRole?.scope || userItem?.scope || options?.scope || 'branch';
+  const roleScope = matchedRole?.scope || userItem?.scope || options?.scope || UserRoleScope.Branch;
+  const permissionScope = options?.scope ?? roleScope;
+
+  const resolvedCompanyId =
+    options?.companyId ?? userCompanyId ?? contextCompanyId ?? accountCompanyId;
+  const resolvedBranchId = options?.branchId ?? userBranchId ?? contextBranchId ?? accountBranchId;
 
   const rolePermissionsQuery = useRolePermissions(resolvedRoleId, {
-    scope: roleScope,
-    companyId: options?.companyId ?? userCompanyId,
-    branchId: options?.branchId ?? userBranchId,
+    scope: permissionScope,
+    companyId: resolvedCompanyId,
+    branchId: resolvedBranchId,
+  });
+
+  const userRolePermissionsQuery = useQuery({
+    queryKey: [
+      'api',
+      'users',
+      userId != null && userId !== '' ? String(userId) : 'none',
+      'role-permissions',
+      assignmentRoleId ?? 'none',
+    ],
+    enabled: enabled && Boolean(assignmentRoleId),
+    queryFn: async ({ signal }) =>
+      api
+        .get<unknown>(userRolePermissionsPath(userId!, assignmentRoleId!), undefined, signal)
+        .catch(() => null),
+  });
+
+  const userDirectPermissionsQuery = useQuery({
+    queryKey: [
+      'api',
+      ApiUrlsV1.users.list,
+      userId != null && userId !== '' ? String(userId) : 'none',
+      'permissions',
+    ],
+    enabled: enabled && Boolean(userId),
+    queryFn: async ({ signal }) =>
+      api
+        .get<unknown>(
+          `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
+          undefined,
+          signal,
+        )
+        .catch(() => null),
   });
 
   const permissionsQuery = useGroupedPermissions(enabled);
 
   const categories = useMemo(() => {
-    const baseCategories = permissionsQuery.data ?? [];
-    if (baseCategories.length === 0) return [];
+    const baseCategories =
+      permissionsQuery.data && permissionsQuery.data.length > 0
+        ? permissionsQuery.data
+        : DEFAULT_STAFF_PROFILE_PERMISSIONS;
 
-    if (rolePermissionsQuery.data) {
-      const assignedKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);
-      if (assignedKeys.size > 0) {
-        return autoEnableRolePermissions(baseCategories, assignedKeys);
-      }
-    }
+    const assignedKeys = buildStaffProfileAssignedKeys([
+      userDirectPermissionsQuery.data,
+      userRolePermissionsQuery.data,
+      rawUserQuery.data,
+      rolePermissionsQuery.data,
+    ]);
+    extractAssignmentPermissionKeys(assignmentsQuery.data).forEach((key) => assignedKeys.add(key));
 
-    if (rawUserQuery.data) {
-      const assignedKeys = extractAssignedPermissionKeys(rawUserQuery.data);
-      if (assignedKeys.size > 0) {
-        return autoEnableRolePermissions(baseCategories, assignedKeys);
-      }
+    if (assignedKeys.size > 0) {
+      return autoEnableRolePermissions(baseCategories, assignedKeys);
     }
 
     return baseCategories;
-  }, [permissionsQuery.data, rolePermissionsQuery.data, rawUserQuery.data]);
+  }, [
+    permissionsQuery.data,
+    userDirectPermissionsQuery.data,
+    userRolePermissionsQuery.data,
+    assignmentsQuery.data,
+    rawUserQuery.data,
+    rolePermissionsQuery.data,
+  ]);
 
   const saveMutation = useMutation({
     mutationFn: async (input: {
@@ -484,21 +564,20 @@ export function useStaffProfile(
       const existingRoleName = profile?.roleName || userItem?.role;
       const roleChanged = Boolean(
         input.values.roleName &&
-        (!existingRoleName ||
-          input.values.roleName.trim().toLowerCase() !== existingRoleName.trim().toLowerCase()),
+        (!existingRoleName || !isMatch(input.values.roleName, existingRoleName)),
       );
 
       if (roleChanged) {
         const matched = roleCatalog.find(
           (r) =>
-            r.name.toLowerCase() === input.values.roleName.toLowerCase() ||
-            String(r.id) === input.values.roleName ||
-            r.code?.toLowerCase() === input.values.roleName.toLowerCase(),
+            isMatch(r.name, input.values.roleName) ||
+            isMatch(r.id, input.values.roleName) ||
+            isMatch(r.code, input.values.roleName),
         );
         const roleCode = matched?.code || resolveRoleCode(input.values.roleName, roleCatalog);
         if (roleCode) {
           const { context, account } = useSidebarStore.getState();
-          const hints = {
+          const hints: RoleAssignmentHints = {
             companyId:
               options?.companyId ??
               userCompanyId ??
@@ -511,86 +590,35 @@ export function useStaffProfile(
               context.branchId ??
               account?.branch_id ??
               undefined,
-            scope: matched?.scope || roleScope,
+            scope: matched?.scope || permissionScope,
           };
-          try {
-            await api.put(userRolesPath(userId), toReplaceRolesBody(roleCode, hints));
-          } catch {
-            await api.post(userRolesPath(userId), toAssignRoleBody(roleCode, hints));
-          }
+          await assignOrReplaceUserRole(userId, roleCode, hints);
         }
       }
 
-      let userRoleId: string | null = null;
-      try {
-        const assignments = await api.get<unknown>(userAssignmentsPath(userId));
-        userRoleId = readPrimaryUserRoleId(assignments);
-      } catch {
-        userRoleId = null;
-      }
-
-      if (userRoleId) {
-        const payload = await resolveAssignmentPermissionsPayload(
-          userId,
-          userRoleId,
-          input.categories,
-          (path) => api.get(path),
-        );
-
-        let synced = false;
-        try {
-          await api.put(userRolePermissionsPath(userId, userRoleId), payload);
-          synced = true;
-        } catch {
-          // fallback
-        }
-
-        if (!synced) {
-          await api
-            .put(
-              `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
-              payload,
-            )
-            .catch(() => null);
-        }
-      }
+      await syncUserPermissions(userId, input.categories);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
-      if (userId) {
-        await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
-      }
+      await invalidateUserQueries(queryClient, userId, true);
     },
   });
 
-  const activateMutation = useMutation({
-    mutationFn: async () => {
+  const statusMutation = useMutation({
+    mutationFn: async (status: UserStatus) => {
       if (!userId) throw new Error('Missing user id');
-      await api.patch(userStatusPath(userId), toUserStatusBody('active'));
+      await api.patch(userStatusPath(userId), toUserStatusBody(status));
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
-      if (userId) {
-        await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
-      }
-    },
-  });
-
-  const deactivateMutation = useMutation({
-    mutationFn: async () => {
-      if (!userId) throw new Error('Missing user id');
-      await api.patch(userStatusPath(userId), toUserStatusBody('inactive'));
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
-      if (userId) {
-        await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
-      }
+      await invalidateUserQueries(queryClient, userId);
     },
   });
 
   const isPermissionsLoading =
-    permissionsQuery.isLoading || (Boolean(resolvedRoleId) && rolePermissionsQuery.isLoading);
+    permissionsQuery.isLoading ||
+    userDirectPermissionsQuery.isLoading ||
+    (Boolean(resolvedRoleId) && rolePermissionsQuery.isLoading) ||
+    assignmentsQuery.isLoading ||
+    (Boolean(assignmentRoleId) && userRolePermissionsQuery.isLoading);
 
   return {
     profile,
@@ -598,16 +626,16 @@ export function useStaffProfile(
     categories,
     matchedRole,
     roleCatalog,
-    isLoading: (rawUserQuery.isLoading && !userItem) || isPermissionsLoading,
+    isLoading: rawUserQuery.isLoading && !userItem,
     isPermissionsLoading,
     isError: rawUserQuery.isError && !userItem,
     error: rawUserQuery.error,
     saveProfile: saveMutation.mutateAsync,
-    activate: activateMutation.mutateAsync,
-    deactivate: deactivateMutation.mutateAsync,
+    activate: () => statusMutation.mutateAsync('active'),
+    deactivate: () => statusMutation.mutateAsync('inactive'),
     isSaving: saveMutation.isPending,
-    isActivating: activateMutation.isPending,
-    isDeactivating: deactivateMutation.isPending,
+    isActivating: statusMutation.isPending && statusMutation.variables === 'active',
+    isDeactivating: statusMutation.isPending && statusMutation.variables === 'inactive',
   };
 }
 
@@ -641,78 +669,20 @@ export function useCreateStaffUser() {
 
       if (roleCode) {
         const matched = roleCatalog.find(
-          (r) =>
-            r.code?.toLowerCase() === roleCode.toLowerCase() ||
-            r.name.toLowerCase() === input.values.role.toLowerCase(),
+          (r) => isMatch(r.code, roleCode) || isMatch(r.name, input.values.role),
         );
         const roleHints: RoleAssignmentHints = {
           companyId: context.companyId,
           branchId: context.branchId,
           scope: matched?.scope,
         };
-        try {
-          await api.put(userRolesPath(userId), toReplaceRolesBody(roleCode, roleHints));
-        } catch {
-          await api
-            .post(userRolesPath(userId), toAssignRoleBody(roleCode, roleHints))
-            .catch(() => null);
-        }
+        await assignOrReplaceUserRole(userId, roleCode, roleHints);
       }
 
-      let userRoleId: string | null = null;
-      try {
-        const assignments = await api.get<unknown>(userAssignmentsPath(userId));
-        userRoleId = readPrimaryUserRoleId(assignments);
-      } catch {
-        userRoleId = null;
-      }
-
-      if (userRoleId) {
-        const payload = await resolveAssignmentPermissionsPayload(
-          userId,
-          userRoleId,
-          input.categories,
-          (path) => api.get(path),
-        );
-
-        let synced = false;
-        try {
-          await api.put(userRolePermissionsPath(userId, userRoleId), payload);
-          synced = true;
-        } catch {
-          // fallback
-        }
-
-        if (!synced) {
-          await api
-            .put(
-              `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
-              payload,
-            )
-            .catch(() => null);
-        }
-      } else {
-        const enabledPermissionIds = input.categories.flatMap((category) =>
-          category.permissions
-            .filter((permission) => permission.enabled)
-            .map((permission) => permission.id),
-        );
-        const codesList = Array.from(new Set<string>(enabledPermissionIds));
-        const fallbackPayload = {
-          permission_codes: codesList,
-          permission_ids: codesList,
-        };
-
-        await api
-          .put(
-            `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
-            fallbackPayload,
-          )
-          .catch(() => null);
-      }
+      await syncUserPermissions(userId, input.categories);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
+      await invalidateUserQueries(queryClient);
     },
   });
 }
@@ -776,25 +746,22 @@ export function useRolePermissions(
   },
 ) {
   const { context, account } = useSidebarStore.getState();
-  const rawCompanyId = options?.companyId ?? context.companyId ?? account?.company_id ?? undefined;
-  const rawBranchId = options?.branchId ?? context.branchId ?? account?.branch_id ?? undefined;
+  const rawCompanyId = options?.companyId ?? context.companyId ?? account?.company_id;
+  const rawBranchId = options?.branchId ?? context.branchId ?? account?.branch_id;
 
   const companyId = rawCompanyId != null && rawCompanyId !== '' ? Number(rawCompanyId) : undefined;
   const branchId = rawBranchId != null && rawBranchId !== '' ? Number(rawBranchId) : undefined;
 
-  const requestedScope = options?.scope || 'branch';
-  let scopeType: ScopeType = 'organization';
-  if (requestedScope === 'branch') {
-    scopeType =
-      branchId != null && Number.isFinite(branchId)
-        ? 'branch'
-        : companyId != null && Number.isFinite(companyId)
-          ? 'company'
-          : 'organization';
-  } else if (requestedScope === 'company') {
-    scopeType = companyId != null && Number.isFinite(companyId) ? 'company' : 'organization';
-  } else {
-    scopeType = 'organization';
+  const requestedScope = options?.scope ?? UserRoleScope.Organization;
+  let scopeType: UserRoleScope = UserRoleScope.Organization;
+  if (requestedScope === UserRoleScope.Company && companyId != null && Number.isFinite(companyId)) {
+    scopeType = UserRoleScope.Company;
+  } else if (
+    requestedScope === UserRoleScope.Branch &&
+    branchId != null &&
+    Number.isFinite(branchId)
+  ) {
+    scopeType = UserRoleScope.Branch;
   }
 
   return useQuery({
@@ -812,7 +779,7 @@ export function useRolePermissions(
       const params: ScopedRolePermissionsParams = {
         scope_type: scopeType,
         ...(companyId != null && Number.isFinite(companyId) ? { company_id: companyId } : {}),
-        ...(scopeType === 'branch' && branchId != null && Number.isFinite(branchId)
+        ...(scopeType === UserRoleScope.Branch && branchId != null && Number.isFinite(branchId)
           ? { branch_id: branchId }
           : {}),
         page_size: 100,
@@ -862,15 +829,10 @@ export function useGroupedPermissions(enabled = true) {
         const parsed = parseGroupedPermissions(payload);
         if (parsed.length > 0) return parsed;
       } catch {
-        // Try fallback endpoint
+        // Fallback to default categories
       }
 
-      try {
-        const fallback = await api.get<unknown>('/v1/permissions', undefined, signal);
-        return parseGroupedPermissions(fallback);
-      } catch {
-        return [];
-      }
+      return DEFAULT_STAFF_PROFILE_PERMISSIONS;
     },
     staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
@@ -882,27 +844,33 @@ export function useGroupedPermissions(enabled = true) {
 // ---------------------------------------------------------------------------
 
 export function useEmployeeDirectory(organizationId?: number, companyId?: number) {
-  const account = useSidebarStore((state) => state.account);
-  const context = useSidebarStore((state) => state.context);
+  const storeOrgId = useSidebarStore(
+    (state) => state.context.organizationId ?? state.account?.org_id ?? undefined,
+  );
+  const storeCompanyId = useSidebarStore(
+    (state) => state.context.companyId ?? state.account?.company_id ?? undefined,
+  );
   const role = useSidebarStore((state) => state.role);
+  const hasAccount = useSidebarStore((state) => Boolean(state.account));
 
-  const resolvedOrgId = organizationId ?? context.organizationId ?? account?.org_id ?? undefined;
-  const resolvedCompanyId = companyId ?? context.companyId ?? account?.company_id ?? undefined;
+  const resolvedOrgId = organizationId ?? storeOrgId ?? undefined;
+  const resolvedCompanyId = companyId ?? storeCompanyId ?? undefined;
 
-  const sessionReady = Boolean(role || account);
+  const sessionReady = Boolean(role || hasAccount);
   const hasDirectoryScope = resolvedOrgId != null || resolvedCompanyId != null;
 
   return useQuery({
     queryKey: ['employees', 'directory', resolvedOrgId ?? 'none', resolvedCompanyId ?? 'none'],
     enabled: sessionReady && hasDirectoryScope,
     queryFn: async ({ signal }) => {
+      const { context, account } = useSidebarStore.getState();
       const get = (
         path: string,
         params?: Record<string, string | number | boolean | null | undefined>,
       ) => api.get<unknown>(path, params, signal);
 
       const sessionHints = {
-        companyId: resolvedCompanyId,
+        companyId: resolvedCompanyId ?? undefined,
         companyName: context.companyName,
         branchId: context.branchId ?? account?.branch_id ?? undefined,
         branchName: context.branchName,
@@ -911,8 +879,8 @@ export function useEmployeeDirectory(organizationId?: number, companyId?: number
       try {
         return await loadEmployeeDirectory(
           {
-            organizationId: resolvedOrgId,
-            companyId: resolvedCompanyId,
+            organizationId: resolvedOrgId ?? undefined,
+            companyId: resolvedCompanyId ?? undefined,
             session: sessionHints,
           },
           get,

@@ -52,16 +52,17 @@ export function UsersAndRolesScreen({
   const resolvedScope = resolveScopeFromPathname(pathname, scope);
 
   const setSelectedUserId = useUserRolesUiStore((state) => state.setSelectedUserId);
-  const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
   const contextOrgId = useSidebarStore((state) => state.context.organizationId);
+  const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
   const accountCompanyId = useSidebarStore((state) => state.account?.company_id ?? undefined);
   const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
 
   const organizationId = contextOrgId ?? accountOrgId;
+  const storeCompanyId = contextCompanyId ?? accountCompanyId;
   const directoryCompanyId =
-    resolvedScope === 'organization' ? undefined : (contextCompanyId ?? accountCompanyId);
+    resolvedScope === 'organization' ? undefined : (storeCompanyId ?? undefined);
   const directory = useEmployeeDirectory(organizationId, directoryCompanyId);
 
   const activeBranchId = contextBranchId ?? accountBranchId;

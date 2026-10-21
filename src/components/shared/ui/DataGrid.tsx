@@ -19,6 +19,12 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 
 import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
+import { colors } from '@/lib/theme/mui/colors';
+
+/** Opaque header fill — sticky cells need a solid color so rows don't show through. */
+function headerBackground(theme: Theme): string {
+  return theme.palette.mode === 'dark' ? colors.surface.darkMuted : '#F9FAFB';
+}
 
 export interface DataGridColumn<T = object> {
   field: string; // Row property key
@@ -291,7 +297,7 @@ export function DataGrid<T = object>({
               zIndex: 3,
             }}
           >
-            <TableRow sx={{ bgcolor: '#F9FAFB' }}>
+            <TableRow sx={{ bgcolor: (theme) => headerBackground(theme) }}>
               {columns.map((col, index) => {
                 const headerText = col.headerName ?? col.label ?? col.field;
                 const align = col.headerAlign ?? col.align ?? 'left';
@@ -315,8 +321,12 @@ export function DataGrid<T = object>({
                       letterSpacing: '0.08em',
                       py: dense ? 0.75 : 1,
                       px: 2,
-                      bgcolor: (theme) =>
-                        theme.palette.mode === 'dark' ? 'action.hover' : '#F9FAFB',
+                      bgcolor: (theme) => headerBackground(theme),
+                      // MUI stickyHeader sets its own light default — keep ours opaque in both modes.
+                      '&.MuiTableCell-stickyHeader': {
+                        bgcolor: (theme) => headerBackground(theme),
+                        backgroundColor: (theme) => headerBackground(theme),
+                      },
                       borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
                       whiteSpace: 'nowrap',
                       width: col.width,
@@ -330,9 +340,12 @@ export function DataGrid<T = object>({
                         direction={isSorted ? activeSortDirection : 'asc'}
                         onClick={() => handleSort(col.field)}
                         sx={{
+                          color: 'text.secondary',
+                          '&:hover': { color: 'text.primary' },
                           '& .MuiTableSortLabel-icon': {
                             opacity: 0,
                             transition: 'opacity 0.2s ease',
+                            color: 'text.secondary',
                           },
                           '&:hover .MuiTableSortLabel-icon': {
                             opacity: 0.7,
