@@ -11,6 +11,7 @@ import { Card } from '@/components/shared/ui/Card';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { MobileNumberInput } from '@/components/shared/form-fields/MobileNumberInput';
+import { PasswordInput } from '@/components/shared/form-fields/PasswordInput';
 import { colors } from '@/lib/theme/mui/colors';
 
 import {
@@ -277,6 +278,7 @@ export function CreateUserStepOne({
     <Box
       component="form"
       id="create-user-step-one-form"
+      noValidate
       onSubmit={handleSubmit(handleFormSubmit)}
       sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3, pb: 2 }}
     >
@@ -384,7 +386,9 @@ export function CreateUserStepOne({
                     onCountryCodeChange={(code) => handleFieldChange('countryCode', code)}
                     placeholder="98765 43210"
                     phoneNumber={field.value}
-                    onPhoneNumberChange={(value) => handleFieldChange('phoneNumber', value)}
+                    onPhoneNumberChange={(value) =>
+                      handleFieldChange('phoneNumber', value.replace(/\D/g, ''))
+                    }
                     error={Boolean(fieldState.error)}
                     helperText={fieldState.error?.message}
                   />
@@ -435,10 +439,9 @@ export function CreateUserStepOne({
                 name="password"
                 control={control}
                 render={({ field, fieldState }) => (
-                  <Input
+                  <PasswordInput
                     label="PASSWORD"
                     required
-                    type="password"
                     placeholder="Create Password"
                     value={field.value}
                     onChange={(e) => handleFieldChange('password', e.target.value)}

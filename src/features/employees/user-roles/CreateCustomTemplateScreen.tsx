@@ -16,6 +16,7 @@ import { Card } from '@/components/shared/ui/Card';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
+import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { colors } from '@/lib/theme/mui/colors';
 
@@ -111,6 +112,16 @@ export function CreateCustomTemplateScreen({
 
   const footerTarget = useAppShellFooterTarget();
 
+  const [toastFeedback, setToastFeedback] = useState<{
+    open: boolean;
+    message: string;
+    severity: ToastSeverity;
+  }>({
+    open: false,
+    message: '',
+    severity: 'warning',
+  });
+
   // Form Management
   const {
     control,
@@ -204,6 +215,17 @@ export function CreateCustomTemplateScreen({
 
   // Form Submission
   const onSubmit = async (data: CustomTemplateFormValues) => {
+    const hasAtLeastOnePermission = categories.some((cat) =>
+      cat.permissions.some((p) => p.enabled),
+    );
+    if (!hasAtLeastOnePermission) {
+      setToastFeedback({
+        open: true,
+        message: 'Please enable at least one permission for this role template.',
+        severity: 'warning',
+      });
+      return;
+    }
     try {
       await createCustomRole.mutateAsync({ values: data, categories });
       onSaveTemplate?.(data, categories);
@@ -294,7 +316,7 @@ export function CreateCustomTemplateScreen({
           boxShadow: 'none',
         }}
       >
-        <form onSubmit={handleSubmit(onSubmit)} id="custom-template-form">
+        <form onSubmit={handleSubmit(onSubmit)} id="custom-template-form" noValidate>
           {/* SECTION 1: Template Information */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Controller
@@ -534,6 +556,13 @@ export function CreateCustomTemplateScreen({
           </Box>
         );
       })()}
+
+      <Toast
+        open={toastFeedback.open}
+        message={toastFeedback.message}
+        severity={toastFeedback.severity}
+        onClose={() => setToastFeedback((prev) => ({ ...prev, open: false }))}
+      />
     </Box>
   );
 }

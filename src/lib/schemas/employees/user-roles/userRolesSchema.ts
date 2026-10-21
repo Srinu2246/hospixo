@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import {
+  phoneSchema,
+  passwordSchema,
+  personNameSchema,
+  emailSchema,
+  usernameSchema,
+} from '@/lib/schemas/commonFieldsSchema';
+
+export { phoneSchema, passwordSchema, personNameSchema, emailSchema, usernameSchema };
 
 // ============================================================================
 // 1. Primitive Domain Types & Enums
@@ -541,8 +550,8 @@ export const createUserStepSchema = z.enum([
 export type CreateUserStep = z.infer<typeof createUserStepSchema>;
 
 export const userRoleFormSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
+  name: personNameSchema.min(2, 'Name must be at least 2 characters'),
+  email: emailSchema,
   role: z.string().min(1, 'Please select a role'),
   branch: z.string().min(1, 'Please select a branch'),
   status: userStatusSchema,
@@ -552,18 +561,18 @@ export const userRoleFormSchema = z.object({
 export type UserRoleFormValues = z.infer<typeof userRoleFormSchema>;
 
 const createUserMultiformFieldsSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
+  firstName: personNameSchema,
+  lastName: personNameSchema,
   countryCode: z.string().optional(),
-  phoneNumber: z.string().min(6, 'Please enter a valid phone number'),
-  email: z.string().email('Please enter a valid email address'),
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  phoneNumber: phoneSchema,
+  email: emailSchema,
+  username: usernameSchema,
+  password: passwordSchema,
   company: z.string(),
   branch: z.string(),
   role: z.string(),
   sendInviteImmediately: z.boolean(),
-  personalMessage: z.string(),
+  personalMessage: z.string().max(500, 'Personal message cannot exceed 500 characters'),
 });
 
 function isMissingAssignment(value: string): boolean {
@@ -625,24 +634,36 @@ export const DEFAULT_CREATE_USER_FORM_VALUES: CreateUserFormValues = {
 };
 
 export const customTemplateSchema = z.object({
-  templateName: z.string().min(1, 'Template name is required'),
-  description: z.string().optional(),
+  templateName: z
+    .string()
+    .trim()
+    .min(1, 'Template name is required')
+    .max(100, 'Template name cannot exceed 100 characters'),
+  description: z.string().trim().max(500, 'Description cannot exceed 500 characters').optional(),
   preset: z.enum(['full_read', 'standard_manager', 'view_only', 'custom']),
 });
 
 export type CustomTemplateFormValues = z.infer<typeof customTemplateSchema>;
 
 export const staffProfileSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Please enter a valid email address'),
-  phoneNumber: z.string().min(6, 'Please enter a valid phone number'),
+  firstName: personNameSchema,
+  lastName: personNameSchema,
+  email: emailSchema,
+  phoneNumber: phoneSchema,
   countryCode: z.string(),
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().optional(),
+  username: usernameSchema,
+  password: passwordSchema.optional().or(z.literal('')),
   userStatus: z.boolean(),
-  roleName: z.string().min(1, 'Role name is required'),
-  roleDescription: z.string().optional(),
+  roleName: z
+    .string()
+    .trim()
+    .min(1, 'Role name is required')
+    .max(100, 'Role name cannot exceed 100 characters'),
+  roleDescription: z
+    .string()
+    .trim()
+    .max(500, 'Description cannot exceed 500 characters')
+    .optional(),
 });
 
 export type StaffProfileFormValues = z.infer<typeof staffProfileSchema>;

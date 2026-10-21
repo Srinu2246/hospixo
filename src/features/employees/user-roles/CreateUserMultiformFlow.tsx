@@ -371,6 +371,10 @@ export function CreateUserMultiformFlow({
 
   const handleFooterNext = () => {
     if (currentStep === 'permissions') {
+      if (!activeRoleName || !activeRoleName.trim()) {
+        showToast('Role name cannot be empty. Please enter a valid role name.', 'error');
+        return;
+      }
       const roleKey = resolvedRoleId != null ? String(resolvedRoleId) : null;
       if (rolePermissionsQuery.data && roleKey && appliedRolePermissionsRef.current !== roleKey) {
         const assignedKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);

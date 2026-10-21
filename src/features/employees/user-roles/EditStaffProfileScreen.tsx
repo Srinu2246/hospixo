@@ -340,7 +340,7 @@ export function EditStaffProfileScreen({
           boxShadow: 'none',
         }}
       >
-        <form onSubmit={handleSubmit(onSubmit)} id="staff-profile-form">
+        <form onSubmit={handleSubmit(onSubmit)} id="staff-profile-form" noValidate>
           {/* SECTION 1: Personal & Account Information */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Box>
@@ -448,7 +448,7 @@ export function EditStaffProfileScreen({
                     onCountryCodeChange={(code) => setValue('countryCode', code)}
                     placeholder="98765 43210"
                     phoneNumber={field.value}
-                    onPhoneNumberChange={field.onChange}
+                    onPhoneNumberChange={(val) => field.onChange(val.replace(/\D/g, ''))}
                     disabled={isReadOnly}
                     error={Boolean(errors.phoneNumber)}
                     helperText={errors.phoneNumber?.message}

@@ -111,6 +111,7 @@ export function AddUserModal({
     >
       <Box
         component="form"
+        noValidate
         onSubmit={handleSubmit(onFormSubmit)}
         sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}
       >
