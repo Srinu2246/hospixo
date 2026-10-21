@@ -126,148 +126,56 @@ export const rolePermissionsPayloadSchema = z.object({
 
 export type RolePermissionsPayload = z.infer<typeof rolePermissionsPayloadSchema>;
 
+function makePermissionCategory(
+  id: string,
+  title: string,
+  items: ReadonlyArray<[code: string, name: string, description: string]>,
+): PermissionCategory {
+  return {
+    id,
+    title,
+    permissions: items.map(([code, name, description]) => ({
+      id: code,
+      code,
+      name,
+      description,
+      enabled: false,
+    })),
+  };
+}
+
 export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
-  {
-    id: 'dashboard',
-    title: 'Dashboard',
-    permissions: [
-      {
-        id: 'dashboard.view',
-        code: 'dashboard.view',
-        name: 'View Dashboard',
-        description: 'Access to the main overview and KPI tiles',
-        enabled: false,
-      },
-      {
-        id: 'dashboard.analytics',
-        code: 'dashboard.analytics',
-        name: 'View Analytics',
-        description: 'Detailed charts and data trends analysis',
-        enabled: false,
-      },
+  makePermissionCategory('dashboard', 'Dashboard', [
+    ['dashboard.view', 'View Dashboard', 'Access to the main overview and KPI tiles'],
+    ['dashboard.analytics', 'View Analytics', 'Detailed charts and data trends analysis'],
+  ]),
+  makePermissionCategory('user_management', 'User Management', [
+    ['users.view', 'View Users', 'Access and view the team member directory'],
+    ['users.create', 'Create Users', 'Invite and add new members to the system'],
+    ['users.edit', 'Edit Users', 'Modify existing user details and status'],
+    ['users.delete', 'Delete Users', 'Remove users permanently from the organization'],
+    ['roles.view', 'View Roles', 'Access and view system roles and permissions'],
+  ]),
+  makePermissionCategory('company_management', 'Company Management', [
+    ['company.view', 'View Company', 'Access company profile, branches, and operational settings'],
+    [
+      'company.manage',
+      'Manage Company',
+      'Update company details, policies, and business configurations',
     ],
-  },
-  {
-    id: 'user_management',
-    title: 'User Management',
-    permissions: [
-      {
-        id: 'users.view',
-        code: 'users.view',
-        name: 'View Users',
-        description: 'Access and view the team member directory',
-        enabled: false,
-      },
-      {
-        id: 'users.create',
-        code: 'users.create',
-        name: 'Create Users',
-        description: 'Invite and add new members to the system',
-        enabled: false,
-      },
-      {
-        id: 'users.edit',
-        code: 'users.edit',
-        name: 'Edit Users',
-        description: 'Modify existing user details and status',
-        enabled: false,
-      },
-      {
-        id: 'users.delete',
-        code: 'users.delete',
-        name: 'Delete Users',
-        description: 'Remove users permanently from the organization',
-        enabled: false,
-      },
-      {
-        id: 'roles.view',
-        code: 'roles.view',
-        name: 'View Roles',
-        description: 'Access and view system roles and permissions',
-        enabled: false,
-      },
-    ],
-  },
-  {
-    id: 'company_management',
-    title: 'Company Management',
-    permissions: [
-      {
-        id: 'company.view',
-        code: 'company.view',
-        name: 'View Company',
-        description: 'Access company profile, branches, and operational settings',
-        enabled: false,
-      },
-      {
-        id: 'company.manage',
-        code: 'company.manage',
-        name: 'Manage Company',
-        description: 'Update company details, policies, and business configurations',
-        enabled: false,
-      },
-    ],
-  },
-  {
-    id: 'branch_management',
-    title: 'Branch Management',
-    permissions: [
-      {
-        id: 'branches.view',
-        code: 'branches.view',
-        name: 'View Branches',
-        description: 'See details of all connected branch locations',
-        enabled: false,
-      },
-      {
-        id: 'branches.manage',
-        code: 'branches.manage',
-        name: 'Manage Branches',
-        description: 'Edit branch info, opening hours, and zones',
-        enabled: false,
-      },
-    ],
-  },
-  {
-    id: 'inventory',
-    title: 'Inventory',
-    permissions: [
-      {
-        id: 'inventory.view',
-        code: 'inventory.view',
-        name: 'View Inventory',
-        description: 'Monitor stock levels and tracking',
-        enabled: false,
-      },
-      {
-        id: 'inventory.items',
-        code: 'inventory.items',
-        name: 'Manage Items',
-        description: 'Add or edit items in the product catalog',
-        enabled: false,
-      },
-    ],
-  },
-  {
-    id: 'reports',
-    title: 'Reports',
-    permissions: [
-      {
-        id: 'reports.view',
-        code: 'reports.view',
-        name: 'View Reports',
-        description: 'Financial and operational summary reports',
-        enabled: false,
-      },
-      {
-        id: 'reports.export',
-        code: 'reports.export',
-        name: 'Export Reports',
-        description: 'Download CSV and PDF reports',
-        enabled: false,
-      },
-    ],
-  },
+  ]),
+  makePermissionCategory('branch_management', 'Branch Management', [
+    ['branches.view', 'View Branches', 'See details of all connected branch locations'],
+    ['branches.manage', 'Manage Branches', 'Edit branch info, opening hours, and zones'],
+  ]),
+  makePermissionCategory('inventory', 'Inventory', [
+    ['inventory.view', 'View Inventory', 'Monitor stock levels and tracking'],
+    ['inventory.items', 'Manage Items', 'Add or edit items in the product catalog'],
+  ]),
+  makePermissionCategory('reports', 'Reports', [
+    ['reports.view', 'View Reports', 'Financial and operational summary reports'],
+    ['reports.export', 'Export Reports', 'Download CSV and PDF reports'],
+  ]),
 ];
 
 export interface UseUserRolesOptions {
@@ -1101,34 +1009,7 @@ export type RoleAssignmentHints = {
   scope?: ScopeType | string | null;
 };
 
-export function toReplaceRolesBody(
-  roleCodeOrCodes: string | readonly string[],
-  hints?: RoleAssignmentHints,
-): Record<string, unknown> {
-  const codes = Array.isArray(roleCodeOrCodes) ? roleCodeOrCodes : [roleCodeOrCodes];
-  const branchId =
-    hints?.branchId != null && hints.branchId !== '' ? Number(hints.branchId) : undefined;
-  const companyId =
-    hints?.companyId != null && hints.companyId !== '' ? Number(hints.companyId) : undefined;
-
-  const roles = codes
-    .map((code) => String(code).trim())
-    .filter(Boolean)
-    .map((role_code) =>
-      compact({
-        role_code,
-        ...(companyId != null && Number.isFinite(companyId) ? { company_id: companyId } : {}),
-        ...(branchId != null && Number.isFinite(branchId) ? { branch_id: branchId } : {}),
-      }),
-    );
-
-  return { roles };
-}
-
-export function toAssignRoleBody(
-  roleCode: string,
-  hints?: RoleAssignmentHints,
-): Record<string, unknown> {
+function toRoleEntry(roleCode: string, hints?: RoleAssignmentHints): Record<string, unknown> {
   const branchId =
     hints?.branchId != null && hints.branchId !== '' ? Number(hints.branchId) : undefined;
   const companyId =
@@ -1139,6 +1020,26 @@ export function toAssignRoleBody(
     ...(companyId != null && Number.isFinite(companyId) ? { company_id: companyId } : {}),
     ...(branchId != null && Number.isFinite(branchId) ? { branch_id: branchId } : {}),
   });
+}
+
+export function toReplaceRolesBody(
+  roleCodeOrCodes: string | readonly string[],
+  hints?: RoleAssignmentHints,
+): Record<string, unknown> {
+  const codes = Array.isArray(roleCodeOrCodes) ? roleCodeOrCodes : [roleCodeOrCodes];
+  const roles = codes
+    .map((code) => String(code).trim())
+    .filter(Boolean)
+    .map((role_code) => toRoleEntry(role_code, hints));
+
+  return { roles };
+}
+
+export function toAssignRoleBody(
+  roleCode: string,
+  hints?: RoleAssignmentHints,
+): Record<string, unknown> {
+  return toRoleEntry(roleCode, hints);
 }
 
 export function toCreateRoleBody(name: string, description?: string): Record<string, unknown> {
@@ -1496,15 +1397,31 @@ function extractPermissionGroups(payload: unknown): unknown[] {
   return [];
 }
 
-function unwrapAssignments(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  for (const key of ['items', 'assignments', 'roles', 'data'] as const) {
-    const value = unwrapped[key];
-    if (Array.isArray(value)) return value.filter(isRecord);
+function unwrapRecords(
+  payload: unknown,
+  keys: readonly string[],
+  fallbackToRecord = false,
+): Record<string, unknown>[] {
+  const root = unwrapEnvelope(payload);
+  if (Array.isArray(root)) return root.filter(isRecord);
+  if (!isRecord(root)) return [];
+
+  for (let idx = 0; idx < keys.length; idx += 1) {
+    const candidate = root[keys[idx]];
+    if (Array.isArray(candidate)) return candidate.filter(isRecord);
+    if (isRecord(candidate)) {
+      const nested = unwrapRecords(candidate, keys, false);
+      if (nested.length > 0) return nested;
+    }
   }
-  return [unwrapped];
+
+  return fallbackToRecord ? [root] : [];
+}
+
+const ASSIGNMENT_KEYS = ['items', 'assignments', 'roles', 'data'] as const;
+
+function unwrapAssignments(payload: unknown): Record<string, unknown>[] {
+  return unwrapRecords(payload, ASSIGNMENT_KEYS, true);
 }
 
 function readPrimaryRoleName(value: unknown): string | undefined {
@@ -1643,48 +1560,30 @@ function normalizeStatusToken(value: string): UserStatus {
   return 'active';
 }
 
+const USER_KEYS = [
+  'items',
+  'users',
+  'results',
+  'result',
+  'rows',
+  'list',
+  'data',
+  'records',
+  'content',
+  'members',
+  'staff',
+  'team',
+  'employees',
+] as const;
+
+const ROLE_KEYS = ['items', 'roles', 'templates', 'results', 'rows', 'data'] as const;
+
 function unwrapUsers(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  for (const key of [
-    'items',
-    'users',
-    'results',
-    'result',
-    'rows',
-    'list',
-    'data',
-    'records',
-    'content',
-    'members',
-    'staff',
-    'team',
-    'employees',
-  ] as const) {
-    const value = unwrapped[key];
-    if (Array.isArray(value)) return value.filter(isRecord);
-    if (isRecord(value)) {
-      const nested = unwrapUsers(value);
-      if (nested.length > 0) return nested;
-    }
-  }
-  return [];
+  return unwrapRecords(payload, USER_KEYS);
 }
 
 function unwrapRoles(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  for (const key of ['items', 'roles', 'templates', 'results', 'rows', 'data'] as const) {
-    const value = unwrapped[key];
-    if (Array.isArray(value)) return value.filter(isRecord);
-    if (isRecord(value)) {
-      const nested = unwrapRoles(value);
-      if (nested.length > 0) return nested;
-    }
-  }
-  return [];
+  return unwrapRecords(payload, ROLE_KEYS);
 }
 
 function readTotal(payload: unknown, fallback: number): number {

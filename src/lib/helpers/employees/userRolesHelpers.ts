@@ -11,6 +11,7 @@ import {
   unwrapEnvelope,
   type CreateUserRequestContext,
   type RoleCatalogItem,
+  isMatch,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { QueryParams } from '@/services/api/types';
 import { userRolePermissionsPath } from '@/services/api/ApiUrlsV1';
@@ -46,22 +47,7 @@ export type CreateUserNameHints = {
   branch?: string;
 };
 
-/**
- * Compares two values for equality.
- * Supports string case-insensitive matching and id/number string coercion.
- */
-export function isMatch(
-  current: string | number | null | undefined,
-  expected: string | number | null | undefined,
-  options?: { caseSensitive?: boolean },
-): boolean {
-  if (current == null || expected == null) return false;
-  const currentStr = String(current).trim();
-  const expectedStr = String(expected).trim();
-  return options?.caseSensitive
-    ? currentStr === expectedStr
-    : currentStr.toLowerCase() === expectedStr.toLowerCase();
-}
+export { isMatch };
 
 export function companiesFromBranches(branches: readonly BranchListItem[]): CompanyListItem[] {
   const counts = new Map<string, { item: CompanyListItem; branchCount: number }>();

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useQuery } from '@/lib/hooks/api/useQuery';
 
@@ -176,12 +176,7 @@ export function useUserRoles(
   });
 
   const rolesQuery = useRoleCatalogQuery(scope);
-
-  const roleCatalog: RoleCatalogItem[] = useMemo(() => {
-    if (Array.isArray(rolesQuery.data)) return rolesQuery.data;
-    if (rolesQuery.data) return parseRoleCatalog(rolesQuery.data);
-    return [];
-  }, [rolesQuery.data]);
+  const roleCatalog = useResolvedRoleCatalog(rolesQuery.data);
 
   const roleOptions = useMemo(
     () => (Array.isArray(roleCatalog) ? roleCatalog.map((role) => role.name) : []),
@@ -384,6 +379,32 @@ function extractCombinedPermissionKeys(sources: readonly unknown[]): Set<string>
   return keys;
 }
 
+function useResolvedRoleCatalog(data: unknown): RoleCatalogItem[] {
+  return useMemo(() => {
+    if (Array.isArray(data)) return data;
+    return data ? parseRoleCatalog(data) : [];
+  }, [data]);
+}
+
+async function invalidateUserQueries(
+  queryClient: QueryClient,
+  userId?: string | null,
+  includeDetails = false,
+): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
+  if (userId) {
+    await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
+    if (includeDetails) {
+      await queryClient.invalidateQueries({
+        queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'permissions'],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'assignments'],
+      });
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Staff profile (edit) queries and mutations
 // ---------------------------------------------------------------------------
@@ -414,11 +435,7 @@ export function useStaffProfile(
   });
 
   const rolesQuery = useRoleCatalogQuery();
-  const roleCatalog: RoleCatalogItem[] = useMemo(() => {
-    if (Array.isArray(rolesQuery.data)) return rolesQuery.data;
-    if (rolesQuery.data) return parseRoleCatalog(rolesQuery.data);
-    return [];
-  }, [rolesQuery.data]);
+  const roleCatalog = useResolvedRoleCatalog(rolesQuery.data);
 
   const userItem = useMemo(() => {
     if (rawUserQuery.data) {
@@ -599,16 +616,7 @@ export function useStaffProfile(
       await syncUserPermissions(userId, input.categories);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
-      if (userId) {
-        await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
-        await queryClient.invalidateQueries({
-          queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'permissions'],
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'assignments'],
-        });
-      }
+      await invalidateUserQueries(queryClient, userId, true);
     },
   });
 
@@ -618,10 +626,7 @@ export function useStaffProfile(
       await api.patch(userStatusPath(userId), toUserStatusBody(status));
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
-      if (userId) {
-        await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
-      }
+      await invalidateUserQueries(queryClient, userId);
     },
   });
 
@@ -694,7 +699,7 @@ export function useCreateStaffUser() {
       await syncUserPermissions(userId, input.categories);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
+      await invalidateUserQueries(queryClient);
     },
   });
 }
