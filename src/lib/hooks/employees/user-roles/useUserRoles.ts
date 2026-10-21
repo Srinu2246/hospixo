@@ -323,6 +323,68 @@ export function useUserRoles(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers for role and permission synchronization
+// ---------------------------------------------------------------------------
+
+async function assignOrReplaceUserRole(
+  userId: string | number,
+  roleCode: string,
+  hints: RoleAssignmentHints,
+): Promise<void> {
+  try {
+    await api.put(userRolesPath(userId), toReplaceRolesBody(roleCode, hints));
+  } catch {
+    await api.post(userRolesPath(userId), toAssignRoleBody(roleCode, hints)).catch(() => null);
+  }
+}
+
+async function syncUserPermissions(
+  userId: string | number,
+  categories: readonly PermissionCategory[],
+): Promise<void> {
+  let userRoleId: string | null = null;
+  try {
+    const assignments = await api.get<unknown>(userAssignmentsPath(userId));
+    userRoleId = readPrimaryUserRoleId(assignments);
+  } catch {
+    userRoleId = null;
+  }
+
+  const payload = await resolveAssignmentPermissionsPayload(
+    userId,
+    userRoleId ?? '0',
+    categories,
+    (path) => api.get(path),
+  );
+
+  let synced = false;
+  if (userRoleId) {
+    try {
+      await api.put(userRolePermissionsPath(userId, userRoleId), payload);
+      synced = true;
+    } catch {
+      // fallback
+    }
+  }
+
+  if (!synced) {
+    await api
+      .put(`${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`, payload)
+      .catch(() => null);
+  }
+}
+
+function extractCombinedPermissionKeys(sources: readonly unknown[]): Set<string> {
+  const keys = new Set<string>();
+  sources.forEach((source) => {
+    if (source) {
+      extractAssignedPermissionKeys(source).forEach((k) => keys.add(k));
+    }
+  });
+  return keys;
+}
+
+// ---------------------------------------------------------------------------
 // Staff profile (edit) queries and mutations
 // ---------------------------------------------------------------------------
 
@@ -342,6 +404,13 @@ export function useStaffProfile(
     enabled,
     queryFn: async ({ signal }) =>
       api.get<unknown>(ApiUrlsV1.users.detail(userId!), undefined, signal),
+  });
+
+  const assignmentsQuery = useQuery({
+    queryKey: ['api', ApiUrlsV1.users.list, userId, 'assignments'],
+    enabled,
+    queryFn: async ({ signal }) =>
+      api.get<unknown>(userAssignmentsPath(userId!), undefined, signal).catch(() => null),
   });
 
   const rolesQuery = useRoleCatalogQuery();
@@ -369,12 +438,18 @@ export function useStaffProfile(
     return staffProfileFromUser(userItem, rawUserQuery.data, roleCatalog);
   }, [userItem, rawUserQuery.data, roleCatalog]);
 
+  const assignmentRoleId = useMemo(
+    () => readPrimaryUserRoleId(assignmentsQuery.data),
+    [assignmentsQuery.data],
+  );
+
   const resolvedRoleId = useMemo(() => {
     if (userItem?.roleId) return userItem.roleId;
+    if (assignmentRoleId) return assignmentRoleId;
     if (profile?.roleName) return resolveRoleId(profile.roleName, roleCatalog);
     if (userItem?.role) return resolveRoleId(userItem.role, roleCatalog);
     return null;
-  }, [userItem, profile, roleCatalog]);
+  }, [userItem, assignmentRoleId, profile, roleCatalog]);
 
   const matchedRole = useMemo(() => {
     if (!resolvedRoleId && !profile?.roleName && !userItem?.role) return undefined;
@@ -407,6 +482,39 @@ export function useStaffProfile(
     branchId: resolvedBranchId,
   });
 
+  const userRolePermissionsQuery = useQuery({
+    queryKey: [
+      'api',
+      'users',
+      userId != null && userId !== '' ? String(userId) : 'none',
+      'role-permissions',
+      assignmentRoleId ?? 'none',
+    ],
+    enabled: enabled && Boolean(assignmentRoleId),
+    queryFn: async ({ signal }) =>
+      api
+        .get<unknown>(userRolePermissionsPath(userId!, assignmentRoleId!), undefined, signal)
+        .catch(() => null),
+  });
+
+  const userDirectPermissionsQuery = useQuery({
+    queryKey: [
+      'api',
+      ApiUrlsV1.users.list,
+      userId != null && userId !== '' ? String(userId) : 'none',
+      'permissions',
+    ],
+    enabled: enabled && Boolean(userId),
+    queryFn: async ({ signal }) =>
+      api
+        .get<unknown>(
+          `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
+          undefined,
+          signal,
+        )
+        .catch(() => null),
+  });
+
   const permissionsQuery = useGroupedPermissions(enabled);
 
   const categories = useMemo(() => {
@@ -415,22 +523,35 @@ export function useStaffProfile(
         ? permissionsQuery.data
         : DEFAULT_STAFF_PROFILE_PERMISSIONS;
 
+    // 1. User-assigned permissions take priority over role template defaults
+    const userKeys = extractCombinedPermissionKeys([
+      userDirectPermissionsQuery.data,
+      userRolePermissionsQuery.data,
+      assignmentsQuery.data,
+      rawUserQuery.data,
+    ]);
+
+    if (userKeys.size > 0) {
+      return autoEnableRolePermissions(baseCategories, userKeys);
+    }
+
+    // 2. Fall back to role template defaults ONLY for seed/system users without customized permissions
     if (rolePermissionsQuery.data) {
-      const assignedKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);
-      if (assignedKeys.size > 0) {
-        return autoEnableRolePermissions(baseCategories, assignedKeys);
+      const roleKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);
+      if (roleKeys.size > 0) {
+        return autoEnableRolePermissions(baseCategories, roleKeys);
       }
     }
 
-    if (rawUserQuery.data) {
-      const assignedKeys = extractAssignedPermissionKeys(rawUserQuery.data);
-      if (assignedKeys.size > 0) {
-        return autoEnableRolePermissions(baseCategories, assignedKeys);
-      }
-    }
-
-    return baseCategories;
-  }, [permissionsQuery.data, rolePermissionsQuery.data, rawUserQuery.data]);
+    return autoEnableRolePermissions(baseCategories, new Set<string>());
+  }, [
+    permissionsQuery.data,
+    userDirectPermissionsQuery.data,
+    userRolePermissionsQuery.data,
+    assignmentsQuery.data,
+    rawUserQuery.data,
+    rolePermissionsQuery.data,
+  ]);
 
   const saveMutation = useMutation({
     mutationFn: async (input: {
@@ -456,7 +577,7 @@ export function useStaffProfile(
         const roleCode = matched?.code || resolveRoleCode(input.values.roleName, roleCatalog);
         if (roleCode) {
           const { context, account } = useSidebarStore.getState();
-          const hints = {
+          const hints: RoleAssignmentHints = {
             companyId:
               options?.companyId ??
               userCompanyId ??
@@ -471,73 +592,30 @@ export function useStaffProfile(
               undefined,
             scope: matched?.scope || permissionScope,
           };
-          try {
-            await api.put(userRolesPath(userId), toReplaceRolesBody(roleCode, hints));
-          } catch {
-            await api.post(userRolesPath(userId), toAssignRoleBody(roleCode, hints));
-          }
+          await assignOrReplaceUserRole(userId, roleCode, hints);
         }
       }
 
-      let userRoleId: string | null = null;
-      try {
-        const assignments = await api.get<unknown>(userAssignmentsPath(userId));
-        userRoleId = readPrimaryUserRoleId(assignments);
-      } catch {
-        userRoleId = null;
-      }
-
-      if (userRoleId) {
-        const payload = await resolveAssignmentPermissionsPayload(
-          userId,
-          userRoleId,
-          input.categories,
-          (path) => api.get(path),
-        );
-
-        let synced = false;
-        try {
-          await api.put(userRolePermissionsPath(userId, userRoleId), payload);
-          synced = true;
-        } catch {
-          // fallback
-        }
-
-        if (!synced) {
-          await api
-            .put(
-              `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
-              payload,
-            )
-            .catch(() => null);
-        }
-      }
+      await syncUserPermissions(userId, input.categories);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
       if (userId) {
         await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
+        await queryClient.invalidateQueries({
+          queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'permissions'],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'assignments'],
+        });
       }
     },
   });
 
-  const activateMutation = useMutation({
-    mutationFn: async () => {
+  const statusMutation = useMutation({
+    mutationFn: async (status: UserStatus) => {
       if (!userId) throw new Error('Missing user id');
-      await api.patch(userStatusPath(userId), toUserStatusBody('active'));
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
-      if (userId) {
-        await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
-      }
-    },
-  });
-
-  const deactivateMutation = useMutation({
-    mutationFn: async () => {
-      if (!userId) throw new Error('Missing user id');
-      await api.patch(userStatusPath(userId), toUserStatusBody('inactive'));
+      await api.patch(userStatusPath(userId), toUserStatusBody(status));
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
@@ -548,7 +626,11 @@ export function useStaffProfile(
   });
 
   const isPermissionsLoading =
-    permissionsQuery.isLoading || (Boolean(resolvedRoleId) && rolePermissionsQuery.isLoading);
+    permissionsQuery.isLoading ||
+    userDirectPermissionsQuery.isLoading ||
+    (Boolean(resolvedRoleId) && rolePermissionsQuery.isLoading) ||
+    assignmentsQuery.isLoading ||
+    (Boolean(assignmentRoleId) && userRolePermissionsQuery.isLoading);
 
   return {
     profile,
@@ -561,11 +643,11 @@ export function useStaffProfile(
     isError: rawUserQuery.isError && !userItem,
     error: rawUserQuery.error,
     saveProfile: saveMutation.mutateAsync,
-    activate: activateMutation.mutateAsync,
-    deactivate: deactivateMutation.mutateAsync,
+    activate: () => statusMutation.mutateAsync('active'),
+    deactivate: () => statusMutation.mutateAsync('inactive'),
     isSaving: saveMutation.isPending,
-    isActivating: activateMutation.isPending,
-    isDeactivating: deactivateMutation.isPending,
+    isActivating: statusMutation.isPending && statusMutation.variables === 'active',
+    isDeactivating: statusMutation.isPending && statusMutation.variables === 'inactive',
   };
 }
 
@@ -606,66 +688,10 @@ export function useCreateStaffUser() {
           branchId: context.branchId,
           scope: matched?.scope,
         };
-        try {
-          await api.put(userRolesPath(userId), toReplaceRolesBody(roleCode, roleHints));
-        } catch {
-          await api
-            .post(userRolesPath(userId), toAssignRoleBody(roleCode, roleHints))
-            .catch(() => null);
-        }
+        await assignOrReplaceUserRole(userId, roleCode, roleHints);
       }
 
-      let userRoleId: string | null = null;
-      try {
-        const assignments = await api.get<unknown>(userAssignmentsPath(userId));
-        userRoleId = readPrimaryUserRoleId(assignments);
-      } catch {
-        userRoleId = null;
-      }
-
-      if (userRoleId) {
-        const payload = await resolveAssignmentPermissionsPayload(
-          userId,
-          userRoleId,
-          input.categories,
-          (path) => api.get(path),
-        );
-
-        let synced = false;
-        try {
-          await api.put(userRolePermissionsPath(userId, userRoleId), payload);
-          synced = true;
-        } catch {
-          // fallback
-        }
-
-        if (!synced) {
-          await api
-            .put(
-              `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
-              payload,
-            )
-            .catch(() => null);
-        }
-      } else {
-        const enabledPermissionIds = input.categories.flatMap((category) =>
-          category.permissions
-            .filter((permission) => permission.enabled)
-            .map((permission) => permission.id),
-        );
-        const codesList = Array.from(new Set<string>(enabledPermissionIds));
-        const fallbackPayload = {
-          permission_codes: codesList,
-          permission_ids: codesList,
-        };
-
-        await api
-          .put(
-            `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
-            fallbackPayload,
-          )
-          .catch(() => null);
-      }
+      await syncUserPermissions(userId, input.categories);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });

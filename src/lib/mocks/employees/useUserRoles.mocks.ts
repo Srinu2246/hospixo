@@ -437,26 +437,118 @@ type MockRequest = {
 
 const mockUsersDataset: UserRoleItem[] = [...INITIAL_USERS];
 
+export const mockUserPermissionsMap = new Map<string, string[]>();
+
+const DEFAULT_COMPANY_PERMISSION_CODES = [
+  'dashboard.view',
+  'dashboard.analytics',
+  'users.view',
+  'users.create',
+  'users.edit',
+  'roles.view',
+  'company.view',
+  'company.manage',
+  'branches.view',
+  'inventory.view',
+  'reports.view',
+];
+
+const DEFAULT_BRANCH_PERMISSION_CODES = [
+  'dashboard.view',
+  'dashboard.analytics',
+  'users.view',
+  'users.create',
+  'users.edit',
+  'users.delete',
+  'roles.view',
+  'branches.view',
+  'branches.manage',
+];
+
+export function getDefaultPermissionCodes(isCompanyScope: boolean): string[] {
+  return isCompanyScope ? DEFAULT_COMPANY_PERMISSION_CODES : DEFAULT_BRANCH_PERMISSION_CODES;
+}
+
+function saveMockPermissions(
+  userId: string,
+  body: unknown,
+): { success: boolean; data: { permission_codes: string[] } } {
+  const payload = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  const codes = Array.isArray(payload.permission_codes)
+    ? (payload.permission_codes as string[])
+    : Array.isArray(payload.permission_ids)
+      ? (payload.permission_ids as string[])
+      : [];
+  mockUserPermissionsMap.set(userId, codes);
+  return { success: true, data: { permission_codes: codes } };
+}
+
+function getEffectiveMockCodes(userId: string, isCompany: boolean): string[] {
+  const savedCodes = mockUserPermissionsMap.get(userId);
+  return savedCodes !== undefined ? savedCodes : getDefaultPermissionCodes(isCompany);
+}
+
+function formatMockUserDetail(user: UserRoleItem): Record<string, unknown> {
+  const roleLower = user.role.toLowerCase();
+  const template = COMPANY_ROLE_TEMPLATES.find(
+    (t) =>
+      t.roleName.toLowerCase() === roleLower ||
+      t.id === String(user.roleId ?? '') ||
+      (roleLower.includes('inventory') && t.roleName === 'Inventory Manager') ||
+      (roleLower.includes('branch') && t.roleName === 'Branch Admin') ||
+      (roleLower.includes('company') && t.roleName === 'Company Admin') ||
+      (roleLower.includes('finance') && t.roleName === 'Finance Admin') ||
+      (roleLower.includes('accountant') && t.roleName === 'Accountant') ||
+      (roleLower.includes('cashier') && t.roleName === 'Cashier') ||
+      (roleLower.includes('restaurant') && t.roleName === 'Restaurant Manager') ||
+      (roleLower.includes('kitchen') && t.roleName === 'Kitchen Staff') ||
+      (roleLower.includes('hr') && t.roleName === 'HR Admin'),
+  );
+
+  const roleId = user.roleId ?? (template?.id ? Number(template.id) || template.id : 4);
+  const isCompanyRole =
+    user.scope === 'company' ||
+    template?.scope === 'company' ||
+    roleId === 4 ||
+    roleId === 5 ||
+    roleId === 6 ||
+    roleId === 7 ||
+    roleId === 8;
+  const roleScope = isCompanyRole ? 'company' : (user.scope ?? template?.scope ?? 'branch');
+
+  return {
+    ...user,
+    first_name: user.name.split(' ')[0] ?? 'User',
+    last_name: user.name.split(' ').slice(1).join(' ') ?? '',
+    phone: user.phone ?? '',
+    phone_number: user.phone ?? '',
+    username: user.email.split('@')[0] ?? 'user',
+    description: template?.description ?? `Operations for ${user.role}.`,
+    role_description: template?.description ?? `Operations for ${user.role}.`,
+    role_id: roleId,
+    roleId,
+    role_code: user.roleCode ?? template?.roleName.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+    scope: roleScope,
+    company_id: user.companyId ?? 94,
+    companyId: user.companyId ?? 94,
+    branch_id: user.branchId ?? (roleScope === 'branch' ? 1 : undefined),
+    branchId: user.branchId ?? (roleScope === 'branch' ? 1 : undefined),
+    is_active: user.status === 'active',
+    ...(mockUserPermissionsMap.has(user.id)
+      ? {
+          permissions: mockUserPermissionsMap.get(user.id),
+          permission_codes: mockUserPermissionsMap.get(user.id),
+        }
+      : {}),
+  };
+}
+
 function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
   if (request.method === 'GET') {
     if (itemId) {
-      const found = mockUsersDataset.find((user) => user.id === itemId) ?? mockUsersDataset[0];
-      const template = COMPANY_ROLE_TEMPLATES.find(
-        (t) => t.roleName.toLowerCase() === found.role.toLowerCase(),
-      );
-      return {
-        ...found,
-        first_name: found.name.split(' ')[0] ?? 'User',
-        last_name: found.name.split(' ').slice(1).join(' ') ?? '',
-        phone: found.phone ?? '',
-        phone_number: found.phone ?? '',
-        username: found.email.split('@')[0] ?? 'user',
-        description: template?.description ?? `Operations for ${found.role}.`,
-        role_description: template?.description ?? `Operations for ${found.role}.`,
-        role_id: template?.id ? Number(template.id) || template.id : 10,
-        scope: found.scope ?? template?.scope ?? 'branch',
-        is_active: found.status === 'active',
-      };
+      const allUsers = [...mockUsersDataset, ...COMPANY_INITIAL_USERS, ...BRANCH_INITIAL_USERS];
+      const found = allUsers.find((user) => user.id === itemId) ?? mockUsersDataset[0];
+      return formatMockUserDetail(found);
     }
     let items = mockUsersDataset;
     const search = request.params?.search;
@@ -480,11 +572,22 @@ function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
     const email = String(body.email ?? 'user@hospixo.com')
       .trim()
       .toLowerCase();
+    const roleString = String(body.role ?? 'Staff');
+    const roleLower = roleString.toLowerCase();
+    const isCompany =
+      body.scope === 'company' ||
+      roleLower.includes('company') ||
+      roleLower.includes('finance') ||
+      roleLower.includes('hr') ||
+      roleLower.includes('accountant') ||
+      roleLower.includes('inventory');
+    const isOrg = body.scope === 'organization' || roleLower.includes('super');
+    const userScope = isOrg ? 'organization' : isCompany ? 'company' : 'branch';
     const newUser: UserRoleItem = {
       id: `usr-${Date.now()}`,
       name: joinedName,
       email,
-      role: String(body.role ?? 'Staff'),
+      role: roleString,
       branch: String(body.branch_name ?? body.branch ?? 'Downtown Branch'),
       status: 'active',
       phone: body.phone
@@ -492,7 +595,8 @@ function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
         : body.phone_number
           ? String(body.phone_number)
           : undefined,
-      scope: 'branch',
+      scope: userScope,
+      companyId: 94,
     };
     mockUsersDataset.unshift(newUser);
     return newUser;
@@ -569,25 +673,26 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
   if (rolePermissionsMatch) {
     if (request.method === 'GET') {
       const roleIdNum = Number(rolePermissionsMatch[1]) || 12;
+      const requestedScope = String(request.params?.scope_type ?? 'branch');
+      const isCompanyScope =
+        requestedScope === 'company' ||
+        roleIdNum === 4 ||
+        roleIdNum === 5 ||
+        roleIdNum === 6 ||
+        roleIdNum === 7 ||
+        roleIdNum === 8;
+
+      const permissionCodes = getDefaultPermissionCodes(isCompanyScope);
+
       return {
         success: true,
         data: {
           role_id: roleIdNum,
-          scope_type: 'branch',
+          scope_type: isCompanyScope ? 'company' : requestedScope,
           organization_id: 1,
           inherited_permission_codes: [],
-          permission_codes: [
-            'dashboard.view',
-            'dashboard.analytics',
-            'users.view',
-            'users.create',
-            'users.edit',
-            'users.delete',
-            'roles.view',
-            'branches.view',
-            'branches.manage',
-          ],
-          total_permissions: 7,
+          permission_codes: permissionCodes,
+          total_permissions: permissionCodes.length,
           page: 1,
           page_size: 100,
           total_pages: 1,
@@ -651,7 +756,87 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
 
   const userAssignmentsMatch = request.path.match(/^\/v1\/users\/([^/]+)\/assignments/);
   if (userAssignmentsMatch) {
-    return { success: true, data: [] };
+    const userId = userAssignmentsMatch[1];
+    const allUsers = [...mockUsersDataset, ...COMPANY_INITIAL_USERS, ...BRANCH_INITIAL_USERS];
+    const found = allUsers.find((u) => u.id === userId);
+    const template = COMPANY_ROLE_TEMPLATES.find(
+      (t) =>
+        (found && t.roleName.toLowerCase() === found.role.toLowerCase()) ||
+        (found && t.id === String(found.roleId ?? '')),
+    );
+    const roleId = found?.roleId ?? (template?.id ? Number(template.id) || template.id : 4);
+    const isCompany =
+      found?.scope === 'company' ||
+      roleId === 4 ||
+      roleId === 5 ||
+      roleId === 6 ||
+      roleId === 7 ||
+      roleId === 8;
+    const codes = getEffectiveMockCodes(userId, isCompany);
+
+    return {
+      success: true,
+      data: [
+        {
+          id: String(roleId),
+          user_role_id: String(roleId),
+          userRoleId: String(roleId),
+          role_id: roleId,
+          roleId,
+          role_name: found?.role ?? template?.roleName ?? 'Company Admin',
+          roleName: found?.role ?? template?.roleName ?? 'Company Admin',
+          scope: isCompany ? 'company' : 'branch',
+          permission_codes: codes,
+        },
+      ],
+    };
+  }
+
+  const userRolePermsMatch = request.path.match(
+    /^\/v1\/users\/([^/]+)\/roles\/([^/]+)\/permissions/,
+  );
+  if (userRolePermsMatch) {
+    const userId = userRolePermsMatch[1];
+    const userRoleId = Number(userRolePermsMatch[2]) || 4;
+    const isCompany =
+      userRoleId === 4 ||
+      userRoleId === 5 ||
+      userRoleId === 6 ||
+      userRoleId === 7 ||
+      userRoleId === 8;
+
+    if (request.method === 'PUT') {
+      return saveMockPermissions(userId, request.body);
+    }
+
+    const codes = getEffectiveMockCodes(userId, isCompany);
+
+    return {
+      success: true,
+      data: {
+        role_id: userRoleId,
+        scope_type: isCompany ? 'company' : 'branch',
+        inherited_permission_codes: codes,
+        permission_codes: codes,
+        total_permissions: codes.length,
+      },
+    };
+  }
+
+  const userDirectPermsMatch = request.path.match(/^\/v1\/users\/([^/]+)\/permissions/);
+  if (userDirectPermsMatch) {
+    const userId = userDirectPermsMatch[1];
+
+    if (request.method === 'PUT') {
+      return saveMockPermissions(userId, request.body);
+    }
+
+    return {
+      success: true,
+      data: {
+        permission_codes: getEffectiveMockCodes(userId, true),
+      },
+    };
   }
 
   const usersMatch = request.path.match(/^\/v1\/users(?:\/([^/]+))?/);
@@ -659,122 +844,11 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
     return resolveUsersMock(request, usersMatch[1]);
   }
 
-  const match = request.path.match(
+  const legacyMatch = request.path.match(
     /^\/v1\/(company\/|branch\/)?employees\/user-roles(\/([^/]+))?$/,
   );
-  if (!match) return undefined;
-
-  const scopePrefix = match[1];
-  const itemId = match[3];
-
-  const getDataset = () => {
-    if (scopePrefix === 'branch/') return [...BRANCH_INITIAL_USERS];
-    if (scopePrefix === 'company/') return [...COMPANY_INITIAL_USERS];
-    return [...INITIAL_USERS];
-  };
-
-  if (request.method === 'GET') {
-    if (itemId) {
-      const found = getDataset().find((u) => u.id === itemId);
-      const user = found ?? getDataset()[0];
-      return {
-        ...user,
-        first_name: user?.name.split(' ')[0] ?? 'User',
-        last_name: user?.name.split(' ').slice(1).join(' ') ?? '',
-        phone: user?.phone ?? '',
-        phone_number: user?.phone ?? '',
-        username: user?.email.split('@')[0] ?? 'user',
-        description: `Operations for ${user?.role}.`,
-        role_description: `Operations for ${user?.role}.`,
-        role_id: 12,
-        is_active: user?.status === 'active',
-      };
-    }
-
-    let items = getDataset();
-    const search = request.params?.search;
-    if (typeof search === 'string' && search.trim()) {
-      const q = search.toLowerCase();
-      items = items.filter(
-        (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
-      );
-    }
-    const role = request.params?.role;
-    if (typeof role === 'string' && role) {
-      items = items.filter((u) => u.role === role);
-    }
-    const branch = request.params?.branch;
-    if (typeof branch === 'string' && branch) {
-      items = items.filter((u) => u.branch === branch);
-    }
-    const status = request.params?.status;
-    if (typeof status === 'string' && status) {
-      items = items.filter((u) => u.status === status);
-    }
-
-    return items;
-  }
-
-  if (request.method === 'POST') {
-    const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
-      string,
-      unknown
-    >;
-    const newUser: UserRoleItem = {
-      id: `usr-${Date.now()}`,
-      name:
-        (body.name as string) ||
-        `${body.firstName || ''} ${body.lastName || ''}`.trim() ||
-        'New User',
-      email: (body.email as string) || 'user@hospixo.com',
-      role: (body.role as string) || 'Staff',
-      branch: (body.branch as string) || 'Downtown Branch',
-      status: (body.status as UserRoleItem['status']) || 'invited',
-      company: (body.company as string) || 'VJITVI',
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    return newUser;
-  }
-
-  if (request.method === 'PUT' && itemId) {
-    const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
-      string,
-      unknown
-    >;
-    const firstName = (body.first_name as string) || '';
-    const lastName = (body.last_name as string) || '';
-    const name = `${firstName} ${lastName}`.trim() || (body.name as string) || 'Updated User';
-    return {
-      id: itemId,
-      name,
-      first_name: firstName,
-      last_name: lastName,
-      email: (body.email as string) || 'user@hospixo.com',
-      phone: (body.phone as string) || (body.phone_number as string) || '',
-      phone_number: (body.phone as string) || (body.phone_number as string) || '',
-      username: (body.username as string) || 'user',
-      role: (body.role as string) || 'Staff',
-      role_description: (body.description as string) || '',
-      description: (body.description as string) || '',
-      branch: (body.branch as string) || 'Downtown Branch',
-      status: (body.status as string) || 'active',
-      createdAt: '2024-01-01',
-    };
-  }
-
-  if (request.method === 'PATCH' && itemId) {
-    const body = (request.body && typeof request.body === 'object' ? request.body : {}) as Record<
-      string,
-      unknown
-    >;
-    return {
-      id: itemId,
-      status: body.status || 'active',
-    };
-  }
-
-  if (request.method === 'DELETE' && itemId) {
-    return { success: true, message: `User ${itemId} deleted successfully.` };
+  if (legacyMatch) {
+    return resolveUsersMock(request, legacyMatch[3]);
   }
 
   return undefined;

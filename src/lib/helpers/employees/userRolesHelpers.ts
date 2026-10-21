@@ -383,34 +383,24 @@ export function autoEnableRolePermissions(
   categories: readonly PermissionCategory[],
   assignedKeys: Set<string>,
 ): PermissionCategory[] {
-  if (assignedKeys.size === 0) return [...categories];
-
-  return categories
-    .map((category) => {
-      const permissions = category.permissions
-        .map((perm) => {
-          const permCode = perm.code || perm.id;
-          const isAssigned =
-            assignedKeys.has(perm.id) ||
-            assignedKeys.has(perm.id.toLowerCase()) ||
-            assignedKeys.has(perm.name) ||
-            assignedKeys.has(perm.name.toLowerCase()) ||
-            assignedKeys.has(permCode) ||
-            assignedKeys.has(permCode.toLowerCase());
-
-          return {
-            ...perm,
-            enabled: isAssigned,
-          };
-        })
-        .filter((perm) => perm.enabled);
+  return categories.map((category) => ({
+    ...category,
+    permissions: category.permissions.map((perm) => {
+      const permCode = perm.code || perm.id;
+      const isAssigned =
+        assignedKeys.has(perm.id) ||
+        assignedKeys.has(perm.id.toLowerCase()) ||
+        assignedKeys.has(perm.name) ||
+        assignedKeys.has(perm.name.toLowerCase()) ||
+        assignedKeys.has(permCode) ||
+        assignedKeys.has(permCode.toLowerCase());
 
       return {
-        ...category,
-        permissions,
+        ...perm,
+        enabled: isAssigned,
       };
-    })
-    .filter((category) => category.permissions.length > 0);
+    }),
+  }));
 }
 
 export function togglePermissionCategory(
@@ -479,21 +469,26 @@ export async function resolveAssignmentPermissionsPayload(
     });
   });
 
-  const finalCodes = new Set<string>(inheritedCodes);
+  const adjustments: Array<{ permission_code: string; effect: 'grant' | 'revoke' }> = [];
+  const inheritedSet = new Set<string>(inheritedCodes);
 
   enabledFromUI.forEach((code) => {
-    finalCodes.add(code);
+    if (!inheritedSet.has(code)) {
+      adjustments.push({ permission_code: code, effect: 'grant' });
+    }
   });
 
   disabledFromUI.forEach((code) => {
-    finalCodes.delete(code);
+    if (inheritedSet.has(code)) {
+      adjustments.push({ permission_code: code, effect: 'revoke' });
+    }
   });
 
-  const permissionCodesList = Array.from(finalCodes);
+  const permissionCodesList = Array.from(enabledFromUI);
 
   return {
     permission_codes: permissionCodesList,
     permission_ids: permissionCodesList,
-    assignment_adjustments: [],
+    assignment_adjustments: adjustments,
   };
 }

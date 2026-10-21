@@ -136,14 +136,14 @@ export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
         code: 'dashboard.view',
         name: 'View Dashboard',
         description: 'Access to the main overview and KPI tiles',
-        enabled: true,
+        enabled: false,
       },
       {
         id: 'dashboard.analytics',
         code: 'dashboard.analytics',
         name: 'View Analytics',
         description: 'Detailed charts and data trends analysis',
-        enabled: true,
+        enabled: false,
       },
     ],
   },
@@ -156,21 +156,21 @@ export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
         code: 'users.view',
         name: 'View Users',
         description: 'Access and view the team member directory',
-        enabled: true,
+        enabled: false,
       },
       {
         id: 'users.create',
         code: 'users.create',
         name: 'Create Users',
         description: 'Invite and add new members to the system',
-        enabled: true,
+        enabled: false,
       },
       {
         id: 'users.edit',
         code: 'users.edit',
         name: 'Edit Users',
         description: 'Modify existing user details and status',
-        enabled: true,
+        enabled: false,
       },
       {
         id: 'users.delete',
@@ -184,7 +184,27 @@ export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
         code: 'roles.view',
         name: 'View Roles',
         description: 'Access and view system roles and permissions',
-        enabled: true,
+        enabled: false,
+      },
+    ],
+  },
+  {
+    id: 'company_management',
+    title: 'Company Management',
+    permissions: [
+      {
+        id: 'company.view',
+        code: 'company.view',
+        name: 'View Company',
+        description: 'Access company profile, branches, and operational settings',
+        enabled: false,
+      },
+      {
+        id: 'company.manage',
+        code: 'company.manage',
+        name: 'Manage Company',
+        description: 'Update company details, policies, and business configurations',
+        enabled: false,
       },
     ],
   },
@@ -197,7 +217,7 @@ export const DEFAULT_STAFF_PROFILE_PERMISSIONS: PermissionCategory[] = [
         code: 'branches.view',
         name: 'View Branches',
         description: 'See details of all connected branch locations',
-        enabled: true,
+        enabled: false,
       },
       {
         id: 'branches.manage',
@@ -508,11 +528,15 @@ const RESOURCE_TITLE_OVERRIDES: Record<string, string> = {
   users: 'User Management',
   user: 'User Management',
   user_management: 'User Management',
+  company: 'Company Management',
+  company_management: 'Company Management',
   branches: 'Branch Management',
   branch: 'Branch Management',
   branch_management: 'Branch Management',
   inventory: 'Inventory',
   inventory_management: 'Inventory',
+  reports: 'Reports',
+  report: 'Reports',
 };
 
 const PERMISSION_LABEL_OVERRIDES: Record<string, string> = {
@@ -523,10 +547,14 @@ const PERMISSION_LABEL_OVERRIDES: Record<string, string> = {
   'users.edit': 'Edit Users',
   'users.delete': 'Delete Users',
   'roles.view': 'View Roles',
+  'company.view': 'View Company',
+  'company.manage': 'Manage Company',
   'branches.view': 'View Branches',
   'branches.manage': 'Manage Branches',
   'inventory.view': 'View Inventory',
   'inventory.items': 'Manage Items',
+  'reports.view': 'View Reports',
+  'reports.export': 'Export Reports',
 };
 
 const PERMISSION_DESCRIPTION_OVERRIDES: Record<string, string> = {
@@ -537,10 +565,14 @@ const PERMISSION_DESCRIPTION_OVERRIDES: Record<string, string> = {
   'users.edit': 'Modify existing user details and status',
   'users.delete': 'Remove users permanently from the organization',
   'roles.view': 'Access and view system roles and permissions',
+  'company.view': 'Access company profile, branches, and operational settings',
+  'company.manage': 'Update company details, policies, and business configurations',
   'branches.view': 'See details of all connected branch locations',
   'branches.manage': 'Edit branch info, opening hours, and zones',
   'inventory.view': 'Monitor stock levels and tracking',
   'inventory.items': 'Add or edit items in the product catalog',
+  'reports.view': 'Financial and operational summary reports',
+  'reports.export': 'Download CSV and PDF reports',
 };
 
 function toTitleCase(value: string): string {
@@ -1183,26 +1215,84 @@ export function staffProfileFromUser(
   };
 }
 
+export function isMatch(
+  current: string | number | null | undefined,
+  expected: string | number | null | undefined,
+  options?: { caseSensitive?: boolean },
+): boolean {
+  if (current == null || expected == null) return false;
+  const currentStr = String(current).trim();
+  const expectedStr = String(expected).trim();
+  return options?.caseSensitive
+    ? currentStr === expectedStr
+    : currentStr.toLowerCase() === expectedStr.toLowerCase();
+}
+
 export function resolveRoleId(
   roleName: string,
   catalog: readonly RoleCatalogItem[],
 ): string | number | null {
   const normalized = roleName.trim().toLowerCase();
   if (!normalized) return null;
-  const match = catalog.find(
+
+  // 1. Exact match by name, id, or code
+  const exactMatch = catalog.find(
     (role) =>
-      role.name.trim().toLowerCase() === normalized ||
-      String(role.id).toLowerCase() === normalized ||
-      role.code?.trim().toLowerCase() === normalized,
+      isMatch(role.name, normalized) ||
+      isMatch(role.id, normalized) ||
+      isMatch(role.code, normalized),
   );
-  return match?.id ?? null;
+  if (exactMatch) return exactMatch.id;
+
+  // 2. Normalized alphanumeric match
+  const clean = normalized.replace(/[^a-z0-9]/g, '');
+  const tokenMatch = catalog.find((role) => {
+    const roleClean = role.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const codeClean = role.code ? role.code.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    return roleClean === clean || (codeClean && codeClean === clean);
+  });
+  if (tokenMatch) return tokenMatch.id;
+
+  // 3. Known role alias / keyword matching
+  const aliasMatch = catalog.find((role) => {
+    const roleLower = role.name.toLowerCase();
+    if (normalized.includes('company') && roleLower.includes('company')) return true;
+    if (normalized.includes('finance') && roleLower.includes('finance')) return true;
+    if (normalized.includes('accountant') && roleLower.includes('accountant')) return true;
+    if (normalized.includes('hr') && roleLower.includes('hr')) return true;
+    if (normalized.includes('inventory') && roleLower.includes('inventory')) return true;
+    if (
+      normalized.includes('branch') &&
+      (roleLower.includes('branch admin') || roleLower.includes('branch manager'))
+    ) {
+      return true;
+    }
+    if (normalized.includes('restaurant') && roleLower.includes('restaurant')) return true;
+    if (
+      (normalized.includes('cashier') || normalized.includes('pos')) &&
+      roleLower.includes('cashier')
+    ) {
+      return true;
+    }
+    if (
+      (normalized.includes('waiter') || normalized.includes('captain')) &&
+      (roleLower.includes('waiter') || roleLower.includes('captain'))
+    ) {
+      return true;
+    }
+    if (normalized.includes('kitchen') && roleLower.includes('kitchen')) return true;
+    return false;
+  });
+  if (aliasMatch) return aliasMatch.id;
+
+  return null;
 }
 
 export function readPrimaryUserRoleId(assignmentsPayload: unknown): string | null {
   const rows = unwrapAssignments(assignmentsPayload);
   const first = rows[0];
   if (!first) return null;
-  const id = first.id ?? first.user_role_id ?? first.userRoleId;
+  const id = first.id ?? first.user_role_id ?? first.userRoleId ?? first.role_id ?? first.roleId;
   return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
 }
 
@@ -1414,7 +1504,7 @@ function unwrapAssignments(payload: unknown): Record<string, unknown>[] {
     const value = unwrapped[key];
     if (Array.isArray(value)) return value.filter(isRecord);
   }
-  return [];
+  return [unwrapped];
 }
 
 function readPrimaryRoleName(value: unknown): string | undefined {
@@ -1451,12 +1541,11 @@ type UserRoleFields = {
 };
 
 function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
-  const directRole = source.role;
-  if (typeof directRole === 'string' && directRole.trim()) {
-    return { label: directRole.trim() };
-  }
+  const directRole =
+    typeof source.role === 'string' && source.role.trim() ? source.role.trim() : undefined;
 
   const label =
+    directRole ??
     text(source.role_name) ??
     text(source.roleName) ??
     text(source.primary_role_name) ??
@@ -1475,6 +1564,7 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
     readRoleId(source.roleId) ??
     readRoleId(source.primary_role_id) ??
     readRoleId(source.primaryRoleId) ??
+    (isRecord(source.role) ? readRoleId(source.role) : undefined) ??
     readRoleIdFromCollection(source.roles) ??
     readRoleIdFromCollection(source.user_roles) ??
     readRoleIdFromCollection(source.assignments);
@@ -1483,6 +1573,7 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
     text(source.role_code) ??
     text(source.roleCode) ??
     text(source.primary_role_code) ??
+    (isRecord(source.role) ? text(source.role.code) : undefined) ??
     readRoleCodeFromCollection(source.roles) ??
     readRoleCodeFromCollection(source.user_roles);
 
@@ -1491,6 +1582,10 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
 
 function readRoleId(value: unknown): string | number | undefined {
   if (typeof value === 'number' || typeof value === 'string') return value;
+  if (isRecord(value)) {
+    const id = value.id ?? value.role_id ?? value.roleId;
+    if (typeof id === 'number' || typeof id === 'string') return id;
+  }
   return undefined;
 }
 
