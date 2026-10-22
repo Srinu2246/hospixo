@@ -25,7 +25,7 @@ export function InvitationSuccessStep({
 }: Readonly<InvitationSuccessStepProps>) {
   const fullName = `${formValues.firstName || 'Sarah'} ${formValues.lastName || 'Chen'}`.trim();
   const email = formValues.email || 'sarah.chen@example.com';
-  const role = formValues.role || 'Branch Manager';
+  const role = formValues.role || 'Branch Admin';
   const branch = formValues.branch || '—';
 
   return (

@@ -13,7 +13,7 @@ import type {
   PermissionCategory,
   RoleTemplateItem,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
-import { PermissionGroupsGrid } from './PermissionGroupsGrid';
+import { PermissionGroupsGrid } from '../PermissionGroupsGrid';
 
 export interface ReviewAndSaveStepThreeProps {
   formValues: CreateUserFormValues;
@@ -81,7 +81,7 @@ export function ReviewAndSaveStepThree({
               ROLE NAME
             </Typography>
             <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.role || 'Branch Manager'}
+              {formValues.role || 'Branch Admin'}
             </Typography>
           </Box>
 
@@ -125,7 +125,7 @@ export function ReviewAndSaveStepThree({
               TEMPLATE
             </Typography>
             <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {selectedTemplate?.title || formValues.role || 'Branch Manager'}
+              {selectedTemplate?.title || formValues.role || 'Branch Admin'}
             </Typography>
           </Box>
         </Box>
