@@ -8,7 +8,7 @@ import Divider from '@mui/material/Divider';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
-const STATUS_FILTER_OPTIONS = ['active', 'invited', 'disabled', 'inactive'] as const;
+const STATUS_FILTER_OPTIONS = ['active', 'invited', 'inactive'] as const;
 
 export interface UserFilterPopoverProps {
   anchorEl: HTMLElement | null;
@@ -105,6 +105,7 @@ export function UserFilterPopover({
             options={roleDropdownOptions}
             value={selectedRole || 'All Roles'}
             onChange={(val) => onRoleChange(val === 'All Roles' ? '' : val)}
+            placeholder="Select role"
             sx={{ width: '100%' }}
           />
         </Box>
@@ -118,6 +119,7 @@ export function UserFilterPopover({
             options={branchDropdownOptions}
             value={selectedBranch || 'All Branches'}
             onChange={(val) => onBranchChange(val === 'All Branches' ? '' : val)}
+            placeholder="Select branch"
             sx={{ width: '100%' }}
           />
         </Box>
@@ -131,6 +133,7 @@ export function UserFilterPopover({
             options={statusDropdownOptions}
             value={selectedStatus || 'All Statuses'}
             onChange={(val) => onStatusChange(val === 'All Statuses' ? '' : val)}
+            placeholder="Select status"
             sx={{ width: '100%' }}
           />
         </Box>

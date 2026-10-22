@@ -23,6 +23,7 @@ export interface UserRowActionsMenuProps {
   onViewProfile?: (user: UserRoleItem) => void;
   onStatusChange: (id: string, status: UserStatus) => void;
   onDelete: (id: string) => void;
+  isEditDisabled?: boolean;
 }
 
 export function UserRowActionsMenu({
@@ -34,6 +35,7 @@ export function UserRowActionsMenu({
   onViewProfile,
   onStatusChange,
   onDelete,
+  isEditDisabled = false,
 }: Readonly<UserRowActionsMenuProps>) {
   if (!user) return null;
 
@@ -43,17 +45,20 @@ export function UserRowActionsMenu({
   };
 
   const handleEditClick = () => {
+    if (isEditDisabled) return;
     onEdit(user);
     onClose();
   };
 
   const handleToggleStatus = () => {
+    if (isEditDisabled) return;
     const nextStatus: UserStatus = user.status === 'active' ? 'inactive' : 'active';
     onStatusChange(user.id, nextStatus);
     onClose();
   };
 
   const handleDeleteClick = () => {
+    if (isEditDisabled) return;
     onDelete(user.id);
     onClose();
   };
@@ -80,7 +85,7 @@ export function UserRowActionsMenu({
         },
       }}
     >
-      {/* View / Edit Staff Profile */}
+      {/* View Staff Profile */}
       <MenuItem onClick={handleViewProfileClick} sx={{ py: 1 }}>
         <ListItemIcon sx={{ minWidth: 32, color: 'text.secondary' }}>
           <VisibilityOutlinedIcon fontSize="small" />
@@ -92,25 +97,41 @@ export function UserRowActionsMenu({
         </ListItemText>
       </MenuItem>
 
-      {/* Edit Role & Branch (Modal) */}
-      <MenuItem onClick={handleEditClick} sx={{ py: 1 }}>
-        <ListItemIcon sx={{ minWidth: 32, color: 'text.secondary' }}>
+      {/* Edit Role & Branch (Modal / Page) */}
+      <MenuItem onClick={handleEditClick} disabled={isEditDisabled} sx={{ py: 1 }}>
+        <ListItemIcon
+          sx={{ minWidth: 32, color: isEditDisabled ? 'text.disabled' : 'text.secondary' }}
+        >
           <EditOutlinedIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>
-          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: 'text.primary' }}>
+          <Typography
+            sx={{
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              color: isEditDisabled ? 'text.disabled' : 'text.primary',
+            }}
+          >
             Edit Details
           </Typography>
         </ListItemText>
       </MenuItem>
 
       {/* Toggle Status (Active/Inactive) */}
-      <MenuItem onClick={handleToggleStatus} sx={{ py: 1 }}>
-        <ListItemIcon sx={{ minWidth: 32, color: 'text.secondary' }}>
+      <MenuItem onClick={handleToggleStatus} disabled={isEditDisabled} sx={{ py: 1 }}>
+        <ListItemIcon
+          sx={{ minWidth: 32, color: isEditDisabled ? 'text.disabled' : 'text.secondary' }}
+        >
           {user.status === 'active' ? (
-            <BlockOutlinedIcon fontSize="small" sx={{ color: 'warning.main' }} />
+            <BlockOutlinedIcon
+              fontSize="small"
+              sx={{ color: isEditDisabled ? 'text.disabled' : 'warning.main' }}
+            />
           ) : (
-            <CheckCircleOutlineOutlinedIcon fontSize="small" sx={{ color: 'success.main' }} />
+            <CheckCircleOutlineOutlinedIcon
+              fontSize="small"
+              sx={{ color: isEditDisabled ? 'text.disabled' : 'success.main' }}
+            />
           )}
         </ListItemIcon>
         <ListItemText>
@@ -118,21 +139,34 @@ export function UserRowActionsMenu({
             sx={{
               fontSize: '0.8125rem',
               fontWeight: 500,
-              color: user.status === 'active' ? 'warning.main' : 'success.main',
+              color: isEditDisabled
+                ? 'text.disabled'
+                : user.status === 'active'
+                  ? 'warning.main'
+                  : 'success.main',
             }}
           >
-            {user.status === 'active' ? 'Deactivate' : 'Activate'}
+            {user.status === 'active' ? 'Inactivate' : 'Activate'}
           </Typography>
         </ListItemText>
       </MenuItem>
 
       {/* Delete User */}
-      <MenuItem onClick={handleDeleteClick} sx={{ py: 1 }}>
-        <ListItemIcon sx={{ minWidth: 32, color: 'error.main' }}>
-          <DeleteOutlineOutlinedIcon fontSize="small" />
+      <MenuItem onClick={handleDeleteClick} disabled={isEditDisabled} sx={{ py: 1 }}>
+        <ListItemIcon sx={{ minWidth: 32, color: isEditDisabled ? 'text.disabled' : 'error.main' }}>
+          <DeleteOutlineOutlinedIcon
+            fontSize="small"
+            sx={{ color: isEditDisabled ? 'text.disabled' : 'error.main' }}
+          />
         </ListItemIcon>
         <ListItemText>
-          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: 'error.main' }}>
+          <Typography
+            sx={{
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              color: isEditDisabled ? 'text.disabled' : 'error.main',
+            }}
+          >
             Delete User
           </Typography>
         </ListItemText>

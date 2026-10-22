@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -58,7 +58,9 @@ export function CreateTableOrderModal({
   const capacity = Math.max(table?.capacity ?? 2, 1);
   const guestOptions = useMemo(() => guestCountOptions(capacity), [capacity]);
   const [guestCount, setGuestCount] = useState(String(capacity));
+  const [guestResetKey, setGuestResetKey] = useState<string | null>(null);
   const [mealSessionId, setMealSessionId] = useState('');
+  const [sessionsResetKey, setSessionsResetKey] = useState('');
 
   const mealSessionsQuery = useMealSessions(open ? branchId : undefined);
   const activeSessions = useMemo(
@@ -74,21 +76,22 @@ export function CreateTableOrderModal({
     [activeSessions],
   );
 
-  useEffect(() => {
-    if (!open || !table) return;
-    const nextCapacity = Math.max(table.capacity ?? 2, 1);
-    setGuestCount(String(nextCapacity));
-  }, [open, table]);
+  const nextGuestKey = open && table ? `${table.id}:${capacity}` : null;
+  if (nextGuestKey && nextGuestKey !== guestResetKey) {
+    setGuestResetKey(nextGuestKey);
+    setGuestCount(String(capacity));
+  }
 
-  useEffect(() => {
-    if (!open || activeSessions.length === 0) return;
-    setMealSessionId((current) => {
-      if (current && activeSessions.some((session) => String(session.id) === current)) {
-        return current;
-      }
-      return String(activeSessions[0].id);
-    });
-  }, [open, activeSessions]);
+  const nextSessionsKey =
+    open && activeSessions.length > 0 ? activeSessions.map((session) => session.id).join(',') : '';
+  if (nextSessionsKey && nextSessionsKey !== sessionsResetKey) {
+    setSessionsResetKey(nextSessionsKey);
+    const nextMealSessionId =
+      mealSessionId && activeSessions.some((session) => String(session.id) === mealSessionId)
+        ? mealSessionId
+        : String(activeSessions[0].id);
+    setMealSessionId(nextMealSessionId);
+  }
 
   const canSubmit =
     Boolean(table) &&
