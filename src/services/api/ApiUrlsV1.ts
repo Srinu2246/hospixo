@@ -142,6 +142,31 @@ export function branchTablesAvailabilityPath(branchId: number | string): string 
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/tables/availability`;
 }
 
+/** GET /v1/branches/{branch_id}/reports/overview */
+export function branchReportsOverviewPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/overview`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/sales */
+export function branchReportsSalesPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/sales`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/orders/summary */
+export function branchReportsOrdersSummaryPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/orders/summary`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/sessions */
+export function branchReportsSessionsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/sessions`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/payments */
+export function branchReportsPaymentsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/payments`;
+}
+
 /** GET /v2/platform/organizations/{organization_id}/companies */
 export function organizationCompaniesPath(organizationId: number | string): string {
   return ApiUrlsV1.organization.platformOrganizationCompaniesV2.replace(
