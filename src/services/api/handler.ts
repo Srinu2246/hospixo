@@ -22,6 +22,7 @@ import {
   MOCK_ACTIVE_SHIFT,
   MOCK_CASH_TRANSACTIONS,
   MOCK_SHIFT_METRICS,
+  resolveCurrentShiftMock,
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
 import { MOCK_BRANCHES } from '@/lib/mocks/organization/branches.mocks';
 import { MOCK_COMPANIES } from '@/lib/mocks/organization/companies.mocks';
@@ -136,6 +137,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
   const cashRegisters = resolveCashRegistersMock(request);
   if (cashRegisters !== undefined) return cashRegisters;
+
+  const currentShift = resolveCurrentShiftMock(request);
+  if (currentShift !== undefined) return currentShift;
 
   const kitchen = resolveKitchenDisplayMock(request);
   if (kitchen !== undefined) return kitchen;

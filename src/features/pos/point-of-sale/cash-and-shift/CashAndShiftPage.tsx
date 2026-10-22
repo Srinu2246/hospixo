@@ -1,27 +1,62 @@
 'use client';
 
-import React, { useState } from 'react';
+/**
+ * Cash & Shift entry — GET …/shifts/current.
+ * `data: null` → Start New Shift; otherwise active-shift dashboard.
+ */
+
+import Box from '@mui/material/Box';
+
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Loading } from '@/components/shared/ui/Loading';
+import { useCurrentShift } from '@/lib/hooks/pos/point-of-sale/cash-and-shift/useCurrentShift';
+import { useSidebarStore } from '@/stores/sidebarStore';
+
 import { CashAndShiftDashboardPage } from './CashAndShiftDashboardPage';
 import { CreateNewShiftPage } from './CreateNewShiftPage';
 
-export interface CashAndShiftPageProps {
-  initialHasActiveShift?: boolean;
-}
+export function CashAndShiftPage() {
+  const branchId = useSidebarStore((state) => state.context.branchId);
+  const currentShiftQuery = useCurrentShift(branchId);
 
-/**
- * CashAndShiftPage Component
- *
- * Primary entry point for the POS Cash & Shift module:
- * - If no active shift exists / persists, renders `CreateNewShiftPage` to start a shift.
- * - If an active shift persists, renders `CashAndShiftDashboardPage` with live shift metrics and transactions.
- */
-export function CashAndShiftPage({
-  initialHasActiveShift = true,
-}: Readonly<CashAndShiftPageProps>) {
-  const [hasActiveShift, setHasActiveShift] = useState(initialHasActiveShift);
+  if (typeof branchId !== 'number') {
+    return (
+      <AlertMessage
+        variant="warning"
+        title="Branch required"
+        message="Select a branch before opening Cash & Shift."
+      />
+    );
+  }
 
-  if (!hasActiveShift) {
-    return <CreateNewShiftPage onStartShift={() => setHasActiveShift(true)} />;
+  if (currentShiftQuery.isLoading) {
+    return <Loading message="Checking current shift..." fullPage={false} />;
+  }
+
+  if (currentShiftQuery.isError) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <AlertMessage
+          variant="error"
+          title="Unable to load current shift"
+          message={
+            currentShiftQuery.error instanceof Error
+              ? currentShiftQuery.error.message
+              : 'The current shift request failed.'
+          }
+        />
+      </Box>
+    );
+  }
+
+  if (currentShiftQuery.data == null) {
+    return (
+      <CreateNewShiftPage
+        onStartShift={() => {
+          void currentShiftQuery.refetch();
+        }}
+      />
+    );
   }
 
   return <CashAndShiftDashboardPage />;

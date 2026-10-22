@@ -1,22 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+/**
+ * Start New Shift — shown when GET …/shifts/current returns data: null.
+ * Shift # (random), system date/time, assigned terminal from cash-registers.
+ */
+
+import { useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
 import { AlertCircle, PlusCircle } from 'lucide-react';
 
-import { useThemeStore } from '@/stores/themeStore';
-import { colors } from '@/lib/theme/mui/colors';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Loading } from '@/components/shared/ui/Loading';
+import { useCashCounters } from '@/lib/hooks/pos/point-of-sale/cash-counter';
 import {
   MOCK_NEW_SHIFT_DEFAULTS,
   type NewShiftDefaults,
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
+import { colors } from '@/lib/theme/mui/colors';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { useThemeStore } from '@/stores/themeStore';
 
 export interface CreateNewShiftPageProps {
   initialConfig?: NewShiftDefaults;
@@ -24,15 +33,24 @@ export interface CreateNewShiftPageProps {
   onStartShift?: () => void;
 }
 
-/**
- * CreateNewShiftPage Component
- *
- * Screen matching the "Start New Shift" reference design:
- * - Centered card layout for opening register transactions.
- * - Shift number, timestamp, pre-selected operator, and terminal dropdowns.
- * - Opening cash balance entry with previous shift verification callout banner.
- * - Pure UI design strictly utilizing theme tokens from colors and useThemeStore.
- */
+function formatShiftDateTime(date: Date): string {
+  const datePart = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const timePart = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  return `${datePart} at ${timePart}`;
+}
+
+function randomShiftNumber(): string {
+  return `#${1000 + Math.floor(Math.random() * 9000)}`;
+}
+
 export function CreateNewShiftPage({
   initialConfig = MOCK_NEW_SHIFT_DEFAULTS,
   onCancel,
@@ -41,8 +59,26 @@ export function CreateNewShiftPage({
   const router = useRouter();
   const pathname = usePathname();
   const mode = useThemeStore((state) => state.mode);
-  const [operator, setOperator] = useState<string>(initialConfig.operator);
-  const [terminal, setTerminal] = useState<string>(initialConfig.terminal);
+  const branchId = useSidebarStore((state) => state.context.branchId);
+  const countersQuery = useCashCounters(branchId);
+
+  const [shiftNumber] = useState(randomShiftNumber);
+  const [dateTime] = useState(() => formatShiftDateTime(new Date()));
+  const [openingBalance, setOpeningBalance] = useState(initialConfig.defaultOpeningBalance);
+  const [terminal, setTerminal] = useState('');
+
+  const terminalOptions = useMemo(() => {
+    const rows = (countersQuery.data ?? []).filter((row) => row.status === 'active');
+    return rows.map((row) => ({ id: String(row.id), label: row.name }));
+  }, [countersQuery.data]);
+
+  const resolvedTerminal =
+    terminalOptions.length === 0 || terminalOptions.some((option) => option.id === terminal)
+      ? terminal
+      : terminalOptions[0].id;
+  if (resolvedTerminal !== terminal) {
+    setTerminal(resolvedTerminal);
+  }
 
   const handleCancel = () => {
     if (onCancel) {
@@ -78,6 +114,20 @@ export function CreateNewShiftPage({
   const surfaceMuted = mode === 'dark' ? colors.surface.darkMuted : colors.background.default;
   const borderColor = mode === 'dark' ? colors.border.dark : colors.border.default;
 
+  if (typeof branchId !== 'number') {
+    return (
+      <AlertMessage
+        variant="warning"
+        title="Branch required"
+        message="Select a branch before starting a shift."
+      />
+    );
+  }
+
+  if (countersQuery.isLoading) {
+    return <Loading message="Loading cash counters..." fullPage={false} />;
+  }
+
   return (
     <Box
       sx={{
@@ -92,7 +142,6 @@ export function CreateNewShiftPage({
         boxSizing: 'border-box',
       }}
     >
-      {/* 1. Page Header */}
       <Box sx={{ textAlign: 'center', mb: 3 }}>
         <Typography
           variant="h4"
@@ -118,7 +167,6 @@ export function CreateNewShiftPage({
         </Typography>
       </Box>
 
-      {/* 2. Main Form Card */}
       <Box
         sx={{
           width: '100%',
@@ -134,54 +182,28 @@ export function CreateNewShiftPage({
           boxSizing: 'border-box',
         }}
       >
-        {/* Row 1: Shift Number + Date & Time */}
+        {countersQuery.isError ? (
+          <AlertMessage
+            variant="error"
+            title="Unable to load counters"
+            message={
+              countersQuery.error instanceof Error
+                ? countersQuery.error.message
+                : 'The cash registers request failed.'
+            }
+          />
+        ) : null}
+
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <Box sx={{ flex: 1 }}>
-            <Input label="Shift Number" value={initialConfig.shiftNumber} disabled fullWidth />
+            <Input label="Shift Number" value={shiftNumber} disabled={true} fullWidth />
           </Box>
 
           <Box sx={{ flex: 1.3 }}>
-            <Input label="Date & Time" value={initialConfig.dateTime} disabled fullWidth />
+            <Input label="Date & Time" value={dateTime} disabled={true} fullWidth />
           </Box>
         </Stack>
 
-        {/* Row 2: Operator */}
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          <Typography
-            component="label"
-            sx={{
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: textPrimary,
-              mb: 0.75,
-            }}
-          >
-            Operator
-          </Typography>
-          <Dropdown
-            minWidth="100%"
-            size="large"
-            value={operator}
-            onChange={(val) => setOperator(val)}
-            options={initialConfig.operatorOptions}
-            sx={{
-              width: '100%',
-              borderRadius: '10px',
-            }}
-          />
-          <Typography
-            sx={{
-              fontSize: '0.75rem',
-              color: textSecondary,
-              mt: 0.5,
-              fontWeight: 500,
-            }}
-          >
-            Current admin user is pre-selected
-          </Typography>
-        </Box>
-
-        {/* Row 3: Assigned Terminal */}
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           <Typography
             component="label"
@@ -198,8 +220,10 @@ export function CreateNewShiftPage({
             minWidth="100%"
             size="large"
             value={terminal}
-            onChange={(val) => setTerminal(val)}
-            options={initialConfig.terminalOptions}
+            onChange={setTerminal}
+            options={terminalOptions}
+            disabled={terminalOptions.length === 0}
+            placeholder={terminalOptions.length === 0 ? 'No counters available' : undefined}
             sx={{
               width: '100%',
               borderRadius: '10px',
@@ -207,11 +231,11 @@ export function CreateNewShiftPage({
           />
         </Box>
 
-        {/* Row 4: Opening Cash Balance */}
         <Box>
           <Input
             label="Opening Cash Balance"
-            defaultValue={initialConfig.defaultOpeningBalance}
+            value={openingBalance}
+            onChange={(event) => setOpeningBalance(event.target.value)}
             startIcon={
               <Typography sx={{ color: textSecondary, fontWeight: 700, fontSize: '0.875rem' }}>
                 ₹
@@ -221,7 +245,6 @@ export function CreateNewShiftPage({
           />
         </Box>
 
-        {/* Row 5: Amber Alert Callout Banner */}
         <Box
           sx={{
             display: 'flex',
@@ -246,7 +269,6 @@ export function CreateNewShiftPage({
           </Typography>
         </Box>
 
-        {/* Row 6: Cancel & Start Shift Buttons */}
         <Stack direction="row" spacing={2} sx={{ pt: 1 }}>
           <ActionButton
             variant="outlined"
@@ -273,6 +295,7 @@ export function CreateNewShiftPage({
             fullWidth
             startIcon={<PlusCircle size={17} />}
             onClick={handleStartShift}
+            disabled={!terminal}
             sx={{
               borderRadius: '8px',
               bgcolor: colors.primary.default,
@@ -290,7 +313,6 @@ export function CreateNewShiftPage({
         </Stack>
       </Box>
 
-      {/* 3. Footer Audit Notice */}
       <Typography
         sx={{
           color: textSecondary,
