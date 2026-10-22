@@ -77,6 +77,16 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     render: () => <OpenBusinessPage />,
   },
   {
+    name: 'Cash Registers',
+    match: (path) => path.endsWith('management/cash-registers'),
+    render: () => (
+      <UnderConstructionPage
+        title="Cash Registers"
+        subtitle="Configure branch cash registers and assign them to counters"
+      />
+    ),
+  },
+  {
     name: 'POS Create New Shift',
     match: (path) => path.endsWith('pos/point-of-sale/cash-shift/new'),
     render: () => <CreateNewShiftPage />,

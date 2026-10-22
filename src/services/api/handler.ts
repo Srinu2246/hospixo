@@ -16,7 +16,7 @@ import {
   POS_LIVE_ORDERS,
   POS_METRIC_CARDS,
 } from '@/lib/mocks/pos/usePosDashboard.mocks';
-import { MOCK_POS_ORDERS, MOCK_READY_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
+import { MOCK_READY_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
 import { MOCK_RESERVATIONS } from '@/lib/mocks/pos/usePosReservations.mocks';
 import {
   MOCK_ACTIVE_SHIFT,
@@ -75,7 +75,6 @@ const LIST_MOCKS: Record<string, unknown> = {
       must_change_password: false,
     },
   },
-  [ApiUrlsV1.pos.pointOfSale.allOrders.list]: MOCK_POS_ORDERS,
   [ApiUrlsV1.pos.pointOfSale.cashAndShift.list]: {
     metrics: MOCK_SHIFT_METRICS,
     activeShift: MOCK_ACTIVE_SHIFT,

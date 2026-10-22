@@ -11,15 +11,14 @@ import { Download } from 'lucide-react';
 
 import { FilterBar, type FilterBarItem } from '@/components/shared/form-fields/FilterBar';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
+import { Loading } from '@/components/shared/ui/Loading';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import type { OrderType, PosOrderItem } from '@/lib/helpers/posAllOrdersHelpers';
+import { usePosOrders } from '@/lib/hooks/pos/point-of-sale/all-orders/usePosOrders';
 import { colors } from '@/lib/theme/mui/colors';
-import {
-  MOCK_POS_ORDERS,
-  type PosOrderItem,
-  type OrderType,
-} from '@/lib/mocks/pos/usePosOrders.mocks';
 
 const ORDER_FILTER_ITEMS: readonly FilterBarItem<OrderType>[] = [
   { id: 'all', label: 'All' },
@@ -40,11 +39,14 @@ export function AllOrdersPage() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [orders] = useState<PosOrderItem[]>(MOCK_POS_ORDERS);
   const [activeFilter, setActiveFilter] = useState<OrderType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 6;
+
+  // GET /v1/branches/{branch_id}/orders — load open orders for the active branch
+  const ordersQuery = usePosOrders({ page: 1, pageSize: 50, status: 'open' });
+  const orders = useMemo(() => ordersQuery.data?.rows ?? [], [ordersQuery.data?.rows]);
 
   // Filter orders based on active tab and search query
   const filteredOrders = useMemo(() => {
@@ -295,6 +297,10 @@ export function AllOrdersPage() {
     [handleAddItems, handleSettle],
   );
 
+  if (ordersQuery.isLoading && orders.length === 0) {
+    return <Loading message="Loading orders..." />;
+  }
+
   return (
     <Box
       sx={{
@@ -310,6 +316,14 @@ export function AllOrdersPage() {
         overflow: 'hidden',
       }}
     >
+      {ordersQuery.isError ? (
+        <AlertMessage
+          variant="error"
+          title="Could not load orders"
+          message="Refresh the page or try again in a moment."
+        />
+      ) : null}
+
       {/* ------------------------------------------------------------- */}
       {/* 1. Header Row: Title + FilterBar + SearchBar + Online Synced   */}
       {/* ------------------------------------------------------------- */}
