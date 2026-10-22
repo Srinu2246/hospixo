@@ -153,11 +153,6 @@ export function CashCounterList({ rows, onCreate, onRowClick }: Readonly<CashCou
         padding={0}
         headerPadding={2.5}
         sx={{ borderRadius: '12px' }}
-        footer={
-          <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem' }}>
-            Data from GET /v1/branches/{'{branch_id}'}/cash-registers.
-          </Typography>
-        }
         footerPadding={2}
         footerDivider
       >
