@@ -19,10 +19,8 @@ import { Input } from '@/components/shared/form-fields/Input';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Loading } from '@/components/shared/ui/Loading';
 import { useCashCounters } from '@/lib/hooks/pos/point-of-sale/cash-counter';
-import {
-  MOCK_NEW_SHIFT_DEFAULTS,
-  type NewShiftDefaults,
-} from '@/lib/mocks/pos/usePosCashShift.mocks';
+import { MOCK_NEW_SHIFT_DEFAULTS } from '@/lib/mocks/pos/usePosCashShift.mocks';
+import type { NewShiftDefaults } from '@/lib/schemas/pos/point-of-sale/cash-and-shift/cashShiftViewSchema';
 import { colors } from '@/lib/theme/mui/colors';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useThemeStore } from '@/stores/themeStore';

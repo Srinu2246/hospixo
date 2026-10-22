@@ -59,5 +59,5 @@ export function CashAndShiftPage() {
     );
   }
 
-  return <CashAndShiftDashboardPage />;
+  return <CashAndShiftDashboardPage currentShift={currentShiftQuery.data} />;
 }

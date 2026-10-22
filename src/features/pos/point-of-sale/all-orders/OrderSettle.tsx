@@ -10,10 +10,8 @@ import { ChevronLeft } from 'lucide-react';
 
 import { Toast } from '@/components/shared/ui/Toast';
 import { colors } from '@/lib/theme/mui/colors';
-import {
-  getMockOrderSettleDetail,
-  type OrderSettleDetail,
-} from '@/lib/mocks/pos/usePosOrders.mocks';
+import { getMockOrderSettleDetail } from '@/lib/mocks/pos/usePosOrders.mocks';
+import type { OrderSettleDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/orderSettleSchema';
 
 import {
   OrderReviewSection,
@@ -160,7 +158,7 @@ export function OrderSettle({
       setCurrentStep('checkout');
       if (pathname && (pathname.endsWith('/success') || pathname.endsWith('/payment-success'))) {
         const clean = pathname.replace(/\/(success|payment-success)$/, '');
-        router.push(`${clean}/checkout`);
+        router.replace(`${clean}/checkout`);
       }
       return;
     }
@@ -171,11 +169,24 @@ export function OrderSettle({
     }
 
     if (pathname) {
+      // /.../all-orders/139[/checkout] → all-orders list (never stay on settle).
+      if (pathname.includes('/all-orders')) {
+        const segments = pathname.split('/').filter(Boolean);
+        const allOrdersIndex = segments.lastIndexOf('all-orders');
+        const listUrl =
+          allOrdersIndex >= 0
+            ? `/${segments.slice(0, allOrdersIndex + 1).join('/')}`
+            : '/pos/point-of-sale/all-orders';
+        router.replace(listUrl);
+        router.refresh();
+        return;
+      }
       const clean = pathname.replace(/\/(checkout|success|payment-success)$/, '');
-      router.push(clean || '/pos/point-of-sale/all-orders');
-    } else {
-      router.push('/pos/point-of-sale/all-orders');
+      router.replace(clean || '/pos/point-of-sale/all-orders');
+      return;
     }
+
+    router.replace('/pos/point-of-sale/all-orders');
   };
 
   // Confirm payment trigger
@@ -332,49 +343,6 @@ export function OrderSettle({
             </Typography>
           </Stack>
         </Box>
-
-        {/* View Switcher pills for testing and quick inspection */}
-        <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', md: 'flex' } }}>
-          <ButtonBase
-            onClick={() => setCurrentStep('checkout')}
-            sx={{
-              px: 2,
-              py: 0.6,
-              borderRadius: '8px',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              bgcolor:
-                currentStep === 'checkout'
-                  ? 'primary.main'
-                  : (theme) =>
-                      theme.palette.mode === 'dark' ? 'action.hover' : colors.surface.muted,
-              color: currentStep === 'checkout' ? colors.white.default : 'text.secondary',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            Checkout View
-          </ButtonBase>
-
-          <ButtonBase
-            onClick={() => setCurrentStep('success')}
-            sx={{
-              px: 2,
-              py: 0.6,
-              borderRadius: '8px',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              bgcolor:
-                currentStep === 'success'
-                  ? 'primary.main'
-                  : (theme) =>
-                      theme.palette.mode === 'dark' ? 'action.hover' : colors.surface.muted,
-              color: currentStep === 'success' ? colors.white.default : 'text.secondary',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            Confirmed Receipt View
-          </ButtonBase>
-        </Stack>
       </Box>
 
       {/* ------------------------------------------------------------- */}

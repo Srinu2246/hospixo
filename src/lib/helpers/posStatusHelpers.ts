@@ -1,4 +1,7 @@
-import type { TableStatus } from '@/lib/mocks/pos/usePosDashboard.mocks';
+import type {
+  PosSystemNotification,
+  TableStatus,
+} from '@/lib/schemas/pos/point-of-sale/dashboard/posDashboardSchema';
 
 export const TABLE_STATUS_COLORS: Record<TableStatus, string> = {
   vacant: '#10B981',
@@ -15,16 +18,16 @@ export const FLOOR_LEGEND_CONFIG = [
 ] as const;
 
 export function getTableStatusColor(status: TableStatus): string {
-  return TABLE_STATUS_COLORS[status] || '#6B7280';
+  return TABLE_STATUS_COLORS[status];
 }
 
-export const NOTIFICATION_SEVERITY_COLORS: Record<string, string> = {
+const NOTIFICATION_SEVERITY_COLORS: Record<PosSystemNotification['severity'], string> = {
   critical: '#EF4444',
   completed: '#10B981',
   pending: '#F59E0B',
   offline: '#EF4444',
 };
 
-export function getNotificationSeverityColor(severity: string): string {
-  return NOTIFICATION_SEVERITY_COLORS[severity.toLowerCase()] || '#6B7280';
+export function getNotificationSeverityColor(severity: PosSystemNotification['severity']): string {
+  return NOTIFICATION_SEVERITY_COLORS[severity];
 }
