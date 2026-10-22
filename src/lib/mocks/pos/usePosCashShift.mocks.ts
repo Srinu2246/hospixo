@@ -64,13 +64,7 @@ export interface CloseShiftSuccessDetails {
 }
 
 export interface NewShiftDefaults {
-  shiftNumber: string;
-  dateTime: string;
-  operator: string;
-  terminal: string;
   defaultOpeningBalance: string;
-  operatorOptions: readonly string[];
-  terminalOptions: readonly string[];
 }
 
 export const MOCK_SHIFT_METRICS: readonly ShiftMetricItem[] = [
@@ -208,11 +202,28 @@ export const MOCK_CLOSE_SHIFT_SUCCESS: CloseShiftSuccessDetails = {
 };
 
 export const MOCK_NEW_SHIFT_DEFAULTS: NewShiftDefaults = {
-  shiftNumber: '#1043',
-  dateTime: 'May 17, 2026 at 6:20 PM',
-  operator: 'Ravi Kumar',
-  terminal: 'Counter 1 - Main POS',
   defaultOpeningBalance: '0.00',
-  operatorOptions: ['Ravi Kumar', 'Adanya Nwosu', 'Marcus Chen'],
-  terminalOptions: ['Counter 1 - Main POS', 'Counter 2 - Express Bar', 'Counter 3 - Drive Thru'],
 };
+
+type MockRequest = {
+  method: string;
+  path: string;
+};
+
+const CURRENT_SHIFT_PATH = /^\/v1\/branches\/(\d+)\/shifts\/current$/;
+
+/**
+ * Mock for GET /v1/branches/{branch_id}/shifts/current.
+ * Returns `data: null` so POS shows Start New Shift.
+ */
+export function resolveCurrentShiftMock(request: MockRequest): unknown | undefined {
+  if (request.method !== 'GET') return undefined;
+  if (!CURRENT_SHIFT_PATH.test(request.path)) return undefined;
+
+  return {
+    success: true,
+    data: null,
+    message: 'OK',
+    request_id: 'mock-shifts-current',
+  };
+}
