@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
@@ -16,6 +16,7 @@ import {
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { useEmployeeDirectory, useRoleCatalogQuery } from '@/lib/hooks/employees/user-roles';
+import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 import { useCreateUserStore } from '@/stores/createUserStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { CreateUserStaffInfoSection } from './create-user/CreateUserStaffInfoSection';
@@ -46,7 +47,6 @@ export function CreateUserStepOne({
   const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
   const contextOrgId = useSidebarStore((state) => state.context.organizationId);
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
-  const contextCompanyName = useSidebarStore((state) => state.context.companyName);
   const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
   const organizationId = contextOrgId ?? accountOrgId;
@@ -65,18 +65,29 @@ export function CreateUserStepOne({
     return list.length > 0 ? list : ['Captain', 'Cashier', 'Kitchen Staff'];
   }, [roleCatalog, currentScope]);
 
-  const companyOptions = useMemo(
-    () => (directory.data?.companies ?? []).map((company) => company.name),
-    [directory.data?.companies],
-  );
+  const companyOptions = useMemo(() => {
+    const fromDir = (directory.data?.companies ?? []).map((c) => c.name).filter(Boolean);
+    if (fromDir.length > 0) return fromDir;
+    const fromBranches = Array.from(
+      new Set(
+        (directory.data?.branches ?? [])
+          .map((b) => b.companyName?.trim())
+          .filter((name): name is string => Boolean(name)),
+      ),
+    );
+    return fromBranches;
+  }, [directory.data?.companies, directory.data?.branches]);
 
   const directoryCompanyName = useMemo(() => {
-    if (directoryCompanyId == null) return undefined;
-    const match = (directory.data?.companies ?? []).find(
-      (c) => String(c.id) === String(directoryCompanyId),
-    );
-    return match?.name?.trim();
-  }, [directory.data?.companies, directoryCompanyId]);
+    const companies = directory.data?.companies ?? [];
+    const targetCompanyId = contextCompanyId ?? accountCompanyId ?? directoryCompanyId;
+    const byContext = targetCompanyId
+      ? companies.find((c) => String(c.id) === String(targetCompanyId))?.name
+      : undefined;
+    if (byContext) return byContext;
+    if (companies.length > 0) return companies[0]?.name;
+    return undefined;
+  }, [contextCompanyId, accountCompanyId, directoryCompanyId, directory.data?.companies]);
 
   const branchBoundCompany = useMemo(() => {
     const branches = directory.data?.branches ?? [];
@@ -122,13 +133,16 @@ export function CreateUserStepOne({
     accountBranchId,
   ]);
 
+  const sessionCompanyName = useResolvedCompanyName(companyName);
+
   const resolvedCompanyLabel =
-    contextCompanyName ??
-    branchBoundCompany?.name ??
-    directoryCompanyName ??
-    companyName ??
-    (companyOptions.length === 1 ? companyOptions[0] : undefined);
-  const lockedCompanyLabel = resolvedCompanyLabel || formValues.company || '—';
+    sessionCompanyName ||
+    branchBoundCompany?.name ||
+    directoryCompanyName ||
+    companyOptions[0] ||
+    formValues.company ||
+    '—';
+  const lockedCompanyLabel = resolvedCompanyLabel;
 
   const branchOptions = useMemo(() => {
     const branches = directory.data?.branches ?? [];
@@ -161,6 +175,12 @@ export function CreateUserStepOne({
     defaultValues: formValues,
     mode: 'onBlur',
   });
+
+  useEffect(() => {
+    if (resolvedCompanyLabel && !formValues.company) {
+      setValue('company', resolvedCompanyLabel, { shouldValidate: false });
+    }
+  }, [resolvedCompanyLabel, formValues.company, setValue]);
 
   const handleFieldChange = (field: keyof CreateUserFormValues, value: string | boolean) => {
     setValue(field, value as string, { shouldValidate: true, shouldDirty: true });
@@ -213,6 +233,7 @@ export function CreateUserStepOne({
     <Box
       component="form"
       id="create-user-step-one-form"
+      noValidate
       onSubmit={handleSubmit(handleFormSubmit)}
       sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3, pb: 2 }}
     >

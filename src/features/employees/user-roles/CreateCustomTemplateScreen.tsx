@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Card } from '@/components/shared/ui/Card';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { Input } from '@/components/shared/form-fields/Input';
+import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { Loading } from '@/components/shared/ui/Loading';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
@@ -70,6 +70,15 @@ export function CreateCustomTemplateScreen({
 
   const footerTarget = useAppShellFooterTarget();
 
+  const [toastFeedback, setToastFeedback] = useState<{
+    open: boolean;
+    message: string;
+    severity: ToastSeverity;
+  }>({
+    open: false,
+    message: '',
+    severity: 'warning',
+  });
   const {
     control,
     handleSubmit,
@@ -140,6 +149,17 @@ export function CreateCustomTemplateScreen({
   };
 
   const onSubmit = async (data: CustomTemplateFormValues) => {
+    const hasAtLeastOnePermission = categories.some((cat) =>
+      cat.permissions.some((p) => p.enabled),
+    );
+    if (!hasAtLeastOnePermission) {
+      setToastFeedback({
+        open: true,
+        message: 'Please enable at least one permission for this role template.',
+        severity: 'warning',
+      });
+      return;
+    }
     try {
       await createCustomRole.mutateAsync({ values: data, categories });
       onSaveTemplate?.(data, categories);
@@ -245,7 +265,7 @@ export function CreateCustomTemplateScreen({
           boxShadow: 'none',
         }}
       >
-        <form onSubmit={handleSubmit(onSubmit)} id="custom-template-form">
+        <form onSubmit={handleSubmit(onSubmit)} id="custom-template-form" noValidate>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Controller
               name="templateName"
@@ -333,6 +353,13 @@ export function CreateCustomTemplateScreen({
         isSubmitting={isSubmitting}
         footerTarget={footerTarget}
         onCancel={handleBack}
+      />
+
+      <Toast
+        open={toastFeedback.open}
+        message={toastFeedback.message}
+        severity={toastFeedback.severity}
+        onClose={() => setToastFeedback((prev) => ({ ...prev, open: false }))}
       />
     </Box>
   );

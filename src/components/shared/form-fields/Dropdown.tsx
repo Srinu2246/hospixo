@@ -58,12 +58,24 @@ export function Dropdown<T extends string | number = string>({
     typeof opt === 'string' ? ({ id: opt as unknown as T, label: opt } as DropdownOption<T>) : opt,
   );
 
-  const selectedValue = value ?? normalizedOptions[0]?.id ?? ('' as T);
+  const selectedValue =
+    value !== undefined && value !== null
+      ? value
+      : placeholder
+        ? ('' as T)
+        : (normalizedOptions[0]?.id ?? ('' as T));
   const hasEmptyOption = normalizedOptions.some((option) => option.id === ('' as T));
   const sizeConfig = SIZE_STYLES[size];
 
   const renderPlaceholder = () => (
-    <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+    <Box
+      component="span"
+      sx={{
+        color: 'text.secondary',
+        fontWeight: 400,
+        fontSize: sizeConfig.fontSize,
+      }}
+    >
       {placeholder}
     </Box>
   );

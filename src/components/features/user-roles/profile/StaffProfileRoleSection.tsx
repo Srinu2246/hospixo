@@ -8,6 +8,8 @@ import Typography from '@mui/material/Typography';
 import { Input } from '@/components/shared/form-fields/Input';
 import { colors } from '@/lib/theme/mui/colors';
 import { PermissionGroupsGrid } from '@/components/features/user-roles';
+import { Loading } from '@/components/shared/ui/Loading';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import type {
   StaffProfileFormValues,
   PermissionCategory,
@@ -18,6 +20,7 @@ export interface StaffProfileRoleSectionProps {
   errors: FieldErrors<StaffProfileFormValues>;
   isReadOnly: boolean;
   displayCategories: PermissionCategory[];
+  isPermissionsLoading?: boolean;
   onTogglePermission: (categoryId: string, permissionId: string) => void;
   onToggleCategoryAll: (categoryId: string, enableAll: boolean) => void;
 }
@@ -27,6 +30,7 @@ export function StaffProfileRoleSection({
   errors,
   isReadOnly,
   displayCategories,
+  isPermissionsLoading = false,
   onTogglePermission,
   onToggleCategoryAll,
 }: Readonly<StaffProfileRoleSectionProps>) {
@@ -97,12 +101,19 @@ export function StaffProfileRoleSection({
       </Box>
 
       <Box sx={{ mt: 1 }}>
-        <PermissionGroupsGrid
-          categories={displayCategories}
-          onTogglePermission={onTogglePermission}
-          onToggleCategoryAll={onToggleCategoryAll}
-          readOnly={true}
-        />
+        {isPermissionsLoading ? (
+          <Loading />
+        ) : displayCategories.length === 0 ? (
+          <AlertMessage variant="info" message="No permissions are assigned to this role." />
+        ) : (
+          <PermissionGroupsGrid
+            categories={displayCategories}
+            onTogglePermission={onTogglePermission}
+            onToggleCategoryAll={onToggleCategoryAll}
+            readOnly={true}
+            showEnabledOnly
+          />
+        )}
       </Box>
     </Box>
   );

@@ -18,6 +18,8 @@ export interface StaffProfileBasicInfoSectionProps {
   errors: FieldErrors<StaffProfileFormValues>;
   isReadOnly: boolean;
   countryCode: string;
+  assignedCompany?: string;
+  assignedBranch?: string;
   onCountryCodeChange: (code: string) => void;
   onSendResetPassword: () => void;
   onResendInvitation: () => void;
@@ -28,6 +30,8 @@ export function StaffProfileBasicInfoSection({
   errors,
   isReadOnly,
   countryCode,
+  assignedCompany,
+  assignedBranch,
   onCountryCodeChange,
   onSendResetPassword,
   onResendInvitation,
@@ -139,13 +143,92 @@ export function StaffProfileBasicInfoSection({
               onCountryCodeChange={onCountryCodeChange}
               placeholder="98765 43210"
               phoneNumber={field.value}
-              onPhoneNumberChange={field.onChange}
+              onPhoneNumberChange={(val) => field.onChange(val.replace(/\D/g, ''))}
               disabled={isReadOnly}
               error={Boolean(errors.phoneNumber)}
               helperText={errors.phoneNumber?.message}
             />
           )}
         />
+      </Box>
+
+      {/* Scope Information: Assigned Company & Branch */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gap: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Typography
+            sx={{
+              fontSize: '0.6875rem',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              color: colors.text.secondary,
+              textTransform: 'uppercase',
+            }}
+          >
+            Assigned Company
+          </Typography>
+          <Box
+            sx={{
+              height: 40,
+              borderRadius: '8px',
+              border: '1px solid',
+              borderColor: (theme) =>
+                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.surface.muted,
+              px: 1.75,
+              display: 'flex',
+              alignItems: 'center',
+              color: 'text.primary',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'default',
+              userSelect: 'none',
+            }}
+          >
+            {assignedCompany || '—'}
+          </Box>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Typography
+            sx={{
+              fontSize: '0.6875rem',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              color: colors.text.secondary,
+              textTransform: 'uppercase',
+            }}
+          >
+            Assigned Branch
+          </Typography>
+          <Box
+            sx={{
+              height: 40,
+              borderRadius: '8px',
+              border: '1px solid',
+              borderColor: (theme) =>
+                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.surface.muted,
+              px: 1.75,
+              display: 'flex',
+              alignItems: 'center',
+              color: 'text.primary',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'default',
+              userSelect: 'none',
+            }}
+          >
+            {assignedBranch || 'Main Branch'}
+          </Box>
+        </Box>
       </Box>
 
       {/* Username & Password / Reset Section */}

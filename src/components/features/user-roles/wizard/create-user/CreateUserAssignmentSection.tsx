@@ -46,6 +46,48 @@ export function CreateUserAssignmentSection({
           rowGap: 3,
         }}
       >
+        {/* Assign Company */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
+            Assign Company
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.6875rem',
+              fontWeight: 700,
+              color: colors.text.secondary,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}
+          >
+            SELECT COMPANY
+          </Typography>
+          <Box
+            sx={{
+              height: 40,
+              borderRadius: '8px',
+              border: '1px solid',
+              borderColor: (theme) =>
+                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.surface.muted,
+              px: 1.75,
+              display: 'flex',
+              alignItems: 'center',
+              color: 'text.primary',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'default',
+              userSelect: 'none',
+            }}
+          >
+            {lockedCompanyLabel}
+          </Box>
+          <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, mt: 0.25 }}>
+            The user belongs to this company organization.
+          </Typography>
+        </Box>
+
         {/* Assign Branch */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
@@ -135,8 +177,9 @@ export function CreateUserAssignmentSection({
             render={({ field }) => (
               <Dropdown
                 options={roleOptions}
-                value={field.value || 'Captain'}
+                value={field.value}
                 onChange={(val) => onFieldChange('role', val)}
+                placeholder="Select role"
                 sx={{ width: '100%' }}
               />
             )}
@@ -181,7 +224,7 @@ export function CreateUserAssignmentSection({
                 borderColor: (theme) =>
                   theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
                 bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#EAEFF5',
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.surface.muted,
                 px: 1.75,
                 display: 'flex',
                 alignItems: 'center',
@@ -192,7 +235,7 @@ export function CreateUserAssignmentSection({
                 userSelect: 'none',
               }}
             >
-              {lockedCompanyLabel || '—'}
+              {lockedCompanyLabel}
             </Box>
           ) : (
             <Controller
@@ -200,9 +243,10 @@ export function CreateUserAssignmentSection({
               control={control}
               render={({ field }) => (
                 <Dropdown
-                  options={companyOptions.length > 0 ? companyOptions : ['—']}
+                  options={companyOptions}
                   value={field.value}
                   onChange={(val) => onFieldChange('company', val)}
+                  placeholder="Select company"
                   sx={{ width: '100%' }}
                 />
               )}
@@ -258,7 +302,7 @@ export function CreateUserAssignmentSection({
               control={control}
               render={({ field }) => (
                 <Dropdown
-                  options={branchOptions.length > 0 ? branchOptions : ['—']}
+                  options={branchOptions}
                   value={field.value}
                   onChange={(val) => onFieldChange('branch', val)}
                   placeholder={
@@ -306,6 +350,7 @@ export function CreateUserAssignmentSection({
                 options={roleOptions}
                 value={field.value}
                 onChange={(val) => onFieldChange('role', val)}
+                placeholder="Select role"
                 sx={{ width: '100%' }}
               />
             )}

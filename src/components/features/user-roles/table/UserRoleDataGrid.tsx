@@ -10,7 +10,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { colors } from '@/lib/theme/mui/colors';
-import type { UserRoleItem } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import type { UserRoleItem, ScopeType } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface UserRoleDataGridProps {
   users: UserRoleItem[];
@@ -18,6 +18,8 @@ export interface UserRoleDataGridProps {
   page: number;
   pageSize: number;
   totalRows: number;
+  scope?: ScopeType;
+  companyName?: string;
   onPageChange: (newPage: number) => void;
   onOpenActionMenu: (e: React.MouseEvent<HTMLButtonElement>, user: UserRoleItem) => void;
 }
@@ -28,6 +30,8 @@ export function UserRoleDataGrid({
   page,
   pageSize,
   totalRows,
+  scope,
+  companyName,
   onPageChange,
   onOpenActionMenu,
 }: Readonly<UserRoleDataGridProps>) {
@@ -69,6 +73,20 @@ export function UserRoleDataGrid({
           </Box>
         ),
       },
+      ...(scope === 'organization'
+        ? [
+            {
+              field: 'company' as const,
+              headerName: 'COMPANY',
+              minWidth: 160,
+              render: (row: UserRoleItem) => (
+                <Typography sx={{ fontSize: '0.875rem', color: 'text.primary', fontWeight: 500 }}>
+                  {row.company || companyName || '—'}
+                </Typography>
+              ),
+            },
+          ]
+        : []),
       {
         field: 'email',
         headerName: 'EMAIL',
@@ -152,7 +170,7 @@ export function UserRoleDataGrid({
         ),
       },
     ],
-    [onOpenActionMenu],
+    [onOpenActionMenu, scope, companyName],
   );
 
   return (

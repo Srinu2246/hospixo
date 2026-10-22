@@ -7,10 +7,10 @@ import {
   isRecord,
   roleRequiresBranchId,
   rolePermissionsPayloadSchema,
-  type RolePermissionsPayload,
   unwrapEnvelope,
   type CreateUserRequestContext,
   type RoleCatalogItem,
+  type RolePermissionsPayload,
   isMatch,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { QueryParams } from '@/services/api/types';
@@ -163,29 +163,6 @@ export async function loadEmployeeDirectory(
   });
 }
 
-export function mergePermissionCategories(
-  current: readonly PermissionCategory[],
-  incoming: readonly PermissionCategory[],
-): PermissionCategory[] {
-  if (incoming.length === 0) return [...current];
-  if (current.length === 0) return incoming.map((category) => ({ ...category }));
-
-  const enabledByPermissionId = new Map<string, boolean>();
-  for (const category of current) {
-    for (const permission of category.permissions) {
-      enabledByPermissionId.set(permission.id, permission.enabled);
-    }
-  }
-
-  return incoming.map((category) => ({
-    ...category,
-    permissions: category.permissions.map((permission) => ({
-      ...permission,
-      enabled: enabledByPermissionId.get(permission.id) ?? permission.enabled,
-    })),
-  }));
-}
-
 export async function resolveCreateUserRequestContext(
   names: CreateUserNameHints,
   ids: CreateUserIdHints,
@@ -273,154 +250,6 @@ function normalizeId(value: unknown): number | undefined {
     if (Number.isFinite(parsed)) return parsed;
   }
   return undefined;
-}
-
-export function extractAssignedPermissionKeys(payload: unknown): Set<string> {
-  const keys = new Set<string>();
-  const unwrapped = unwrapEnvelope(payload);
-
-  const addCandidate = (val: unknown) => {
-    if (typeof val === 'string' && val.trim()) {
-      keys.add(val.trim());
-      keys.add(val.trim().toLowerCase());
-    } else if (typeof val === 'number') {
-      keys.add(String(val));
-    }
-  };
-
-  const processItem = (item: unknown) => {
-    if (typeof item === 'string' || typeof item === 'number') {
-      addCandidate(item);
-      return;
-    }
-    if (!isRecord(item)) return;
-
-    const isExplicitlyDisabled =
-      item.enabled === false ||
-      item.granted === false ||
-      item.active === false ||
-      item.is_granted === false ||
-      item.isGranted === false;
-
-    if (isExplicitlyDisabled) return;
-
-    for (const prop of [
-      'id',
-      'key',
-      'code',
-      'permission',
-      'permission_id',
-      'permissionId',
-      'permission_code',
-      'permissionCode',
-      'permission_key',
-      'permissionKey',
-      'name',
-    ] as const) {
-      if (item[prop] !== undefined && item[prop] !== null) {
-        addCandidate(item[prop]);
-      }
-    }
-
-    for (const childProp of ['permissions', 'items', 'children'] as const) {
-      if (Array.isArray(item[childProp])) {
-        for (const child of item[childProp] as unknown[]) {
-          processItem(child);
-        }
-      }
-    }
-  };
-
-  if (Array.isArray(unwrapped)) {
-    for (const item of unwrapped) {
-      processItem(item);
-    }
-  } else if (isRecord(unwrapped)) {
-    for (const listProp of [
-      'permissions',
-      'items',
-      'data',
-      'results',
-      'rows',
-      'effective_permissions',
-      'effectivePermissions',
-      'permission_codes',
-      'permissionCodes',
-      'inherited_permission_codes',
-      'inheritedPermissionCodes',
-    ] as const) {
-      if (Array.isArray(unwrapped[listProp])) {
-        for (const item of unwrapped[listProp] as unknown[]) {
-          processItem(item);
-        }
-      }
-    }
-    for (const [k, v] of Object.entries(unwrapped)) {
-      if (v === true) {
-        addCandidate(k);
-      }
-    }
-  }
-
-  return keys;
-}
-
-const ASSIGNMENT_ROW_KEYS = ['items', 'assignments', 'roles', 'data'] as const;
-
-function unwrapAssignmentRows(payload: unknown): Record<string, unknown>[] {
-  const unwrapped = unwrapEnvelope(payload);
-  if (Array.isArray(unwrapped)) return unwrapped.filter(isRecord);
-  if (!isRecord(unwrapped)) return [];
-  const found = ASSIGNMENT_ROW_KEYS.find((k) => Array.isArray(unwrapped[k]));
-  return found ? (unwrapped[found] as unknown[]).filter(isRecord) : [unwrapped];
-}
-
-/** Reads permission code lists from user role assignment rows (ignores role/user ids). */
-export function extractAssignmentPermissionKeys(payload: unknown): Set<string> {
-  const keys = new Set<string>();
-  const props = [
-    'permission_codes',
-    'permissionCodes',
-    'effective_permission_codes',
-    'effectivePermissionCodes',
-  ] as const;
-
-  unwrapAssignmentRows(payload).forEach((row) => {
-    props.forEach((prop) => {
-      const list = row[prop];
-      if (Array.isArray(list)) {
-        list.forEach((item) => {
-          extractAssignedPermissionKeys(item).forEach((key) => keys.add(key));
-        });
-      }
-    });
-  });
-  return keys;
-}
-
-export function extractStructuredPermissionKeys(payload: unknown): Set<string> {
-  const keys = extractAssignedPermissionKeys(payload);
-  const parsed = rolePermissionsPayloadSchema.safeParse(unwrapEnvelope(payload));
-  if (parsed.success) {
-    const payloadData: RolePermissionsPayload = parsed.data;
-    [...payloadData.permission_codes, ...payloadData.inherited_permission_codes].forEach((code) => {
-      if (typeof code === 'string' && code.trim()) {
-        keys.add(code.trim());
-        keys.add(code.trim().toLowerCase());
-      }
-    });
-  }
-  return keys;
-}
-
-export function buildStaffProfileAssignedKeys(sources: readonly unknown[]): Set<string> {
-  const keys = new Set<string>();
-  sources.forEach((source) => {
-    if (source) {
-      extractStructuredPermissionKeys(source).forEach((key) => keys.add(key));
-    }
-  });
-  return keys;
 }
 
 function normalizePermissionMatchKey(value: string): string {

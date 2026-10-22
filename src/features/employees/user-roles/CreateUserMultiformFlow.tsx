@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
+import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 
 import {
+  parseRolePermissionsToCategories,
   resolveRoleId,
   resolveScopeFromPathname,
   getUsersAndRolesBaseRoute,
@@ -17,17 +19,12 @@ import {
 import { useCreateUserStore } from '@/stores/createUserStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import {
-  autoEnableRolePermissions,
-  extractAssignedPermissionKeys,
-  mergePermissionCategories,
-} from '@/lib/helpers/employees/userRolesHelpers';
-import {
   useCreateStaffUser,
   useEmployeeDirectory,
-  useGroupedPermissions,
   useRoleCatalogQuery,
   useRolePermissions,
 } from '@/lib/hooks/employees/user-roles';
+import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 
 import {
   RoleTemplateSelection,
@@ -51,13 +48,29 @@ export interface CreateUserMultiformFlowProps {
 export function CreateUserMultiformFlow({
   initialStep,
   scope,
+  companyName,
   onExit,
   onUserCreated,
 }: Readonly<CreateUserMultiformFlowProps>) {
   const router = useRouter();
   const pathname = usePathname() || '';
+  const effectiveCompanyName = useResolvedCompanyName(companyName);
 
   const resolvedScope = resolveScopeFromPathname(pathname, scope);
+
+  const [toastFeedback, setToastFeedback] = useState<{
+    open: boolean;
+    message: string;
+    severity: ToastSeverity;
+  }>({
+    open: false,
+    message: '',
+    severity: 'error',
+  });
+
+  const showToast = (message: string, severity: ToastSeverity = 'error') => {
+    setToastFeedback({ open: true, message, severity });
+  };
 
   const {
     step: storeStep,
@@ -73,6 +86,7 @@ export function CreateUserMultiformFlow({
     togglePermission,
     toggleCategoryAll,
     setIsSubmitting,
+    setCategories,
     reset,
   } = useCreateUserStore();
 
@@ -87,7 +101,6 @@ export function CreateUserMultiformFlow({
 
   const currentStep = getStepFromPathname() || storeStep || 'template';
 
-  const groupedPermissions = useGroupedPermissions();
   const createStaffUser = useCreateStaffUser();
   const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
   const accountCompanyId = useSidebarStore((state) => state.account?.company_id ?? undefined);
@@ -163,18 +176,12 @@ export function CreateUserMultiformFlow({
     branchId: resolvedBranchId ?? contextBranchId ?? accountBranchId,
   });
 
-  const effectiveCategories = useMemo(() => {
-    if (categories.length > 0) return categories;
-    if (!groupedPermissions.data?.length) return [];
-    const merged = mergePermissionCategories([], groupedPermissions.data);
-    if (rolePermissionsQuery.data && resolvedRoleId != null) {
-      const assignedKeys = extractAssignedPermissionKeys(rolePermissionsQuery.data);
-      if (assignedKeys.size > 0) {
-        return autoEnableRolePermissions(merged, assignedKeys);
-      }
-    }
-    return merged;
-  }, [categories, groupedPermissions.data, rolePermissionsQuery.data, resolvedRoleId]);
+  useEffect(() => {
+    if (resolvedRoleId == null || !rolePermissionsQuery.data) return;
+    setCategories(parseRolePermissionsToCategories(rolePermissionsQuery.data));
+  }, [resolvedRoleId, rolePermissionsQuery.data, setCategories]);
+
+  const effectiveCategories = categories;
 
   const footerTarget = useAppShellFooterTarget();
 
@@ -266,6 +273,10 @@ export function CreateUserMultiformFlow({
 
   const handleFooterNext = () => {
     if (currentStep === 'permissions') {
+      if (!activeRoleName || !activeRoleName.trim()) {
+        showToast('Role name cannot be empty. Please enter a valid role name.', 'error');
+        return;
+      }
       navigateToStep('review');
     } else if (currentStep === 'review') {
       handleFinalSubmit();
@@ -314,6 +325,7 @@ export function CreateUserMultiformFlow({
               <CreateUserStepOne
                 onValidSubmit={() => navigateToStep('permissions')}
                 scope={resolvedScope}
+                companyName={effectiveCompanyName}
               />
             )}
 
@@ -362,6 +374,13 @@ export function CreateUserMultiformFlow({
         footerTarget={footerTarget}
         onBack={handleFooterBack}
         onNext={handleFooterNext}
+      />
+
+      <Toast
+        open={toastFeedback.open}
+        message={toastFeedback.message}
+        severity={toastFeedback.severity}
+        onClose={() => setToastFeedback((prev) => ({ ...prev, open: false }))}
       />
     </>
   );

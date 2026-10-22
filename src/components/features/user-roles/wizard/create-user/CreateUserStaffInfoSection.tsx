@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 
 import { Input } from '@/components/shared/form-fields/Input';
 import { MobileNumberInput } from '@/components/shared/form-fields/MobileNumberInput';
+import { PasswordInput } from '@/components/shared/form-fields/PasswordInput';
 import type { CreateUserFormValues } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface CreateUserStaffInfoSectionProps {
@@ -90,7 +91,9 @@ export function CreateUserStaffInfoSection({
               onCountryCodeChange={(code) => onFieldChange('countryCode', code)}
               placeholder="98765 43210"
               phoneNumber={field.value}
-              onPhoneNumberChange={(value) => onFieldChange('phoneNumber', value)}
+              onPhoneNumberChange={(value) =>
+                onFieldChange('phoneNumber', value.replace(/\D/g, ''))
+              }
               error={Boolean(fieldState.error)}
               helperText={fieldState.error?.message}
             />
@@ -141,10 +144,9 @@ export function CreateUserStaffInfoSection({
           name="password"
           control={control}
           render={({ field, fieldState }) => (
-            <Input
+            <PasswordInput
               label="PASSWORD"
               required
-              type="password"
               placeholder="Create Password"
               value={field.value}
               onChange={(e) => onFieldChange('password', e.target.value)}

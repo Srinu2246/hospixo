@@ -98,6 +98,7 @@ export function AddUserModal({
     >
       <Box
         component="form"
+        noValidate
         onSubmit={handleSubmit(onFormSubmit)}
         sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}
       >
@@ -156,6 +157,7 @@ export function AddUserModal({
                 options={roleOptions}
                 value={field.value}
                 onChange={(val) => field.onChange(val)}
+                placeholder="Select role"
                 sx={{ width: '100%' }}
               />
             )}
@@ -183,6 +185,7 @@ export function AddUserModal({
                 options={branchOptions}
                 value={field.value}
                 onChange={(val) => field.onChange(val)}
+                placeholder="Select branch"
                 sx={{ width: '100%' }}
               />
             )}
@@ -207,6 +210,7 @@ export function AddUserModal({
                 options={STATUS_OPTIONS}
                 value={field.value}
                 onChange={(val) => field.onChange(val)}
+                placeholder="Select status"
                 sx={{ width: '100%' }}
               />
             )}

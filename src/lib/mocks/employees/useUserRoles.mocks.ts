@@ -227,6 +227,13 @@ export const INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(
     const scope = isOrg ? 'organization' : isCompany ? 'company' : 'branch';
     return {
       ...u,
+      company:
+        ('company' in u && u.company) ||
+        (u.branch.includes('Airport')
+          ? 'Spice Garden Group'
+          : u.branch.includes('Eastgate')
+            ? 'Urban Bites Co'
+            : 'Al Baik Foods Ltd'),
       phone: 'phone' in u && typeof u.phone === 'string' ? u.phone : undefined,
       scope,
     };

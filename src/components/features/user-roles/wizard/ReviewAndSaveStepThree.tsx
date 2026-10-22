@@ -333,7 +333,12 @@ export function ReviewAndSaveStepThree({
             No permissions loaded. Go back to configure permissions.
           </Typography>
         ) : (
-          <PermissionGroupsGrid categories={categories} readOnly badgeMode="enabled" />
+          <PermissionGroupsGrid
+            categories={categories}
+            readOnly
+            badgeMode="enabled"
+            showEnabledOnly
+          />
         )}
       </Card>
     </Box>
