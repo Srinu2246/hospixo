@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { PosDashboard } from '@/features/pos/point-of-sale/dashboard';
 import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
 import { ReservationList, ReservationDetails } from '@/features/pos/point-of-sale/reservation';
@@ -145,8 +145,16 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
   // 1. Order Settle: .../pos/point-of-sale/all-orders/[orderId]
   {
     name: 'Order Settle',
-    match: (path, slug) => {
-      return slug.length >= 2 && slug[slug.length - 2] === 'all-orders';
+    match: (_path, slug) => {
+      const last = slug[slug.length - 1];
+      return (
+        slug.length >= 2 &&
+        slug[slug.length - 2] === 'all-orders' &&
+        Boolean(last) &&
+        last !== 'all-orders' &&
+        last !== 'checkout' &&
+        last !== 'success'
+      );
     },
     render: (_, slug) => {
       const orderId = slug[slug.length - 1];
@@ -470,7 +478,8 @@ export default async function CatchAllPage({ params, searchParams }: CatchAllPag
 
   for (const route of ROUTE_REGISTRY) {
     if (route.match(path, slug)) {
-      return route.render(path, slug, resolvedSearchParams);
+      // Key by path so catch-all soft navigation (e.g. settle → list) remounts the screen.
+      return <Fragment key={path}>{route.render(path, slug, resolvedSearchParams)}</Fragment>;
     }
   }
 

@@ -9,7 +9,7 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Modal } from '@/components/shared/ui/Modal';
 import { useMealSessions } from '@/lib/hooks/pos/point-of-sale/tables/useMealSessions';
-import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
+import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 
 const ORDER_TYPE_OPTIONS = [{ id: 'dine_in', label: 'Dine In' }] as const;
 

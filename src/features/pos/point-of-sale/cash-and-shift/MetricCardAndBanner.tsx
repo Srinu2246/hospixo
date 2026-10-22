@@ -8,11 +8,8 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 import { useThemeStore } from '@/stores/themeStore';
 import { colors } from '@/lib/theme/mui/colors';
-import {
-  MOCK_SHIFT_METRICS,
-  MOCK_ACTIVE_SHIFT,
-  type ShiftMetricItem,
-} from '@/lib/mocks/pos/usePosCashShift.mocks';
+import { MOCK_SHIFT_METRICS, MOCK_ACTIVE_SHIFT } from '@/lib/mocks/pos/usePosCashShift.mocks';
+import type { ShiftMetricItem } from '@/lib/schemas/pos/point-of-sale/cash-and-shift/cashShiftViewSchema';
 
 // ---------------------------------------------------------------------------
 // Component Props

@@ -4,7 +4,7 @@ import {
   type CartItem,
   type PosMenuItem,
 } from '@/lib/mocks/pos/usePosMenu.mocks';
-import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
+import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 
 const EXISTING_ORDER_IMAGE =

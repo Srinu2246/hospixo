@@ -1,24 +1,31 @@
-import type { PosOrderListItem } from '@/lib/schemas/pos/point-of-sale/all-orders/posOrdersSchema';
+import type {
+  PosKitchenBadge,
+  PosOrderListItem,
+  PosOrderStatus,
+  PosOrderType,
+} from '@/lib/schemas/pos/point-of-sale/all-orders/posOrdersSchema';
 
 export type OrderType = 'all' | 'dine-in' | 'takeaway' | 'delivery' | 'online';
 export type KitchenStatus = 'kot sent' | 'ready' | 'preparing' | 'billing' | 'draft';
 
 /** UI row for the All Orders grid (mapped from API list item). */
 export interface PosOrderItem {
-  id: string; // Unique row identifier (public_id or id)
-  orderNumber: string; // Formatted order number (e.g. #0001)
-  type: 'dine-in' | 'takeaway' | 'delivery' | 'online'; // Order type
-  typeLabel: string; // Display type label
-  reference: string; // Table number or delivery partner (e.g. Table T002)
-  kitchenStatus: KitchenStatus; // Kitchen status key
-  kitchenStatusLabel: string; // Display kitchen status label
-  amount: number; // Order amount in INR
-  amountFormatted: string; // Formatted amount string (e.g. ₹0)
+  id: string;
+  orderApiId: number;
+  orderNumber: string;
+  type: Exclude<OrderType, 'all'>;
+  typeLabel: string;
+  reference: string;
+  tableId: number | null;
+  tableName: string | null;
+  kitchenStatus: KitchenStatus;
+  kitchenStatusLabel: string;
+  amount: number;
+  amountFormatted: string;
 }
 
-const ORDER_TYPE_UI: Record<string, PosOrderItem['type']> = {
+const ORDER_TYPE_UI: Record<PosOrderType, PosOrderItem['type']> = {
   dine_in: 'dine-in',
-  'dine-in': 'dine-in',
   takeaway: 'takeaway',
   delivery: 'delivery',
   online: 'online',
@@ -31,49 +38,47 @@ const ORDER_TYPE_LABEL: Record<PosOrderItem['type'], string> = {
   online: 'Online',
 };
 
-const KITCHEN_STATUS_MAP: Record<string, { status: KitchenStatus; label: string }> = {
+const KITCHEN_FROM_BADGE: Record<PosKitchenBadge, { status: KitchenStatus; label: string }> = {
   draft: { status: 'draft', label: 'Draft' },
   ordering: { status: 'kot sent', label: 'KOT Sent' },
   'kot sent': { status: 'kot sent', label: 'KOT Sent' },
-  kot: { status: 'kot sent', label: 'KOT Sent' },
   preparing: { status: 'preparing', label: 'Preparing' },
   ready: { status: 'ready', label: 'Ready' },
   billing: { status: 'billing', label: 'Billing' },
-  served: { status: 'ready', label: 'Ready' },
+};
+
+const KITCHEN_FROM_STATUS: Record<PosOrderStatus, { status: KitchenStatus; label: string }> = {
+  draft: { status: 'draft', label: 'Draft' },
+  ordering: { status: 'kot sent', label: 'KOT Sent' },
+  billing: { status: 'billing', label: 'Billing' },
   in_progress: { status: 'preparing', label: 'Preparing' },
+  served: { status: 'ready', label: 'Ready' },
+  open: { status: 'preparing', label: 'Preparing' },
+  closed: { status: 'billing', label: 'Billing' },
 };
 
 function formatInr(amount: number): string {
   return `₹${amount.toLocaleString('en-IN')}`;
 }
 
-function resolveKitchenStatus(item: PosOrderListItem): {
-  kitchenStatus: KitchenStatus;
-  kitchenStatusLabel: string;
-} {
-  const raw = (item.kitchen_badge ?? item.status ?? 'draft').toLowerCase().replace(/_/g, ' ');
-  const mapped = KITCHEN_STATUS_MAP[raw];
-  if (mapped) return { kitchenStatus: mapped.status, kitchenStatusLabel: mapped.label };
-  return {
-    kitchenStatus: 'draft',
-    kitchenStatusLabel: raw.replace(/\b\w/g, (c) => c.toUpperCase()) || 'Draft',
-  };
-}
-
 /** Map a POS all-orders API item to the All Orders grid row. */
 export function toPosOrderItem(item: PosOrderListItem): PosOrderItem {
-  const type = ORDER_TYPE_UI[item.order_type] ?? 'dine-in';
-  const { kitchenStatus, kitchenStatusLabel } = resolveKitchenStatus(item);
-  const reference = item.table_name ? `Table ${item.table_name}` : '—';
+  const type = ORDER_TYPE_UI[item.order_type];
+  const kitchen = item.kitchen_badge
+    ? KITCHEN_FROM_BADGE[item.kitchen_badge]
+    : KITCHEN_FROM_STATUS[item.status];
 
   return {
     id: item.public_id || String(item.id),
+    orderApiId: item.id,
     orderNumber: item.order_number.startsWith('#') ? item.order_number : `#${item.order_number}`,
     type,
     typeLabel: ORDER_TYPE_LABEL[type],
-    reference,
-    kitchenStatus,
-    kitchenStatusLabel,
+    reference: item.table_name ? `Table ${item.table_name}` : '—',
+    tableId: item.table_id ?? null,
+    tableName: item.table_name ?? null,
+    kitchenStatus: kitchen.status,
+    kitchenStatusLabel: kitchen.label,
     amount: item.grand_total,
     amountFormatted: formatInr(item.grand_total),
   };

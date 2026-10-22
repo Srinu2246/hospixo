@@ -1,12 +1,29 @@
-import { toPosOrderItem, type OrderType } from '@/lib/helpers/posAllOrdersHelpers';
+import { toPosOrderItem } from '@/lib/helpers/posAllOrdersHelpers';
 import {
-  parsePosOrderList,
+  checkoutMockOrderSchema,
+  orderSettleDetailSchema,
+  receiptMockDataSchema,
+  type CheckoutMockOrder,
+  type OrderSettleDetail,
+  type ReceiptMockData,
+} from '@/lib/schemas/pos/point-of-sale/all-orders/orderSettleSchema';
+import {
   posOrderListEnvelopeSchema,
   type PosOrderListEnvelope,
   type PosOrderListItem,
 } from '@/lib/schemas/pos/point-of-sale/all-orders/posOrdersSchema';
+import {
+  readyOrderListSchema,
+  type ReadyOrderItem,
+} from '@/lib/schemas/pos/point-of-sale/ready-list/readyListSchema';
 
-export type { OrderType, PosOrderListItem };
+export type {
+  CheckoutMockOrder,
+  OrderSettleDetail,
+  PosOrderListItem,
+  ReadyOrderItem,
+  ReceiptMockData,
+};
 
 /**
  * Full GET /v1/branches/{branch_id}/orders envelope matching the live API.
@@ -21,7 +38,7 @@ export const MOCK_POS_ORDERS_ENVELOPE: PosOrderListEnvelope = posOrderListEnvelo
         public_id: '652b621a-a928-4d7b-b331-527b45dec98c',
         order_number: '0001',
         order_type: 'dine_in',
-        table_id: 104,
+        table_id: 396,
         table_name: 'T2',
         floor_id: 59,
         section_id: 93,
@@ -138,31 +155,9 @@ export const MOCK_POS_ORDERS_ENVELOPE: PosOrderListEnvelope = posOrderListEnvelo
 });
 
 /** Parsed API order rows from the all-orders list envelope. */
-export const MOCK_POS_ORDERS: PosOrderListItem[] =
-  parsePosOrderList(MOCK_POS_ORDERS_ENVELOPE).items;
+export const MOCK_POS_ORDERS: PosOrderListItem[] = MOCK_POS_ORDERS_ENVELOPE.data.items;
 
-export interface OrderedItem {
-  id: string;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-}
-
-export interface OrderSettleDetail {
-  id: string;
-  orderNumber: string;
-  reference: string;
-  type: OrderType;
-  typeLabel: string;
-  items: OrderedItem[];
-  subtotal: number;
-  taxRate: number; // e.g. 0.05
-  taxAmount: number;
-  grandTotal: number;
-}
-
-export const MOCK_ORDER_SETTLE_1024: OrderSettleDetail = {
+export const MOCK_ORDER_SETTLE_1024: OrderSettleDetail = orderSettleDetailSchema.parse({
   id: 'ord-1024-1',
   orderNumber: '#1024',
   reference: 'Table T4',
@@ -180,14 +175,13 @@ export const MOCK_ORDER_SETTLE_1024: OrderSettleDetail = {
   taxRate: 0.05,
   taxAmount: 82,
   grandTotal: 1722,
-};
+});
 
 export function getMockOrderSettleDetail(orderId?: string): OrderSettleDetail {
   if (!orderId) return MOCK_ORDER_SETTLE_1024;
 
   const clean = orderId.replace(/^#/, '').toLowerCase();
 
-  // If order is 1024 or ord-1024-1/2, return exact design mock
   if (clean === '1024' || clean === 'ord-1024-1' || clean === 'ord-1024-2') {
     return MOCK_ORDER_SETTLE_1024;
   }
@@ -204,7 +198,7 @@ export function getMockOrderSettleDetail(orderId?: string): OrderSettleDetail {
     const subtotal = foundOrder.amount;
     const taxAmount = Math.round(subtotal * 0.05);
     const grandTotal = subtotal + taxAmount;
-    return {
+    return orderSettleDetailSchema.parse({
       id: foundOrder.id,
       orderNumber: foundOrder.orderNumber,
       reference: foundOrder.reference,
@@ -223,64 +217,13 @@ export function getMockOrderSettleDetail(orderId?: string): OrderSettleDetail {
       taxRate: 0.05,
       taxAmount,
       grandTotal,
-    };
+    });
   }
 
   return MOCK_ORDER_SETTLE_1024;
 }
 
-export interface CheckoutMockItem {
-  id: string;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice?: number;
-  imageUrl?: string;
-}
-
-export interface CheckoutMockDiscount {
-  id: string;
-  label: string;
-  tag?: string;
-  amount: number;
-}
-
-export interface CheckoutMockOrder {
-  orderNumber: string;
-  table: string;
-  items: CheckoutMockItem[];
-  subtotal: number;
-  discounts: CheckoutMockDiscount[];
-  platformFee: number;
-  serviceChargeRate: number;
-  serviceChargeAmount: number;
-  taxRate: number;
-  taxAmount: number;
-  total: number;
-}
-
-export interface ReceiptMockItem {
-  name: string;
-  quantity: number;
-  price: number;
-}
-
-export interface ReceiptMockData {
-  orderNumber: string;
-  table: string;
-  itemCount: number;
-  brandName: string;
-  dateTime: string;
-  items: ReceiptMockItem[];
-  subtotal: number;
-  taxRate: number;
-  taxAmount: number;
-  platformFee: number;
-  grandTotal: number;
-  paymentMethod: string;
-}
-
-export const MOCK_CHECKOUT_ORDER_0039: CheckoutMockOrder = {
+export const MOCK_CHECKOUT_ORDER_0039: CheckoutMockOrder = checkoutMockOrderSchema.parse({
   orderNumber: '#0039',
   table: 'Table 01',
   items: [
@@ -329,9 +272,9 @@ export const MOCK_CHECKOUT_ORDER_0039: CheckoutMockOrder = {
   taxRate: 0.05,
   taxAmount: 108,
   total: 2268,
-};
+});
 
-export const MOCK_RECEIPT_0132: ReceiptMockData = {
+export const MOCK_RECEIPT_0132: ReceiptMockData = receiptMockDataSchema.parse({
   brandName: 'HOSPIXO',
   dateTime: 'May 17, 2026 · 12:24 AM',
   orderNumber: '#0132',
@@ -347,21 +290,9 @@ export const MOCK_RECEIPT_0132: ReceiptMockData = {
   platformFee: 25,
   grandTotal: 1474,
   paymentMethod: 'Cash',
-};
+});
 
-export interface ReadyOrderItem {
-  id: string;
-  table: string;
-  readyTimeAgo: string;
-  token: string;
-  priority: 'HIGH' | 'NORMAL';
-  itemsCount: number;
-  status: 'Ready';
-  dishSummary: string;
-  paymentStatus: 'PAID' | 'PENDING';
-}
-
-export const MOCK_READY_ORDERS: ReadyOrderItem[] = [
+export const MOCK_READY_ORDERS: ReadyOrderItem[] = readyOrderListSchema.parse([
   {
     id: 'ready-1',
     table: 'Table 12',
@@ -428,4 +359,4 @@ export const MOCK_READY_ORDERS: ReadyOrderItem[] = [
     dishSummary: 'Mango Lassi',
     paymentStatus: 'PENDING',
   },
-];
+]);
