@@ -492,6 +492,89 @@ const PERMISSION_DESCRIPTION_OVERRIDES: Record<string, string> = {
   'reports.export': 'Download CSV and PDF reports',
 };
 
+/** Maps GET /v1/roles/{roleId}/permissions into display categories (no grouped catalog required). */
+export function parseRolePermissionsToCategories(payload: unknown): PermissionCategory[] {
+  if (payload == null) return [];
+
+  const unwrapped = unwrapEnvelope(payload);
+  const payloadRecord = isRecord(unwrapped) ? unwrapped : null;
+
+  const codesFromPayload = (): string[] => {
+    const parsed = rolePermissionsPayloadSchema.safeParse(unwrapped);
+    if (parsed.success) {
+      return [
+        ...new Set([...parsed.data.permission_codes, ...parsed.data.inherited_permission_codes]),
+      ];
+    }
+    if (!payloadRecord) return [];
+    for (const key of [
+      'permission_codes',
+      'permissionCodes',
+      'effective_permission_codes',
+      'effectivePermissionCodes',
+    ] as const) {
+      const list = payloadRecord[key];
+      if (Array.isArray(list)) {
+        return list.filter(
+          (entry): entry is string => typeof entry === 'string' && entry.trim().length > 0,
+        );
+      }
+    }
+    return [];
+  };
+
+  const codes = codesFromPayload();
+  if (codes.length > 0) {
+    return permissionCodesToCategories(codes);
+  }
+
+  const grouped = parseGroupedPermissions(unwrapped);
+  if (grouped.length === 0) return [];
+
+  const hasEnabled = grouped.some((category) =>
+    category.permissions.some((permission) => permission.enabled),
+  );
+  if (hasEnabled) {
+    return grouped
+      .map((category) => ({
+        ...category,
+        permissions: category.permissions.filter((permission) => permission.enabled),
+      }))
+      .filter((category) => category.permissions.length > 0);
+  }
+
+  return grouped.map((category) => ({
+    ...category,
+    permissions: category.permissions.map((permission) => ({ ...permission, enabled: true })),
+  }));
+}
+
+function permissionCodesToCategories(codes: readonly string[]): PermissionCategory[] {
+  const byModule = new Map<string, PermissionCategory['permissions']>();
+
+  codes.forEach((rawCode) => {
+    const code = rawCode.trim();
+    if (!code) return;
+    const moduleSegment = code.includes('.') ? code.split('.')[0] : 'permissions';
+    const moduleKey = moduleSegment.toLowerCase();
+    const permissions = byModule.get(moduleKey) ?? [];
+    permissions.push({
+      id: code,
+      code,
+      name: PERMISSION_LABEL_OVERRIDES[code.toLowerCase()] ?? toTitleCase(code.replace('.', ' ')),
+      description: PERMISSION_DESCRIPTION_OVERRIDES[code.toLowerCase()] ?? '',
+      enabled: true,
+    });
+    byModule.set(moduleKey, permissions);
+  });
+
+  return Array.from(byModule.entries()).map(([moduleKey, permissions], index) => ({
+    id: `${moduleKey}-${index}`,
+    title: RESOURCE_TITLE_OVERRIDES[moduleKey] ?? toTitleCase(moduleKey.replace(/_/g, ' ')),
+    permissions,
+  }));
+}
+
 function toTitleCase(value: string): string {
   return value
     .split(/[\s._-]+/)
@@ -1215,6 +1298,15 @@ export function readPrimaryUserRoleId(assignmentsPayload: unknown): string | nul
   const first = rows[0];
   if (!first) return null;
   const id = first.user_role_id ?? first.userRoleId ?? first.id ?? first.role_id ?? first.roleId;
+  return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
+}
+
+/** Role template id for GET /v1/roles/{roleId}/permissions. */
+export function readPrimaryRoleTemplateId(assignmentsPayload: unknown): string | null {
+  const rows = unwrapAssignments(assignmentsPayload);
+  const first = rows[0];
+  if (!first) return null;
+  const id = first.role_id ?? first.roleId ?? first.id;
   return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
 }
 

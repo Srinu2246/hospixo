@@ -81,7 +81,7 @@ export function UserRoleDataGrid({
               minWidth: 160,
               render: (row: UserRoleItem) => (
                 <Typography sx={{ fontSize: '0.875rem', color: 'text.primary', fontWeight: 500 }}>
-                  {row.company || companyName || 'Al Baik Foods Ltd'}
+                  {row.company || companyName || '—'}
                 </Typography>
               ),
             },

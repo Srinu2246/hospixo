@@ -6,10 +6,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import {
-  autoEnableRolePermissions,
-  buildStaffProfileAssignedKeys,
   enrichDirectoryWithSession,
-  extractAssignmentPermissionKeys,
   isMatch,
   loadEmployeeDirectory,
   resolveAssignmentPermissionsPayload,
@@ -21,9 +18,11 @@ import {
   enrichUserListRoles,
   parseGroupedPermissions,
   parseRoleCatalog,
+  parseRolePermissionsToCategories,
   parseRoleTemplates,
   parseUserList,
   parseUserRecord,
+  readPrimaryRoleTemplateId,
   readPrimaryUserRoleId,
   readUserId,
   resolveRoleCode,
@@ -451,13 +450,19 @@ export function useStaffProfile(
     [assignmentsQuery.data],
   );
 
+  const assignmentRoleTemplateId = useMemo(
+    () => readPrimaryRoleTemplateId(assignmentsQuery.data),
+    [assignmentsQuery.data],
+  );
+
   const resolvedRoleId = useMemo(() => {
+    if (assignmentRoleTemplateId) return assignmentRoleTemplateId;
     if (userItem?.roleId) return userItem.roleId;
-    if (assignmentRoleId) return assignmentRoleId;
     if (profile?.roleName) return resolveRoleId(profile.roleName, roleCatalog);
     if (userItem?.role) return resolveRoleId(userItem.role, roleCatalog);
+    if (assignmentRoleId) return assignmentRoleId;
     return null;
-  }, [userItem, assignmentRoleId, profile, roleCatalog]);
+  }, [userItem, assignmentRoleTemplateId, assignmentRoleId, profile, roleCatalog]);
 
   const matchedRole = useMemo(() => {
     if (!resolvedRoleId && !profile?.roleName && !userItem?.role) return undefined;
@@ -490,68 +495,10 @@ export function useStaffProfile(
     branchId: resolvedBranchId,
   });
 
-  const userRolePermissionsQuery = useQuery({
-    queryKey: [
-      'api',
-      'users',
-      userId != null && userId !== '' ? String(userId) : 'none',
-      'role-permissions',
-      assignmentRoleId ?? 'none',
-    ],
-    enabled: enabled && Boolean(assignmentRoleId),
-    queryFn: async ({ signal }) =>
-      api
-        .get<unknown>(userRolePermissionsPath(userId!, assignmentRoleId!), undefined, signal)
-        .catch(() => null),
-  });
-
-  const userDirectPermissionsQuery = useQuery({
-    queryKey: [
-      'api',
-      ApiUrlsV1.users.list,
-      userId != null && userId !== '' ? String(userId) : 'none',
-      'permissions',
-    ],
-    enabled: enabled && Boolean(userId),
-    queryFn: async ({ signal }) =>
-      api
-        .get<unknown>(
-          `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
-          undefined,
-          signal,
-        )
-        .catch(() => null),
-  });
-
-  const permissionsQuery = useGroupedPermissions(enabled);
-
-  const categories = useMemo(() => {
-    const baseCategories =
-      permissionsQuery.data && permissionsQuery.data.length > 0
-        ? permissionsQuery.data
-        : DEFAULT_STAFF_PROFILE_PERMISSIONS;
-
-    const assignedKeys = buildStaffProfileAssignedKeys([
-      userDirectPermissionsQuery.data,
-      userRolePermissionsQuery.data,
-      rawUserQuery.data,
-      rolePermissionsQuery.data,
-    ]);
-    extractAssignmentPermissionKeys(assignmentsQuery.data).forEach((key) => assignedKeys.add(key));
-
-    if (assignedKeys.size > 0) {
-      return autoEnableRolePermissions(baseCategories, assignedKeys);
-    }
-
-    return baseCategories;
-  }, [
-    permissionsQuery.data,
-    userDirectPermissionsQuery.data,
-    userRolePermissionsQuery.data,
-    assignmentsQuery.data,
-    rawUserQuery.data,
-    rolePermissionsQuery.data,
-  ]);
+  const categories = useMemo(
+    () => parseRolePermissionsToCategories(rolePermissionsQuery.data),
+    [rolePermissionsQuery.data],
+  );
 
   const saveMutation = useMutation({
     mutationFn: async (input: {
@@ -614,11 +561,7 @@ export function useStaffProfile(
   });
 
   const isPermissionsLoading =
-    permissionsQuery.isLoading ||
-    userDirectPermissionsQuery.isLoading ||
-    (Boolean(resolvedRoleId) && rolePermissionsQuery.isLoading) ||
-    assignmentsQuery.isLoading ||
-    (Boolean(assignmentRoleId) && userRolePermissionsQuery.isLoading);
+    assignmentsQuery.isLoading || (Boolean(resolvedRoleId) && rolePermissionsQuery.isLoading);
 
   return {
     profile,

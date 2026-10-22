@@ -118,6 +118,7 @@ export function ConfigurePermissionsStepTwo({
             onTogglePermission={onTogglePermission}
             onToggleCategoryAll={onToggleCategoryAll}
             badgeMode="enabled"
+            showEnabledOnly
             maxHeight={{ xs: 480, md: 'calc(100vh - 360px)' }}
           />
         </Box>

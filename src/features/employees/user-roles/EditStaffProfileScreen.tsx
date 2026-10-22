@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,6 +25,7 @@ import {
   toggleAllInCategory,
 } from '@/lib/helpers/employees/userRolesHelpers';
 import { useStaffProfile } from '@/lib/hooks/employees/user-roles';
+import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 import { useUserRolesUiStore } from '@/stores/userRolesUiStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
@@ -80,15 +81,10 @@ export function EditStaffProfileScreen({
   const userProfile = staffProfile.profile;
   const userItem = staffProfile.userItem;
   const rawUser = staffProfile.rawUser as { company?: string; branch?: string } | undefined;
-  const contextCompanyName = useSidebarStore((state) => state.context.companyName);
+  const resolvedCompanyName = useResolvedCompanyName(companyName);
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
-  const assignedCompany =
-    userItem?.company ||
-    rawUser?.company ||
-    companyName ||
-    contextCompanyName ||
-    'Al Baik Foods Ltd';
-  const assignedBranch = userItem?.branch || rawUser?.branch || contextBranchName || 'Main Branch';
+  const assignedCompany = userItem?.company || rawUser?.company || resolvedCompanyName || '—';
+  const assignedBranch = userItem?.branch || rawUser?.branch || contextBranchName || '—';
 
   const baseRoute = getUsersAndRolesBaseRoute(pathname, resolvedScope);
 
@@ -102,33 +98,15 @@ export function EditStaffProfileScreen({
 
   const isReadOnly = isEditDisabled || mode === 'view';
   const remoteCategories = staffProfile.categories;
+  const isPermissionsLoading = staffProfile.isPermissionsLoading;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
-  const [syncedRemoteCategories, setSyncedRemoteCategories] = useState<PermissionCategory[]>([]);
 
-  // Sync draft permissions when remote categories first load / change (render-time adjust).
-  if (remoteCategories.length > 0 && remoteCategories !== syncedRemoteCategories) {
-    setSyncedRemoteCategories(remoteCategories);
+  useEffect(() => {
+    if (remoteCategories.length === 0) return;
     setCategories(remoteCategories);
-  }
-
-  const enabledPermissionIds = useMemo(() => {
-    const ids = new Set<string>();
-    remoteCategories.forEach((cat) => {
-      cat.permissions.forEach((p) => {
-        if (p.enabled) ids.add(p.id);
-      });
-    });
-    return ids;
   }, [remoteCategories]);
 
-  const displayCategories = useMemo(() => {
-    return categories
-      .map((cat) => ({
-        ...cat,
-        permissions: cat.permissions.filter((p) => enabledPermissionIds.has(p.id)),
-      }))
-      .filter((cat) => cat.permissions.length > 0);
-  }, [categories, enabledPermissionIds]);
+  const displayCategories = categories;
 
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
   const [isActivateModalOpen, setIsActivateModalOpen] = useState(false);
@@ -317,6 +295,7 @@ export function EditStaffProfileScreen({
               errors={errors}
               isReadOnly={isReadOnly}
               displayCategories={displayCategories}
+              isPermissionsLoading={isPermissionsLoading}
               onTogglePermission={handleTogglePermission}
               onToggleCategoryAll={handleToggleCategoryAll}
             />

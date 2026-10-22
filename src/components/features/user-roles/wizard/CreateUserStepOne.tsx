@@ -16,6 +16,7 @@ import {
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { useEmployeeDirectory, useRoleCatalogQuery } from '@/lib/hooks/employees/user-roles';
+import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 import { useCreateUserStore } from '@/stores/createUserStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { CreateUserStaffInfoSection } from './create-user/CreateUserStaffInfoSection';
@@ -46,7 +47,6 @@ export function CreateUserStepOne({
   const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
   const contextOrgId = useSidebarStore((state) => state.context.organizationId);
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
-  const contextCompanyName = useSidebarStore((state) => state.context.companyName);
   const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
   const organizationId = contextOrgId ?? accountOrgId;
@@ -75,8 +75,7 @@ export function CreateUserStepOne({
           .filter((name): name is string => Boolean(name)),
       ),
     );
-    if (fromBranches.length > 0) return fromBranches;
-    return ['Al Baik Foods Ltd', 'Spice Garden Group', 'Urban Bites Co'];
+    return fromBranches;
   }, [directory.data?.companies, directory.data?.branches]);
 
   const directoryCompanyName = useMemo(() => {
@@ -134,13 +133,16 @@ export function CreateUserStepOne({
     accountBranchId,
   ]);
 
+  const sessionCompanyName = useResolvedCompanyName(companyName);
+
   const resolvedCompanyLabel =
-    companyName ||
-    contextCompanyName ||
+    sessionCompanyName ||
     branchBoundCompany?.name ||
     directoryCompanyName ||
-    (companyOptions.length > 0 ? companyOptions[0] : 'Al Baik Foods Ltd');
-  const lockedCompanyLabel = resolvedCompanyLabel || formValues.company || 'Al Baik Foods Ltd';
+    companyOptions[0] ||
+    formValues.company ||
+    '—';
+  const lockedCompanyLabel = resolvedCompanyLabel;
 
   const branchOptions = useMemo(() => {
     const branches = directory.data?.branches ?? [];

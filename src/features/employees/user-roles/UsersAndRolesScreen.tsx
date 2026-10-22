@@ -20,6 +20,7 @@ import {
   resolveScopeFromPathname,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { useEmployeeDirectory, useUserRoles } from '@/lib/hooks/employees/user-roles';
+import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useUserRolesUiStore } from '@/stores/userRolesUiStore';
@@ -42,10 +43,10 @@ export interface UsersAndRolesScreenProps {
 
 export function UsersAndRolesScreen({
   scope,
+  companyName: propsCompanyName,
   initialUserList,
 }: Readonly<UsersAndRolesScreenProps> = {}) {
-  const contextCompanyName = useSidebarStore((state) => state.context.companyName);
-  const companyName = contextCompanyName;
+  const companyName = useResolvedCompanyName(propsCompanyName);
   const router = useRouter();
   const pathname = usePathname() || '';
 

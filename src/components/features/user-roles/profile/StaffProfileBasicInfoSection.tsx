@@ -191,7 +191,7 @@ export function StaffProfileBasicInfoSection({
               userSelect: 'none',
             }}
           >
-            {assignedCompany || 'Al Baik Foods Ltd'}
+            {assignedCompany || '—'}
           </Box>
         </Box>
 
