@@ -218,7 +218,8 @@ export type RoleTemplateItem = z.infer<typeof roleTemplateItemSchema>;
 export const createUserRequestSchema = z.object({
   /** Required only for branch-scoped roles; must be omitted for company-scoped roles. */
   branch_id: z.number().int().positive().optional(),
-  company_id: z.number().int().positive(),
+  /** Required for company- and branch-scoped roles; omit for organization-scoped roles. */
+  company_id: z.number().int().positive().optional(),
   email: z.string().email(),
   first_name: z.string().min(1),
   last_name: z.string().min(1),
@@ -253,7 +254,7 @@ export type ScopedRolePermissionsParams = z.infer<typeof scopedRolePermissionsPa
 
 export type CreateUserRequestContext = {
   organizationId: number;
-  companyId: number;
+  companyId?: number;
   branchId?: number;
   roleCatalog?: readonly RoleCatalogItem[];
   roleCode?: string;
@@ -360,11 +361,11 @@ export function readUserId(payload: unknown): string | null {
 
 export function parseRoleCatalog(payload: unknown): RoleCatalogItem[] {
   return unwrapRoles(payload).flatMap((row) => {
-    const id = row.id ?? row.role_id ?? row.roleId;
-    const name = readRoleLabel(row);
-    if (id === undefined || !name) return [];
     const code = text(row.code) ?? text(row.role_code);
-    const scope = readRoleScope(row.scope);
+    const id = row.id ?? row.role_id ?? row.roleId ?? code;
+    const name = readRoleLabel(row) ?? (code ? humanizeRoleCode(code) : undefined);
+    if (id === undefined || !name) return [];
+    const scope = readRoleScope(row.scope) ?? readRoleScope(row.scope_type);
     const description =
       text(row.description) ??
       text(row.role_description) ??
@@ -834,6 +835,107 @@ export function roleRequiresBranchId(
   );
 }
 
+/** Organization-scoped roles omit company_id on POST /v1/users. */
+export function roleRequiresCompanyId(
+  roleCode: string,
+  catalog: readonly RoleCatalogItem[],
+): boolean {
+  const role = findRoleInCatalog(roleCode, catalog);
+  if (role?.scope) return role.scope !== 'organization';
+  const normalized = roleCode.trim().toLowerCase();
+  return !(
+    normalized.includes('org') ||
+    normalized.includes('organization') ||
+    normalized.includes('tenant') ||
+    normalized === 'super_admin'
+  );
+}
+
+export type RoleAssignmentRequirements = {
+  roleScope: RoleScope | undefined;
+  showCompany: boolean;
+  showBranch: boolean;
+  requireCompany: boolean;
+  requireBranch: boolean;
+};
+
+function resolveRoleScopeFromSelection(
+  roleLabel: string,
+  catalog: readonly RoleCatalogItem[],
+): RoleScope | undefined {
+  const trimmed = roleLabel.trim();
+  if (!trimmed) return undefined;
+
+  const byName = catalog.find((role) => role.name.trim().toLowerCase() === trimmed.toLowerCase());
+  if (byName?.scope) return byName.scope;
+
+  const roleCode = resolveRoleCode(trimmed, catalog);
+  if (!roleCode) return undefined;
+  return findRoleInCatalog(roleCode, catalog)?.scope;
+}
+
+/** Drives create-user company/branch fields from role catalog scope (Swagger-aligned). */
+export function resolveRoleAssignmentRequirements(
+  roleLabel: string,
+  catalog: readonly RoleCatalogItem[],
+  wizardScope?: ScopeType,
+): RoleAssignmentRequirements {
+  const trimmed = roleLabel.trim();
+  if (!trimmed) {
+    return {
+      roleScope: undefined,
+      showCompany: false,
+      showBranch: false,
+      requireCompany: false,
+      requireBranch: false,
+    };
+  }
+
+  const roleScope = resolveRoleScopeFromSelection(trimmed, catalog);
+  const roleCode = resolveRoleCode(trimmed, catalog);
+  const requireBranch = roleCode
+    ? roleRequiresBranchId(roleCode, catalog)
+    : wizardScope === 'branch';
+
+  if (roleScope === 'organization') {
+    return {
+      roleScope,
+      showCompany: false,
+      showBranch: false,
+      requireCompany: false,
+      requireBranch: false,
+    };
+  }
+
+  if (roleScope === 'company') {
+    return {
+      roleScope,
+      showCompany: wizardScope === 'organization',
+      showBranch: false,
+      requireCompany: wizardScope === 'organization',
+      requireBranch: false,
+    };
+  }
+
+  if (roleScope === 'branch' || requireBranch) {
+    return {
+      roleScope: roleScope ?? 'branch',
+      showCompany: wizardScope === 'organization',
+      showBranch: wizardScope !== 'branch',
+      requireCompany: wizardScope === 'organization',
+      requireBranch: true,
+    };
+  }
+
+  return {
+    roleScope,
+    showCompany: wizardScope === 'organization',
+    showBranch: wizardScope === 'organization',
+    requireCompany: wizardScope === 'organization',
+    requireBranch: wizardScope === 'branch',
+  };
+}
+
 // ============================================================================
 // Form validations (React Hook Form / Zod)
 // ============================================================================
@@ -882,13 +984,6 @@ export function buildCreateUserStepOneSchema(
   wizardScope?: ScopeType,
 ) {
   return createUserMultiformFieldsSchema.superRefine((data, ctx) => {
-    if (wizardScope !== 'branch' && isMissingAssignment(data.company)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Please select a company',
-        path: ['company'],
-      });
-    }
     if (isMissingAssignment(data.role)) {
       ctx.addIssue({
         code: 'custom',
@@ -897,12 +992,17 @@ export function buildCreateUserStepOneSchema(
       });
     }
 
-    const roleCode = resolveRoleCode(data.role, catalog);
-    const needsBranch = roleCode
-      ? roleRequiresBranchId(roleCode, catalog)
-      : wizardScope === 'branch';
+    const assignment = resolveRoleAssignmentRequirements(data.role, catalog, wizardScope);
 
-    if (needsBranch && isMissingAssignment(data.branch)) {
+    if (assignment.requireCompany && isMissingAssignment(data.company)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Please select a company',
+        path: ['company'],
+      });
+    }
+
+    if (assignment.requireBranch && isMissingAssignment(data.branch)) {
       ctx.addIssue({
         code: 'custom',
         message: 'Please select a branch',
@@ -931,12 +1031,23 @@ export const DEFAULT_CREATE_USER_FORM_VALUES: CreateUserFormValues = {
   personalMessage: 'Welcome to the team! Here is your access to Hospixo.',
 };
 
+/** Default fallback role titles when role catalog is empty or pending. */
+export const DEFAULT_FALLBACK_ROLES = ['Captain', 'Cashier', 'Kitchen Staff'] as const;
+
+const customRoleCodeSchema = z
+  .string()
+  .trim()
+  .min(1, 'Role code is required')
+  .max(64, 'Role code cannot exceed 64 characters')
+  .regex(/^[a-z][a-z0-9_]*$/, 'Use lowercase letters, numbers, and underscores (e.g. floor_lead)');
+
 export const customTemplateSchema = z.object({
   templateName: z
     .string()
     .trim()
     .min(1, 'Template name is required')
     .max(100, 'Template name cannot exceed 100 characters'),
+  code: customRoleCodeSchema,
   description: z.string().trim().max(500, 'Description cannot exceed 500 characters').optional(),
   preset: z.enum(['full_read', 'standard_manager', 'view_only', 'custom']),
 });
@@ -994,14 +1105,18 @@ export function buildCreateUserRequest(
   }
 
   const needsBranch = roleRequiresBranchId(roleCode, catalog);
+  const needsCompany = roleRequiresCompanyId(roleCode, catalog);
   if (needsBranch && context.branchId == null) {
     throw new Error('Branch is required for branch-scoped roles.');
+  }
+  if (needsCompany && context.companyId == null) {
+    throw new Error('Company is required for company- and branch-scoped roles.');
   }
 
   return createUserRequestSchema.parse(
     compact({
       ...(context.branchId != null ? { branch_id: context.branchId } : {}),
-      company_id: context.companyId,
+      ...(needsCompany && context.companyId != null ? { company_id: context.companyId } : {}),
       organization_id: context.organizationId,
       email: values.email.trim().toLowerCase(),
       first_name: values.firstName.trim(),
@@ -1146,8 +1261,23 @@ export function toAssignRoleBody(
   return toRoleEntry(roleCode, hints);
 }
 
-export function toCreateRoleBody(name: string, description?: string): Record<string, unknown> {
-  return compact({ name, description });
+export type CreateRoleBodyInput = {
+  code: string;
+  displayName: string;
+  description?: string;
+  scope: ScopeType | string;
+  permissionCodes: string[];
+};
+
+export function toCreateRoleBody(input: CreateRoleBodyInput): Record<string, unknown> {
+  const description = input.description?.trim();
+  return compact({
+    code: input.code.trim(),
+    display_name: input.displayName.trim(),
+    description: description || undefined,
+    scope: input.scope,
+    permission_codes: input.permissionCodes,
+  });
 }
 
 export function staffProfileFromUser(

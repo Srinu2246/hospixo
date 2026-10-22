@@ -1,11 +1,15 @@
 import { loadBranchDirectory, loadOrganizationBranches } from '@/lib/helpers/organizationBranches';
-import { loadCompanyById, loadOrganizationCompanies } from '@/lib/helpers/organizationCompanies';
+import {
+  loadCompanyById,
+  loadOrganizationCompanies,
+  shouldLoadOrganizationCompanyList,
+} from '@/lib/helpers/organizationCompanies';
 import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import {
-  isRecord,
   roleRequiresBranchId,
+  roleRequiresCompanyId,
   rolePermissionsPayloadSchema,
   unwrapEnvelope,
   type CreateUserRequestContext,
@@ -13,6 +17,7 @@ import {
   type RolePermissionsPayload,
   isMatch,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import type { ScopeType } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { QueryParams } from '@/services/api/types';
 import { userRolePermissionsPath } from '@/services/api/ApiUrlsV1';
 
@@ -29,12 +34,64 @@ export type LoadEmployeeDirectoryInput = {
   organizationId?: number;
   companyId?: number;
   session: SessionDirectoryHints;
+  role?: string | null;
+  authScope?: string | null;
+  scope?: 'organization' | 'company' | 'branch';
 };
 
 export type EmployeeDirectoryData = {
   companies: CompanyListItem[];
   branches: BranchListItem[];
 };
+
+export type EmployeeDirectoryQueryOptions = {
+  companyId: number | undefined;
+  directoryScope: 'organization' | 'company' | 'branch';
+  lockCompanyField: boolean;
+};
+
+/** Company-scoped logins load one company; org admins load the full directory on org routes. */
+export function resolveEmployeeDirectoryOptions(input: {
+  wizardScope: ScopeType;
+  contextCompanyId?: number;
+  accountCompanyId?: number;
+  role?: string | null;
+  authScope?: string | null;
+}): EmployeeDirectoryQueryOptions {
+  const sessionCompanyId = input.contextCompanyId ?? input.accountCompanyId;
+  const mayListAllCompanies = shouldLoadOrganizationCompanyList({
+    role: input.role,
+    authScope: input.authScope,
+    companyId: null,
+    scope: 'organization',
+  });
+
+  if (mayListAllCompanies && input.wizardScope === 'organization') {
+    return { companyId: undefined, directoryScope: 'organization', lockCompanyField: false };
+  }
+
+  if (input.wizardScope === 'branch') {
+    return {
+      companyId: sessionCompanyId,
+      directoryScope: 'branch',
+      lockCompanyField: true,
+    };
+  }
+
+  if (sessionCompanyId != null) {
+    return {
+      companyId: sessionCompanyId,
+      directoryScope: input.wizardScope === 'organization' ? 'company' : input.wizardScope,
+      lockCompanyField: true,
+    };
+  }
+
+  return {
+    companyId: undefined,
+    directoryScope: input.wizardScope === 'organization' ? 'organization' : 'company',
+    lockCompanyField: input.wizardScope !== 'organization',
+  };
+}
 
 export type CreateUserIdHints = {
   organizationId?: number;
@@ -48,6 +105,61 @@ export type CreateUserNameHints = {
 };
 
 export { isMatch };
+
+function normalizeLabel(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? '';
+}
+
+/** Branch names for the create-user branch dropdown (company filter + keep current selection). */
+export function resolveCreateUserBranchOptions(input: {
+  branches: readonly BranchListItem[];
+  companies: readonly CompanyListItem[];
+  currentScope: ScopeType;
+  activeCompanyLabel?: string;
+  directoryCompanyId?: number | string;
+  selectedBranchName?: string;
+}): string[] {
+  const {
+    branches,
+    companies,
+    currentScope,
+    activeCompanyLabel,
+    directoryCompanyId,
+    selectedBranchName,
+  } = input;
+
+  const activeCompany = normalizeLabel(activeCompanyLabel);
+  const matchedCompany =
+    activeCompany.length > 0
+      ? companies.find((company) => normalizeLabel(company.name) === activeCompany)
+      : undefined;
+
+  let filtered = branches;
+
+  if (currentScope === 'organization' && activeCompany.length > 0) {
+    filtered = branches.filter((branch) => {
+      if (normalizeLabel(branch.companyName) === activeCompany) return true;
+      if (matchedCompany && String(branch.companyId) === String(matchedCompany.id)) return true;
+      return false;
+    });
+  } else if (
+    currentScope === 'company' &&
+    directoryCompanyId != null &&
+    directoryCompanyId !== ''
+  ) {
+    filtered = branches.filter((branch) => String(branch.companyId) === String(directoryCompanyId));
+  }
+
+  const names = filtered.map((branch) => branch.name).filter(Boolean);
+  const selected = selectedBranchName?.trim();
+  if (selected && !names.includes(selected)) {
+    const selectedBranch = branches.find((branch) => branch.name.trim() === selected);
+    if (selectedBranch) names.push(selectedBranch.name);
+    else names.push(selected);
+  }
+
+  return names;
+}
 
 export function companiesFromBranches(branches: readonly BranchListItem[]): CompanyListItem[] {
   const counts = new Map<string, { item: CompanyListItem; branchCount: number }>();
@@ -136,13 +248,38 @@ export async function loadEmployeeDirectory(
   input: LoadEmployeeDirectoryInput,
   get: GetJson,
 ): Promise<EmployeeDirectoryData> {
-  const { organizationId, companyId, session } = input;
+  const { organizationId, companyId, session, role, authScope, scope } = input;
 
-  const branches = await loadBranchDirectory(organizationId, companyId, get).catch(() => []);
+  const directoryScope = scope ?? (companyId != null ? 'company' : 'organization');
+  const directoryContext = { role, authScope, scope: directoryScope };
+
+  const branches = await loadBranchDirectory(
+    organizationId,
+    companyId,
+    get,
+    directoryContext,
+  ).catch(() => []);
+
+  const mayListAllCompanies = shouldLoadOrganizationCompanyList({
+    role,
+    authScope,
+    companyId: null,
+    scope: 'organization',
+  });
 
   let companies: CompanyListItem[] = [];
-  if (companyId == null && organizationId != null) {
-    companies = await loadOrganizationCompanies(organizationId, get).catch(() => []);
+  if (companyId != null && !mayListAllCompanies) {
+    const detail = await loadCompanyById(companyId, get).catch(() => null);
+    if (detail) companies = [detail];
+  } else if (companyId == null && organizationId != null && mayListAllCompanies) {
+    companies = await loadOrganizationCompanies(organizationId, get, {
+      role,
+      authScope,
+      scope: 'organization',
+    }).catch(() => []);
+  } else if (companyId != null) {
+    const detail = await loadCompanyById(companyId, get).catch(() => null);
+    if (detail) companies = [detail];
   }
 
   if (companies.length === 0 && branches.length > 0) {
@@ -163,12 +300,18 @@ export async function loadEmployeeDirectory(
   });
 }
 
+export type CreateUserDirectoryAuth = {
+  role?: string | null;
+  authScope?: string | null;
+};
+
 export async function resolveCreateUserRequestContext(
   names: CreateUserNameHints,
   ids: CreateUserIdHints,
   get: GetJson,
   roleCatalog: readonly RoleCatalogItem[] = [],
   roleCode?: string,
+  directoryAuth?: CreateUserDirectoryAuth,
 ): Promise<CreateUserRequestContext> {
   const needsBranch = roleCode ? roleRequiresBranchId(roleCode, roleCatalog) : false;
   const organizationId = ids.organizationId;
@@ -179,7 +322,25 @@ export async function resolveCreateUserRequestContext(
   let companyId = normalizeId(ids.companyId);
   let branchId = normalizeId(ids.branchId);
 
-  const companies = await loadOrganizationCompanies(organizationId, get).catch(() => []);
+  const mayListAllCompanies = shouldLoadOrganizationCompanyList({
+    role: directoryAuth?.role,
+    authScope: directoryAuth?.authScope,
+    companyId: null,
+    scope: 'organization',
+  });
+
+  let companies: CompanyListItem[] = [];
+  if (mayListAllCompanies) {
+    companies = await loadOrganizationCompanies(organizationId, get, {
+      role: directoryAuth?.role,
+      authScope: directoryAuth?.authScope,
+      scope: 'organization',
+    }).catch(() => []);
+  } else if (companyId != null) {
+    const detail = await loadCompanyById(companyId, get).catch(() => null);
+    if (detail) companies = [detail];
+  }
+
   const branches = await loadOrganizationBranches(
     organizationId,
     companies,
@@ -226,8 +387,10 @@ export async function resolveCreateUserRequestContext(
     }
   }
 
-  if (companyId == null) {
-    throw new Error('Company is required to create a user.');
+  const needsCompany = roleCode ? roleRequiresCompanyId(roleCode, roleCatalog) : true;
+
+  if (needsCompany && companyId == null) {
+    throw new Error('Company is required for company- and branch-scoped roles.');
   }
 
   if (needsBranch && branchId == null) {
@@ -236,7 +399,7 @@ export async function resolveCreateUserRequestContext(
 
   return {
     organizationId,
-    companyId,
+    ...(companyId != null ? { companyId } : {}),
     ...(branchId != null ? { branchId } : {}),
     roleCatalog,
     ...(roleCode ? { roleCode } : {}),
@@ -361,20 +524,25 @@ export async function resolveAssignmentPermissionsPayload(
 
   const adjustments: Array<{ permission_code: string; effect: 'grant' | 'revoke' }> = [];
   const inheritedSet = new Set<string>(inheritedCodes);
+  const hasInheritedBaseline = inheritedSet.size > 0;
 
   enabledFromUI.forEach((code) => {
+    // Without a baseline, every UI toggle would look like a new grant and the backend
+    // rejects grants the actor does not hold (delegation rule).
+    if (!hasInheritedBaseline) return;
     if (!inheritedSet.has(code)) {
       adjustments.push({ permission_code: code, effect: 'grant' });
     }
   });
 
   disabledFromUI.forEach((code) => {
+    if (!hasInheritedBaseline) return;
     if (inheritedSet.has(code)) {
       adjustments.push({ permission_code: code, effect: 'revoke' });
     }
   });
 
-  const permissionCodesList = Array.from(enabledFromUI);
+  const permissionCodesList = hasInheritedBaseline ? Array.from(enabledFromUI) : [];
 
   return {
     permission_codes: permissionCodesList,

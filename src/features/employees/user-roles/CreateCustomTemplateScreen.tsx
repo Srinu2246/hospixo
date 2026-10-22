@@ -55,7 +55,7 @@ export function CreateCustomTemplateScreen({
   const baseRoute = getUsersAndRolesBaseRoute(pathname, resolvedScope);
 
   const groupedPermissions = useGroupedPermissions();
-  const createCustomRole = useCreateCustomRole();
+  const createCustomRole = useCreateCustomRole(resolvedScope);
   const remoteCategories = groupedPermissions.data;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
   const [syncedRemoteCategories, setSyncedRemoteCategories] = useState<
@@ -87,9 +87,9 @@ export function CreateCustomTemplateScreen({
   } = useForm<CustomTemplateFormValues>({
     resolver: zodResolver(customTemplateSchema),
     defaultValues: {
-      templateName: 'Custom role',
-      description:
-        'Assigned to custom restaurant/branch supervisors with partial finance approval limits.',
+      templateName: '',
+      code: '',
+      description: '',
       preset: 'custom',
     },
   });
@@ -272,9 +272,9 @@ export function CreateCustomTemplateScreen({
               control={control}
               render={({ field }) => (
                 <Input
-                  label="TEMPLATE NAME"
+                  label="DISPLAY NAME"
                   required
-                  placeholder="Enter template name"
+                  placeholder="Floor Lead"
                   value={field.value}
                   onChange={field.onChange}
                   onBlur={field.onBlur}
@@ -286,12 +286,32 @@ export function CreateCustomTemplateScreen({
             />
 
             <Controller
+              name="code"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  label="ROLE CODE"
+                  required
+                  placeholder="floor_lead"
+                  value={field.value}
+                  onChange={(event) => {
+                    field.onChange(event.target.value.toLowerCase().replace(/\s+/g, '_'));
+                  }}
+                  onBlur={field.onBlur}
+                  error={Boolean(errors.code)}
+                  helperText={errors.code?.message}
+                  fullWidth
+                />
+              )}
+            />
+
+            <Controller
               name="description"
               control={control}
               render={({ field }) => (
                 <Input
                   label="DESCRIPTION"
-                  placeholder="Enter role template description"
+                  placeholder="Leads floor staff for a branch"
                   value={field.value || ''}
                   onChange={field.onChange}
                   onBlur={field.onBlur}

@@ -1,5 +1,9 @@
 import ApiUrlsV1, { organizationCompanyBranchesPath } from '@/services/api/ApiUrlsV1';
-import { loadOrganizationCompanies } from '@/lib/helpers/organizationCompanies';
+import {
+  loadCompanyById,
+  loadOrganizationCompanies,
+  shouldLoadOrganizationCompanyList,
+} from '@/lib/helpers/organizationCompanies';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import {
   parseBranchList,
@@ -49,12 +53,22 @@ export async function loadBranchDirectory(
     scope?: 'organization' | 'company' | 'branch';
   },
 ): Promise<BranchListItem[]> {
-  const companies = await loadOrganizationCompanies(organizationId, get, {
+  const scope = context?.scope ?? (companyId != null ? 'company' : 'organization');
+  const listContext = {
     role: context?.role,
     authScope: context?.authScope,
     companyId,
-    scope: context?.scope ?? (companyId != null ? 'company' : 'organization'),
-  }).catch(() => []);
+    scope,
+  };
+  const listAllowed = shouldLoadOrganizationCompanyList(listContext);
+
+  let companies: CompanyListItem[] = [];
+  if (listAllowed && organizationId != null) {
+    companies = await loadOrganizationCompanies(organizationId, get, listContext).catch(() => []);
+  } else if (companyId != null) {
+    const detail = await loadCompanyById(companyId, get).catch(() => null);
+    if (detail) companies = [detail];
+  }
   const branches = await loadOrganizationBranches(organizationId, companies, get, companyId);
   const namesById = new Map(companies.map((company) => [String(company.id), company.name]));
 

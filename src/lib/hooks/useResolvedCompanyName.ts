@@ -18,7 +18,9 @@ export function useResolvedCompanyName(explicitName?: string): string | undefine
   const setContext = useSidebarStore((state) => state.setContext);
 
   const companyId = contextCompanyId ?? account?.company_id ?? undefined;
-  const directory = useEmployeeDirectory(organizationId, companyId);
+  const directory = useEmployeeDirectory(organizationId, companyId, {
+    scope: companyId != null ? 'company' : undefined,
+  });
 
   const fromDirectory = useMemo(() => {
     const companies = directory.data?.companies ?? [];
@@ -28,9 +30,10 @@ export function useResolvedCompanyName(explicitName?: string): string | undefine
     return companies[0]?.name?.trim();
   }, [directory.data?.companies, companyId]);
 
+  const accountRecord = account as (typeof account & { company_name?: string }) | null;
   const fromAccount =
-    account?.company_name?.trim() ||
-    readNestedEntityName(account as Record<string, unknown> | undefined, 'company');
+    accountRecord?.company_name?.trim() ||
+    readNestedEntityName(accountRecord as Record<string, unknown> | undefined, 'company');
 
   const resolved =
     explicitName?.trim() || contextCompanyName?.trim() || fromAccount || fromDirectory || undefined;
