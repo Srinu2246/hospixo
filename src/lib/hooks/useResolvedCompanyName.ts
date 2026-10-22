@@ -28,9 +28,10 @@ export function useResolvedCompanyName(explicitName?: string): string | undefine
     return companies[0]?.name?.trim();
   }, [directory.data?.companies, companyId]);
 
-  const fromAccount =
-    account?.company_name?.trim() ||
-    readNestedEntityName(account as Record<string, unknown> | undefined, 'company');
+  const fromAccount = readNestedEntityName(
+    account as Record<string, unknown> | undefined,
+    'company',
+  );
 
   const resolved =
     explicitName?.trim() || contextCompanyName?.trim() || fromAccount || fromDirectory || undefined;

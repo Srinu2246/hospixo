@@ -27,9 +27,14 @@ export function useCreateBranchOrder() {
       return parseBranchOrder(payload);
     },
     onSuccess: async (_data, variables) => {
-      await queryClient.invalidateQueries({
-        queryKey: ['pos', 'point-of-sale', 'tables', 'availability', variables.branchId],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['pos', 'point-of-sale', 'tables', 'availability', variables.branchId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['pos', 'point-of-sale', 'all-orders', variables.branchId],
+        }),
+      ]);
     },
   });
 }

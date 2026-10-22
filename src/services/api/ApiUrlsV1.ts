@@ -32,7 +32,11 @@ const ApiUrlsV1 = {
   },
   pos: {
     pointOfSale: {
-      allOrders: resource('/v1/pos/point-of-sale/all-orders'),
+      /** GET/POST /v1/branches/{branch_id}/orders — All Orders list + create */
+      allOrders: {
+        list: (branchId: number | string) => branchOrdersPath(branchId),
+        create: (branchId: number | string) => branchOrdersPath(branchId),
+      },
       cashAndShift: resource('/v1/pos/point-of-sale/cash-and-shift'),
       dashboard: resource('/v1/pos/point-of-sale/dashboard'),
       dineIn: resource('/v1/pos/point-of-sale/dine-in'),

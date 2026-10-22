@@ -1,130 +1,145 @@
-export type OrderType = 'all' | 'dine-in' | 'takeaway' | 'delivery' | 'online';
-export type KitchenStatus = 'kot sent' | 'ready' | 'preparing' | 'billing';
+import { toPosOrderItem, type OrderType } from '@/lib/helpers/posAllOrdersHelpers';
+import {
+  parsePosOrderList,
+  posOrderListEnvelopeSchema,
+  type PosOrderListEnvelope,
+  type PosOrderListItem,
+} from '@/lib/schemas/pos/point-of-sale/all-orders/posOrdersSchema';
 
-export interface PosOrderItem {
-  id: string; // Unique row identifier
-  orderNumber: string; // Formatted order number (e.g. #1024)
-  type: 'dine-in' | 'takeaway' | 'delivery' | 'online'; // Order type
-  typeLabel: string; // Display type label
-  reference: string; // Table number or delivery partner (e.g. Table T4, Swiggy · #SW1024)
-  kitchenStatus: KitchenStatus; // Kitchen status key
-  kitchenStatusLabel: string; // Display kitchen status label
-  amount: number; // Order amount in INR
-  amountFormatted: string; // Formatted amount string (e.g. ₹882)
-}
+export type { OrderType, PosOrderListItem };
 
-export const MOCK_POS_ORDERS: PosOrderItem[] = [
-  {
-    id: 'ord-1024-1',
-    orderNumber: '#1024',
-    type: 'dine-in',
-    typeLabel: 'Dine-in',
-    reference: 'Table T4',
-    kitchenStatus: 'kot sent',
-    kitchenStatusLabel: 'KOT Sent',
-    amount: 882,
-    amountFormatted: '₹882',
+/**
+ * Full GET /v1/branches/{branch_id}/orders envelope matching the live API.
+ * Dine-in rows use floor-catalog table ids so table availability stays consistent in mocks.
+ */
+export const MOCK_POS_ORDERS_ENVELOPE: PosOrderListEnvelope = posOrderListEnvelopeSchema.parse({
+  success: true,
+  data: {
+    items: [
+      {
+        id: 139,
+        public_id: '652b621a-a928-4d7b-b331-527b45dec98c',
+        order_number: '0001',
+        order_type: 'dine_in',
+        table_id: 104,
+        table_name: 'T2',
+        floor_id: 59,
+        section_id: 93,
+        guest_count: 2,
+        status: 'draft',
+        kitchen_badge: null,
+        payment_status: 'pending',
+        grand_total: 0,
+        opened_at: '2026-10-19T13:53:20.579003Z',
+      },
+      {
+        id: 140,
+        public_id: '7c1e9a2b-4f3d-4a8e-9b2c-1d5e6f7a8b9c',
+        order_number: '0002',
+        order_type: 'dine_in',
+        table_id: 106,
+        table_name: 'T4',
+        floor_id: 59,
+        section_id: 93,
+        guest_count: 4,
+        status: 'ordering',
+        kitchen_badge: 'preparing',
+        payment_status: 'pending',
+        grand_total: 882,
+        opened_at: '2026-10-19T14:10:00.000000Z',
+      },
+      {
+        id: 141,
+        public_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        order_number: '0003',
+        order_type: 'takeaway',
+        table_id: null,
+        table_name: null,
+        floor_id: null,
+        section_id: null,
+        guest_count: 1,
+        status: 'billing',
+        kitchen_badge: 'ready',
+        payment_status: 'pending',
+        grand_total: 450,
+        opened_at: '2026-10-19T14:22:11.000000Z',
+      },
+      {
+        id: 142,
+        public_id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
+        order_number: '0004',
+        order_type: 'delivery',
+        table_id: null,
+        table_name: null,
+        floor_id: null,
+        section_id: null,
+        guest_count: 2,
+        status: 'ordering',
+        kitchen_badge: 'kot sent',
+        payment_status: 'pending',
+        grand_total: 1030,
+        opened_at: '2026-10-19T14:30:00.000000Z',
+      },
+      {
+        id: 143,
+        public_id: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
+        order_number: '0005',
+        order_type: 'online',
+        table_id: null,
+        table_name: null,
+        floor_id: null,
+        section_id: null,
+        guest_count: 1,
+        status: 'ordering',
+        kitchen_badge: 'preparing',
+        payment_status: 'pending',
+        grand_total: 740,
+        opened_at: '2026-10-19T14:45:00.000000Z',
+      },
+      {
+        id: 503,
+        public_id: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
+        order_number: '0102',
+        order_type: 'dine_in',
+        table_id: 102,
+        table_name: 'T10',
+        floor_id: 66,
+        section_id: 92,
+        guest_count: 2,
+        status: 'billing',
+        kitchen_badge: 'ready',
+        payment_status: 'billing',
+        grand_total: 920,
+        opened_at: '2026-10-16T16:20:00.000Z',
+      },
+      {
+        id: 504,
+        public_id: '6ba7b811-9dad-11d1-80b4-00c04fd430c8',
+        order_number: '0111',
+        order_type: 'dine_in',
+        table_id: 111,
+        table_name: 'T11',
+        floor_id: 66,
+        section_id: 92,
+        guest_count: 4,
+        status: 'in_progress',
+        kitchen_badge: 'preparing',
+        payment_status: 'pending',
+        grand_total: 1120,
+        opened_at: '2026-10-16T18:05:00.000Z',
+      },
+    ],
+    total: 7,
+    page: 1,
+    page_size: 15,
   },
-  {
-    id: 'ord-1024-2',
-    orderNumber: '#1024',
-    type: 'dine-in',
-    typeLabel: 'Dine-in',
-    reference: 'Table T4',
-    kitchenStatus: 'ready',
-    kitchenStatusLabel: 'Ready',
-    amount: 882,
-    amountFormatted: '₹882',
-  },
-  {
-    id: 'ord-1025-1',
-    orderNumber: '#1025',
-    type: 'takeaway',
-    typeLabel: 'Takeaway',
-    reference: 'Table T5',
-    kitchenStatus: 'preparing',
-    kitchenStatusLabel: 'Preparing',
-    amount: 450,
-    amountFormatted: '₹450',
-  },
-  {
-    id: 'ord-1026-1',
-    orderNumber: '#1026',
-    type: 'dine-in',
-    typeLabel: 'Dine-in',
-    reference: 'Table T6',
-    kitchenStatus: 'billing',
-    kitchenStatusLabel: 'Billing',
-    amount: 620,
-    amountFormatted: '₹620',
-  },
-  {
-    id: 'ord-1027-1',
-    orderNumber: '#1027',
-    type: 'delivery',
-    typeLabel: 'Delivery',
-    reference: 'Swiggy · #SW1024',
-    kitchenStatus: 'kot sent',
-    kitchenStatusLabel: 'KOT Sent',
-    amount: 1030,
-    amountFormatted: '₹1030',
-  },
-  {
-    id: 'ord-1027-2',
-    orderNumber: '#1027',
-    type: 'delivery',
-    typeLabel: 'Delivery',
-    reference: 'Zomato · #ZM8821',
-    kitchenStatus: 'ready',
-    kitchenStatusLabel: 'Ready',
-    amount: 1030,
-    amountFormatted: '₹1030',
-  },
-  {
-    id: 'ord-1028-1',
-    orderNumber: '#1028',
-    type: 'online',
-    typeLabel: 'Online',
-    reference: 'Zomato · #ZM9912',
-    kitchenStatus: 'preparing',
-    kitchenStatusLabel: 'Preparing',
-    amount: 740,
-    amountFormatted: '₹740',
-  },
-  {
-    id: 'ord-1029-1',
-    orderNumber: '#1029',
-    type: 'dine-in',
-    typeLabel: 'Dine-in',
-    reference: 'Table T1',
-    kitchenStatus: 'ready',
-    kitchenStatusLabel: 'Ready',
-    amount: 1250,
-    amountFormatted: '₹1,250',
-  },
-  {
-    id: 'ord-1030-1',
-    orderNumber: '#1030',
-    type: 'takeaway',
-    typeLabel: 'Takeaway',
-    reference: 'Counter 1',
-    kitchenStatus: 'billing',
-    kitchenStatusLabel: 'Billing',
-    amount: 320,
-    amountFormatted: '₹320',
-  },
-  {
-    id: 'ord-1031-1',
-    orderNumber: '#1031',
-    type: 'delivery',
-    typeLabel: 'Delivery',
-    reference: 'Swiggy · #SW2089',
-    kitchenStatus: 'preparing',
-    kitchenStatusLabel: 'Preparing',
-    amount: 960,
-    amountFormatted: '₹960',
-  },
-];
+  message: 'Orders retrieved',
+  request_id: 'c54ecdde-8671-4cce-87a4-da86e2994ede',
+});
+
+/** Parsed API order rows from the all-orders list envelope. */
+export const MOCK_POS_ORDERS: PosOrderListItem[] =
+  parsePosOrderList(MOCK_POS_ORDERS_ENVELOPE).items;
 
 export interface OrderedItem {
   id: string;
@@ -177,12 +192,15 @@ export function getMockOrderSettleDetail(orderId?: string): OrderSettleDetail {
     return MOCK_ORDER_SETTLE_1024;
   }
 
-  // Look up in existing orders
-  const foundOrder = MOCK_POS_ORDERS.find(
-    (o) => o.id.toLowerCase() === clean || o.orderNumber.replace(/^#/, '').toLowerCase() === clean,
+  const foundApi = MOCK_POS_ORDERS.find(
+    (o) =>
+      o.public_id.toLowerCase() === clean ||
+      String(o.id) === clean ||
+      o.order_number.replace(/^#/, '').toLowerCase() === clean,
   );
 
-  if (foundOrder) {
+  if (foundApi) {
+    const foundOrder = toPosOrderItem(foundApi);
     const subtotal = foundOrder.amount;
     const taxAmount = Math.round(subtotal * 0.05);
     const grandTotal = subtotal + taxAmount;

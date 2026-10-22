@@ -1,5 +1,6 @@
 export * from './posStatusHelpers';
 export * from './posOrderHelpers';
+export * from './posAllOrdersHelpers';
 export * from './menuItemHelpers';
 export * from './formatUpdatedAgo';
 export * from './floorAndTableSetup';
