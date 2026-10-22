@@ -13,6 +13,7 @@ import {
   OpenBusinessPage,
 } from '@/features/pos/point-of-sale/cash-and-shift';
 import { CreateNewShiftPage } from '@/features/pos/point-of-sale/cash-and-shift/CreateNewShiftPage';
+import { CashCounterPage } from '@/features/pos/point-of-sale/cash-counter';
 import { UnderConstructionPage } from '@/components/shared/UnderConstruction';
 import {
   UsersAndRolesScreen,
@@ -77,14 +78,10 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     render: () => <OpenBusinessPage />,
   },
   {
-    name: 'Cash Registers',
-    match: (path) => path.endsWith('management/cash-registers'),
-    render: () => (
-      <UnderConstructionPage
-        title="Cash Registers"
-        subtitle="Configure branch cash registers and assign them to counters"
-      />
-    ),
+    name: 'Cash Counter',
+    match: (path) =>
+      path.includes('/management/cash-counter') || path.includes('/management/cash-registers'),
+    render: () => <CashCounterPage />,
   },
   {
     name: 'POS Create New Shift',

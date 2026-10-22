@@ -742,9 +742,9 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 4,
-        name: 'Cash Registers',
-        href: '/branch-manager/management/cash-registers',
-        featureFlag: FEATURE_FLAGS.branch_management_cashRegisters_nav,
+        name: 'Cash Counter',
+        href: '/branch-manager/management/cash-counter',
+        featureFlag: FEATURE_FLAGS.branch_management_cashCounter_nav,
         icon: 'point_of_sale',
         permission: PERMISSIONS.POS_SESSIONS_OPEN,
       },

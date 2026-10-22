@@ -1,10 +1,6 @@
-import { UnderConstructionPage } from '@/components/shared/UnderConstruction';
+import { redirect } from 'next/navigation';
 
-export default function BranchManagerCashRegistersPage() {
-  return (
-    <UnderConstructionPage
-      title="Cash Registers"
-      subtitle="Configure branch cash registers and assign them to counters"
-    />
-  );
+/** Legacy path — Cash Counter lives at /management/cash-counter. */
+export default function BranchManagerCashRegistersRedirectPage() {
+  redirect('/branch-manager/management/cash-counter');
 }
