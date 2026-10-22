@@ -38,6 +38,15 @@ const ApiUrlsV1 = {
         create: (branchId: number | string) => branchOrdersPath(branchId),
       },
       cashAndShift: resource('/v1/pos/point-of-sale/cash-and-shift'),
+      /** Cash Counter UI — live paths under /v1/branches/{branch_id}/cash-registers */
+      cashCounter: {
+        list: (branchId: number | string) => branchCashRegistersPath(branchId),
+        create: (branchId: number | string) => branchCashRegistersPath(branchId),
+        detail: (branchId: number | string, registerId: number | string) =>
+          branchCashRegisterPath(branchId, registerId),
+        update: (branchId: number | string, registerId: number | string) =>
+          branchCashRegisterPath(branchId, registerId),
+      },
       dashboard: resource('/v1/pos/point-of-sale/dashboard'),
       dineIn: resource('/v1/pos/point-of-sale/dine-in'),
       duePayments: resource('/v1/pos/point-of-sale/due-payments'),
@@ -144,6 +153,19 @@ export function branchMealSessionsPath(branchId: number | string): string {
 /** GET /v1/branches/{branch_id}/tables/availability */
 export function branchTablesAvailabilityPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/tables/availability`;
+}
+
+/** GET/POST /v1/branches/{branch_id}/cash-registers */
+export function branchCashRegistersPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/cash-registers`;
+}
+
+/** GET/PATCH /v1/branches/{branch_id}/cash-registers/{register_id} */
+export function branchCashRegisterPath(
+  branchId: number | string,
+  registerId: number | string,
+): string {
+  return `${branchCashRegistersPath(branchId)}/${encodeURIComponent(String(registerId))}`;
 }
 
 /** GET /v1/branches/{branch_id}/reports/overview */
