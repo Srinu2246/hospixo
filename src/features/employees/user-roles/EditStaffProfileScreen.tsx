@@ -90,11 +90,13 @@ export function EditStaffProfileScreen({
   const isReadOnly = isEditDisabled || mode === 'view';
   const remoteCategories = staffProfile.categories;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
+  const [syncedRemoteCategories, setSyncedRemoteCategories] = useState<PermissionCategory[]>([]);
 
-  useEffect(() => {
-    if (remoteCategories.length === 0) return;
+  // Sync draft permissions when remote categories first load / change (render-time adjust).
+  if (remoteCategories.length > 0 && remoteCategories !== syncedRemoteCategories) {
+    setSyncedRemoteCategories(remoteCategories);
     setCategories(remoteCategories);
-  }, [remoteCategories]);
+  }
 
   const enabledPermissionIds = useMemo(() => {
     const ids = new Set<string>();

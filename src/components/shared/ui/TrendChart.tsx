@@ -233,12 +233,12 @@ export function TrendChart({
               px: 0.25,
             }}
           >
-            {xLabels.map((label) => {
+            {xLabels.map((label, index) => {
               const active =
                 highlightedLabel != null && label.toLowerCase() === highlightedLabel.toLowerCase();
               return (
                 <Typography
-                  key={label}
+                  key={`${index}-${label}`}
                   sx={{
                     fontSize: '0.6875rem',
                     fontWeight: active ? 700 : 600,

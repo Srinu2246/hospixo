@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Plus, Upload } from 'lucide-react';
+import { Calendar, Plus, Upload } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
@@ -121,6 +122,7 @@ function MenuListPane() {
     itemsError,
   } = useMenuCreation();
 
+  const router = useRouter();
   const [deleteTargetItem, setDeleteTargetItem] = useState<MenuCatalogItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}::${sessionFilter}`;
@@ -159,6 +161,13 @@ function MenuListPane() {
         </Box>
 
         <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap', flexShrink: 0 }}>
+          <ActionButton
+            variant="outlined"
+            startIcon={<Calendar size={16} />}
+            onClick={() => router.push('/branch-manager/menu/sessions')}
+          >
+            Sessions
+          </ActionButton>
           <ActionButton variant="outlined" startIcon={<Upload size={16} />}>
             Upload CSV
           </ActionButton>

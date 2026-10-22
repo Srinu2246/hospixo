@@ -1,3 +1,599 @@
+import type { HttpMethod, QueryParams } from '@/services/api/types';
+
+import {
+  reportsOrdersSummaryResponseSchema,
+  reportsOverviewResponseSchema,
+  reportsPaymentsResponseSchema,
+  reportsSalesResponseSchema,
+  reportsSessionsResponseSchema,
+} from '@/lib/schemas/reports/reports/branchReports';
+
+const ordersDailyMetrics = (
+  gross: string,
+  grand: string,
+  collected: string,
+): { gross_sales: string; grand_total: string; amount_collected: string } => ({
+  gross_sales: gross,
+  grand_total: grand,
+  amount_collected: collected,
+});
+
+const ordersZeroDay = (businessDate: string) => ({
+  business_date: businessDate,
+  order_count: 0,
+  gross_sales: '0.00',
+  grand_total: '0.00',
+  amount_collected: '0.00',
+  dine_in: ordersDailyMetrics('0.00', '0.00', '0.00'),
+  takeaway: ordersDailyMetrics('0.00', '0.00', '0.00'),
+  delivery: ordersDailyMetrics('0.00', '0.00', '0.00'),
+});
+
+export const MOCK_REPORTS_OVERVIEW_RESPONSE = reportsOverviewResponseSchema.parse({
+  success: true,
+  message: 'OK',
+  request_id: 'mock-reports-overview',
+  data: {
+    branch_id: 49,
+    date_from: '2026-09-21',
+    date_to: '2026-09-27',
+    compare_from: '2026-09-14',
+    compare_to: '2026-09-20',
+    kpi_summary: {
+      completed_orders: 142,
+      gross_sales: '1752645.00',
+      amount_collected: '1752645.00',
+      transaction_count: 138,
+      delivery_orders: 44,
+      staff_on_shift: 8,
+    },
+    kpi_comparison: {
+      completed_orders: 126,
+      gross_sales: '1564200.00',
+      amount_collected: '1564200.00',
+      transaction_count: 122,
+      delivery_orders: 39,
+      staff_on_shift: 7,
+    },
+    kpi_change_percent: {
+      completed_orders: '12.4',
+      gross_sales: '12.0',
+      amount_collected: '12.0',
+      transaction_count: '13.1',
+      delivery_orders: '12.8',
+      staff_on_shift: '14.3',
+    },
+    sales_and_order_trends: [
+      { business_date: '2026-09-21', gross_sales: '42000.00', completed_orders: 118 },
+      { business_date: '2026-09-22', gross_sales: '48000.00', completed_orders: 132 },
+      { business_date: '2026-09-23', gross_sales: '52000.00', completed_orders: 158 },
+    ],
+    comparison_trends: [
+      { business_date: '2026-09-14', gross_sales: '35000.00', completed_orders: 102 },
+      { business_date: '2026-09-15', gross_sales: '40000.00', completed_orders: 115 },
+    ],
+    order_type_performance: [
+      {
+        order_type: 'dine_in',
+        completed_orders: 62,
+        gross_sales: '768420.00',
+        percentage_of_sales: '44',
+      },
+      {
+        order_type: 'takeaway',
+        completed_orders: 24,
+        gross_sales: '298120.00',
+        percentage_of_sales: '17',
+      },
+      {
+        order_type: 'delivery',
+        completed_orders: 44,
+        gross_sales: '686105.00',
+        percentage_of_sales: '31',
+      },
+    ],
+    meal_session_performance: [
+      {
+        meal_session_id: 1,
+        meal_session_name: 'Breakfast',
+        completed_orders: 451,
+        gross_sales: '88600.00',
+        percentage_of_sales: '18.2',
+      },
+    ],
+    top_selling_items: [],
+    least_selling_items: [],
+    finance_and_payment_summary: {
+      gross_sales: '390500.00',
+      amount_collected: '390500.00',
+      transaction_count: 420,
+      payments_by_method: [
+        {
+          payment_method: 'Cash',
+          amount_collected: '142200.00',
+          transaction_count: 180,
+          percentage_of_collections: '36.4',
+        },
+      ],
+    },
+    staff_and_operations: {
+      active_shifts: 2,
+      completed_shifts: 6,
+      staff_on_shift: 8,
+      completed_orders: 1897,
+      late_kitchen_orders: 14,
+      average_preparation_time: '18m 24s',
+    },
+    recent_orders: [
+      {
+        order_id: 1,
+        order_number: '#001',
+        business_date: '2026-09-27',
+        order_type: 'dine_in',
+        status: 'completed',
+        gross_sales: '1304.16',
+        created_at: '2026-07-07T15:40:00.000Z',
+      },
+    ],
+  },
+});
+
+export const MOCK_REPORTS_SALES_RESPONSE = reportsSalesResponseSchema.parse({
+  success: true,
+  message: 'OK',
+  request_id: 'mock-reports-sales',
+  data: {
+    branch_id: 49,
+    date_from: '2026-09-21',
+    date_to: '2026-09-27',
+    compare_from: '2026-09-14',
+    compare_to: '2026-09-20',
+    gross_sales: '376740.00',
+    previous_period_gross_sales: '347200.00',
+    gross_sales_change_percent: '8.4',
+    by_order_type: [
+      {
+        order_type: 'dine_in',
+        order_count: 1240,
+        gross_sales: '284000.00',
+        order_count_share_percent: '65.3',
+        gross_sales_share_percent: '75.4',
+      },
+      {
+        order_type: 'takeaway',
+        order_count: 657,
+        gross_sales: '92740.00',
+        order_count_share_percent: '34.7',
+        gross_sales_share_percent: '24.6',
+      },
+    ],
+    daily_sales_trends: [
+      { business_date: '2026-09-21', gross_sales: '50600.00', order_count: 118 },
+      { business_date: '2026-09-22', gross_sales: '53140.00', order_count: 132 },
+    ],
+    by_meal_session: [
+      {
+        meal_session_id: 3,
+        meal_session_name: 'Dinner',
+        gross_sales: '186760.00',
+        order_count: 840,
+      },
+    ],
+    daily_breakdown: [
+      {
+        business_date: '2026-09-21',
+        gross_sales: '50600.00',
+        dine_in_gross_sales: '38420.00',
+        takeaway_gross_sales: '12180.00',
+        delivery_gross_sales: null,
+        order_count: 118,
+      },
+    ],
+    total_sales_by_order_type: [
+      {
+        order_type: 'dine_in',
+        order_count: 1240,
+        gross_sales: '284000.00',
+        order_count_share_percent: '65.3',
+        gross_sales_share_percent: '75.4',
+      },
+    ],
+    coverage: {
+      gross_sales_excludes_tax: true,
+      gross_sales_excludes_tips: true,
+      gross_sales_excludes_discounts: true,
+      gross_sales_completed_orders_only: true,
+      limitations: ['Net item sales after discounts and sales returns, excluding tax.'],
+    },
+  },
+});
+
+export const MOCK_REPORTS_ORDERS_SUMMARY_RESPONSE = reportsOrdersSummaryResponseSchema.parse({
+  success: true,
+  message: 'Orders summary report retrieved',
+  request_id: 'mock-reports-orders-summary',
+  data: {
+    branch_id: 64,
+    date_from: '2026-10-15',
+    date_to: '2026-10-21',
+    total_orders: 23,
+    dine_in: {
+      order_count: 17,
+      share_percent: '73.91',
+      gross_sales: '1275.00',
+      grand_total: '1339.00',
+      amount_collected: '3103.50',
+    },
+    takeaway: {
+      order_count: 6,
+      share_percent: '26.09',
+      gross_sales: '0.00',
+      grand_total: '0.00',
+      amount_collected: '262.50',
+    },
+    delivery: {
+      order_count: 0,
+      share_percent: '0.00',
+      gross_sales: '0.00',
+      grand_total: '0.00',
+      amount_collected: '0.00',
+    },
+    overall: {
+      gross_sales: '1275.00',
+      grand_total: '1339.00',
+      amount_collected: '3366.00',
+    },
+    daily_order_trend: [
+      {
+        business_date: '2026-10-15',
+        order_count: 4,
+        gross_sales: '300.00',
+        grand_total: '315.00',
+        amount_collected: '1291.50',
+        dine_in: ordersDailyMetrics('300.00', '315.00', '1029.00'),
+        takeaway: ordersDailyMetrics('0.00', '0.00', '262.50'),
+        delivery: ordersDailyMetrics('0.00', '0.00', '0.00'),
+      },
+      {
+        business_date: '2026-10-18',
+        order_count: 10,
+        gross_sales: '975.00',
+        grand_total: '1024.00',
+        amount_collected: '1024.00',
+        dine_in: ordersDailyMetrics('975.00', '1024.00', '1024.00'),
+        takeaway: ordersDailyMetrics('0.00', '0.00', '0.00'),
+        delivery: ordersDailyMetrics('0.00', '0.00', '0.00'),
+      },
+      ordersZeroDay('2026-10-19'),
+      ordersZeroDay('2026-10-21'),
+    ],
+    payment_attribution:
+      'Order counts include all order statuses by business_date. gross_sales and grand_total include completed orders only (non-voided line subtotals and order grand_total respectively). amount_collected sums captured parent payment amounts (excluding tips and refund rows) for orders whose business_date is in the selected range.',
+  },
+});
+
+export const MOCK_REPORTS_SESSIONS_RESPONSE = reportsSessionsResponseSchema.parse({
+  success: true,
+  message: 'OK',
+  request_id: 'mock-reports-sessions',
+  data: {
+    branch_id: 49,
+    date_from: '2026-09-21',
+    date_to: '2026-09-27',
+    sessions_covered: 3,
+    best_session: {
+      meal_session_id: 3,
+      meal_session_name: 'Dinner',
+      gross_sales: '186760.00',
+      order_count: 840,
+    },
+    lowest_session: {
+      meal_session_id: 1,
+      meal_session_name: 'Breakfast',
+      gross_sales: '88600.00',
+      order_count: 451,
+    },
+    overall_top_item: {
+      item_label: 'Chicken biryani',
+      quantity: '455',
+      gross_sales: '68250.00',
+    },
+    sessions: [
+      {
+        meal_session_id: 1,
+        meal_session_name: 'Breakfast',
+        order_count: 451,
+        gross_sales: '88600.00',
+        top_items: [
+          { item_label: 'Masala dosa', quantity: '82', gross_sales: '9840.00' },
+          { item_label: 'Idli vada', quantity: '64', gross_sales: '5760.00' },
+        ],
+        lowest_items: [
+          { item_label: 'Veg sandwich', quantity: '6', gross_sales: '720.00' },
+          { item_label: 'Pongal', quantity: '8', gross_sales: '960.00' },
+        ],
+      },
+      {
+        meal_session_id: 2,
+        meal_session_name: 'Lunch',
+        order_count: 618,
+        gross_sales: '121380.00',
+        top_items: [
+          { item_label: 'Chicken biryani', quantity: '180', gross_sales: '27000.00' },
+          { item_label: 'Butter naan', quantity: '142', gross_sales: '8520.00' },
+        ],
+        lowest_items: [
+          { item_label: 'Veg soup', quantity: '8', gross_sales: '640.00' },
+          { item_label: 'Curd rice', quantity: '18', gross_sales: '1620.00' },
+        ],
+      },
+      {
+        meal_session_id: 3,
+        meal_session_name: 'Dinner',
+        order_count: 840,
+        gross_sales: '186760.00',
+        top_items: [
+          { item_label: 'Chicken biryani', quantity: '275', gross_sales: '41250.00' },
+          { item_label: 'Paneer biryani', quantity: '198', gross_sales: '29700.00' },
+        ],
+        lowest_items: [
+          { item_label: 'Veg soup', quantity: '12', gross_sales: '960.00' },
+          { item_label: 'Raita', quantity: '15', gross_sales: '1125.00' },
+        ],
+      },
+    ],
+    coverage: {
+      gross_sales_excludes_tax: true,
+      gross_sales_excludes_tips: true,
+      gross_sales_excludes_discounts: true,
+      gross_sales_completed_orders_only: true,
+      limitations: ['Net item sales after discounts and sales returns, excluding tax.'],
+    },
+  },
+});
+
+export const MOCK_REPORTS_PAYMENTS_RESPONSE = reportsPaymentsResponseSchema.parse({
+  success: true,
+  message: 'OK',
+  request_id: 'mock-reports-payments',
+  data: {
+    branch_id: 49,
+    date_from: '2026-09-21',
+    date_to: '2026-09-27',
+    compare_from: '2026-09-14',
+    compare_to: '2026-09-20',
+    total_collected: '368400.00',
+    total_tips_collected: '12400.00',
+    transaction_count: 412,
+    previous_period_total_collected: '343800.00',
+    total_collected_change_percent: '7.2',
+    by_tender_type: [
+      {
+        tender_type: 'cash',
+        collected: '142783.00',
+        transaction_count: 98,
+        collected_share_percent: '38.8',
+        transaction_share_percent: '23.8',
+      },
+      {
+        tender_type: 'card',
+        collected: '53786.00',
+        transaction_count: 64,
+        collected_share_percent: '14.6',
+        transaction_share_percent: '15.5',
+      },
+      {
+        tender_type: 'upi',
+        collected: '37730.00',
+        transaction_count: 52,
+        collected_share_percent: '10.2',
+        transaction_share_percent: '12.6',
+      },
+      {
+        tender_type: 'other',
+        collected: '134101.00',
+        transaction_count: 198,
+        collected_share_percent: '36.4',
+        transaction_share_percent: '48.1',
+      },
+    ],
+    daily_trends: [
+      {
+        date: '2026-09-21',
+        total_collected: '46000.00',
+        transaction_count: 58,
+        cash_collected: '18000.00',
+        card_collected: '8000.00',
+        upi_collected: '6000.00',
+        other_collected: '14000.00',
+      },
+      {
+        date: '2026-09-22',
+        total_collected: '48200.00',
+        transaction_count: 61,
+        cash_collected: '19000.00',
+        card_collected: '8200.00',
+        upi_collected: '6200.00',
+        other_collected: '14800.00',
+      },
+      {
+        date: '2026-09-23',
+        total_collected: '50800.00',
+        transaction_count: 63,
+        cash_collected: '20000.00',
+        card_collected: '8600.00',
+        upi_collected: '6400.00',
+        other_collected: '15800.00',
+      },
+      {
+        date: '2026-09-24',
+        total_collected: '50800.00',
+        transaction_count: 62,
+        cash_collected: '19800.00',
+        card_collected: '8500.00',
+        upi_collected: '6300.00',
+        other_collected: '16200.00',
+      },
+      {
+        date: '2026-09-25',
+        total_collected: '52400.00',
+        transaction_count: 65,
+        cash_collected: '20500.00',
+        card_collected: '8800.00',
+        upi_collected: '6500.00',
+        other_collected: '16600.00',
+      },
+      {
+        date: '2026-09-26',
+        total_collected: '66400.00',
+        transaction_count: 72,
+        cash_collected: '26000.00',
+        card_collected: '11000.00',
+        upi_collected: '8200.00',
+        other_collected: '21200.00',
+      },
+      {
+        date: '2026-09-27',
+        total_collected: '50000.00',
+        transaction_count: 31,
+        cash_collected: '19500.00',
+        card_collected: '8400.00',
+        upi_collected: '6100.00',
+        other_collected: '16000.00',
+      },
+    ],
+    coverage: {
+      date_basis: 'payment_date',
+      collected_excludes_tips: true,
+      captured_parent_payments_only: true,
+      refunds_included: false,
+      cash_variance_included: false,
+      limitations: [
+        'Collected amounts use captured parent payment rows by payment date in branch timezone.',
+        'Tips are reported separately and excluded from net collections.',
+        'Cash shift reconciliation is not included in this report.',
+      ],
+    },
+  },
+});
+
+type BranchReportsMockRequest = {
+  method: HttpMethod;
+  path: string;
+  params?: QueryParams;
+  body?: unknown;
+};
+
+const REPORTS_OVERVIEW_PATH = /^\/v1\/branches\/(\d+)\/reports\/overview$/;
+const REPORTS_SALES_PATH = /^\/v1\/branches\/(\d+)\/reports\/sales$/;
+const REPORTS_ORDERS_SUMMARY_PATH = /^\/v1\/branches\/(\d+)\/reports\/orders\/summary$/;
+const REPORTS_SESSIONS_PATH = /^\/v1\/branches\/(\d+)\/reports\/sessions$/;
+const REPORTS_PAYMENTS_PATH = /^\/v1\/branches\/(\d+)\/reports\/payments$/;
+
+export function resolveBranchReportsMock(request: BranchReportsMockRequest): unknown | undefined {
+  const overviewMatch = REPORTS_OVERVIEW_PATH.exec(request.path);
+  if (overviewMatch && request.method === 'GET') {
+    const branchId = Number(overviewMatch[1]);
+    const data = MOCK_REPORTS_OVERVIEW_RESPONSE.data;
+
+    return {
+      ...MOCK_REPORTS_OVERVIEW_RESPONSE,
+      data: {
+        ...data,
+        branch_id: branchId,
+        date_from: String(request.params?.date_from ?? data.date_from),
+        date_to: String(request.params?.date_to ?? data.date_to),
+        compare_from: request.params?.compare_from
+          ? String(request.params.compare_from)
+          : data.compare_from,
+        compare_to: request.params?.compare_to
+          ? String(request.params.compare_to)
+          : data.compare_to,
+      },
+    };
+  }
+
+  const salesMatch = REPORTS_SALES_PATH.exec(request.path);
+  if (salesMatch && request.method === 'GET') {
+    const branchId = Number(salesMatch[1]);
+    const data = MOCK_REPORTS_SALES_RESPONSE.data;
+
+    return {
+      ...MOCK_REPORTS_SALES_RESPONSE,
+      data: {
+        ...data,
+        branch_id: branchId,
+        date_from: String(request.params?.date_from ?? data.date_from),
+        date_to: String(request.params?.date_to ?? data.date_to),
+        compare_from: request.params?.compare_from
+          ? String(request.params.compare_from)
+          : data.compare_from,
+        compare_to: request.params?.compare_to
+          ? String(request.params.compare_to)
+          : data.compare_to,
+      },
+    };
+  }
+
+  const ordersSummaryMatch = REPORTS_ORDERS_SUMMARY_PATH.exec(request.path);
+  if (ordersSummaryMatch && request.method === 'GET') {
+    const branchId = Number(ordersSummaryMatch[1]);
+    const data = MOCK_REPORTS_ORDERS_SUMMARY_RESPONSE.data;
+
+    return {
+      ...MOCK_REPORTS_ORDERS_SUMMARY_RESPONSE,
+      data: {
+        ...data,
+        branch_id: branchId,
+        date_from: String(request.params?.date_from ?? data.date_from),
+        date_to: String(request.params?.date_to ?? data.date_to),
+      },
+    };
+  }
+
+  const sessionsMatch = REPORTS_SESSIONS_PATH.exec(request.path);
+  if (sessionsMatch && request.method === 'GET') {
+    const branchId = Number(sessionsMatch[1]);
+    const data = MOCK_REPORTS_SESSIONS_RESPONSE.data;
+
+    return {
+      ...MOCK_REPORTS_SESSIONS_RESPONSE,
+      data: {
+        ...data,
+        branch_id: branchId,
+        date_from: String(request.params?.date_from ?? data.date_from),
+        date_to: String(request.params?.date_to ?? data.date_to),
+      },
+    };
+  }
+
+  const paymentsMatch = REPORTS_PAYMENTS_PATH.exec(request.path);
+  if (paymentsMatch && request.method === 'GET') {
+    const branchId = Number(paymentsMatch[1]);
+    const data = MOCK_REPORTS_PAYMENTS_RESPONSE.data;
+
+    return {
+      ...MOCK_REPORTS_PAYMENTS_RESPONSE,
+      data: {
+        ...data,
+        branch_id: branchId,
+        date_from: String(request.params?.date_from ?? data.date_from),
+        date_to: String(request.params?.date_to ?? data.date_to),
+        compare_from: request.params?.compare_from
+          ? String(request.params.compare_from)
+          : data.compare_from,
+        compare_to: request.params?.compare_to
+          ? String(request.params.compare_to)
+          : data.compare_to,
+      },
+    };
+  }
+
+  return undefined;
+}
+
+// --- Reports UI copy and screen fixtures ---
+
 export const REPORTS_TAB_IDS = [
   'overview',
   'sales',
@@ -505,21 +1101,12 @@ export const MOCK_REPORTS_SALES_BREAKDOWN_FOOTER: ReportsSalesBreakdownRow = {
 export const reportsOrdersCopy = {
   title: 'Orders Reports',
   subtitle:
-    'Review orders, captain assignments, and order status across your selected branch and period.',
-  dateRangeLabel: 'Jun 28–Jul 4, 2025',
+    'Order counts and revenue attribution for your selected branch and business-date range.',
   exportLabel: 'Export data',
-  netSalesNote: 'Net item sales after discounts and sales returns, excluding tax.',
-  filterStartDate: '01 Jul 2025',
-  filterEndDate: '15 Jul 2025',
-  applyLabel: 'Apply Now',
-  sessionLabel: 'Session Wise',
-  sessionDefault: 'All Sessions',
-  orderTypeLabel: 'Order Type',
-  orderTypeDefault: 'All Order Type',
-  orderIdLabel: 'Order ID',
-  orderIdPlaceholder: 'Enter Order ID',
-  searchLabel: 'Search',
-  tableFooter: 'Showing 1 to 8 of 10 records',
+  trendTitle: 'Order trend',
+  trendSubtitle: 'Daily order count for the selected period',
+  dailyTableTitle: 'Daily order breakdown',
+  dailyTableSubtitle: 'Orders, gross sales, grand total, and collected amount by business date',
 } as const;
 
 export const MOCK_REPORTS_ORDERS_SESSION_OPTIONS = [
@@ -722,7 +1309,7 @@ export type ReportsSessionItemRow = Readonly<{
 }>;
 
 export type ReportsSessionBlock = Readonly<{
-  id: 'breakfast' | 'lunch' | 'dinner';
+  id: string;
   name: string;
   hours: string;
   orders: string;

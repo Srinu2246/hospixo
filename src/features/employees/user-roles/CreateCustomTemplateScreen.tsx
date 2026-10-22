@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -57,11 +58,15 @@ export function CreateCustomTemplateScreen({
   const createCustomRole = useCreateCustomRole();
   const remoteCategories = groupedPermissions.data;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
+  const [syncedRemoteCategories, setSyncedRemoteCategories] = useState<
+    PermissionCategory[] | undefined
+  >(undefined);
 
-  useEffect(() => {
-    if (!remoteCategories?.length) return;
+  // Sync draft permissions when remote categories first load / change (render-time adjust).
+  if (remoteCategories?.length && remoteCategories !== syncedRemoteCategories) {
+    setSyncedRemoteCategories(remoteCategories);
     setCategories(remoteCategories);
-  }, [remoteCategories]);
+  }
 
   const footerTarget = useAppShellFooterTarget();
 
