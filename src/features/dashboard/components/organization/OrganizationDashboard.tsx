@@ -18,10 +18,7 @@ import type {
   TopPerformingBranch,
 } from '../../types/dashboard.types';
 import { DashboardStatCard } from '../shared/DashboardStatCard';
-import { QuickHelpCard } from '../shared/QuickHelpCard';
-import { AiBusinessInsightsCard } from './AiBusinessInsightsCard';
 import { CompanyPerformanceTable } from './CompanyPerformanceTable';
-import { NeedsAttentionCard } from './NeedsAttentionCard';
 import { OperationsSummarySection } from './OperationsSummarySection';
 import { SubscriptionUsageCard } from './SubscriptionUsageCard';
 import { TopPerformingBranchesCard } from './TopPerformingBranchesCard';
@@ -117,19 +114,6 @@ export function OrganizationDashboard({
           companiesUsed={hasLiveData ? companies.length : undefined}
           branchesUsed={hasLiveData ? branches.length : undefined}
         />
-      </Box>
-
-      {/* 5. Bottom Row: 3 Columns (Needs Attention, AI Insights, Quick Help) */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1.1fr 1.3fr 1fr' },
-          gap: 2.5,
-        }}
-      >
-        <NeedsAttentionCard />
-        <AiBusinessInsightsCard />
-        <QuickHelpCard />
       </Box>
     </Box>
   );
