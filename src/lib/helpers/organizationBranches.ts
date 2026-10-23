@@ -10,8 +10,9 @@ import {
   type BranchListItem,
 } from '@/lib/schemas/organization/branches/branchListSchema';
 import { ApiError, type QueryParams } from '@/services/api/types';
+import type { JsonValue } from '@/types/json';
 
-type GetJson = (path: string, params?: QueryParams) => Promise<unknown>;
+type GetJson = (path: string, params?: QueryParams) => Promise<JsonValue>;
 
 /**
  * Load branches the same way as main.
@@ -143,6 +144,6 @@ function dedupeBranches(items: readonly BranchListItem[]): BranchListItem[] {
   return [...byId.values()];
 }
 
-function isMissingEndpoint(error: unknown): boolean {
+function isMissingEndpoint(error: ApiError | Error | object): boolean {
   return error instanceof ApiError && (error.status === 403 || error.status === 404);
 }

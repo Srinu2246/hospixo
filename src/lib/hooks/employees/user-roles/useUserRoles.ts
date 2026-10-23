@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useQuery } from '@/lib/hooks/api/useQuery';
+import type { JsonObject, JsonValue } from '@/types/json';
 
 import {
   enrichDirectoryWithSession,
@@ -75,7 +76,7 @@ export interface UseUserRolesReturn {
   roleCatalog: RoleCatalogItem[];
   isLoading: boolean;
   isError: boolean;
-  error: unknown;
+  error: Error | null;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   selectedRole: string;
@@ -161,7 +162,7 @@ export function useUserRoles(
   const usersQuery = useQuery({
     queryKey: [...usersQueryRoot, listParams, scope, resolvedCompanyId, resolvedBranchId],
     queryFn: async ({ signal }) =>
-      parseUserList(await api.get<unknown>(ApiUrlsV1.users.list, listParams, signal)),
+      parseUserList(await api.get<JsonValue>(ApiUrlsV1.users.list, listParams, signal)),
     enabled: scope !== 'branch' || Boolean(resolvedBranchId),
     initialData:
       initialUserList &&
@@ -229,7 +230,7 @@ export function useUserRoles(
 
   const createMutation = useMutation({
     mutationFn: async (values: UserRoleFormValues) => {
-      const createdPayload = await api.post<unknown>(
+      const createdPayload = await api.post<JsonValue>(
         ApiUrlsV1.users.create,
         toCreateUserBody(values),
       );
@@ -339,7 +340,7 @@ async function syncUserPermissions(
 ): Promise<void> {
   let userRoleId: string | null = null;
   try {
-    const assignments = await api.get<unknown>(userAssignmentsPath(userId));
+    const assignments = await api.get<JsonValue>(userAssignmentsPath(userId));
     userRoleId = readPrimaryUserRoleId(assignments);
   } catch {
     userRoleId = null;
@@ -371,7 +372,7 @@ async function syncUserPermissions(
   );
 }
 
-function useResolvedRoleCatalog(data: unknown): RoleCatalogItem[] {
+function useResolvedRoleCatalog(data: JsonValue | undefined): RoleCatalogItem[] {
   return useMemo(() => {
     if (Array.isArray(data)) return data;
     return data ? parseRoleCatalog(data) : [];
@@ -416,14 +417,14 @@ export function useStaffProfile(
     queryKey: ['api', ApiUrlsV1.users.list, userId],
     enabled,
     queryFn: async ({ signal }) =>
-      api.get<unknown>(ApiUrlsV1.users.detail(userId!), undefined, signal),
+      api.get<JsonValue>(ApiUrlsV1.users.detail(userId!), undefined, signal),
   });
 
   const assignmentsQuery = useQuery({
     queryKey: ['api', ApiUrlsV1.users.list, userId, 'assignments'],
     enabled,
     queryFn: async ({ signal }) =>
-      api.get<unknown>(userAssignmentsPath(userId!), undefined, signal).catch(() => null),
+      api.get<JsonValue>(userAssignmentsPath(userId!), undefined, signal).catch(() => null),
   });
 
   const rolesQuery = useRoleCatalogQuery();
@@ -598,7 +599,7 @@ export function useCreateStaffUser() {
       categories: PermissionCategory[];
       ids: CreateUserIdHints;
     }) => {
-      const rolesPayload = await api.get<unknown>(ApiUrlsV1.roles.list);
+      const rolesPayload = await api.get<JsonValue>(ApiUrlsV1.roles.list);
       const roleCatalog = parseRoleCatalog(rolesPayload);
       const roleCode = resolveRoleCode(input.values.role, roleCatalog);
       const { role, account, user } = useSidebarStore.getState();
@@ -609,13 +610,13 @@ export function useCreateStaffUser() {
       const context = await resolveCreateUserRequestContext(
         { company: input.values.company, branch: input.values.branch },
         input.ids,
-        (path, params) => api.get<unknown>(path, params),
+        (path, params) => api.get<JsonValue>(path, params),
         roleCatalog,
         roleCode,
         directoryAuth,
       );
       const body = toCreateUserBody(input.values, context);
-      const createdPayload = await api.post<unknown>(ApiUrlsV1.users.create, body);
+      const createdPayload = await api.post<JsonValue>(ApiUrlsV1.users.create, body);
       const userId = parseUserRecord(createdPayload)?.id ?? readUserId(createdPayload);
       if (!userId) return;
 
@@ -660,7 +661,7 @@ export function useCreateCustomRole(scope: ScopeType = 'organization') {
       categories: PermissionCategory[];
     }) => {
       const permissionCodes = enabledPermissionCodes(input.categories);
-      await api.post<unknown>(
+      await api.post<JsonValue>(
         ApiUrlsV1.roles.create,
         toCreateRoleBody({
           code: input.values.code,
@@ -686,7 +687,7 @@ export function useRoleCatalogQuery(scope?: ScopeType) {
   return useQuery({
     queryKey: ['api', ApiUrlsV1.roles.list, scope ?? 'all'],
     queryFn: async ({ signal }) =>
-      parseRoleCatalog(await api.get<unknown>(ApiUrlsV1.roles.list, undefined, signal)),
+      parseRoleCatalog(await api.get<JsonValue>(ApiUrlsV1.roles.list, undefined, signal)),
     staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
   });
@@ -740,7 +741,7 @@ export function useRolePermissions(
         page_size: 100,
       };
 
-      return api.get<unknown>(rolePermissionsPath(roleId), params, signal);
+      return api.get<JsonValue>(rolePermissionsPath(roleId), params, signal);
     },
     enabled: roleId != null && roleId !== '',
     staleTime: 60_000,
@@ -752,7 +753,7 @@ export function useRoleTemplates(scope?: ScopeType) {
     queryKey: ['api', ApiUrlsV1.roles.list, 'templates', scope],
     queryFn: async ({ signal }) => {
       try {
-        const rolesPayload = await api.get<unknown>(ApiUrlsV1.roles.list, undefined, signal);
+        const rolesPayload = await api.get<JsonValue>(ApiUrlsV1.roles.list, undefined, signal);
         const parsed = parseRoleTemplates(rolesPayload);
         if (parsed.length > 0) return parsed;
       } catch {
@@ -760,7 +761,7 @@ export function useRoleTemplates(scope?: ScopeType) {
       }
 
       try {
-        const templatesPayload = await api.get<unknown>(
+        const templatesPayload = await api.get<JsonValue>(
           ApiUrlsV1.roles.templates,
           undefined,
           signal,
@@ -780,7 +781,7 @@ export function useGroupedPermissions(enabled = true) {
     enabled,
     queryFn: async ({ signal }) => {
       try {
-        const payload = await api.get<unknown>(ApiUrlsV1.permissions.grouped, undefined, signal);
+        const payload = await api.get<JsonValue>(ApiUrlsV1.permissions.grouped, undefined, signal);
         const parsed = parseGroupedPermissions(payload);
         if (parsed.length > 0) return parsed;
       } catch {
@@ -838,7 +839,7 @@ export function useEmployeeDirectory(
       const get = (
         path: string,
         params?: Record<string, string | number | boolean | null | undefined>,
-      ) => api.get<unknown>(path, params, signal);
+      ) => api.get<JsonValue>(path, params, signal);
 
       const sessionHints = {
         companyId: resolvedCompanyId ?? undefined,
@@ -868,7 +869,7 @@ export function useEmployeeDirectory(
   });
 }
 
-function compact(record: Record<string, unknown>): Record<string, string | number> {
+function compact(record: JsonObject): Record<string, string | number> {
   return Object.fromEntries(
     Object.entries(record).filter(
       (entry): entry is [string, string | number] =>

@@ -5,8 +5,9 @@ import {
   type CompanyListItem,
 } from '@/lib/schemas/organization/companies/companyListSchema';
 import { ApiError, type QueryParams } from '@/services/api/types';
+import type { JsonObject, JsonValue } from '@/types/json';
 
-type GetJson = (path: string, params?: QueryParams) => Promise<unknown>;
+type GetJson = (path: string, params?: QueryParams) => Promise<JsonValue>;
 
 export type LoadOrganizationCompaniesContext = {
   role?: string | null;
@@ -104,7 +105,7 @@ async function fetchAllPlatformCompanies(
   return dedupeById(collected);
 }
 
-function readTotalPages(payload: unknown, currentPage: number): number {
+function readTotalPages(payload: JsonValue, currentPage: number): number {
   const root = isRecord(payload) ? payload : null;
   const data =
     root?.success === true && isRecord(root.data) ? root.data : isRecord(payload) ? payload : null;
@@ -119,7 +120,7 @@ function dedupeById(items: readonly CompanyListItem[]): CompanyListItem[] {
   return [...byId.values()];
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: JsonValue | undefined): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -146,6 +147,6 @@ export async function loadCompanyById(
   return null;
 }
 
-function isMissingEndpoint(error: unknown): boolean {
+function isMissingEndpoint(error: ApiError | Error | object): boolean {
   return error instanceof ApiError && (error.status === 403 || error.status === 404);
 }

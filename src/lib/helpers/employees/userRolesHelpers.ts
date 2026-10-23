@@ -19,9 +19,10 @@ import {
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { ScopeType } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { QueryParams } from '@/services/api/types';
+import type { JsonValue } from '@/types/json';
 import { userRolePermissionsPath } from '@/services/api/ApiUrlsV1';
 
-type GetJson = (path: string, params?: QueryParams) => Promise<unknown>;
+type GetJson = (path: string, params?: QueryParams) => Promise<JsonValue>;
 
 export type SessionDirectoryHints = {
   companyId?: number;
@@ -420,7 +421,7 @@ export async function resolveCreateUserRequestContext(
   };
 }
 
-function normalizeId(value: unknown): number | undefined {
+function normalizeId(value: JsonValue | undefined): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim()) {
     const parsed = Number(value);
@@ -504,7 +505,7 @@ export async function resolveAssignmentPermissionsPayload(
   userId: number | string,
   userRoleId: number | string,
   categories: readonly PermissionCategory[],
-  get: (path: string) => Promise<unknown>,
+  get: (path: string) => Promise<JsonValue>,
 ): Promise<{
   permission_codes: string[];
   permission_ids: string[];

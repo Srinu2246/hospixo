@@ -5,7 +5,9 @@ import { useEffect, useMemo } from 'react';
 import { loadCompanyById } from '@/lib/helpers/organizationCompanies';
 import { useEmployeeDirectory } from '@/lib/hooks/employees/user-roles';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import { isRecord } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { api } from '@/services/api/browserClient';
+import type { JsonObject } from '@/types/json';
 
 /** Resolves the active company display name from session, /me, or directory lookup. */
 export function useResolvedCompanyName(explicitName?: string): string | undefined {
@@ -33,7 +35,7 @@ export function useResolvedCompanyName(explicitName?: string): string | undefine
   const accountRecord = account as (typeof account & { company_name?: string }) | null;
   const fromAccount =
     accountRecord?.company_name?.trim() ||
-    readNestedEntityName(accountRecord as Record<string> | undefined, 'company');
+    readNestedEntityName(toJsonObject(accountRecord), 'company');
 
   const resolved =
     explicitName?.trim() || contextCompanyName?.trim() || fromAccount || fromDirectory || undefined;
@@ -62,8 +64,13 @@ export function useResolvedCompanyName(explicitName?: string): string | undefine
   return resolved;
 }
 
+function toJsonObject(value: object | null | undefined): JsonObject | undefined {
+  if (value == null || Array.isArray(value)) return undefined;
+  return value as JsonObject;
+}
+
 function readNestedEntityName(
-  record: Record<string, unknown> | undefined,
+  record: JsonObject | undefined,
   key: 'company' | 'branch',
 ): string | undefined {
   if (!record) return undefined;
@@ -71,8 +78,8 @@ function readNestedEntityName(
   if (typeof flat === 'string' && flat.trim()) return flat.trim();
   const nested = record[key];
   if (typeof nested === 'string' && nested.trim()) return nested.trim();
-  if (typeof nested === 'object' && nested !== null && !Array.isArray(nested)) {
-    const name = (nested as Record<string, unknown>).name;
+  if (isRecord(nested)) {
+    const name = nested.name;
     if (typeof name === 'string' && name.trim()) return name.trim();
   }
   return undefined;

@@ -6,6 +6,7 @@ import {
   emailSchema,
   usernameSchema,
 } from '@/lib/schemas/commonFieldsSchema';
+import type { JsonObject, JsonValue } from '@/types/json';
 
 export { phoneSchema, passwordSchema, personNameSchema, emailSchema, usernameSchema };
 
@@ -267,7 +268,7 @@ export type ParsedUserList = {
 
 export type UserRoleListResponse = ParsedUserList;
 
-export function parseUserList(payload: unknown): ParsedUserList {
+export function parseUserList(payload: JsonValue): ParsedUserList {
   const rows = unwrapUsers(payload);
   const items = rows.flatMap((row) => {
     const coerced = coerceUserItem(mapUserRow(row));
@@ -345,13 +346,13 @@ export function resolveRoleLabelFromCatalog(
   return undefined;
 }
 
-export function parseUserRecord(payload: unknown): UserRoleItem | null {
+export function parseUserRecord(payload: JsonValue): UserRoleItem | null {
   const unwrapped = unwrapEnvelope(payload);
   if (!isRecord(unwrapped)) return null;
   return coerceUserItem(mapUserRow(unwrapped));
 }
 
-export function readUserId(payload: unknown): string | null {
+export function readUserId(payload: JsonValue): string | null {
   const user = parseUserRecord(payload);
   if (user) return user.id;
   if (!isRecord(payload)) return null;
@@ -359,7 +360,7 @@ export function readUserId(payload: unknown): string | null {
   return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
 }
 
-export function parseRoleCatalog(payload: unknown): RoleCatalogItem[] {
+export function parseRoleCatalog(payload: JsonValue): RoleCatalogItem[] {
   return unwrapRoles(payload).flatMap((row) => {
     const code = text(row.code) ?? text(row.role_code);
     const id = row.id ?? row.role_id ?? row.roleId ?? code;
@@ -383,7 +384,7 @@ export function parseRoleCatalog(payload: unknown): RoleCatalogItem[] {
   });
 }
 
-export function parseRoleTemplates(payload: unknown): RoleTemplateItem[] {
+export function parseRoleTemplates(payload: JsonValue): RoleTemplateItem[] {
   return unwrapRoles(payload).flatMap((row) => {
     const mapped = mapRoleTemplateRow(row);
     const parsed = roleTemplateItemSchema.safeParse(mapped);
@@ -401,7 +402,7 @@ export function parseRoleTemplates(payload: unknown): RoleTemplateItem[] {
   });
 }
 
-export function parseGroupedPermissions(payload: unknown): PermissionCategory[] {
+export function parseGroupedPermissions(payload: JsonValue): PermissionCategory[] {
   const unwrapped = unwrapEnvelope(payload);
   const groups = extractPermissionGroups(unwrapped);
 
@@ -411,7 +412,7 @@ export function parseGroupedPermissions(payload: unknown): PermissionCategory[] 
       (g) => isRecord(g) && !('permissions' in g) && !('items' in g) && !('children' in g),
     )
   ) {
-    const map = new Map<string, unknown[]>();
+    const map = new Map<string, JsonValue[]>();
     groups.forEach((item) => {
       if (!isRecord(item)) return;
       const moduleName =
@@ -494,7 +495,7 @@ const PERMISSION_DESCRIPTION_OVERRIDES: Record<string, string> = {
 };
 
 /** Maps GET /v1/roles/{roleId}/permissions into display categories (no grouped catalog required). */
-export function parseRolePermissionsToCategories(payload: unknown): PermissionCategory[] {
+export function parseRolePermissionsToCategories(payload: JsonValue): PermissionCategory[] {
   if (payload == null) return [];
 
   const unwrapped = unwrapEnvelope(payload);
@@ -584,7 +585,7 @@ function toTitleCase(value: string): string {
     .join(' ');
 }
 
-function resolvePermissionCategoryTitle(raw: Record<string, unknown>, groupIndex: number): string {
+function resolvePermissionCategoryTitle(raw: JsonObject, groupIndex: number): string {
   const explicit = text(raw.title) ?? text(raw.name) ?? text(raw.label);
   if (
     explicit &&
@@ -617,7 +618,7 @@ function resolvePermissionCategoryTitle(raw: Record<string, unknown>, groupIndex
 }
 
 function resolvePermissionItemName(
-  entry: Record<string, unknown>,
+  entry: JsonObject,
   categoryTitle: string,
   permissionIndex: number,
 ): string {
@@ -671,7 +672,7 @@ function resolvePermissionItemName(
   return `Permission ${permissionIndex + 1}`;
 }
 
-function resolvePermissionItemDescription(entry: Record<string, unknown>, name: string): string {
+function resolvePermissionItemDescription(entry: JsonObject, name: string): string {
   const desc = text(entry.description);
   if (desc) return desc;
 
@@ -684,7 +685,7 @@ function resolvePermissionItemDescription(entry: Record<string, unknown>, name: 
   return `Allows user to ${name.toLowerCase()}`;
 }
 
-function mapPermissionGroup(raw: Record<string, unknown>, groupIndex: number): PermissionCategory {
+function mapPermissionGroup(raw: JsonObject, groupIndex: number): PermissionCategory {
   const title = resolvePermissionCategoryTitle(raw, groupIndex);
   const categoryId = readPermissionGroupId(raw, title, groupIndex);
 
@@ -727,11 +728,7 @@ function mapPermissionGroup(raw: Record<string, unknown>, groupIndex: number): P
   };
 }
 
-function readPermissionGroupId(
-  raw: Record<string, unknown>,
-  title: string,
-  groupIndex: number,
-): string {
+function readPermissionGroupId(raw: JsonObject, title: string, groupIndex: number): string {
   for (const key of ['id', 'key', 'code', 'name', 'title', 'label', 'group_key', 'groupKey']) {
     const value = raw[key];
     if (value == null || !String(value).trim()) continue;
@@ -772,7 +769,7 @@ function isPlaceholderPermissionId(id: string): boolean {
 }
 
 function readPermissionItemId(
-  entry: Record<string, unknown>,
+  entry: JsonObject,
   name: string,
   categoryId: string,
   permissionIndex: number,
@@ -1129,7 +1126,7 @@ export function buildCreateUserRequest(
   );
 }
 
-function readRoleScope(value: unknown): RoleScope | undefined {
+function readRoleScope(value: JsonValue): RoleScope | undefined {
   const token = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (token === 'organization' || token === 'company' || token === 'branch') {
     return token;
@@ -1140,7 +1137,7 @@ function readRoleScope(value: unknown): RoleScope | undefined {
 export function toCreateUserBody(
   values: UserRoleFormValues | CreateUserMultiformValues,
   context?: CreateUserRequestContext,
-): CreateUserRequest | Record<string, unknown> {
+): CreateUserRequest | JsonObject {
   if ('firstName' in values) {
     if (!context) {
       throw new Error('Create user requires organization, company, and branch context.');
@@ -1156,7 +1153,7 @@ export function toCreateUserBody(
     username: values.email.trim().toLowerCase(),
     status: values.status,
     branch_name: values.branch,
-    company_name: values.company,
+    company_name: values.company ?? '',
   });
 }
 
@@ -1200,7 +1197,7 @@ export function isUserEditDisabled(
   return false;
 }
 
-export function toUpdateUserBody(values: StaffProfileFormValues): Record<string, unknown> {
+export function toUpdateUserBody(values: StaffProfileFormValues): JsonObject {
   const formattedPhone = formatPhoneNumberWithCountryCode(
     values.phoneNumber,
     values.countryCode || '+91',
@@ -1217,7 +1214,7 @@ export function toUpdateUserBody(values: StaffProfileFormValues): Record<string,
   });
 }
 
-export function toUserStatusBody(status: UserStatus): Record<string, unknown> {
+export function toUserStatusBody(status: UserStatus): JsonObject {
   const normalized = status === 'disabled' ? 'inactive' : status;
   return { status: normalized };
 }
@@ -1228,7 +1225,7 @@ export type RoleAssignmentHints = {
   scope?: ScopeType | string | null;
 };
 
-function toRoleEntry(roleCode: string, hints?: RoleAssignmentHints): Record<string, unknown> {
+function toRoleEntry(roleCode: string, hints?: RoleAssignmentHints): JsonObject {
   const branchId =
     hints?.branchId != null && hints.branchId !== '' ? Number(hints.branchId) : undefined;
   const companyId =
@@ -1244,7 +1241,7 @@ function toRoleEntry(roleCode: string, hints?: RoleAssignmentHints): Record<stri
 export function toReplaceRolesBody(
   roleCodeOrCodes: string | readonly string[],
   hints?: RoleAssignmentHints,
-): Record<string, unknown> {
+): JsonObject {
   const codes = Array.isArray(roleCodeOrCodes) ? roleCodeOrCodes : [roleCodeOrCodes];
   const roles = codes
     .map((code) => String(code).trim())
@@ -1254,10 +1251,7 @@ export function toReplaceRolesBody(
   return { roles };
 }
 
-export function toAssignRoleBody(
-  roleCode: string,
-  hints?: RoleAssignmentHints,
-): Record<string, unknown> {
+export function toAssignRoleBody(roleCode: string, hints?: RoleAssignmentHints): JsonObject {
   return toRoleEntry(roleCode, hints);
 }
 
@@ -1269,12 +1263,12 @@ export type CreateRoleBodyInput = {
   permissionCodes: string[];
 };
 
-export function toCreateRoleBody(input: CreateRoleBodyInput): Record<string, unknown> {
+export function toCreateRoleBody(input: CreateRoleBodyInput): JsonObject {
   const description = input.description?.trim();
   return compact({
     code: input.code.trim(),
     display_name: input.displayName.trim(),
-    description: description || undefined,
+    description: description ?? '',
     scope: input.scope,
     permission_codes: input.permissionCodes,
   });
@@ -1282,11 +1276,11 @@ export function toCreateRoleBody(input: CreateRoleBodyInput): Record<string, unk
 
 export function staffProfileFromUser(
   user: UserRoleItem,
-  raw?: unknown,
+  raw?: JsonValue,
   catalog?: readonly RoleCatalogItem[],
 ): StaffProfileFormValues {
   const rawRecord = isRecord(raw)
-    ? flattenUserRecord(unwrapEnvelope(raw) as Record<string, unknown>)
+    ? flattenUserRecord(unwrapEnvelope(raw) as JsonObject)
     : undefined;
   const { firstName: splitFirst, lastName: splitLast } = splitName(user.name);
   const firstName =
@@ -1423,7 +1417,7 @@ export function resolveRoleId(
   return null;
 }
 
-export function readPrimaryUserRoleId(assignmentsPayload: unknown): string | null {
+export function readPrimaryUserRoleId(assignmentsPayload: JsonValue): string | null {
   const rows = unwrapAssignments(assignmentsPayload);
   const first = rows[0];
   if (!first) return null;
@@ -1432,7 +1426,7 @@ export function readPrimaryUserRoleId(assignmentsPayload: unknown): string | nul
 }
 
 /** Role template id for GET /v1/roles/{roleId}/permissions. */
-export function readPrimaryRoleTemplateId(assignmentsPayload: unknown): string | null {
+export function readPrimaryRoleTemplateId(assignmentsPayload: JsonValue): string | null {
   const rows = unwrapAssignments(assignmentsPayload);
   const first = rows[0];
   if (!first) return null;
@@ -1470,7 +1464,7 @@ function coerceUserItem(mapped: UserRoleItem): UserRoleItem | null {
   return parsed.success ? parsed.data : null;
 }
 
-function mapUserRow(raw: Record<string, unknown>): UserRoleItem {
+function mapUserRow(raw: JsonObject): UserRoleItem {
   const source = flattenUserRecord(raw);
   const id =
     source.id ??
@@ -1551,9 +1545,9 @@ function mapUserRow(raw: Record<string, unknown>): UserRoleItem {
   };
 }
 
-function flattenUserRecord(raw: Record<string, unknown>): Record<string, unknown> {
+function flattenUserRecord(raw: JsonObject): JsonObject {
   const nestedKeys = ['user', 'profile', 'account', 'member', 'staff'] as const;
-  let merged: Record<string, unknown> = { ...raw };
+  let merged: JsonObject = { ...raw };
 
   for (const key of nestedKeys) {
     const nested = raw[key];
@@ -1565,7 +1559,7 @@ function flattenUserRecord(raw: Record<string, unknown>): Record<string, unknown
   return merged;
 }
 
-function mapRoleTemplateRow(raw: Record<string, unknown>): RoleTemplateItem {
+function mapRoleTemplateRow(raw: JsonObject): RoleTemplateItem {
   const id = raw.id ?? raw.template_id ?? raw.role_id;
   const roleName = readRoleLabel(raw) ?? 'Role';
   const iconSource = `${roleName} ${text(raw.code) ?? ''}`;
@@ -1592,7 +1586,7 @@ function humanizeRoleCode(code: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function readRoleLabel(raw: Record<string, unknown>): string | undefined {
+function readRoleLabel(raw: JsonObject): string | undefined {
   return (
     text(raw.display_name) ??
     text(raw.displayName) ??
@@ -1623,7 +1617,7 @@ function inferTemplateIcon(roleName: string): RoleTemplateItem['icon'] {
   return 'restaurant';
 }
 
-function extractPermissionGroups(payload: unknown): unknown[] {
+function extractPermissionGroups(payload: JsonValue): JsonValue[] {
   if (Array.isArray(payload)) return payload;
   if (!isRecord(payload)) return [];
   for (const key of ['groups', 'categories', 'items', 'data', 'permissions'] as const) {
@@ -1641,10 +1635,10 @@ function extractPermissionGroups(payload: unknown): unknown[] {
 }
 
 function unwrapRecords(
-  payload: unknown,
+  payload: JsonValue,
   keys: readonly string[],
   fallbackToRecord = false,
-): Record<string, unknown>[] {
+): JsonObject[] {
   const root = unwrapEnvelope(payload);
   if (Array.isArray(root)) return root.filter(isRecord);
   if (!isRecord(root)) return [];
@@ -1663,11 +1657,11 @@ function unwrapRecords(
 
 const ASSIGNMENT_KEYS = ['items', 'assignments', 'roles', 'data'] as const;
 
-function unwrapAssignments(payload: unknown): Record<string, unknown>[] {
+function unwrapAssignments(payload: JsonValue): JsonObject[] {
   return unwrapRecords(payload, ASSIGNMENT_KEYS, true);
 }
 
-function readPrimaryRoleName(value: unknown): string | undefined {
+function readPrimaryRoleName(value: JsonValue): string | undefined {
   if (!Array.isArray(value) || value.length === 0) return undefined;
   const first = value[0];
   if (typeof first === 'string') return first;
@@ -1689,7 +1683,7 @@ function readPrimaryRoleName(value: unknown): string | undefined {
   );
 }
 
-function readNestedName(value: unknown): string | undefined {
+function readNestedName(value: JsonValue): string | undefined {
   if (!isRecord(value)) return undefined;
   return readRoleLabel(value) ?? text(value.title);
 }
@@ -1700,7 +1694,7 @@ type UserRoleFields = {
   roleCode?: string;
 };
 
-function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
+function readUserRoleFields(source: JsonObject): UserRoleFields {
   const directRole =
     typeof source.role === 'string' && source.role.trim() ? source.role.trim() : undefined;
 
@@ -1740,7 +1734,7 @@ function readUserRoleFields(source: Record<string, unknown>): UserRoleFields {
   return { label, roleId, roleCode };
 }
 
-function readRoleId(value: unknown): string | number | undefined {
+function readRoleId(value: JsonValue): string | number | undefined {
   if (typeof value === 'number' || typeof value === 'string') return value;
   if (isRecord(value)) {
     const id = value.id ?? value.role_id ?? value.roleId;
@@ -1749,7 +1743,7 @@ function readRoleId(value: unknown): string | number | undefined {
   return undefined;
 }
 
-function readRoleIdFromCollection(value: unknown): string | number | undefined {
+function readRoleIdFromCollection(value: JsonValue): string | number | undefined {
   if (!Array.isArray(value) || value.length === 0) return undefined;
   const first = value[0];
   if (!isRecord(first)) return undefined;
@@ -1760,7 +1754,7 @@ function readRoleIdFromCollection(value: unknown): string | number | undefined {
   );
 }
 
-function readRoleCodeFromCollection(value: unknown): string | undefined {
+function readRoleCodeFromCollection(value: JsonValue): string | undefined {
   if (!Array.isArray(value) || value.length === 0) return undefined;
   const first = value[0];
   if (!isRecord(first)) return undefined;
@@ -1771,7 +1765,7 @@ function readRoleCodeFromCollection(value: unknown): string | undefined {
   );
 }
 
-function normalizeStatus(raw: Record<string, unknown> | string): UserStatus {
+function normalizeStatus(raw: JsonObject | string): UserStatus {
   if (typeof raw === 'string') {
     return normalizeStatusToken(raw);
   }
@@ -1821,16 +1815,16 @@ const USER_KEYS = [
 
 const ROLE_KEYS = ['items', 'roles', 'templates', 'results', 'rows', 'data'] as const;
 
-function unwrapUsers(payload: unknown): Record<string, unknown>[] {
+function unwrapUsers(payload: JsonValue): JsonObject[] {
   return unwrapRecords(payload, USER_KEYS);
 }
 
-function unwrapRoles(payload: unknown): Record<string, unknown>[] {
+function unwrapRoles(payload: JsonValue): JsonObject[] {
   return unwrapRecords(payload, ROLE_KEYS);
 }
 
-function readTotal(payload: unknown, fallback: number): number {
-  let node: unknown = payload;
+function readTotal(payload: JsonValue, fallback: number): number {
+  let node: JsonValue = payload;
   for (let depth = 0; depth < 4; depth += 1) {
     node = unwrapEnvelope(node);
     if (!isRecord(node)) break;
@@ -1850,8 +1844,8 @@ function readTotal(payload: unknown, fallback: number): number {
   return fallback;
 }
 
-export function unwrapEnvelope(payload: unknown): unknown {
-  let current: unknown = payload;
+export function unwrapEnvelope(payload: JsonValue): JsonValue {
+  let current: JsonValue = payload;
 
   for (let depth = 0; depth < 5; depth += 1) {
     if (!isRecord(current)) break;
@@ -1884,20 +1878,20 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
-function compact(record: Record<string, unknown>): Record<string, unknown> {
+function compact(record: JsonObject): JsonObject {
   return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined));
 }
 
-function text(value: unknown): string | undefined {
+function text(value: JsonValue | undefined): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
-function textOrNumber(value: unknown): string | undefined {
+function textOrNumber(value: JsonValue | undefined): string | undefined {
   if (typeof value === 'string' && value.trim()) return value.trim();
   if (typeof value === 'number' && !Number.isNaN(value)) return String(value);
   return undefined;
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: JsonValue | undefined): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
