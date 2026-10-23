@@ -34,6 +34,7 @@ function CategoriesSidebarSkeleton() {
         flexShrink: 0,
         alignSelf: 'stretch',
         height: { md: '100%' },
+        maxHeight: { xs: 240, sm: 280, md: 'none' },
         p: 1.5,
         display: 'flex',
         flexDirection: 'column',
@@ -128,7 +129,16 @@ function MenuListPane() {
   const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}::${sessionFilter}`;
 
   return (
-    <>
+    <Stack
+      spacing={2}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        minHeight: 0,
+        width: '100%',
+        display: 'flex',
+      }}
+    >
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1.5}
@@ -197,22 +207,34 @@ function MenuListPane() {
           onChange={setSessionFilter}
           minWidth={200}
           size="medium"
+          sx={{ width: { xs: '100%', sm: 'auto' } }}
         />
       </Stack>
 
-      <MenuItemsListBody
-        listKey={listKey}
-        filteredItems={filteredItems}
-        categoriesEmpty={categories.length === 0}
-        canManageCategories={pageConfig.canManageCategories}
-        isItemsLoading={Boolean(isItemsLoading)}
-        itemsEmpty={items.length === 0}
-        itemsError={itemsError}
-        onView={openViewItem}
-        onEdit={openEditItem}
-        onDelete={setDeleteTargetItem}
-        onAddCategory={openCreateCategory}
-      />
+      <Box
+        sx={{
+          flex: { md: 1 },
+          minHeight: { xs: 360, md: 0 },
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          minWidth: 0,
+        }}
+      >
+        <MenuItemsListBody
+          listKey={listKey}
+          filteredItems={filteredItems}
+          categoriesEmpty={categories.length === 0}
+          canManageCategories={pageConfig.canManageCategories}
+          isItemsLoading={Boolean(isItemsLoading)}
+          itemsEmpty={items.length === 0}
+          itemsError={itemsError}
+          onView={openViewItem}
+          onEdit={openEditItem}
+          onDelete={setDeleteTargetItem}
+          onAddCategory={openCreateCategory}
+        />
+      </Box>
 
       {deleteError ? (
         <AlertMessage
@@ -243,7 +265,7 @@ function MenuListPane() {
         }}
         item={deleteTargetItem}
       />
-    </>
+    </Stack>
   );
 }
 
@@ -317,7 +339,21 @@ function MenuMainPane() {
     );
   }
 
-  return <MenuListPane />;
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        width: '100%',
+        overflow: { xs: 'visible', md: 'hidden' },
+      }}
+    >
+      <MenuListPane />
+    </Box>
+  );
 }
 
 /**
@@ -332,28 +368,40 @@ export function MenuContent() {
     <Box
       sx={{
         display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        gap: 2,
+        flexDirection: 'column',
         width: '100%',
         height: '100%',
         minHeight: 0,
-        alignItems: 'stretch',
+        overflow: { xs: 'visible', md: 'hidden' },
       }}
     >
-      {showCategorySkeleton ? <CategoriesSidebarSkeleton /> : <MenuSidebar />}
-
-      <Stack
-        spacing={2}
+      <Box
         sx={{
-          flex: 1,
-          minWidth: 0,
-          minHeight: 0,
-          height: { md: '100%' },
-          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+          width: '100%',
+          flex: { md: 1 },
+          minHeight: { md: 0 },
+          alignItems: 'stretch',
         }}
       >
-        <MenuMainPane />
-      </Stack>
+        {showCategorySkeleton ? <CategoriesSidebarSkeleton /> : <MenuSidebar />}
+
+        <Stack
+          spacing={0}
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: { xs: 0, md: 0 },
+            height: { md: '100%' },
+            overflow: { xs: 'visible', md: 'hidden' },
+            display: 'flex',
+          }}
+        >
+          <MenuMainPane />
+        </Stack>
+      </Box>
     </Box>
   );
 }

@@ -1,11 +1,14 @@
 import type { HttpMethod, QueryParams } from '@/services/api/types';
 
 import {
+  reportsOrdersListResponseSchema,
   reportsOrdersSummaryResponseSchema,
   reportsOverviewResponseSchema,
   reportsPaymentsResponseSchema,
   reportsSalesResponseSchema,
   reportsSessionsResponseSchema,
+  reportsUsersLogsResponseSchema,
+  type ReportsUsersLogsShiftRow,
 } from '@/lib/schemas/reports/reports/branchReports';
 
 const ordersDailyMetrics = (
@@ -487,8 +490,168 @@ type BranchReportsMockRequest = {
 const REPORTS_OVERVIEW_PATH = /^\/v1\/branches\/(\d+)\/reports\/overview$/;
 const REPORTS_SALES_PATH = /^\/v1\/branches\/(\d+)\/reports\/sales$/;
 const REPORTS_ORDERS_SUMMARY_PATH = /^\/v1\/branches\/(\d+)\/reports\/orders\/summary$/;
+const REPORTS_ORDERS_LIST_PATH = /^\/v1\/branches\/(\d+)\/reports\/orders$/;
 const REPORTS_SESSIONS_PATH = /^\/v1\/branches\/(\d+)\/reports\/sessions$/;
 const REPORTS_PAYMENTS_PATH = /^\/v1\/branches\/(\d+)\/reports\/payments$/;
+const REPORTS_USERS_LOGS_PATH = /^\/v1\/branches\/(\d+)\/reports\/users-logs$/;
+
+const MOCK_USERS_LOGS_BILLING_USERS: readonly { userId: number; name: string }[] = [
+  { userId: 101, name: 'Santhosh' },
+  { userId: 102, name: 'Miller' },
+  { userId: 103, name: 'Priya S.' },
+  { userId: 104, name: 'Vijay' },
+  { userId: 105, name: 'Rajesh' },
+  { userId: 106, name: 'Ravi' },
+  { userId: 107, name: 'Raghu' },
+  { userId: 108, name: 'Nitesh' },
+];
+
+function buildMockUsersLogsItems(): ReportsUsersLogsShiftRow[] {
+  const seeds: readonly Omit<ReportsUsersLogsShiftRow, 'shift_id' | 'user_id' | 'opened_by'>[] = [
+    {
+      opened_at: '2026-07-22T10:04:03.000Z',
+      opening_balance: '1764321.00',
+      closed_at: null,
+      closed_by: null,
+      total_orders: 0,
+      cash_collected: '0.00',
+      upi_collected: '0.00',
+      card_collected: '0.00',
+      total_collected: '0.00',
+      status: 'open',
+    },
+    {
+      opened_at: '2026-07-21T10:04:03.000Z',
+      opening_balance: '1750000.00',
+      closed_at: '2026-07-22T23:59:59.000Z',
+      closed_by: 'Miller',
+      total_orders: 120,
+      cash_collected: '1750009.00',
+      upi_collected: '2636.00',
+      card_collected: '0.00',
+      total_collected: '1752645.00',
+      status: 'closed',
+    },
+    {
+      opened_at: '2026-07-19T12:38:16.000Z',
+      opening_balance: '1761725.00',
+      closed_at: '2026-07-21T23:59:59.000Z',
+      closed_by: 'Priya S.',
+      total_orders: 142,
+      cash_collected: '1750009.00',
+      upi_collected: '0.00',
+      card_collected: '0.00',
+      total_collected: '1750009.00',
+      status: 'closed',
+    },
+    {
+      opened_at: '2026-07-19T09:12:00.000Z',
+      opening_balance: '1768938.00',
+      closed_at: '2026-07-20T23:59:59.000Z',
+      closed_by: 'Vijay',
+      total_orders: 193,
+      cash_collected: '1467570.00',
+      upi_collected: '0.00',
+      card_collected: '0.00',
+      total_collected: '1467570.00',
+      status: 'closed',
+    },
+    {
+      opened_at: '2026-07-18T08:30:00.000Z',
+      opening_balance: '1725874.00',
+      closed_at: '2026-07-19T23:59:59.000Z',
+      closed_by: 'Rajesh',
+      total_orders: 0,
+      cash_collected: '0.00',
+      upi_collected: '0.00',
+      card_collected: '0.00',
+      total_collected: '0.00',
+      status: 'closed',
+    },
+    {
+      opened_at: '2026-07-17T07:45:00.000Z',
+      opening_balance: '1705888.00',
+      closed_at: '2026-07-18T23:59:59.000Z',
+      closed_by: 'Ravi',
+      total_orders: 122,
+      cash_collected: '1792816.00',
+      upi_collected: '0.00',
+      card_collected: '0.00',
+      total_collected: '1792816.00',
+      status: 'closed',
+    },
+    {
+      opened_at: '2026-07-17T18:02:03.000Z',
+      opening_balance: '1781003.00',
+      closed_at: '2026-07-17T23:59:59.000Z',
+      closed_by: 'Raghu',
+      total_orders: 121,
+      cash_collected: '1719480.00',
+      upi_collected: '0.00',
+      card_collected: '0.00',
+      total_collected: '1719480.00',
+      status: 'closed',
+    },
+    {
+      opened_at: '2026-07-17T09:18:00.000Z',
+      opening_balance: '1713162.00',
+      closed_at: '2026-07-16T23:59:59.000Z',
+      closed_by: 'Nitesh',
+      total_orders: 132,
+      cash_collected: '1748481.00',
+      upi_collected: '0.00',
+      card_collected: '0.00',
+      total_collected: '1748481.00',
+      status: 'closed',
+    },
+  ];
+
+  return Array.from({ length: 31 }, (_, index) => {
+    const billing = MOCK_USERS_LOGS_BILLING_USERS[index % MOCK_USERS_LOGS_BILLING_USERS.length];
+    const seed = seeds[index % seeds.length];
+    return {
+      shift_id: 5000 + index + 1,
+      user_id: billing.userId,
+      opened_by: billing.name,
+      ...seed,
+    };
+  });
+}
+
+const MOCK_USERS_LOGS_ALL_ITEMS = buildMockUsersLogsItems();
+
+export const MOCK_REPORTS_USERS_LOGS_RESPONSE = reportsUsersLogsResponseSchema.parse({
+  success: true,
+  message: 'OK',
+  request_id: 'mock-reports-users-logs',
+  data: {
+    summary: {
+      total_invoices: 142,
+      total_invoices_change_percent: '12.4',
+      gross_sales: '1752645.00',
+      gross_sales_change_percent: '9.8',
+      staff_worked: 8,
+      staff_worked_change_percent: '4.2',
+      total_collected: '1752645.00',
+      total_collected_change_percent: '9.8',
+      open_shifts: 2,
+      closed_shifts: 6,
+    },
+    items: MOCK_USERS_LOGS_ALL_ITEMS.slice(0, 10),
+    total: MOCK_USERS_LOGS_ALL_ITEMS.length,
+    page: 1,
+    page_size: 10,
+  },
+});
+
+export const REPORTS_USERS_LOGS_BILLING_FILTER_OPTIONS = [
+  { value: 'all', label: 'All Billing User' },
+  ...MOCK_USERS_LOGS_BILLING_USERS.map((user) => ({
+    value: String(user.userId),
+    label: user.name,
+    userId: user.userId,
+  })),
+] as const;
 
 export function resolveBranchReportsMock(request: BranchReportsMockRequest): unknown | undefined {
   const overviewMatch = REPORTS_OVERVIEW_PATH.exec(request.path);
@@ -545,8 +708,43 @@ export function resolveBranchReportsMock(request: BranchReportsMockRequest): unk
       data: {
         ...data,
         branch_id: branchId,
-        date_from: String(request.params?.date_from ?? data.date_from),
-        date_to: String(request.params?.date_to ?? data.date_to),
+        date_from: String(request.params?.from_date ?? request.params?.date_from ?? data.date_from),
+        date_to: String(request.params?.to_date ?? request.params?.date_to ?? data.date_to),
+      },
+    };
+  }
+
+  const ordersListMatch = REPORTS_ORDERS_LIST_PATH.exec(request.path);
+  if (ordersListMatch && request.method === 'GET') {
+    let items = [...MOCK_ORDERS_LIST_ALL_ITEMS];
+
+    const orderTypeParam = request.params?.order_type;
+    if (typeof orderTypeParam === 'string' && orderTypeParam.trim()) {
+      const normalized = orderTypeParam.trim().toLowerCase();
+      items = items.filter((row) => row.order_type.toLowerCase() === normalized);
+    }
+
+    const searchParam = request.params?.search;
+    if (typeof searchParam === 'string' && searchParam.trim()) {
+      const needle = searchParam.trim().toLowerCase();
+      items = items.filter((row) => row.order_number.toLowerCase().includes(needle));
+    }
+
+    const page = Math.max(1, Number(request.params?.page ?? 1) || 1);
+    const pageSize = Math.min(
+      100,
+      Math.max(1, Number(request.params?.page_size ?? reportsOrdersCopy.pageSize) || 8),
+    );
+    const total = items.length;
+    const start = (page - 1) * pageSize;
+
+    return {
+      ...MOCK_REPORTS_ORDERS_LIST_RESPONSE,
+      data: {
+        items: items.slice(start, start + pageSize),
+        total,
+        page,
+        page_size: pageSize,
       },
     };
   }
@@ -585,6 +783,59 @@ export function resolveBranchReportsMock(request: BranchReportsMockRequest): unk
         compare_to: request.params?.compare_to
           ? String(request.params.compare_to)
           : data.compare_to,
+      },
+    };
+  }
+
+  const usersLogsMatch = REPORTS_USERS_LOGS_PATH.exec(request.path);
+  if (usersLogsMatch && request.method === 'GET') {
+    const summary = MOCK_REPORTS_USERS_LOGS_RESPONSE.data.summary;
+    let items = [...MOCK_USERS_LOGS_ALL_ITEMS];
+
+    const userIdParam = request.params?.user_id;
+    if (userIdParam != null && String(userIdParam).trim() !== '') {
+      const userId = Number(userIdParam);
+      if (Number.isFinite(userId)) {
+        items = items.filter((row) => row.user_id === userId);
+      }
+    }
+
+    const searchParam = request.params?.search;
+    if (typeof searchParam === 'string' && searchParam.trim()) {
+      const needle = searchParam.trim().toLowerCase();
+      items = items.filter((row) => row.opened_by.toLowerCase().includes(needle));
+    }
+
+    const sortBy = String(request.params?.sort_by ?? 'opened_at');
+    const sortOrder = String(request.params?.sort_order ?? 'desc').toLowerCase() === 'asc' ? 1 : -1;
+    items.sort((left, right) => {
+      const pick = (row: ReportsUsersLogsShiftRow): string | number => {
+        if (sortBy === 'user_id') return row.user_id;
+        if (sortBy === 'opening_balance') return Number.parseFloat(row.opening_balance) || 0;
+        if (sortBy === 'status') return row.status;
+        if (sortBy === 'closed_at') return row.closed_at ?? '';
+        return row.opened_at;
+      };
+      const leftValue = pick(left);
+      const rightValue = pick(right);
+      if (leftValue < rightValue) return -1 * sortOrder;
+      if (leftValue > rightValue) return 1 * sortOrder;
+      return 0;
+    });
+
+    const page = Math.max(1, Number(request.params?.page ?? 1) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(request.params?.page_size ?? 10) || 10));
+    const total = items.length;
+    const start = (page - 1) * pageSize;
+
+    return {
+      ...MOCK_REPORTS_USERS_LOGS_RESPONSE,
+      data: {
+        summary,
+        items: items.slice(start, start + pageSize),
+        total,
+        page,
+        page_size: pageSize,
       },
     };
   }
@@ -1101,12 +1352,16 @@ export const MOCK_REPORTS_SALES_BREAKDOWN_FOOTER: ReportsSalesBreakdownRow = {
 export const reportsOrdersCopy = {
   title: 'Orders Reports',
   subtitle:
-    'Order counts and revenue attribution for your selected branch and business-date range.',
+    'Review orders, captain assignments, and order status across your selected branch and period.',
   exportLabel: 'Export data',
-  trendTitle: 'Order trend',
-  trendSubtitle: 'Daily order count for the selected period',
-  dailyTableTitle: 'Daily order breakdown',
-  dailyTableSubtitle: 'Orders, gross sales, grand total, and collected amount by business date',
+  applyLabel: 'Apply Now',
+  sessionLabel: 'Session Wise',
+  orderTypeLabel: 'Order Type',
+  orderIdLabel: 'Order ID',
+  orderIdPlaceholder: 'Enter Order ID',
+  searchLabel: 'Search',
+  attributionNote: 'Net item sales after discounts and sales returns, excluding tax.',
+  pageSize: 8,
 } as const;
 
 export const MOCK_REPORTS_ORDERS_SESSION_OPTIONS = [
@@ -1253,6 +1508,58 @@ export const MOCK_REPORTS_ORDERS_TABLE_ROWS: readonly ReportsRecentOrderRow[] = 
     status: 'successful',
   },
 ];
+
+function mockOrdersListItemFromRow(
+  row: ReportsRecentOrderRow,
+  orderId: number,
+): {
+  order_id: number;
+  order_number: string;
+  order_type: string;
+  captain_name: string;
+  total_item_quantity: string;
+  gross_sales: string;
+  grand_total: string;
+  tip_amount: string | null;
+  created_at: string;
+  reporting_status: string;
+} {
+  const orderType =
+    row.orderTypeVariant === 'takeaway'
+      ? 'takeaway'
+      : row.orderTypeVariant === 'delivery'
+        ? 'delivery'
+        : 'dine_in';
+
+  return {
+    order_id: orderId,
+    order_number: row.orderNo.replace(/^#/, ''),
+    order_type: orderType,
+    captain_name: row.captain,
+    total_item_quantity: String(row.qty),
+    gross_sales: row.amount.replace(/,/g, ''),
+    grand_total: row.grandTotal.replace(/,/g, ''),
+    tip_amount: row.grandTotalMeta?.includes('Tip:') ? '48.00' : '0.00',
+    created_at: '2026-07-07T10:15:00.000Z',
+    reporting_status: row.status === 'cancelled' ? 'cancelled' : 'successful',
+  };
+}
+
+const MOCK_ORDERS_LIST_ALL_ITEMS = MOCK_REPORTS_ORDERS_TABLE_ROWS.map((row, index) =>
+  mockOrdersListItemFromRow(row, index + 1),
+);
+
+export const MOCK_REPORTS_ORDERS_LIST_RESPONSE = reportsOrdersListResponseSchema.parse({
+  success: true,
+  message: 'OK',
+  request_id: 'mock-reports-orders-list',
+  data: {
+    items: MOCK_ORDERS_LIST_ALL_ITEMS.slice(0, reportsOrdersCopy.pageSize),
+    total: MOCK_ORDERS_LIST_ALL_ITEMS.length,
+    page: 1,
+    page_size: reportsOrdersCopy.pageSize,
+  },
+});
 
 export const reportsSessionsCopy = {
   title: 'Sessions Reports',

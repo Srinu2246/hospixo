@@ -160,7 +160,16 @@ export type MenuItemListParams = {
   dietary_type?: DietaryTypeApi;
   page?: number;
   page_size?: number;
+  /** Branch manager list filter — when set, only items for this branch are returned. */
+  branch_id?: number;
 };
+
+/** POST .../items/{id}/activate | .../deactivate (branch-scoped sessions). */
+export const menuItemStatusChangeBodySchema = z.object({
+  branch_id: z.number().int().positive().optional(),
+});
+
+export type MenuItemStatusChangeBody = z.infer<typeof menuItemStatusChangeBodySchema>;
 
 export function parseMenuItemList(payload: unknown): PagedMenuItemsData {
   const parsed = menuItemsEnvelopeSchema.safeParse(payload);

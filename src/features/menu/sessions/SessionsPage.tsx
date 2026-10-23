@@ -13,13 +13,24 @@ import { Plus, Search } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Loading } from '@/components/shared/ui/Loading';
+import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 import {
-  MOCK_SESSIONS,
+  sessionFormToCreateMealSessionBody,
+  sessionFormToUpdateMealSessionBody,
+} from '@/lib/helpers/mealSessionMapper';
+import {
+  useCreateMealSession,
+  useMenuMealSessions,
+  useUpdateMealSession,
+} from '@/lib/hooks/menu/sessions/useMenuMealSessions';
+import {
   SESSION_STATUS_FILTER_OPTIONS,
   type SessionStatusFilter,
 } from '@/lib/mocks/menu/useSessions.mocks';
 import type { SessionFormValues, SessionRecord } from '@/lib/schemas/menu/sessions/sessionSchema';
 import { colors } from '@/lib/theme/mui/colors';
+import { ApiError } from '@/services/api/types';
 import { useThemeStore } from '@/stores/themeStore';
 import { useToastStore } from '@/stores/toastStore';
 
@@ -77,12 +88,22 @@ export function SessionsPage({
   }, [pathname, initialSessionId]);
 
   const [mode, setMode] = useState<'list' | 'create' | 'edit'>(currentMode);
-  const [sessions, setSessions] = useState<SessionRecord[]>(MOCK_SESSIONS);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<SessionStatusFilter>('all');
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(targetSessionId);
   const [deletingSession, setDeletingSession] = useState<SessionRecord | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const {
+    branchId,
+    sessions,
+    isLoading: isSessionsLoading,
+    isError: isSessionsError,
+    error: sessionsError,
+  } = useMenuMealSessions();
+  const createMealSession = useCreateMealSession();
+  const updateMealSession = useUpdateMealSession();
+  const submitting = createMealSession.isPending || updateMealSession.isPending;
 
   // Active session for edit mode
   const activeSession = useMemo(() => {
@@ -127,50 +148,42 @@ export function SessionsPage({
   };
 
   const handleFormSubmit = async (values: SessionFormValues) => {
-    setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    setFormError(null);
 
-    if (mode === 'edit' && activeSession) {
-      setSessions((prev) =>
-        prev.map((item) =>
-          item.id === activeSession.id
-            ? {
-                ...item,
-                name: values.name,
-                startTime: values.startTime,
-                endTime: values.endTime,
-                status: values.status,
-                updatedAt: 'Updated just now',
-              }
-            : item,
-        ),
+    try {
+      if (mode === 'edit') {
+        if (!activeSession) {
+          throw new ApiError('Session not found.', 404);
+        }
+        const sessionId = Number(activeSession.id);
+        if (!Number.isFinite(sessionId) || sessionId <= 0) {
+          throw new ApiError('Invalid session id.', 400);
+        }
+        const body = sessionFormToUpdateMealSessionBody(values);
+        await updateMealSession.mutateAsync({ branchId, sessionId, body });
+        showToast(`Updated "${values.name}" session`, 'success');
+      } else {
+        const body = sessionFormToCreateMealSessionBody(values);
+        await createMealSession.mutateAsync({ branchId, body });
+        showToast(`Created "${values.name}" session`, 'success');
+      }
+      handleCancelForm();
+    } catch (submitError) {
+      setFormError(
+        submitError instanceof ApiError
+          ? submitError.message
+          : submitError instanceof Error
+            ? submitError.message
+            : mode === 'edit'
+              ? 'Unable to update session.'
+              : 'Unable to create session.',
       );
-      showToast(`Updated "${values.name}" session`, 'success');
-    } else {
-      const newSession: SessionRecord = {
-        id: `session-${Date.now()}`,
-        name: values.name,
-        startTime: values.startTime,
-        endTime: values.endTime,
-        status: values.status,
-        updatedAt: 'Updated just now',
-      };
-      setSessions((prev) => [newSession, ...prev]);
-      showToast(`Created "${values.name}" session`, 'success');
     }
-
-    setSubmitting(false);
-    handleCancelForm();
   };
 
   const handleDeleteConfirm = async () => {
     if (!deletingSession) return;
-    setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 250));
-
-    setSessions((prev) => prev.filter((item) => item.id !== deletingSession.id));
-    showToast(`Deleted "${deletingSession.name}" session`, 'success');
-    setSubmitting(false);
+    showToast('Session delete is not available yet.', 'error');
     setDeletingSession(null);
   };
 
@@ -184,14 +197,32 @@ export function SessionsPage({
           bgcolor: 'background.default',
         }}
       >
-        <SessionForm
-          mode={mode}
-          sessionsBasePath={basePath}
-          initialSession={activeSession}
-          onCancel={handleCancelForm}
-          onSubmit={handleFormSubmit}
-          submitting={submitting}
-        />
+        {formError ? (
+          <AlertMessage
+            variant="error"
+            title={mode === 'edit' ? 'Unable to update session' : 'Unable to create session'}
+            message={formError}
+          />
+        ) : null}
+        {mode === 'edit' && isSessionsLoading && !activeSession ? (
+          <SkeletonLoader count={4} height={56} sx={{ maxWidth: 720 }} />
+        ) : mode === 'edit' && !activeSession && !isSessionsLoading ? (
+          <AlertMessage
+            variant="error"
+            title="Session not found"
+            message="This meal session could not be loaded. Return to the list and try again."
+          />
+        ) : (
+          <SessionForm
+            key={mode === 'edit' ? (activeSession?.id ?? 'edit') : 'create'}
+            mode={mode}
+            sessionsBasePath={basePath}
+            initialSession={activeSession}
+            onCancel={handleCancelForm}
+            onSubmit={handleFormSubmit}
+            submitting={submitting}
+          />
+        )}
       </Box>
     );
   }
@@ -345,8 +376,22 @@ export function SessionsPage({
         </Select>
       </Box>
 
+      {isSessionsError ? (
+        <AlertMessage
+          variant="error"
+          title="Unable to load sessions"
+          message={
+            sessionsError instanceof Error
+              ? sessionsError.message
+              : 'The meal sessions request failed.'
+          }
+        />
+      ) : null}
+
       {/* Sessions Grid */}
-      {filteredSessions.length === 0 ? (
+      {isSessionsLoading && sessions.length === 0 ? (
+        <SkeletonLoader count={6} height={160} sx={{ borderRadius: 2 }} />
+      ) : filteredSessions.length === 0 ? (
         <AlertMessage
           variant="info"
           title="No sessions found"
@@ -387,6 +432,12 @@ export function SessionsPage({
         session={deletingSession}
         loading={submitting}
       />
+
+      {isSessionsLoading && sessions.length > 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+          <Loading size={24} fullPage={false} message="" />
+        </Box>
+      ) : null}
     </Box>
   );
 }

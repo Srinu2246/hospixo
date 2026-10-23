@@ -173,6 +173,7 @@ export function MenuSidebar() {
         flexShrink: 0,
         alignSelf: 'stretch',
         height: { md: '100%' },
+        maxHeight: { xs: 240, sm: 280, md: 'none' },
         overflow: 'auto',
       }}
     >

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
+import { useMediaQuery, useTheme } from '@mui/material';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -50,6 +51,9 @@ export function MenuItemsTable({
   emptyBecauseNoCategories = false,
 }: Readonly<MenuItemsTableProps>) {
   const [page, setPage] = useState(1);
+  const theme = useTheme();
+  const compactTable = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
+  const tableHeight = compactTable ? 400 : '100%';
 
   const columns: DataGridColumn<MenuCatalogItem>[] = [
     {
@@ -249,7 +253,8 @@ export function MenuItemsTable({
         onPageChange={setPage}
         paginationEntityName="items"
         stickyHeader
-        height="100%"
+        height={tableHeight}
+        minWidth={720}
         rowHeight={64}
         emptyIcon={UtensilsCrossed}
         emptyTitle="No menu items"

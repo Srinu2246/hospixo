@@ -149,6 +149,19 @@ export function branchOrdersPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders`;
 }
 
+/** GET/POST /v1/branches/{branch_id}/meal-sessions */
+export function branchMealSessionsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/meal-sessions`;
+}
+
+/** PATCH /v1/branches/{branch_id}/meal-sessions/{session_id} */
+export function branchMealSessionPath(
+  branchId: number | string,
+  sessionId: number | string,
+): string {
+  return `${branchMealSessionsPath(branchId)}/${encodeURIComponent(String(sessionId))}`;
+}
+
 /** GET /v1/branches/{branch_id}/tables/availability */
 export function branchTablesAvailabilityPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/tables/availability`;
@@ -187,6 +200,11 @@ export function branchReportsOrdersSummaryPath(branchId: number | string): strin
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/orders/summary`;
 }
 
+/** GET /v1/branches/{branch_id}/reports/orders */
+export function branchReportsOrdersPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/orders`;
+}
+
 /** GET /v1/branches/{branch_id}/reports/sessions */
 export function branchReportsSessionsPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/sessions`;
@@ -195,6 +213,11 @@ export function branchReportsSessionsPath(branchId: number | string): string {
 /** GET /v1/branches/{branch_id}/reports/payments */
 export function branchReportsPaymentsPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/payments`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/users-logs */
+export function branchReportsUsersLogsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/users-logs`;
 }
 
 /** GET /v2/platform/organizations/{organization_id}/companies */

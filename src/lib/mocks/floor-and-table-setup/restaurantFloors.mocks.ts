@@ -93,13 +93,24 @@ let nextId = 200;
 
 const FLOOR_PATH = /^\/v1\/branches\/(\d+)\/floors(?:\/(.*))?$/;
 const BRANCH_ORDERS_PATH = /^\/v1\/branches\/(\d+)\/orders$/;
-const BRANCH_MEAL_SESSIONS_PATH = /^\/v1\/branches\/(\d+)\/meal-sessions$/;
+const BRANCH_MEAL_SESSIONS_PATH = /^\/v1\/branches\/(\d+)\/meal-sessions(?:\/(\d+))?$/;
 const BRANCH_TABLES_AVAILABILITY_PATH = /^\/v1\/branches\/(\d+)\/tables\/availability$/;
 
 export function resolveRestaurantFloorMock(request: MockRequest): unknown | undefined {
   const mealSessionsMatch = BRANCH_MEAL_SESSIONS_PATH.exec(request.path);
-  if (mealSessionsMatch?.[1] && request.method === 'GET') {
-    return mealSessionsList(Number(mealSessionsMatch[1]));
+  if (mealSessionsMatch?.[1]) {
+    const branchId = Number(mealSessionsMatch[1]);
+    const sessionIdSegment = mealSessionsMatch[2];
+    if (!sessionIdSegment) {
+      if (request.method === 'GET') {
+        return mealSessionsList(branchId);
+      }
+      if (request.method === 'POST') {
+        return createMealSession(branchId, request.body);
+      }
+    } else if (request.method === 'PATCH') {
+      return updateMealSession(branchId, Number(sessionIdSegment), request.body);
+    }
   }
 
   const availabilityMatch = BRANCH_TABLES_AVAILABILITY_PATH.exec(request.path);
@@ -520,51 +531,130 @@ function buildAvailabilityRows(
     });
 }
 
+const mealSessionsStore = new Map<number, Array<Record<string, unknown>>>();
+
+function defaultMealSessions(branchId: number) {
+  const now = new Date().toISOString();
+  return [
+    {
+      id: 2,
+      public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d85',
+      branch_id: branchId,
+      name: 'breakfast',
+      start_time: '08:01:52.581000',
+      end_time: '23:01:52.581000',
+      display_order: 0,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: 3,
+      public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d86',
+      branch_id: branchId,
+      name: 'lunch',
+      start_time: '12:00:00.000000',
+      end_time: '16:00:00.000000',
+      display_order: 1,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: 4,
+      public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d87',
+      branch_id: branchId,
+      name: 'dinner',
+      start_time: '18:00:00.000000',
+      end_time: '23:00:00.000000',
+      display_order: 2,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    },
+  ];
+}
+
+function branchMealSessionsRows(branchId: number) {
+  if (!mealSessionsStore.has(branchId)) {
+    mealSessionsStore.set(branchId, defaultMealSessions(branchId));
+  }
+  return mealSessionsStore.get(branchId) ?? [];
+}
+
 /** GET /v1/branches/{branch_id}/meal-sessions */
 function mealSessionsList(branchId: number) {
-  const now = new Date().toISOString();
   return {
     success: true,
-    data: [
-      {
-        id: 2,
-        public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d85',
-        branch_id: branchId,
-        name: 'breakfast',
-        start_time: '08:01:52.581000',
-        end_time: '23:01:52.581000',
-        display_order: 0,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-      {
-        id: 3,
-        public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d86',
-        branch_id: branchId,
-        name: 'lunch',
-        start_time: '12:00:00.000000',
-        end_time: '16:00:00.000000',
-        display_order: 1,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-      {
-        id: 4,
-        public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d87',
-        branch_id: branchId,
-        name: 'dinner',
-        start_time: '18:00:00.000000',
-        end_time: '23:00:00.000000',
-        display_order: 2,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-    ],
+    data: branchMealSessionsRows(branchId),
     message: 'Meal sessions retrieved',
     request_id: 'mock-meal-sessions',
+  };
+}
+
+/** PATCH /v1/branches/{branch_id}/meal-sessions/{session_id} */
+function updateMealSession(branchId: number, sessionId: number, body: unknown) {
+  const record = isRecord(body) ? body : {};
+  const rows = branchMealSessionsRows(branchId);
+  const index = rows.findIndex((row) => Number(row.id) === sessionId);
+  const existing = index >= 0 ? rows[index] : null;
+  const now = new Date().toISOString();
+  const updated = {
+    ...(existing ?? {
+      id: sessionId,
+      public_id: `mock-meal-session-${sessionId}`,
+      branch_id: branchId,
+      display_order: rows.length,
+      created_at: now,
+    }),
+    id: sessionId,
+    branch_id: branchId,
+    name: typeof record.name === 'string' ? record.name : String(existing?.name ?? 'Session'),
+    start_time:
+      typeof record.start_time === 'string'
+        ? record.start_time
+        : String(existing?.start_time ?? now),
+    end_time:
+      typeof record.end_time === 'string' ? record.end_time : String(existing?.end_time ?? now),
+    is_active: record.is_active !== false,
+    updated_at: now,
+  };
+  if (index >= 0) {
+    rows[index] = updated;
+  } else {
+    rows.push(updated);
+  }
+  return {
+    success: true,
+    data: updated,
+    message: 'Meal session updated',
+    request_id: 'mock-meal-session-update',
+  };
+}
+
+/** POST /v1/branches/{branch_id}/meal-sessions */
+function createMealSession(branchId: number, body: unknown) {
+  const record = isRecord(body) ? body : {};
+  const now = new Date().toISOString();
+  nextId += 1;
+  const created = {
+    id: nextId,
+    public_id: `mock-meal-session-${nextId}`,
+    branch_id: branchId,
+    name: typeof record.name === 'string' ? record.name : 'Session',
+    start_time: typeof record.start_time === 'string' ? record.start_time : now,
+    end_time: typeof record.end_time === 'string' ? record.end_time : now,
+    display_order: branchMealSessionsRows(branchId).length,
+    is_active: record.is_active !== false,
+    created_at: now,
+    updated_at: now,
+  };
+  branchMealSessionsRows(branchId).push(created);
+  return {
+    success: true,
+    data: created,
+    message: 'Meal session created',
+    request_id: 'mock-meal-session-create',
   };
 }
 

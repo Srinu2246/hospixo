@@ -156,14 +156,30 @@ export function MenuCreationProvider({
     replaceMenuCreationCategoryParam(id);
   };
 
+  const account = useSidebarStore((state) => state.account);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const branchIdForList = useMemo(() => {
+    if (pageConfig.scope !== 'branch') return undefined;
+    const raw = sidebarContext.branchId ?? account?.branch_id;
+    if (raw == null) return undefined;
+    const id = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [account?.branch_id, pageConfig.scope, sidebarContext.branchId]);
+
+  const menuListParams = useMemo<MenuItemListParams>(
+    () => ({
+      ...MENU_LIST_PARAMS,
+      ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
+    }),
+    [branchIdForList],
+  );
+
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
-  const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
-  const deactivateMenuItem = useDeactivateMenuItem();
+  const itemsQuery = useMenuItems(menuListParams);
+  const deactivateMenuItem = useDeactivateMenuItem({ scope: pageConfig.scope });
   const createMenuCategory = useCreateMenuCategory();
   const updateMenuCategory = useUpdateMenuCategory();
   const setMenuCategoryActive = useSetMenuCategoryActive();
-  const account = useSidebarStore((state) => state.account);
-  const sidebarContext = useSidebarStore((state) => state.context);
 
   const apiCategories = categoriesQuery.data?.items;
   const apiItems = itemsQuery.data?.items;
@@ -627,19 +643,30 @@ export function MenuAvailabilityProvider({
   const [statusFilter, setStatusFilter] = useState<AvailabilityStatusFilter>('all');
   const [localItems, setLocalItems] = useState<AvailabilityItem[] | null>(null);
 
+  const account = useSidebarStore((state) => state.account);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const branchIdForList = useMemo(() => {
+    if (pageConfig.scope !== 'branch') return undefined;
+    const raw = sidebarContext.branchId ?? account?.branch_id;
+    if (raw == null) return undefined;
+    const id = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [account?.branch_id, pageConfig.scope, sidebarContext.branchId]);
+
   const itemListParams = useMemo<MenuItemListParams>(
     () => ({
       ...MENU_LIST_PARAMS,
+      ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
       ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
       ...(dietaryFilter !== 'all' ? { dietary_type: dietaryFilter } : {}),
     }),
-    [dietaryFilter, statusFilter],
+    [branchIdForList, dietaryFilter, statusFilter],
   );
 
   // Same list APIs as Menu Creation: GET categories + GET menu items (with status / dietary filters).
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
   const itemsQuery = useMenuItems(itemListParams);
-  const setMenuItemActive = useSetMenuItemActive();
+  const setMenuItemActive = useSetMenuItemActive({ scope: pageConfig.scope });
 
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();

@@ -18,7 +18,7 @@ export interface DropdownOption<T extends string | number = string> {
 
 export interface DropdownProps<T extends string | number = string> {
   options: readonly (DropdownOption<T> | string)[]; // Dropdown items (objects or plain strings)
-  value?: T; // Currently selected value
+  value?: T | ''; // Currently selected value (empty string shows placeholder)
   onChange: (value: T, option?: DropdownOption<T>) => void; // Selection change callback
   placeholder?: string; // Optional placeholder text
   size?: 'small' | 'medium' | 'large'; // Size preset (default: medium)

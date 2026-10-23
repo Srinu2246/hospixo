@@ -7,6 +7,7 @@ import { AlertTriangle } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Modal } from '@/components/shared/ui/Modal';
+import { formatSessionNameLabel } from '@/lib/helpers/mealSessionMapper';
 import type { SessionRecord } from '@/lib/schemas/menu/sessions/sessionSchema';
 import { colors } from '@/lib/theme/mui/colors';
 import { useThemeStore } from '@/stores/themeStore';
@@ -109,8 +110,8 @@ export function DeleteSessionModal({
           variant="body2"
           sx={{ color: textSecondary, fontSize: '0.875rem', lineHeight: 1.5 }}
         >
-          Are you sure you want to delete <strong>{session.name}</strong> ({session.startTime} -{' '}
-          {session.endTime})? This action cannot be undone.
+          Are you sure you want to delete <strong>{formatSessionNameLabel(session.name)}</strong> (
+          {session.startTime} - {session.endTime})? This action cannot be undone.
         </Typography>
       </Stack>
     </Modal>

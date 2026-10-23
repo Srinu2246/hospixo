@@ -5,6 +5,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import {
+  buildMenuItemStatusChangeBody,
+  type MenuCataloguePageScope,
+} from '@/lib/helpers/menuBranchContext';
+import {
   parseMenuItemList,
   parseMenuItemRecord,
   type MenuItemListParams,
@@ -30,8 +34,14 @@ function listParams(params?: MenuItemListParams) {
     ...(params?.status ? { status: params.status } : {}),
     ...(params?.category_id != null ? { category_id: params.category_id } : {}),
     ...(params?.dietary_type ? { dietary_type: params.dietary_type } : {}),
+    ...(params?.branch_id != null ? { branch_id: params.branch_id } : {}),
   };
 }
+
+export type UseMenuItemMutationsOptions = Readonly<{
+  /** Route scope from menu page config — branch sends branch_id on activate/deactivate. */
+  scope?: MenuCataloguePageScope;
+}>;
 
 /**
  * List menu items.
@@ -66,12 +76,14 @@ export function useMenuItem(itemId: number | undefined) {
  * Soft-delete / deactivate menu item.
  * POST /v1/restaurant/menu/items/{item_id}/deactivate
  */
-export function useDeactivateMenuItem() {
+export function useDeactivateMenuItem(options?: UseMenuItemMutationsOptions) {
   const queryClient = useQueryClient();
+  const pageScope = options?.scope;
 
   return useMutation({
     mutationFn: async (itemId: number) => {
-      await api.post(restaurantMenuItemDeactivatePath(itemId), {});
+      const body = buildMenuItemStatusChangeBody(pageScope);
+      await api.post(restaurantMenuItemDeactivatePath(itemId), body);
     },
     onSuccess: async (_data, itemId) => {
       await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
@@ -84,15 +96,17 @@ export function useDeactivateMenuItem() {
  * Activate or deactivate a menu item (Menu Availability toggle).
  * POST .../items/{id}/activate | .../deactivate
  */
-export function useSetMenuItemActive() {
+export function useSetMenuItemActive(options?: UseMenuItemMutationsOptions) {
   const queryClient = useQueryClient();
+  const pageScope = options?.scope;
 
   return useMutation({
     mutationFn: async ({ itemId, active }: { itemId: number; active: boolean }) => {
       const path = active
         ? restaurantMenuItemActivatePath(itemId)
         : restaurantMenuItemDeactivatePath(itemId);
-      await api.post(path, {});
+      const body = buildMenuItemStatusChangeBody(pageScope);
+      await api.post(path, body);
     },
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
