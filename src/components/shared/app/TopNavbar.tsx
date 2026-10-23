@@ -8,7 +8,8 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import type { SidebarContext, SidebarUserProfile } from '@/app/sidebar';
 import { normalizeRoleKey } from '@/app/sidebar';
 import type { DropdownOption } from '@/components/shared/form-fields/Dropdown';
-import { MOCK_BRANCHES } from '@/lib/mocks/organization/branches.mocks';
+import { useNavbarBranchOptions } from '@/lib/hooks/organization/branches/useNavbarBranchOptions';
+import { isCaptainWorkspacePath, POS_CAPTAIN_COMPACT_PADDING } from '@/lib/helpers/posCaptainFlow';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -106,36 +107,25 @@ export function TopNavbar({
     setContext({ branchId: parsed });
   };
 
-  const pathname = usePathname();
-  const isBranchView = pathname?.includes('/branch-manager') || false;
+  const pathname = usePathname() ?? '';
+  const isBranchView = pathname.includes('/branch-manager');
+  const captainWorkspacePath = isCaptainWorkspacePath(pathname);
+  const workspaceSubtitle =
+    context.branchName?.trim() ||
+    (context.branchId != null ? `Branch ${context.branchId}` : 'Restaurant workspace');
 
-  // Mobile/Tablet dynamic branch options and labels
-  const mobileBranchOptions: DropdownOption<string>[] = useMemo(() => {
-    const baseList: DropdownOption<string>[] = MOCK_BRANCHES.map((b) => ({
-      id: String(b.id),
-      label: b.name,
-    }));
-    if (context.branchId != null) {
-      const idStr = String(context.branchId);
-      if (!baseList.some((o) => o.id === idStr)) {
-        return [
-          {
-            id: idStr,
-            label: context.branchName ?? `Branch ${context.branchId}`,
-          },
-          ...baseList,
-        ];
-      }
-    }
-    return baseList;
-  }, [context.branchId, context.branchName]);
+  const { options: mobileBranchOptions } = useNavbarBranchOptions();
 
   const mobileSelectedOutletSlug =
     context.branchId != null ? String(context.branchId) : (mobileBranchOptions[0]?.id ?? '');
 
   const mobileOutletLabel = useMemo(() => {
     const found = mobileBranchOptions.find((o) => o.id === mobileSelectedOutletSlug);
-    return found?.label ?? context.branchName ?? 'Downtown Central';
+    return (
+      found?.label ??
+      context.branchName?.trim() ??
+      (context.branchId != null ? `Branch ${context.branchId}` : 'Select branch')
+    );
   }, [mobileBranchOptions, mobileSelectedOutletSlug, context.branchName]);
 
   const handleMobileOutletChange = (branchId: string, option?: DropdownOption<string>) => {
@@ -168,14 +158,26 @@ export function TopNavbar({
         {
           position: { [screen.mobile]: 'sticky', [screen.tablet]: 'static' },
           top: 0,
-          height: 64,
-          minHeight: 64,
-          maxHeight: 64,
+          height: captainWorkspacePath
+            ? { [screen.mobile]: 56, [screen.tablet]: 56, [screen.desktop]: 64 }
+            : 64,
+          minHeight: captainWorkspacePath
+            ? { [screen.mobile]: 56, [screen.tablet]: 56, [screen.desktop]: 64 }
+            : 64,
+          maxHeight: captainWorkspacePath
+            ? { [screen.mobile]: 56, [screen.tablet]: 56, [screen.desktop]: 64 }
+            : 64,
           width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          px: { xs: 2, sm: 3 },
+          px: captainWorkspacePath
+            ? {
+                [screen.mobile]: POS_CAPTAIN_COMPACT_PADDING,
+                [screen.tablet]: POS_CAPTAIN_COMPACT_PADDING,
+                [screen.desktop]: 3,
+              }
+            : { xs: 2, sm: 3 },
           backgroundColor: (theme) => theme.palette.background.paper,
           borderBottom: '1px solid',
           borderColor: (theme) => theme.palette.divider,
@@ -197,6 +199,9 @@ export function TopNavbar({
         onMobileOutletChange={handleMobileOutletChange}
         onNotificationClick={onNotificationClick}
         onOpenMenu={onOpenMenu}
+        captainWorkspaceTitle={captainWorkspacePath ? 'Hospixo Tables' : undefined}
+        captainWorkspaceSubtitle={captainWorkspacePath ? workspaceSubtitle : undefined}
+        showBranchSelector={captainWorkspacePath && isBranchView}
       />
 
       <TabletNavbar

@@ -1,17 +1,33 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
+import { alpha } from '@mui/material/styles';
 import { ChevronLeft } from 'lucide-react';
 
+import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Toast } from '@/components/shared/ui/Toast';
 import { colors } from '@/lib/theme/mui/colors';
-import { getMockOrderSettleDetail } from '@/lib/mocks/pos/usePosOrders.mocks';
-import type { OrderSettleDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/orderSettleSchema';
+import {
+  POS_CAPTAIN_COMPACT_PADDING,
+  POS_CAPTAIN_LIST_BOTTOM_GAP,
+} from '@/lib/helpers/posCaptainFlow';
+import {
+  buildPosSettleCheckoutPath,
+  buildPosSettleSuccessPath,
+  mapSettleDetailToReviewOrder,
+  resolvePosOrderSettleBasePath,
+} from '@/lib/helpers/posOrderHelpers';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import {
+  getMockOrderSettleDetail,
+  type OrderSettleDetail,
+} from '@/lib/mocks/pos/usePosOrders.mocks';
 
 import {
   OrderReviewSection,
@@ -25,11 +41,14 @@ import {
   OrderSuccessReceipt,
   type ReceiptData,
 } from '@/features/pos/point-of-sale/components/OrderSuccessReceipt';
+import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
+import { SplitPaymentDialog } from '@/features/pos/point-of-sale/components/SplitPaymentDialog';
+import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 
 export interface OrderSettleProps {
   orderId?: string;
   initialData?: OrderSettleDetail;
-  initialStep?: 'checkout' | 'success';
+  initialStep?: 'review' | 'checkout' | 'success';
   onBack?: () => void;
   reviewOrderData?: OrderReviewData;
   onNewOrder?: () => void;
@@ -62,18 +81,24 @@ export function OrderSettle({
 }: Readonly<OrderSettleProps>) {
   const router = useRouter();
   const pathname = usePathname();
+  const captainCompact = useCaptainCompactLayout();
+  const footerTarget = useAppShellFooterTarget();
 
   const isSuccessRoute = Boolean(
     pathname?.endsWith('/success') || pathname?.endsWith('/payment-success'),
   );
-  const [currentStep, setCurrentStep] = useState<'checkout' | 'success'>(() => {
-    if (isSuccessRoute) return 'success';
-    return initialStep;
+  const isCheckoutRoute = Boolean(pathname?.endsWith('/checkout'));
+  const [currentStep, setCurrentStep] = useState<'review' | 'checkout' | 'success'>(() => {
+    if (isSuccessRoute || initialStep === 'success') return 'success';
+    if (isCheckoutRoute || initialStep === 'checkout') return 'checkout';
+    if (initialStep === 'review' || (captainCompact && orderId)) return 'review';
+    return initialStep ?? 'checkout';
   });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodId>('cash');
   const [isProcessing, setIsProcessing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [splitPaymentOpen, setSplitPaymentOpen] = useState(false);
 
   // Initialize order review data from props or defaults matching user design
   const [reviewOrder, setReviewOrder] = useState<OrderReviewData>(() => {
@@ -81,52 +106,11 @@ export function OrderSettle({
       return reviewOrderData;
     }
     if (initialData) {
-      return {
-        orderNumber: initialData.orderNumber,
-        table: initialData.reference,
-        items: initialData.items.map((it) => ({
-          id: it.id,
-          name: it.name,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          totalPrice: it.totalPrice,
-          imageUrl:
-            'https://images.unsplash.com/photo-1612874742237-6526221588e3?auto=format&fit=crop&w=160&q=80',
-        })),
-        subtotal: initialData.subtotal,
-        discounts: DEFAULT_REVIEW_ORDER.discounts,
-        platformFee: 25,
-        serviceChargeRate: 0.02,
-        serviceChargeAmount: Math.round(initialData.subtotal * 0.02 * 100) / 100,
-        taxRate: initialData.taxRate,
-        taxAmount: initialData.taxAmount,
-        total: initialData.grandTotal,
-      };
+      return mapSettleDetailToReviewOrder(initialData);
     }
 
     if (orderId && orderId !== '0039') {
-      const mock = getMockOrderSettleDetail(orderId);
-      return {
-        orderNumber: mock.orderNumber,
-        table: mock.reference,
-        items: mock.items.map((it) => ({
-          id: it.id,
-          name: it.name,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          totalPrice: it.totalPrice,
-          imageUrl:
-            'https://images.unsplash.com/photo-1612874742237-6526221588e3?auto=format&fit=crop&w=160&q=80',
-        })),
-        subtotal: mock.subtotal,
-        discounts: DEFAULT_REVIEW_ORDER.discounts,
-        platformFee: 25,
-        serviceChargeRate: 0.02,
-        serviceChargeAmount: Math.round(mock.subtotal * 0.02 * 100) / 100,
-        taxRate: mock.taxRate,
-        taxAmount: mock.taxAmount,
-        total: mock.grandTotal,
-      };
+      return mapSettleDetailToReviewOrder(getMockOrderSettleDetail(orderId));
     }
 
     return DEFAULT_REVIEW_ORDER;
@@ -163,6 +147,12 @@ export function OrderSettle({
       return;
     }
 
+    if (currentStep === 'checkout' && pathname?.includes('/all-orders/')) {
+      router.push(resolvePosOrderSettleBasePath(pathname));
+      setCurrentStep('review');
+      return;
+    }
+
     if (onBack) {
       onBack();
       return;
@@ -189,22 +179,26 @@ export function OrderSettle({
     router.replace('/pos/point-of-sale/all-orders');
   };
 
-  // Confirm payment trigger
-  const handleConfirmPayment = () => {
+  const completePayment = () => {
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
+      setSplitPaymentOpen(false);
       setCurrentStep('success');
       setToastMessage('Payment completed successfully!');
 
       if (pathname) {
-        const clean = pathname.replace(/\/+$/, '');
-        const targetSuccess = clean.endsWith('/checkout')
-          ? clean.replace(/\/checkout$/, '/success')
-          : `${clean}/success`;
-        router.push(targetSuccess);
+        router.push(buildPosSettleSuccessPath(pathname));
       }
     }, 400);
+  };
+
+  const handleConfirmPayment = () => {
+    if (captainCompact && selectedPaymentMethod === 'part_payment') {
+      setSplitPaymentOpen(true);
+      return;
+    }
+    completePayment();
   };
 
   // Print receipt handler
@@ -245,13 +239,91 @@ export function OrderSettle({
       case 'upi':
         return 'UPI';
       case 'part_payment':
-        return 'Part Payment';
+        return 'Split Payment';
       case 'sodexo':
         return 'Sodexo';
       default:
         return 'Cash';
     }
   };
+
+  const couponTotal = reviewOrder.discounts.reduce((sum, d) => sum + d.amount, 0);
+
+  const formatRs = (value: number) =>
+    value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const goToCheckout = () => {
+    if (pathname?.includes('/all-orders/') && orderId) {
+      router.push(buildPosSettleCheckoutPath(pathname));
+    }
+    setCurrentStep('checkout');
+  };
+
+  const captainScrollSx = captainCompact
+    ? {
+        flex: 1,
+        minHeight: 0,
+        overflowY: 'auto' as const,
+        pb: `${POS_CAPTAIN_LIST_BOTTOM_GAP}px`,
+      }
+    : undefined;
+
+  const captainFooter =
+    captainCompact && currentStep !== 'success' && footerTarget
+      ? createPortal(
+          <Box
+            sx={{
+              width: '100%',
+              bgcolor: 'background.paper',
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              px: POS_CAPTAIN_COMPACT_PADDING,
+              py: 1.25,
+              minHeight: 64,
+              display: 'flex',
+              alignItems: 'center',
+              boxSizing: 'border-box',
+            }}
+          >
+            {currentStep === 'review' ? (
+              <ActionButton
+                variant="primary"
+                fullWidth
+                onClick={goToCheckout}
+                sx={{
+                  minHeight: 48,
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  bgcolor: colors.primary.default,
+                }}
+              >
+                Generate Receipt
+              </ActionButton>
+            ) : (
+              <ButtonBase
+                onClick={handleConfirmPayment}
+                disabled={isProcessing}
+                sx={{
+                  width: '100%',
+                  bgcolor: colors.danger.default,
+                  color: colors.white.default,
+                  py: 1.5,
+                  borderRadius: '10px',
+                  fontSize: '0.9375rem',
+                  fontWeight: 700,
+                  boxShadow: `0 4px 14px 0 ${alpha(colors.danger.default, 0.3)}`,
+                  opacity: isProcessing ? 0.7 : 1,
+                }}
+              >
+                {isProcessing
+                  ? 'Processing Payment...'
+                  : `Confirm Payment (Rs ${formatRs(reviewOrder.total)})`}
+              </ButtonBase>
+            )}
+          </Box>,
+          footerTarget,
+        )
+      : null;
 
   const receiptData: ReceiptData = {
     ...MOCK_RECEIPT_0132,
@@ -282,6 +354,22 @@ export function OrderSettle({
         overflow: 'hidden',
       }}
     >
+      {captainCompact && currentStep !== 'success' ? (
+        <Box sx={{ flexShrink: 0, mb: 1 }}>
+          <CaptainWorkspaceSubheader
+            title={
+              currentStep === 'review' ? `Order ${reviewOrder.orderNumber}` : 'Checkout Payment'
+            }
+            subtitle={
+              currentStep === 'review'
+                ? `${reviewOrder.table} · Dine-In`
+                : `${reviewOrder.orderNumber} · ${reviewOrder.table}`
+            }
+            onBack={handleBack}
+          />
+        </Box>
+      ) : null}
+
       {/* ------------------------------------------------------------- */}
       {/* 1. Top Navigation Bar                                         */}
       {/* ------------------------------------------------------------- */}
@@ -293,7 +381,7 @@ export function OrderSettle({
           borderColor: 'divider',
           px: { xs: 2, sm: 3.5 },
           py: 1.75,
-          display: 'flex',
+          display: captainCompact ? 'none' : 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}
@@ -362,21 +450,50 @@ export function OrderSettle({
               : 'background.default',
         }}
       >
-        {currentStep === 'checkout' ? (
+        {currentStep === 'review' ? (
+          <Box
+            sx={{
+              width: '100%',
+              height: captainCompact ? '100%' : '100%',
+              minHeight: 0,
+              display: captainCompact ? 'flex' : 'block',
+              flexDirection: 'column',
+              mx: 'auto',
+            }}
+          >
+            <Box sx={captainCompact ? captainScrollSx : { overflowY: 'auto', height: '100%' }}>
+              {captainCompact ? (
+                <OrderReviewSection
+                  variant="captain"
+                  order={reviewOrder}
+                  onApplyCoupon={handleApplyCoupon}
+                />
+              ) : (
+                <OrderReviewSection
+                  order={reviewOrder}
+                  onApplyCoupon={handleApplyCoupon}
+                  appliedCouponMessage={appliedCoupon}
+                  onProceed={goToCheckout}
+                  proceedLabel="Generate Receipt"
+                />
+              )}
+            </Box>
+          </Box>
+        ) : currentStep === 'checkout' ? (
           /* Step 1: Proceed to Checkout View (Image 1) */
           <Box
             sx={{
-              maxWidth: 1360,
+              maxWidth: captainCompact ? '100%' : 1360,
               width: '100%',
               height: '100%',
               minHeight: 0,
               mx: 'auto',
-              pt: { xs: 2, sm: 2.5, md: 3 },
+              pt: captainCompact ? 0 : { xs: 2, sm: 2.5, md: 3 },
               display: 'flex',
-              flexDirection: { xs: 'column', md: 'row' },
+              flexDirection: captainCompact ? 'column' : { xs: 'column', md: 'row' },
               alignItems: 'stretch',
               gap: { xs: 2.5, md: 3 },
-              overflow: 'hidden',
+              overflow: captainCompact ? 'hidden' : 'hidden',
             }}
           >
             {/* Left Card: ORDER REVIEW (Independent Scroll) */}
@@ -384,9 +501,10 @@ export function OrderSettle({
               sx={{
                 flex: { xs: '1 1 auto', md: 1.35 },
                 width: '100%',
-                height: '100%',
+                height: captainCompact ? 'auto' : '100%',
                 minHeight: 0,
-                overflowY: 'auto',
+                overflowY: captainCompact ? 'visible' : 'auto',
+                display: captainCompact ? 'none' : 'block',
                 pr: { md: 1 },
                 scrollbarWidth: 'thin',
                 scrollbarColor: `${colors.border.default} transparent`,
@@ -411,10 +529,12 @@ export function OrderSettle({
               sx={{
                 flex: { xs: '1 1 auto', md: 1 },
                 width: '100%',
-                maxWidth: { md: 440 },
-                height: '100%',
+                maxWidth: captainCompact ? '100%' : { md: 440 },
+                height: captainCompact ? '100%' : '100%',
                 minHeight: 0,
-                overflowY: 'auto',
+                overflowY: captainCompact ? 'hidden' : 'auto',
+                display: captainCompact ? 'flex' : 'block',
+                flexDirection: 'column',
                 pr: { md: 1 },
                 scrollbarWidth: 'thin',
                 scrollbarColor: `${colors.border.default} transparent`,
@@ -427,13 +547,20 @@ export function OrderSettle({
                 },
               }}
             >
-              <PaymentMethodSection
-                total={reviewOrder.total}
-                selectedMethod={selectedPaymentMethod}
-                onSelectMethod={setSelectedPaymentMethod}
-                onConfirmPayment={handleConfirmPayment}
-                isProcessing={isProcessing}
-              />
+              <Box sx={captainCompact ? captainScrollSx : undefined}>
+                <PaymentMethodSection
+                  total={reviewOrder.total}
+                  selectedMethod={selectedPaymentMethod}
+                  onSelectMethod={setSelectedPaymentMethod}
+                  onConfirmPayment={handleConfirmPayment}
+                  isProcessing={isProcessing}
+                  compact={captainCompact}
+                  hideConfirmButton={captainCompact}
+                  subtotal={reviewOrder.subtotal}
+                  taxAmount={reviewOrder.taxAmount}
+                  couponAmount={couponTotal}
+                />
+              </Box>
             </Box>
           </Box>
         ) : (
@@ -445,6 +572,16 @@ export function OrderSettle({
           />
         )}
       </Box>
+      {captainFooter}
+      <SplitPaymentDialog
+        open={splitPaymentOpen}
+        total={reviewOrder.total}
+        orderLabel={reviewOrder.orderNumber}
+        tableLabel={reviewOrder.table}
+        isProcessing={isProcessing}
+        onClose={() => setSplitPaymentOpen(false)}
+        onConfirm={() => completePayment()}
+      />
       {/* Global Toast Feedback */}
       <Toast
         open={Boolean(toastMessage)}

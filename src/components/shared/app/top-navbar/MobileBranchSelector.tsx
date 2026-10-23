@@ -39,6 +39,8 @@ export interface MobileBranchSelectorProps {
   maxLabelWidth?: number | Record<string, number>;
   /** Optional layout style overrides from the caller */
   sx?: SxProps<Theme>;
+  /** Hide the uppercase scope row (e.g. on captain workspace). */
+  hideScopeLabel?: boolean;
 }
 
 /**
@@ -57,6 +59,7 @@ export function MobileBranchSelector({
   onSelect,
   fontSize = { xs: '0.8125rem', sm: '0.875rem' },
   maxLabelWidth = { xs: 150, sm: 220, md: 280 },
+  hideScopeLabel = false,
   sx,
 }: Readonly<MobileBranchSelectorProps>) {
   return (
@@ -84,19 +87,29 @@ export function MobileBranchSelector({
           ...(Array.isArray(sx) ? sx : [sx]),
         ]}
       >
-        <Typography
+        {hideScopeLabel ? null : (
+          <Typography
+            sx={{
+              fontSize: '0.625rem',
+              fontWeight: 700,
+              color: colors.text.secondary,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              lineHeight: 1.1,
+            }}
+          >
+            {scopeLabel}
+          </Typography>
+        )}
+        <Box
           sx={{
-            fontSize: '0.625rem',
-            fontWeight: 700,
-            color: colors.text.secondary,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            lineHeight: 1.1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            mt: hideScopeLabel ? 0 : 0.25,
+            minWidth: 0,
           }}
         >
-          {scopeLabel}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, minWidth: 0 }}>
           <PlaceOutlinedIcon sx={{ fontSize: 16, color: 'text.primary', flexShrink: 0 }} />
           <Typography
             sx={{

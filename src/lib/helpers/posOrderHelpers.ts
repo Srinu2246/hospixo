@@ -1,4 +1,10 @@
-import { getMockOrderSettleDetail } from '@/lib/mocks/pos/usePosOrders.mocks';
+import { resolveCaptainFlowBase } from '@/lib/helpers/posCaptainFlow';
+import type { PosOrderItem } from '@/lib/helpers/posAllOrdersHelpers';
+import {
+  getMockOrderSettleDetail,
+  type OrderSettleDetail,
+} from '@/lib/mocks/pos/usePosOrders.mocks';
+import type { OrderReviewData } from '@/features/pos/point-of-sale/components/OrderReviewSection';
 import {
   INITIAL_CART_ITEMS,
   type CartItem,
@@ -13,6 +19,62 @@ const EXISTING_ORDER_IMAGE =
 /**
  * Shared helpers for takeaway, dine-in, and tables ordering (same TakeawayPage).
  */
+
+/** Table route segment for dine-in navigation (API table id or reference label). */
+export function resolvePosOrderTableId(order: PosOrderItem): string | null {
+  if (order.tableId != null) return String(order.tableId);
+  if (order.tableName) return order.tableName;
+  const tableMatch = order.reference.match(/Table\s*(T\d+|[A-Za-z0-9_-]+)/i);
+  if (!tableMatch?.[1]) return null;
+  const raw = tableMatch[1];
+  return raw.toLowerCase().replace(/^t(\d+)$/, 't-$1');
+}
+
+/** Add-items navigation from open orders / captain all-orders. */
+export function buildPosAddItemsPath(pathname: string, order: PosOrderItem): string {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/pos/point-of-sale/all-orders';
+  const isCaptain = normalizedPath.includes('captain-flow');
+  const baseFlow = isCaptain
+    ? resolveCaptainFlowBase(normalizedPath)
+    : normalizedPath.replace(/\/all-orders(\/.*)?$/, '') || '/pos/point-of-sale';
+
+  const orderId = String(order.orderApiId);
+  const tableId = resolvePosOrderTableId(order);
+
+  if (order.type === 'dine-in' && tableId) {
+    const tableSegment = encodeURIComponent(tableId);
+    if (isCaptain) {
+      return `${baseFlow}/order-menu?orderId=${encodeURIComponent(orderId)}&tableId=${tableSegment}`;
+    }
+    return `${baseFlow}/dine-in/${tableSegment}?orderId=${encodeURIComponent(orderId)}`;
+  }
+
+  if (isCaptain) {
+    return `${baseFlow}/order-menu?orderId=${encodeURIComponent(orderId)}`;
+  }
+
+  return `${baseFlow}/takeaway?orderId=${encodeURIComponent(orderId)}`;
+}
+
+/** Settle flow URL for an open order (preserves branch / tenant prefix). */
+export function buildPosSettleOrderPath(pathname: string, order: PosOrderItem): string {
+  const basePath = pathname.replace(/\/+$/, '') || '/pos/point-of-sale/all-orders';
+  return `${basePath}/${encodeURIComponent(String(order.orderApiId))}`;
+}
+
+/** Strip settle step suffixes (`/checkout`, `/success`) from the current URL. */
+export function resolvePosOrderSettleBasePath(pathname: string): string {
+  const trimmed = pathname.replace(/\/+$/, '');
+  return trimmed.replace(/\/(checkout|success|payment-success)$/, '') || trimmed;
+}
+
+export function buildPosSettleCheckoutPath(pathname: string): string {
+  return `${resolvePosOrderSettleBasePath(pathname)}/checkout`;
+}
+
+export function buildPosSettleSuccessPath(pathname: string): string {
+  return `${resolvePosOrderSettleBasePath(pathname)}/success`;
+}
 
 export function createCartLineId(): string {
   return `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -154,5 +216,35 @@ export function buildReviewOrderData(
     taxRate: 0.05,
     taxAmount: tax,
     total: grandTotal,
+  };
+}
+
+const FIGMA_ORDER_1024_COUPON = 640;
+
+/** Captain order review card payload from settle detail (Figma #1024 coupon line). */
+export function mapSettleDetailToReviewOrder(detail: OrderSettleDetail): OrderReviewData {
+  const clean = detail.orderNumber.replace(/^#/, '').toLowerCase();
+  const is1024 = clean === '1024' || detail.id.includes('1024');
+  const couponAmount = is1024 ? FIGMA_ORDER_1024_COUPON : 0;
+
+  return {
+    orderNumber: detail.orderNumber,
+    table: detail.reference,
+    items: detail.items.map((it) => ({
+      id: it.id,
+      name: it.name,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      totalPrice: it.totalPrice,
+    })),
+    subtotal: detail.subtotal,
+    discounts:
+      couponAmount > 0 ? [{ id: 'coupon-figma', label: 'Coupon', amount: couponAmount }] : [],
+    platformFee: 0,
+    serviceChargeRate: 0,
+    serviceChargeAmount: 0,
+    taxRate: detail.taxRate,
+    taxAmount: detail.taxAmount,
+    total: detail.grandTotal,
   };
 }

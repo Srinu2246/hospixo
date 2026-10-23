@@ -25,6 +25,11 @@ export interface BaseResponsiveNavbarProps {
   onNotificationClick?: () => void;
   /** Callback fired on mobile/tablet menu button click */
   onOpenMenu?: () => void;
+  /** Captain-flow mobile title (replaces logo + branch selector when set). */
+  captainWorkspaceTitle?: string;
+  captainWorkspaceSubtitle?: string;
+  /** Branch outlet selector on captain mobile (branch-manager routes). */
+  showBranchSelector?: boolean;
   /** Optional layout style overrides from the caller */
   sx?: SxProps<Theme>;
 }

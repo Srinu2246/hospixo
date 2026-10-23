@@ -5,9 +5,21 @@ import { usePathname } from 'next/navigation';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { Sidebar } from '@/components/shared/app/Sidebar';
 import { TopNavbar } from '@/components/shared/app/TopNavbar';
+import { WorkspaceBottomNav } from '@/components/shared/app/WorkspaceBottomNav';
 import { Toast } from '@/components/shared/ui/Toast';
 import { isSidebarlessRole } from '@/app/sidebar';
 import type { SidebarSession } from '@/lib/auth/session';
+import {
+  captainMainUsesStickyFooter,
+  isCaptainListScreenPath,
+  isCaptainOrderSettlePath,
+  isCaptainWorkspacePath,
+  POS_CAPTAIN_BOTTOM_NAV_HEIGHT,
+  POS_CAPTAIN_COMPACT_PADDING,
+  POS_CAPTAIN_LIST_BOTTOM_GAP,
+  POS_CAPTAIN_STICKY_FOOTER_HEIGHT,
+} from '@/lib/helpers/posCaptainFlow';
+import { colors } from '@/lib/theme/mui/colors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -31,6 +43,10 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
   const clearToast = useToastStore((state) => state.clear);
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down(screen.desktop), { noSsr: true });
+  const captainPath = isCaptainWorkspacePath(pathname);
+  const captainListPath = isCaptainListScreenPath(pathname);
+  const captainOrderSettlePath = isCaptainOrderSettlePath(pathname);
+  const captainStickyFooter = captainMainUsesStickyFooter(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navPathname, setNavPathname] = useState(pathname);
   if (pathname !== navPathname) {
@@ -105,7 +121,13 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
       */}
       <Box
         sx={{
-          display: { [screen.mobile]: 'block', [screen.desktop]: 'contents' },
+          display: captainPath
+            ? {
+                [screen.mobile]: mobileOpen ? 'block' : 'none',
+                [screen.tablet]: mobileOpen ? 'block' : 'none',
+                [screen.desktop]: 'contents',
+              }
+            : { [screen.mobile]: 'block', [screen.desktop]: 'contents' },
           width: { [screen.mobile]: 0, [screen.desktop]: 'unset' },
           flexShrink: 0,
           '& > aside': {
@@ -131,7 +153,12 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
       >
         <Sidebar
           isOpen={compact ? true : isOpen}
-          onToggle={compact ? setMobileOpen : setIsOpen}
+          onToggle={(open) => {
+            if (compact) setMobileOpen(open);
+            else setIsOpen(open);
+          }}
+          forcePrimaryNavigation={captainPath && compact && mobileOpen}
+          onRequestClose={compact ? () => setMobileOpen(false) : undefined}
           role={role}
           context={context}
           user={user}
@@ -169,10 +196,16 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          backgroundColor: (theme) => theme.palette.background.default,
+          backgroundColor: (theme) =>
+            captainPath
+              ? {
+                  xs: colors.captainFlow.pageBackground,
+                  sm: colors.captainFlow.pageBackground,
+                  md: theme.palette.background.default,
+                }
+              : theme.palette.background.default,
         }}
       >
-        {/* Stationary Top Navbar */}
         <TopNavbar
           role={role}
           context={context}
@@ -180,33 +213,99 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
           onOpenMenu={() => setMobileOpen(true)}
         />
 
-        {/* 
-          Independently Scrollable Main Content Area:
-          - Fills the remaining viewport height
-          - Only this section scrolls
-          - Padding: 24px on all sides
-        */}
         <Box
-          component="main"
-          id="app-main-content"
           sx={{
             flex: 1,
             minHeight: 0,
-            minWidth: 0,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            backgroundColor: (theme) => theme.palette.background.default,
             display: 'flex',
             flexDirection: 'column',
-            p: { [screen.mobile]: 2, [screen.desktop]: 3 },
-            boxSizing: 'border-box',
+            overflow: 'hidden',
           }}
         >
-          {children}
+          <Box
+            component="main"
+            id="app-main-content"
+            sx={{
+              flex: captainPath ? { [screen.mobile]: '0 1 auto', [screen.desktop]: 1 } : 1,
+              maxHeight: captainPath
+                ? {
+                    [screen.mobile]: captainStickyFooter
+                      ? `calc(100vh - 56px - ${POS_CAPTAIN_BOTTOM_NAV_HEIGHT}px - ${POS_CAPTAIN_STICKY_FOOTER_HEIGHT}px)`
+                      : `calc(100vh - 56px - ${POS_CAPTAIN_BOTTOM_NAV_HEIGHT}px)`,
+                    [screen.desktop]: 'none',
+                  }
+                : undefined,
+              minHeight: 0,
+              minWidth: 0,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              backgroundColor: (theme) =>
+                captainPath
+                  ? {
+                      xs: colors.captainFlow.pageBackground,
+                      sm: colors.captainFlow.pageBackground,
+                      md: theme.palette.background.default,
+                    }
+                  : theme.palette.background.default,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-start',
+              p: captainPath
+                ? {
+                    [screen.mobile]: POS_CAPTAIN_COMPACT_PADDING,
+                    [screen.tablet]: POS_CAPTAIN_COMPACT_PADDING,
+                    [screen.desktop]: 3,
+                  }
+                : { [screen.mobile]: 2, [screen.desktop]: 3 },
+              pb: captainPath
+                ? {
+                    [screen.mobile]:
+                      captainListPath || captainOrderSettlePath
+                        ? `${POS_CAPTAIN_LIST_BOTTOM_GAP}px`
+                        : POS_CAPTAIN_COMPACT_PADDING,
+                    [screen.tablet]:
+                      captainListPath || captainOrderSettlePath
+                        ? `${POS_CAPTAIN_LIST_BOTTOM_GAP}px`
+                        : POS_CAPTAIN_COMPACT_PADDING,
+                    [screen.desktop]: 3,
+                  }
+                : undefined,
+              boxSizing: 'border-box',
+            }}
+          >
+            {children}
+          </Box>
+
+          <Box
+            id="app-shell-footer"
+            sx={{
+              flexShrink: 0,
+              zIndex: 30,
+              bgcolor: 'background.paper',
+              borderTop: captainPath
+                ? { [screen.mobile]: '1px solid', [screen.desktop]: 'none' }
+                : 'none',
+              borderColor: 'divider',
+              mt: captainPath
+                ? {
+                    [screen.mobile]: captainStickyFooter ? 'auto' : 0,
+                    [screen.desktop]: 0,
+                  }
+                : 0,
+            }}
+          />
         </Box>
 
-        {/* Page Action Footer Container (Outside <main>) */}
-        <Box id="app-shell-footer" sx={{ flexShrink: 0, zIndex: 20 }} />
+        <Box
+          sx={{
+            display: captainPath ? { [screen.mobile]: 'block', [screen.desktop]: 'none' } : 'none',
+            flexShrink: 0,
+            zIndex: 40,
+            position: 'relative',
+          }}
+        >
+          <WorkspaceBottomNav />
+        </Box>
       </Box>
       {toast}
     </Box>
