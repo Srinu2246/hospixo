@@ -25,8 +25,6 @@ import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { SectionQrDialog } from '@/components/features/floor-and-table-setup/SectionQrDialog';
 import type { SectionGuestMenuTarget } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import { ApiError } from '@/services/api/types';
-import { useToastStore } from '@/stores/toastStore';
 
 export function FloorSectionsPanel({
   sections,
@@ -240,7 +238,6 @@ function SectionDetail({
   onDownloadQr: () => void;
 }>) {
   const [draft, setDraft] = useState<CatalogTable | null>(null);
-  const showToast = useToastStore((state) => state.show);
   const createTable = useCreateTable(branchId);
   const sectionId = numericId(section.id);
   const canCreate = floorId != null && sectionId != null;
@@ -259,16 +256,8 @@ function SectionDetail({
         },
       });
       setDraft(null);
-      showToast(`Table ${next.number.trim()} created successfully.`, 'success');
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        showToast(
-          'That table number is already used in this branch. Choose a different name.',
-          'error',
-        );
-        return;
-      }
-      showToast(error instanceof Error ? error.message : 'Could not create this table.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   }
 

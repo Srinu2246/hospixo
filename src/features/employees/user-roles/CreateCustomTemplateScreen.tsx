@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useRouter, usePathname } from 'next/navigation';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,25 +8,33 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 
 import { Card } from '@/components/shared/ui/Card';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
-import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
+import { Loading } from '@/components/shared/ui/Loading';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 
 import {
   customTemplateSchema,
+  resolveScopeFromPathname,
+  getUsersAndRolesBaseRoute,
   type CustomTemplateFormValues,
   type PermissionCategory,
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import {
+  togglePermissionCategory,
+  toggleAllInCategory,
+} from '@/lib/helpers/employees/userRolesHelpers';
 import { useCreateCustomRole, useGroupedPermissions } from '@/lib/hooks/employees/user-roles';
 import { PermissionGroupsGrid } from '@/components/features/user-roles';
+import { CustomTemplatePresetCards } from '@/components/features/user-roles/custom-template/CustomTemplatePresetCards';
+import { CustomTemplateFooter } from '@/components/features/user-roles/custom-template/CustomTemplateFooter';
 
 export interface CreateCustomTemplateScreenProps {
   onBack?: () => void;
@@ -36,40 +43,6 @@ export interface CreateCustomTemplateScreenProps {
   companyName?: string;
 }
 
-interface PresetOption {
-  id: CustomTemplateFormValues['preset'];
-  title: string;
-  description: string;
-}
-
-const PRESET_OPTIONS: readonly PresetOption[] = [
-  {
-    id: 'full_read',
-    title: 'Full Read Access',
-    description: 'View all standard modules and reports.',
-  },
-  {
-    id: 'standard_manager',
-    title: 'Standard Manager',
-    description: 'Balanced permissions for store tasks.',
-  },
-  {
-    id: 'view_only',
-    title: 'View Only',
-    description: 'Restricted purely to operations.',
-  },
-  {
-    id: 'custom',
-    title: 'Custom Setup',
-    description: 'Manually set permissions in the next step.',
-  },
-];
-
-/**
- * CreateCustomTemplatePage Component
- *
- * Page-level screen for authoring new role templates with preset permissions.
- */
 export function CreateCustomTemplateScreen({
   onBack,
   onSaveTemplate,
@@ -78,39 +51,25 @@ export function CreateCustomTemplateScreen({
   const router = useRouter();
   const pathname = usePathname() || '';
 
-  const resolvedScope: ScopeType =
-    scope ||
-    (pathname.includes('/company')
-      ? 'company'
-      : pathname.includes('/branch')
-        ? 'branch'
-        : 'organization');
+  const resolvedScope = resolveScopeFromPathname(pathname, scope);
+  const baseRoute = getUsersAndRolesBaseRoute(pathname, resolvedScope);
 
-  const getBaseRoute = () => {
-    const stripped = pathname.replace(/\/custom-template$/, '');
-    if (stripped) return stripped;
-    if (resolvedScope === 'company') return '/company/employees/users-and-roles';
-    if (resolvedScope === 'branch') return '/branch-manager/employees/users-and-roles';
-    return '/organization/employees/users-and-roles';
-  };
-  const baseRoute = getBaseRoute();
-
-  // Template permissions state
   const groupedPermissions = useGroupedPermissions();
   const createCustomRole = useCreateCustomRole();
-  const remoteCategories = groupedPermissions.data ?? [];
+  const remoteCategories = groupedPermissions.data;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
-  const [syncedRemoteCategories, setSyncedRemoteCategories] =
-    useState<PermissionCategory[]>(remoteCategories);
+  const [syncedRemoteCategories, setSyncedRemoteCategories] = useState<
+    PermissionCategory[] | undefined
+  >(undefined);
 
-  if (remoteCategories !== syncedRemoteCategories) {
+  // Sync draft permissions when remote categories first load / change (render-time adjust).
+  if (remoteCategories?.length && remoteCategories !== syncedRemoteCategories) {
     setSyncedRemoteCategories(remoteCategories);
-    if (remoteCategories.length > 0) {
-      setCategories(remoteCategories);
-    }
+    setCategories(remoteCategories);
   }
 
-  // Toast feedback state
+  const footerTarget = useAppShellFooterTarget();
+
   const [toastFeedback, setToastFeedback] = useState<{
     open: boolean;
     message: string;
@@ -118,16 +77,8 @@ export function CreateCustomTemplateScreen({
   }>({
     open: false,
     message: '',
-    severity: 'success',
+    severity: 'warning',
   });
-
-  const showToast = (message: string, severity: ToastSeverity = 'success') => {
-    setToastFeedback({ open: true, message, severity });
-  };
-
-  const footerTarget = useAppShellFooterTarget();
-
-  // Form Management
   const {
     control,
     handleSubmit,
@@ -153,7 +104,6 @@ export function CreateCustomTemplateScreen({
     }
   };
 
-  // Switch preset and configure baseline permissions accordingly
   const handleSelectPreset = (presetId: CustomTemplateFormValues['preset']) => {
     setValue('preset', presetId);
 
@@ -190,43 +140,32 @@ export function CreateCustomTemplateScreen({
     }
   };
 
-  // Toggle individual permission
   const handleTogglePermission = (categoryId: string, permissionId: string) => {
-    setCategories((prev) =>
-      prev.map((cat) => {
-        if (cat.id !== categoryId) return cat;
-        return {
-          ...cat,
-          permissions: cat.permissions.map((p) =>
-            p.id === permissionId ? { ...p, enabled: !p.enabled } : p,
-          ),
-        };
-      }),
-    );
+    setCategories((prev) => togglePermissionCategory(prev, categoryId, permissionId));
   };
 
-  // Toggle all permissions in a category
   const handleToggleCategoryAll = (categoryId: string, enableAll: boolean) => {
-    setCategories((prev) =>
-      prev.map((cat) => {
-        if (cat.id !== categoryId) return cat;
-        return {
-          ...cat,
-          permissions: cat.permissions.map((p) => ({ ...p, enabled: enableAll })),
-        };
-      }),
-    );
+    setCategories((prev) => toggleAllInCategory(prev, categoryId, enableAll));
   };
 
-  // Form Submission
   const onSubmit = async (data: CustomTemplateFormValues) => {
+    const hasAtLeastOnePermission = categories.some((cat) =>
+      cat.permissions.some((p) => p.enabled),
+    );
+    if (!hasAtLeastOnePermission) {
+      setToastFeedback({
+        open: true,
+        message: 'Please enable at least one permission for this role template.',
+        severity: 'warning',
+      });
+      return;
+    }
     try {
       await createCustomRole.mutateAsync({ values: data, categories });
       onSaveTemplate?.(data, categories);
-      showToast(`Role template "${data.templateName}" created successfully!`, 'success');
       handleBack();
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Unable to create role.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   };
 
@@ -240,15 +179,31 @@ export function CreateCustomTemplateScreen({
         pb: 4,
       }}
     >
-      {/* Top Breadcrumbs */}
-      <Breadcrumbs
-        items={[
-          { label: 'Users & Roles', onClick: handleBack },
-          { label: 'Create Custom Template', active: true },
-        ]}
-      />
+      <Box
+        sx={{
+          mt: { [screen.mobile]: -2, [screen.desktop]: -3 },
+          mx: { [screen.mobile]: -2, [screen.desktop]: -3 },
+          px: { [screen.mobile]: 2, [screen.desktop]: 3 },
+          py: 1.5,
+          bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
+          borderBottom: '1px solid',
+          borderColor: (theme) =>
+            theme.palette.mode === 'dark' ? theme.palette.divider : 'rgba(0, 0, 0, 0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          mb: 0.5,
+        }}
+      >
+        <Breadcrumbs
+          items={[
+            { label: 'Users & Roles', onClick: () => router.push(baseRoute) },
+            { label: 'Template', onClick: handleBack },
+            { label: 'Create Role', active: true },
+          ]}
+          activeSx={{ color: colors.primary.default, fontWeight: 600 }}
+        />
+      </Box>
 
-      {/* Header with Title and Subtitle */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
         <IconButton
           onClick={handleBack}
@@ -295,7 +250,6 @@ export function CreateCustomTemplateScreen({
         </Box>
       </Box>
 
-      {/* Main Content Card */}
       <Card
         variant="outlined"
         padding={3}
@@ -311,8 +265,7 @@ export function CreateCustomTemplateScreen({
           boxShadow: 'none',
         }}
       >
-        <form onSubmit={handleSubmit(onSubmit)} id="custom-template-form">
-          {/* SECTION 1: Template Information */}
+        <form onSubmit={handleSubmit(onSubmit)} id="custom-template-form" noValidate>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Controller
               name="templateName"
@@ -350,7 +303,6 @@ export function CreateCustomTemplateScreen({
             />
           </Box>
 
-          {/* SECTION 2: Configure Permissions & Presets */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 4 }}>
             <Box>
               <Typography
@@ -371,186 +323,37 @@ export function CreateCustomTemplateScreen({
               </Typography>
             </Box>
 
-            {/* 4 Preset Option Cards */}
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' },
-                gap: 2,
-                mt: 0.5,
-              }}
-            >
-              {PRESET_OPTIONS.map((opt) => {
-                const isSelected = selectedPreset === opt.id;
-                return (
-                  <Box
-                    key={opt.id}
-                    onClick={() => handleSelectPreset(opt.id)}
-                    sx={{
-                      p: 2,
-                      borderRadius: '12px',
-                      border: '1.5px solid',
-                      borderColor: isSelected
-                        ? colors.primary.default
-                        : (theme) =>
-                            theme.palette.mode === 'dark'
-                              ? theme.palette.divider
-                              : colors.border.default,
-                      bgcolor: isSelected
-                        ? (theme) =>
-                            theme.palette.mode === 'dark'
-                              ? 'rgba(25, 118, 210, 0.12)'
-                              : 'rgba(25, 118, 210, 0.04)'
-                        : (theme) =>
-                            theme.palette.mode === 'dark'
-                              ? colors.surface.darkMuted
-                              : colors.surface.default,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      gap: 1.5,
-                      '&:hover': {
-                        borderColor: isSelected ? colors.primary.default : colors.primary.light,
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          fontSize: '0.875rem',
-                          fontWeight: 700,
-                          color: 'text.primary',
-                        }}
-                      >
-                        {opt.title}
-                      </Typography>
-                      {isSelected ? (
-                        <CheckCircleIcon sx={{ fontSize: 20, color: colors.primary.default }} />
-                      ) : (
-                        <RadioButtonUncheckedIcon
-                          sx={{ fontSize: 20, color: colors.text.secondary }}
-                        />
-                      )}
-                    </Box>
-
-                    <Typography
-                      sx={{
-                        fontSize: '0.75rem',
-                        color: colors.text.secondary,
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {opt.description}
-                    </Typography>
-                  </Box>
-                );
-              })}
-            </Box>
-
-            <Typography
-              sx={{
-                fontSize: '0.9375rem',
-                fontWeight: 700,
-                color: 'text.primary',
-                mt: 2,
-              }}
-            >
-              Permissions
-            </Typography>
-
-            {/* Reusable Permission Groups Grid */}
-            <PermissionGroupsGrid
-              categories={categories}
-              onTogglePermission={handleTogglePermission}
-              onToggleCategoryAll={handleToggleCategoryAll}
-              badgeMode="enabled"
+            <CustomTemplatePresetCards
+              selectedPreset={selectedPreset}
+              onSelectPreset={handleSelectPreset}
             />
+
+            <Box sx={{ mt: 2 }}>
+              {groupedPermissions.isLoading ? (
+                <Loading message="Loading permissions catalog..." />
+              ) : groupedPermissions.isError ? (
+                <AlertMessage
+                  variant="error"
+                  message="Failed to load permissions catalog. You can still create the role template."
+                />
+              ) : (
+                <PermissionGroupsGrid
+                  categories={categories}
+                  onTogglePermission={handleTogglePermission}
+                  onToggleCategoryAll={handleToggleCategoryAll}
+                  showEnabledOnly={false}
+                />
+              )}
+            </Box>
           </Box>
         </form>
       </Card>
 
-      {/* STICKY FOOTER BAR */}
-      {(() => {
-        const stickyFooterContent = (
-          <Box
-            component="footer"
-            sx={{
-              width: '100%',
-              bgcolor: (theme) =>
-                theme.palette.mode === 'dark' ? colors.surface.dark : colors.surface.default,
-              borderTop: '1px solid',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-              boxShadow: (theme) =>
-                theme.palette.mode === 'dark'
-                  ? '0 -4px 20px rgba(0, 0, 0, 0.4)'
-                  : '0 -2px 12px rgba(0, 0, 0, 0.05)',
-              px: { xs: 2.5, sm: 4 },
-              py: 1.75,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              boxSizing: 'border-box',
-            }}
-          >
-            <ActionButton
-              variant="outlined"
-              onClick={handleBack}
-              disabled={isSubmitting}
-              sx={{
-                height: 38,
-                px: 2.5,
-                borderRadius: '8px',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-              }}
-            >
-              Cancel
-            </ActionButton>
-            <ActionButton
-              variant="primary"
-              type="submit"
-              form="custom-template-form"
-              loading={isSubmitting}
-              sx={{
-                height: 38,
-                px: 2.5,
-                borderRadius: '8px',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-              }}
-            >
-              Save Template
-            </ActionButton>
-          </Box>
-        );
-
-        if (footerTarget) {
-          return createPortal(stickyFooterContent, footerTarget);
-        }
-
-        return (
-          <Box
-            sx={{
-              position: 'sticky',
-              bottom: 0,
-              zIndex: 20,
-              mt: 'auto',
-              pt: 2,
-            }}
-          >
-            {stickyFooterContent}
-          </Box>
-        );
-      })()}
+      <CustomTemplateFooter
+        isSubmitting={isSubmitting}
+        footerTarget={footerTarget}
+        onCancel={handleBack}
+      />
 
       <Toast
         open={toastFeedback.open}
@@ -561,5 +364,3 @@ export function CreateCustomTemplateScreen({
     </Box>
   );
 }
-
-// Re-export for full backwards compatibility

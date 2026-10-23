@@ -11,6 +11,9 @@
   },
   "project": ["src/**/*.{js,jsx,ts,tsx}"],
   "ignoreExportsUsedInFile": true,
+  "ignoreIssues": {
+    "src/lib/mocks/reports/reports.mocks.ts": ["exports"]
+  },
   "ignoreDependencies": [
     "@babel/preset-typescript",
     "@locator/babel-jsx",

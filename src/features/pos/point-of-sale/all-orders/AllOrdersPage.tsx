@@ -9,67 +9,49 @@ import ButtonBase from '@mui/material/ButtonBase';
 import { alpha } from '@mui/material/styles';
 import { Download } from 'lucide-react';
 
-import { FilterBar, type FilterBarItem } from '@/components/shared/form-fields/FilterBar';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
+import { Loading } from '@/components/shared/ui/Loading';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { type PosOrderItem } from '@/lib/helpers/posAllOrdersHelpers';
+import { usePosOrders } from '@/lib/hooks/pos/point-of-sale/all-orders/usePosOrders';
 import { colors } from '@/lib/theme/mui/colors';
-import {
-  MOCK_POS_ORDERS,
-  type PosOrderItem,
-  type OrderType,
-} from '@/lib/mocks/pos/usePosOrders.mocks';
-
-const ORDER_FILTER_ITEMS: readonly FilterBarItem<OrderType>[] = [
-  { id: 'all', label: 'All' },
-  { id: 'dine-in', label: 'Dine-In' },
-  { id: 'takeaway', label: 'Takeaway' },
-  { id: 'delivery', label: 'Delivery' },
-  { id: 'online', label: 'Online' },
-];
 
 /**
  * AllOrdersPage Component
  *
  * Screen for managing and reviewing running POS orders across Dine-In,
  * Takeaway, Delivery, and Online aggregators with live kitchen status chips,
- * filters, search, and action triggers.
+ * search, and action triggers.
  */
 export function AllOrdersPage() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [orders] = useState<PosOrderItem[]>(MOCK_POS_ORDERS);
-  const [activeFilter, setActiveFilter] = useState<OrderType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 6;
 
-  // Filter orders based on active tab and search query
+  // GET /v1/branches/{branch_id}/orders — load open orders for the active branch
+  const ordersQuery = usePosOrders({ page: 1, pageSize: 50, status: 'open' });
+  const orders = useMemo(() => ordersQuery.data?.rows ?? [], [ordersQuery.data?.rows]);
+
+  // Filter orders by search query
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      // Type filter
-      if (activeFilter !== 'all' && order.type !== activeFilter) {
-        return false;
-      }
+      if (!searchQuery.trim()) return true;
 
-      // Search query across orderNumber, reference, type, status, and amount
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
-        const matchesOrder = order.orderNumber.toLowerCase().includes(query);
-        const matchesRef = order.reference.toLowerCase().includes(query);
-        const matchesType = order.typeLabel.toLowerCase().includes(query);
-        const matchesStatus = order.kitchenStatusLabel.toLowerCase().includes(query);
-        const matchesAmount = String(order.amount).includes(query);
-        if (!matchesOrder && !matchesRef && !matchesType && !matchesStatus && !matchesAmount) {
-          return false;
-        }
-      }
-
-      return true;
+      const query = searchQuery.toLowerCase().trim();
+      const matchesOrder = order.orderNumber.toLowerCase().includes(query);
+      const matchesRef = order.reference.toLowerCase().includes(query);
+      const matchesType = order.typeLabel.toLowerCase().includes(query);
+      const matchesStatus = order.kitchenStatusLabel.toLowerCase().includes(query);
+      const matchesAmount = String(order.amount).includes(query);
+      return matchesOrder || matchesRef || matchesType || matchesStatus || matchesAmount;
     });
-  }, [orders, activeFilter, searchQuery]);
+  }, [orders, searchQuery]);
 
   // Paginated subset
   const paginatedRows = useMemo(() => {
@@ -90,39 +72,35 @@ export function AllOrdersPage() {
     ).length;
   }, [filteredOrders]);
 
-  // Action handlers
+  // Action handlers — ids come from schema-validated rows (toPosOrderItem).
   const handleAddItems = useCallback(
     (order: PosOrderItem) => {
-      const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
-
-      // Derive base flow URL dynamically from the current pathname to preserve branch/tenant prefixes
-      // e.g. /indiranagar/pos/captain-flow/all-orders -> /indiranagar/pos/captain-flow
       const baseFlow = pathname
         ? pathname.replace(/\/all-orders(\/.*)?$/, '')
         : '/pos/point-of-sale';
 
       const isCaptain = baseFlow.includes('captain-flow');
+      const orderId = String(order.orderApiId);
 
-      // Parse table from reference (e.g. "Table T4" -> "t-4")
-      const tableMatch = order.reference.match(/Table\s*(T\d+|[A-Za-z0-9_-]+)/i);
-      const tableParam = tableMatch
-        ? tableMatch[1].toLowerCase().replace(/^t(\d+)$/, 't-$1')
-        : null;
-
-      let targetUrl = '';
-      if (isCaptain) {
-        if (order.type === 'dine-in' && tableParam) {
-          targetUrl = `${baseFlow}/tables?orderId=${cleanOrderNumber}`;
-        } else {
-          targetUrl = `${baseFlow}/order-menu?orderId=${cleanOrderNumber}`;
+      if (order.type === 'dine-in' && order.tableId != null) {
+        const tableSegment = String(order.tableId);
+        if (isCaptain) {
+          router.push(
+            `${baseFlow}/order-menu?orderId=${encodeURIComponent(orderId)}&tableId=${encodeURIComponent(tableSegment)}`,
+          );
+          return;
         }
-      } else if (order.type === 'dine-in' && tableParam) {
-        targetUrl = `${baseFlow}/dine-in/${tableParam}?orderId=${cleanOrderNumber}`;
-      } else {
-        targetUrl = `${baseFlow}/takeaway?orderId=${cleanOrderNumber}`;
+        router.push(
+          `${baseFlow}/dine-in/${encodeURIComponent(tableSegment)}?orderId=${encodeURIComponent(orderId)}`,
+        );
+        return;
       }
 
-      router.push(targetUrl);
+      if (isCaptain) {
+        router.push(`${baseFlow}/order-menu?orderId=${encodeURIComponent(orderId)}`);
+        return;
+      }
+      router.push(`${baseFlow}/takeaway?orderId=${encodeURIComponent(orderId)}`);
     },
     [pathname, router],
   );
@@ -130,8 +108,7 @@ export function AllOrdersPage() {
   const handleSettle = useCallback(
     (order: PosOrderItem) => {
       const basePath = pathname ? pathname.replace(/\/+$/, '') : '/pos/point-of-sale/all-orders';
-      const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
-      router.push(`${basePath}/${cleanOrderNumber}`);
+      router.push(`${basePath}/${encodeURIComponent(String(order.orderApiId))}`);
     },
     [pathname, router],
   );
@@ -295,6 +272,10 @@ export function AllOrdersPage() {
     [handleAddItems, handleSettle],
   );
 
+  if (ordersQuery.isLoading && orders.length === 0) {
+    return <Loading message="Loading orders..." />;
+  }
+
   return (
     <Box
       sx={{
@@ -310,8 +291,16 @@ export function AllOrdersPage() {
         overflow: 'hidden',
       }}
     >
+      {ordersQuery.isError ? (
+        <AlertMessage
+          variant="error"
+          title="Could not load orders"
+          message="Refresh the page or try again in a moment."
+        />
+      ) : null}
+
       {/* ------------------------------------------------------------- */}
-      {/* 1. Header Row: Title + FilterBar + SearchBar + Online Synced   */}
+      {/* 1. Header Row: Title + SearchBar + Online Synced               */}
       {/* ------------------------------------------------------------- */}
       <Box
         sx={{
@@ -323,38 +312,19 @@ export function AllOrdersPage() {
           flexShrink: 0,
         }}
       >
-        {/* Left: Title + FilterBar */}
-        <Stack direction="row" spacing={2.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography
-            variant="h5"
-            component="h1"
-            sx={{
-              fontWeight: 800,
-              fontSize: '1.5rem',
-              color: 'text.primary',
-              letterSpacing: '-0.02em',
-              lineHeight: 1.2,
-            }}
-          >
-            All Orders
-          </Typography>
-
-          <FilterBar
-            items={ORDER_FILTER_ITEMS}
-            value={activeFilter}
-            onChange={(val) => {
-              setActiveFilter(val);
-              setPage(1);
-            }}
-            variant="segmented"
-            size="small"
-            sx={{
-              bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'background.paper' : '#F1F3F5'),
-              p: 0.5,
-              borderRadius: '10px',
-            }}
-          />
-        </Stack>
+        <Typography
+          variant="h5"
+          component="h1"
+          sx={{
+            fontWeight: 800,
+            fontSize: '1.5rem',
+            color: 'text.primary',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.2,
+          }}
+        >
+          All Orders
+        </Typography>
 
         {/* Right: SearchBar + Online Synced Badge */}
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>

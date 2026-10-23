@@ -11,7 +11,8 @@ import { Search } from 'lucide-react';
 import { Toast } from '@/components/shared/ui/Toast';
 import { Modal } from '@/components/shared/ui/Modal';
 import { ReadyOrderCard } from '@/features/pos/point-of-sale/components/ReadyOrderCard';
-import { MOCK_READY_ORDERS, type ReadyOrderItem } from '@/lib/mocks/pos/usePosOrders.mocks';
+import { MOCK_READY_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
+import type { ReadyOrderItem } from '@/lib/schemas/pos/point-of-sale/ready-list/readyListSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 /**

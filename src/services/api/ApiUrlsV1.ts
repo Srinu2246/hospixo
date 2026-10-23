@@ -32,8 +32,25 @@ const ApiUrlsV1 = {
   },
   pos: {
     pointOfSale: {
-      allOrders: resource('/v1/pos/point-of-sale/all-orders'),
-      cashAndShift: resource('/v1/pos/point-of-sale/cash-and-shift'),
+      /** GET/POST /v1/branches/{branch_id}/orders — All Orders list + create */
+      allOrders: {
+        list: (branchId: number | string) => branchOrdersPath(branchId),
+        create: (branchId: number | string) => branchOrdersPath(branchId),
+      },
+      cashAndShift: {
+        ...resource('/v1/pos/point-of-sale/cash-and-shift'),
+        /** GET /v1/branches/{branch_id}/shifts/current */
+        current: (branchId: number | string) => branchShiftsCurrentPath(branchId),
+      },
+      /** Cash Counter UI — live paths under /v1/branches/{branch_id}/cash-registers */
+      cashCounter: {
+        list: (branchId: number | string) => branchCashRegistersPath(branchId),
+        create: (branchId: number | string) => branchCashRegistersPath(branchId),
+        detail: (branchId: number | string, registerId: number | string) =>
+          branchCashRegisterPath(branchId, registerId),
+        update: (branchId: number | string, registerId: number | string) =>
+          branchCashRegisterPath(branchId, registerId),
+      },
       dashboard: resource('/v1/pos/point-of-sale/dashboard'),
       dineIn: resource('/v1/pos/point-of-sale/dine-in'),
       duePayments: resource('/v1/pos/point-of-sale/due-payments'),
@@ -131,9 +148,62 @@ export function branchKitchenStatusPath(
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders/${encodeURIComponent(String(orderId))}/kitchen-status`;
 }
 
-/** GET /v1/branches/{branch_id}/orders */
+/** GET/POST /v1/branches/{branch_id}/orders */
 export function branchOrdersPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders`;
+}
+
+/** GET /v1/branches/{branch_id}/meal-sessions */
+export function branchMealSessionsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/meal-sessions`;
+}
+
+/** GET /v1/branches/{branch_id}/tables/availability */
+export function branchTablesAvailabilityPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/tables/availability`;
+}
+
+/** GET /v1/branches/{branch_id}/shifts/current */
+export function branchShiftsCurrentPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/shifts/current`;
+}
+
+/** GET/POST /v1/branches/{branch_id}/cash-registers */
+export function branchCashRegistersPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/cash-registers`;
+}
+
+/** GET/PATCH /v1/branches/{branch_id}/cash-registers/{register_id} */
+export function branchCashRegisterPath(
+  branchId: number | string,
+  registerId: number | string,
+): string {
+  return `${branchCashRegistersPath(branchId)}/${encodeURIComponent(String(registerId))}`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/overview */
+export function branchReportsOverviewPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/overview`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/sales */
+export function branchReportsSalesPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/sales`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/orders/summary */
+export function branchReportsOrdersSummaryPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/orders/summary`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/sessions */
+export function branchReportsSessionsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/sessions`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/payments */
+export function branchReportsPaymentsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/payments`;
 }
 
 /** GET /v2/platform/organizations/{organization_id}/companies */

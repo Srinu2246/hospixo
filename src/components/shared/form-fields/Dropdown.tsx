@@ -58,8 +58,27 @@ export function Dropdown<T extends string | number = string>({
     typeof opt === 'string' ? ({ id: opt as unknown as T, label: opt } as DropdownOption<T>) : opt,
   );
 
-  const selectedValue = value ?? normalizedOptions[0]?.id ?? ('' as T);
+  const selectedValue =
+    value !== undefined && value !== null
+      ? value
+      : placeholder
+        ? ('' as T)
+        : (normalizedOptions[0]?.id ?? ('' as T));
+  const hasEmptyOption = normalizedOptions.some((option) => option.id === ('' as T));
   const sizeConfig = SIZE_STYLES[size];
+
+  const renderPlaceholder = () => (
+    <Box
+      component="span"
+      sx={{
+        color: 'text.secondary',
+        fontWeight: 400,
+        fontSize: sizeConfig.fontSize,
+      }}
+    >
+      {placeholder}
+    </Box>
+  );
 
   const handleChange = (event: SelectChangeEvent<T>) => {
     const nextValue = event.target.value as T;
@@ -81,7 +100,9 @@ export function Dropdown<T extends string | number = string>({
         value={selectedValue}
         onChange={handleChange}
         disabled={disabled}
-        displayEmpty={Boolean(placeholder)}
+        displayEmpty={
+          Boolean(placeholder) || selectedValue === ('' as T) || selectedValue === undefined
+        }
         IconComponent={ChevronDown}
         MenuProps={{
           slotProps: {
@@ -139,8 +160,14 @@ export function Dropdown<T extends string | number = string>({
           },
         }}
         renderValue={(val) => {
+          const isEmptyValue = val === '' || val === undefined || val === null;
           const opt = normalizedOptions.find((o) => o.id === val);
-          const displayLabel = opt?.label ?? String(val);
+          const displayLabel =
+            opt?.label ?? (isEmptyValue && placeholder ? placeholder : String(val ?? ''));
+
+          if (isEmptyValue && placeholder && !isOutletVariant && !prefix) {
+            return renderPlaceholder();
+          }
 
           if (isOutletVariant) {
             return (
@@ -287,7 +314,7 @@ export function Dropdown<T extends string | number = string>({
           ...sx,
         }}
       >
-        {placeholder ? (
+        {placeholder && !hasEmptyOption ? (
           <MenuItem
             value=""
             disabled

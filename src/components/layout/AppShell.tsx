@@ -103,7 +103,7 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
       {/* 
         Fixed Left Sidebar:
         - Stationary on the left side
-        - Width: 248px (Open) / 76px (Closed)
+        - Width comes from Sidebar (320 open / 76 collapsed) for all roles
         - Does NOT scroll when page content scrolls
       */}
       <Box
@@ -117,10 +117,9 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
             left: { [screen.mobile]: 'auto', [screen.desktop]: 0 },
             right: { [screen.mobile]: 0, [screen.desktop]: 'auto' },
             zIndex: { [screen.mobile]: 1300 },
-            // Drawer width on mobile/tablet; desktop lets Sidebar set 248 / 76.
-            width: { [screen.mobile]: 280, [screen.desktop]: 'unset' },
-            minWidth: { [screen.mobile]: 280, [screen.desktop]: 'unset' },
-            maxWidth: { [screen.mobile]: 280, [screen.desktop]: 'unset' },
+            // Do not set width here — `& > aside { width: unset }` beats Sidebar’s
+            // own width class by specificity and pins the rail to content size.
+            // Sidebar owns open/collapsed width (320 / 76) for every role.
             boxShadow: {
               [screen.mobile]: mobileOpen ? '-4px 0 24px rgba(0, 0, 0, 0.35)' : 'none',
               [screen.desktop]: 'none',

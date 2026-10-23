@@ -9,7 +9,6 @@ import {
   parseMenuItemRecord,
   type MenuItemListParams,
 } from '@/lib/schemas/menu/menuItemsSchema';
-import { useToastStore } from '@/stores/toastStore';
 import { api } from '@/services/api/browserClient';
 import {
   restaurantMenuItemActivatePath,
@@ -69,7 +68,6 @@ export function useMenuItem(itemId: number | undefined) {
  */
 export function useDeactivateMenuItem() {
   const queryClient = useQueryClient();
-  const showToast = useToastStore((state) => state.show);
 
   return useMutation({
     mutationFn: async (itemId: number) => {
@@ -78,7 +76,6 @@ export function useDeactivateMenuItem() {
     onSuccess: async (_data, itemId) => {
       await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
       await queryClient.invalidateQueries({ queryKey: menuItemQueryKey(itemId) });
-      showToast('Menu item deleted successfully.', 'success');
     },
   });
 }

@@ -13,7 +13,7 @@ import {
   type CartItem,
   type PosMenuItem,
 } from '@/lib/mocks/pos/usePosMenu.mocks';
-import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
+import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 
 const ACTIVE_MENU_PARAMS = { status: 'active' as const, page_size: 100 };
 
