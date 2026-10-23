@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
+import { Loading } from '@/components/shared/ui/Loading';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 
@@ -19,11 +20,15 @@ import {
 import { useCreateUserStore } from '@/stores/createUserStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import {
+  clearCreateUserFormDraft,
+  resolveCreateUserFormDraftStorageKey,
   useCreateStaffUser,
+  useCreateUserFormDraft,
   useEmployeeDirectory,
   useRoleCatalogQuery,
   useRolePermissions,
 } from '@/lib/hooks/employees/user-roles';
+import { resolveEmployeeDirectoryOptions } from '@/lib/helpers/employees/userRolesHelpers';
 import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 
 import {
@@ -87,6 +92,7 @@ export function CreateUserMultiformFlow({
     toggleCategoryAll,
     setIsSubmitting,
     setCategories,
+    setScope,
     reset,
   } = useCreateUserStore();
 
@@ -108,13 +114,47 @@ export function CreateUserMultiformFlow({
   const contextOrgId = useSidebarStore((state) => state.context.organizationId);
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
   const contextBranchId = useSidebarStore((state) => state.context.branchId);
+  const role = useSidebarStore((state) => state.role || state.user?.role || '');
+  const authScope = useSidebarStore((state) => state.account?.scope ?? '');
 
   const organizationId = contextOrgId ?? accountOrgId;
-  const directoryCompanyId =
-    resolvedScope === 'company' || resolvedScope === 'branch'
-      ? (contextCompanyId ?? accountCompanyId)
-      : undefined;
-  const directory = useEmployeeDirectory(organizationId, directoryCompanyId);
+
+  const baseRoute = useMemo(
+    () => getUsersAndRolesBaseRoute(pathname, resolvedScope),
+    [pathname, resolvedScope],
+  );
+
+  const formDraftStorageKey = useMemo(
+    () => resolveCreateUserFormDraftStorageKey(resolvedScope, baseRoute),
+    [baseRoute, resolvedScope],
+  );
+
+  useEffect(() => {
+    setScope(resolvedScope);
+  }, [resolvedScope, setScope]);
+
+  const { isDraftReady } = useCreateUserFormDraft(formDraftStorageKey, {
+    enabled: currentStep !== 'success',
+    currentStep,
+  });
+
+  const wizardStepsNeedDraft =
+    currentStep === 'user-form' || currentStep === 'permissions' || currentStep === 'review';
+
+  const directoryQuery = useMemo(
+    () =>
+      resolveEmployeeDirectoryOptions({
+        wizardScope: resolvedScope,
+        contextCompanyId,
+        accountCompanyId,
+        role,
+        authScope,
+      }),
+    [resolvedScope, contextCompanyId, accountCompanyId, role, authScope],
+  );
+  const directory = useEmployeeDirectory(organizationId, directoryQuery.companyId, {
+    scope: directoryQuery.directoryScope,
+  });
 
   const resolvedBranchId = useMemo(() => {
     if (contextBranchId != null) return contextBranchId;
@@ -185,8 +225,6 @@ export function CreateUserMultiformFlow({
 
   const footerTarget = useAppShellFooterTarget();
 
-  const baseRoute = getUsersAndRolesBaseRoute(pathname, resolvedScope);
-
   const navigateToStep = (nextStep: CreateUserStep) => {
     setStep(nextStep);
     const stepRouteMap: Record<CreateUserStep, string> = {
@@ -241,6 +279,7 @@ export function CreateUserMultiformFlow({
         ids,
       });
 
+      clearCreateUserFormDraft(formDraftStorageKey);
       onUserCreated?.(formValues);
       navigateToStep('success');
     } catch {
@@ -251,13 +290,15 @@ export function CreateUserMultiformFlow({
   };
 
   const handleExitFlow = () => {
-    reset();
+    clearCreateUserFormDraft(formDraftStorageKey);
+    reset(resolvedScope);
     onExit?.();
     router.push(baseRoute);
   };
 
   const handleRestart = () => {
-    reset();
+    clearCreateUserFormDraft(formDraftStorageKey);
+    reset(resolvedScope);
     navigateToStep('template');
   };
 
@@ -321,15 +362,17 @@ export function CreateUserMultiformFlow({
           />
 
           <Box sx={{ flex: 1, width: '100%', pb: 3 }}>
-            {currentStep === 'user-form' && (
+            {wizardStepsNeedDraft && !isDraftReady ? <Loading /> : null}
+            {currentStep === 'user-form' && isDraftReady && (
               <CreateUserStepOne
+                key={formDraftStorageKey}
                 onValidSubmit={() => navigateToStep('permissions')}
                 scope={resolvedScope}
                 companyName={effectiveCompanyName}
               />
             )}
 
-            {currentStep === 'permissions' && (
+            {currentStep === 'permissions' && isDraftReady && (
               <ConfigurePermissionsStepTwo
                 categories={effectiveCategories}
                 onTogglePermission={togglePermission}
@@ -343,7 +386,7 @@ export function CreateUserMultiformFlow({
               />
             )}
 
-            {currentStep === 'review' && (
+            {currentStep === 'review' && isDraftReady && (
               <ReviewAndSaveStepThree
                 formValues={formValues}
                 selectedTemplate={

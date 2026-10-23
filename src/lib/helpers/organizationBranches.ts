@@ -1,13 +1,18 @@
 import ApiUrlsV1, { organizationCompanyBranchesPath } from '@/services/api/ApiUrlsV1';
-import { loadOrganizationCompanies } from '@/lib/helpers/organizationCompanies';
+import {
+  loadCompanyById,
+  loadOrganizationCompanies,
+  shouldLoadOrganizationCompanyList,
+} from '@/lib/helpers/organizationCompanies';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import {
   parseBranchList,
   type BranchListItem,
 } from '@/lib/schemas/organization/branches/branchListSchema';
 import { ApiError, type QueryParams } from '@/services/api/types';
+import type { JsonValue } from '@/types/json';
 
-type GetJson = (path: string, params?: QueryParams) => Promise<unknown>;
+type GetJson = (path: string, params?: QueryParams) => Promise<JsonValue>;
 
 /**
  * Load branches the same way as main.
@@ -49,12 +54,22 @@ export async function loadBranchDirectory(
     scope?: 'organization' | 'company' | 'branch';
   },
 ): Promise<BranchListItem[]> {
-  const companies = await loadOrganizationCompanies(organizationId, get, {
+  const scope = context?.scope ?? (companyId != null ? 'company' : 'organization');
+  const listContext = {
     role: context?.role,
     authScope: context?.authScope,
     companyId,
-    scope: context?.scope ?? (companyId != null ? 'company' : 'organization'),
-  }).catch(() => []);
+    scope,
+  };
+  const listAllowed = shouldLoadOrganizationCompanyList(listContext);
+
+  let companies: CompanyListItem[] = [];
+  if (listAllowed && organizationId != null) {
+    companies = await loadOrganizationCompanies(organizationId, get, listContext).catch(() => []);
+  } else if (companyId != null) {
+    const detail = await loadCompanyById(companyId, get).catch(() => null);
+    if (detail) companies = [detail];
+  }
   const branches = await loadOrganizationBranches(organizationId, companies, get, companyId);
   const namesById = new Map(companies.map((company) => [String(company.id), company.name]));
 
@@ -129,6 +144,6 @@ function dedupeBranches(items: readonly BranchListItem[]): BranchListItem[] {
   return [...byId.values()];
 }
 
-function isMissingEndpoint(error: unknown): boolean {
+function isMissingEndpoint(error: ApiError | Error | object): boolean {
   return error instanceof ApiError && (error.status === 403 || error.status === 404);
 }
