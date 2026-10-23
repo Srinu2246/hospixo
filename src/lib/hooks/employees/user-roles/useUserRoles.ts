@@ -137,14 +137,14 @@ export function useUserRoles(
       compact({
         page,
         page_size: pageSize,
-        search: searchQuery.trim() || undefined,
-        role: selectedRole || undefined,
-        branch: selectedBranch || undefined,
-        status: selectedStatus || undefined,
+        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(selectedRole ? { role: selectedRole } : {}),
+        ...(selectedBranch ? { branch: selectedBranch } : {}),
+        ...(selectedStatus ? { status: selectedStatus } : {}),
         scope,
         scope_type: scope,
-        company_id: resolvedCompanyId,
-        branch_id: scope === 'branch' ? resolvedBranchId : undefined,
+        ...(resolvedCompanyId != null ? { company_id: resolvedCompanyId } : {}),
+        ...(scope === 'branch' && resolvedBranchId != null ? { branch_id: resolvedBranchId } : {}),
       }),
     [
       page,
@@ -373,10 +373,7 @@ async function syncUserPermissions(
 }
 
 function useResolvedRoleCatalog(data: JsonValue | undefined): RoleCatalogItem[] {
-  return useMemo(() => {
-    if (Array.isArray(data)) return data;
-    return data ? parseRoleCatalog(data) : [];
-  }, [data]);
+  return useMemo(() => (data == null ? [] : parseRoleCatalog(data)), [data]);
 }
 
 async function invalidateUserQueries(
@@ -449,12 +446,12 @@ export function useStaffProfile(
   }, [userItem, rawUserQuery.data, roleCatalog]);
 
   const assignmentRoleId = useMemo(
-    () => readPrimaryUserRoleId(assignmentsQuery.data),
+    () => readPrimaryUserRoleId(assignmentsQuery.data ?? null),
     [assignmentsQuery.data],
   );
 
   const assignmentRoleTemplateId = useMemo(
-    () => readPrimaryRoleTemplateId(assignmentsQuery.data),
+    () => readPrimaryRoleTemplateId(assignmentsQuery.data ?? null),
     [assignmentsQuery.data],
   );
 
@@ -499,7 +496,7 @@ export function useStaffProfile(
   });
 
   const categories = useMemo(
-    () => parseRolePermissionsToCategories(rolePermissionsQuery.data),
+    () => parseRolePermissionsToCategories(rolePermissionsQuery.data ?? null),
     [rolePermissionsQuery.data],
   );
 

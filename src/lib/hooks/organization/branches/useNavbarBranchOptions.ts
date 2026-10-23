@@ -7,6 +7,7 @@ import { loadBranchDirectory } from '@/lib/helpers/organizationBranches';
 import { useQuery } from '@/lib/hooks/api/useQuery';
 import { api } from '@/services/api/browserClient';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import type { JsonValue } from '@/types/json';
 
 export type UseNavbarBranchOptionsConfig = Readonly<{
   /** When false, skips companies/branches directory API calls. */
@@ -38,7 +39,7 @@ export function useNavbarBranchOptions(config?: UseNavbarBranchOptionsConfig) {
       loadBranchDirectory(
         context.organizationId,
         context.companyId,
-        (path, params) => api.get<unknown>(path, params, signal),
+        (path, params) => api.get<JsonValue>(path, params, signal),
         { role, authScope, scope },
       ),
     enabled: (config?.enabled ?? true) && Boolean(role?.trim()),

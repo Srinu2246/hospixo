@@ -129,7 +129,7 @@ export function TopNavbar({
       context.branchName?.trim() ??
       (context.branchId != null ? `Branch ${context.branchId}` : 'Select branch')
     );
-  }, [mobileBranchOptions, mobileSelectedOutletSlug, context.branchName]);
+  }, [mobileBranchOptions, mobileSelectedOutletSlug, context.branchName, context.branchId]);
 
   const handleMobileOutletChange = (branchId: string, option?: DropdownOption<string>) => {
     const parsed = Number(branchId);

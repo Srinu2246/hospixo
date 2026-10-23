@@ -10,6 +10,11 @@ import {
   type CartItem,
   type PosMenuItem,
 } from '@/lib/mocks/pos/usePosMenu.mocks';
+import type { BranchOrderItem } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderDetailSchema';
+import type {
+  AddBranchOrderItemLine,
+  AddBranchOrderItemsBody,
+} from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderItemsSchema';
 import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 
@@ -118,45 +123,115 @@ export function toPosMenuItem(
   };
 }
 
-/** Seed cart lines from an open order id, table status, or the default demo cart. */
+/**
+ * Seed cart before order-detail fetch resolves.
+ * Dine-in / table: always empty (available stays empty; occupied hydrates from GET order).
+ * Takeaway with no order id: demo cart.
+ */
 export function buildInitialCart(
   effectiveOrderId: string | null | undefined,
   table: PosTableItem | null | undefined,
 ): CartItem[] {
-  if (effectiveOrderId) {
-    const orderDetail = getMockOrderSettleDetail(effectiveOrderId);
-    if (orderDetail && orderDetail.items.length > 0) {
-      return orderDetail.items.map((it) => ({
-        cartId: `existing-${it.id}`,
-        menuItemId: it.id,
-        name: it.name,
-        basePrice: it.unitPrice,
-        unitPrice: it.unitPrice,
-        quantity: it.quantity,
-        originalQuantity: it.quantity,
-        isExisting: true,
-        disableDelete: true,
-        imageUrl: EXISTING_ORDER_IMAGE,
-        itemBadges: ['Ordered'],
-      }));
-    }
+  if (table) return [];
+  if (effectiveOrderId) return [];
+  return INITIAL_CART_ITEMS;
+}
+
+function resolveVariantId(
+  selectedSizeId: string | undefined,
+  catalog: MenuItemResponse | undefined,
+): number | undefined {
+  if (selectedSizeId) {
+    const parsed = Number(selectedSizeId);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  const defaultVariant =
+    catalog?.variants.find((variant) => variant.is_default) ?? catalog?.variants[0];
+  return defaultVariant?.id;
+}
+
+function resolvePreparationStationId(catalog: MenuItemResponse | undefined): number | undefined {
+  const station = catalog?.preparation_stations[0];
+  return station?.preparation_station_id ?? station?.preparation_station?.id;
+}
+
+function resolveModifierSelections(
+  cartItem: CartItem,
+  catalog: MenuItemResponse | undefined,
+): AddBranchOrderItemLine['modifier_selections'] {
+  const selected = cartItem.customization?.selectedAddOns ?? [];
+  if (selected.length === 0 || !catalog) return [];
+
+  const selections: AddBranchOrderItemLine['modifier_selections'] = [];
+  for (const addOn of selected) {
+    const link = catalog.modifier_groups.find(
+      (group) => String(group.id) === addOn.id || String(group.modifier_group_id) === addOn.id,
+    );
+    if (!link) continue;
+    selections.push({
+      modifier_group_id: link.modifier_group_id,
+      modifier_option_ids: [],
+    });
+  }
+  return selections;
+}
+
+/**
+ * Map new cart lines to POST …/orders/{id}/items body.
+ * Skips existing (already-ordered) lines. Uses selected menu id as `branch_menu_id`.
+ */
+export function buildAddBranchOrderItemsBody(
+  branchMenuId: number,
+  cartItems: readonly CartItem[],
+  catalogById: ReadonlyMap<number, MenuItemResponse>,
+): AddBranchOrderItemsBody | null {
+  const newLines = cartItems.filter((item) => !item.isExisting);
+  if (newLines.length === 0) return null;
+
+  const items: AddBranchOrderItemLine[] = [];
+  for (const line of newLines) {
+    const menuItemId = Number(line.menuItemId);
+    if (!Number.isFinite(menuItemId) || menuItemId <= 0) continue;
+
+    const catalog = catalogById.get(menuItemId);
+    const variantId = resolveVariantId(line.customization?.selectedSizes[0]?.id, catalog);
+    const stationId = resolvePreparationStationId(catalog);
+    const tags = line.customization?.cookingPreference
+      ? [line.customization.cookingPreference]
+      : [];
+
+    items.push({
+      branch_menu_item_id: menuItemId,
+      ...(variantId != null ? { menu_item_variant_id: variantId } : {}),
+      ...(stationId != null ? { preparation_station_id: stationId } : {}),
+      modifier_selections: resolveModifierSelections(line, catalog),
+      quantity: line.quantity,
+      tags,
+    });
   }
 
-  if (table?.status === 'available') {
-    return [];
-  }
+  if (items.length === 0) return null;
+  return { expected_version: 1, branch_menu_id: branchMenuId, items };
+}
 
-  if (table && (table.status === 'occupied' || table.status === 'billing')) {
-    return INITIAL_CART_ITEMS.map((ci) => ({
-      ...ci,
+/** Map GET order detail line items into order-summary cart rows. */
+export function mapBranchOrderItemsToCart(items: readonly BranchOrderItem[]): CartItem[] {
+  return items.map((it) => {
+    const menuItemId = String(it.menu_item_id ?? it.branch_menu_item_id ?? it.id);
+    return {
+      cartId: `existing-${it.id}`,
+      menuItemId,
+      name: it.name,
+      basePrice: it.unit_price,
+      unitPrice: it.unit_price,
+      quantity: it.quantity,
+      originalQuantity: it.quantity,
       isExisting: true,
       disableDelete: true,
-      originalQuantity: ci.quantity,
-      itemBadges: [...(ci.itemBadges ?? []), 'Ordered'],
-    }));
-  }
-
-  return INITIAL_CART_ITEMS;
+      imageUrl: EXISTING_ORDER_IMAGE,
+      itemBadges: ['Ordered'],
+    };
+  });
 }
 
 /** Resolve table label from table prop, order detail, or route path. */

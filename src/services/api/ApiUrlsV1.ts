@@ -32,10 +32,18 @@ const ApiUrlsV1 = {
   },
   pos: {
     pointOfSale: {
-      /** GET/POST /v1/branches/{branch_id}/orders — All Orders list + create */
+      /** GET/POST /v1/branches/{branch_id}/orders — All Orders list + create + detail + items + submit */
       allOrders: {
         list: (branchId: number | string) => branchOrdersPath(branchId),
         create: (branchId: number | string) => branchOrdersPath(branchId),
+        detail: (branchId: number | string, orderId: number | string) =>
+          branchOrderDetailPath(branchId, orderId),
+        /** POST /v1/branches/{branch_id}/orders/{order_id}/items */
+        items: (branchId: number | string, orderId: number | string) =>
+          branchOrderItemsPath(branchId, orderId),
+        /** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
+        submit: (branchId: number | string, orderId: number | string) =>
+          branchOrderSubmitPath(branchId, orderId),
       },
       cashAndShift: {
         ...resource('/v1/pos/point-of-sale/cash-and-shift'),
@@ -157,6 +165,21 @@ export function branchKitchenStatusPath(
 /** GET/POST /v1/branches/{branch_id}/orders */
 export function branchOrdersPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders`;
+}
+
+/** GET /v1/branches/{branch_id}/orders/{order_id} */
+export function branchOrderDetailPath(branchId: number | string, orderId: number | string): string {
+  return `${branchOrdersPath(branchId)}/${encodeURIComponent(String(orderId))}`;
+}
+
+/** POST /v1/branches/{branch_id}/orders/{order_id}/items */
+export function branchOrderItemsPath(branchId: number | string, orderId: number | string): string {
+  return `${branchOrderDetailPath(branchId, orderId)}/items`;
+}
+
+/** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
+export function branchOrderSubmitPath(branchId: number | string, orderId: number | string): string {
+  return `${branchOrderDetailPath(branchId, orderId)}/submit`;
 }
 
 /** GET/POST /v1/branches/{branch_id}/meal-sessions */

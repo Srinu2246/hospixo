@@ -20,9 +20,10 @@ import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTab
 import { TakeawayMenuCatalog } from './TakeawayMenuCatalog';
 import { TakeawayTopBar } from './TakeawayTopBar';
 
-function menuErrorMessage(itemsError: unknown, categoriesError: unknown): string {
-  if (itemsError instanceof Error) return itemsError.message;
-  if (categoriesError instanceof Error) return categoriesError.message;
+function menuErrorMessage(...errors: unknown[]): string {
+  for (const err of errors) {
+    if (err instanceof Error) return err.message;
+  }
   return 'The menu request failed.';
 }
 
@@ -156,12 +157,20 @@ export function TakeawayPage({
           onSearchChange={order.setSearchQuery}
           viewMode={captainCompact ? 'list' : order.viewMode}
           onViewModeChange={order.setViewMode}
-          categoryFilterItems={order.categoryFilterItems}
-          activeCategory={order.activeCategory}
-          onCategoryChange={order.setActiveCategory}
-          isLoading={order.categoriesQuery.isLoading || order.itemsQuery.isLoading}
-          isError={order.categoriesQuery.isError || order.itemsQuery.isError}
-          errorMessage={menuErrorMessage(order.itemsQuery.error, order.categoriesQuery.error)}
+          menuOptions={order.menuOptions}
+          selectedMenuId={order.selectedMenuId}
+          onMenuChange={order.setSelectedMenuId}
+          categoryOptions={order.categoryOptions}
+          selectedCategoryId={order.selectedCategoryId}
+          onCategoryChange={order.setSelectedCategoryId}
+          isLoading={order.isMenuLoading}
+          isError={order.isMenuError}
+          errorMessage={menuErrorMessage(
+            order.branchMenusQuery.error,
+            order.categoriesQuery.error,
+            order.assignmentsQuery.error,
+            order.itemsQuery.error,
+          )}
           groupedSections={order.groupedSections}
           getItemCartQuantity={order.getItemCartQuantity}
           onAddDefault={order.handleAddDefaultItem}
@@ -188,6 +197,7 @@ export function TakeawayPage({
             onProceedCheckout={order.handleProceedCheckout}
             onServe={resolvedTableName || table ? order.handleServeItems : undefined}
             serveLabel="Send to KOT"
+            serveLoading={order.isSendingKot}
           />
         </Box>
       </Box>
@@ -206,6 +216,7 @@ export function TakeawayPage({
               onProceedCheckout={order.handleProceedCheckout}
               onServe={resolvedTableName || table ? order.handleServeItems : undefined}
               serveLabel="Send to KOT"
+              serveLoading={order.isSendingKot}
             />,
             footerTarget,
           )
