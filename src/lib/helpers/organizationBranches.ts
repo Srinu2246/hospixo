@@ -66,7 +66,7 @@ export async function loadBranchDirectory(
   let companies: CompanyListItem[] = [];
   if (listAllowed && organizationId != null) {
     companies = await loadOrganizationCompanies(organizationId, get, listContext).catch(() => []);
-  } else if (companyId != null) {
+  } else if (companyId != null && scope !== 'branch') {
     const detail = await loadCompanyById(companyId, get).catch(() => null);
     if (detail) companies = [detail];
   }

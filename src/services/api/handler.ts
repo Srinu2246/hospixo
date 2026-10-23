@@ -32,10 +32,16 @@ import {
   resolveKitchenDisplayMock,
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
 import { resolveBranchReportsMock } from '@/lib/mocks/reports/reports.mocks';
-import { resolveBranchMenusMock } from '@/lib/mocks/menu/resolveBranchMenusMock';
+import {
+  appendMockMenuCategoryAssignment,
+  MOCK_MENU_ITEM_TAGS,
+  MOCK_RESTAURANT_MENUS,
+  resolveBranchMenusMock,
+  resolveMenuCategoryAssignmentsMock,
+} from '@/lib/mocks/menu/menu.mocks';
+import { menuCategoryAssignmentSchema } from '@/lib/schemas/menu/menus/menusSchema';
 import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
 import { MOCK_MENU_CATEGORIES, MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
-import { MOCK_MENU_ITEM_TAGS } from '@/lib/mocks/menu/useMenuItemTags.mocks';
 import { resolveCashRegistersMock } from '@/lib/mocks/pos/useCashCounters.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
@@ -106,6 +112,7 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.restaurant.menuCategories.list]: MOCK_MENU_CATEGORIES,
   [ApiUrlsV1.restaurant.menuItems.list]: MOCK_MENU_ITEMS,
   [ApiUrlsV1.restaurant.menuItemTags.list]: MOCK_MENU_ITEM_TAGS,
+  [ApiUrlsV1.restaurant.menus.list]: MOCK_RESTAURANT_MENUS,
 };
 
 export function isMockApiEnabled(): boolean {
@@ -144,6 +151,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   const gstRates = resolveGstRatesMock(request);
   if (gstRates !== undefined) return gstRates;
 
+  const menuCategoryAssignments = resolveMenuCategoryAssignmentsMock(request);
+  if (menuCategoryAssignments !== undefined) return menuCategoryAssignments;
+
   const branchMenus = resolveBranchMenusMock(request);
   if (branchMenus !== undefined) return branchMenus;
 
@@ -159,6 +169,40 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   if (request.method !== 'GET') {
     if (request.path === ApiUrlsV1.auth.login || request.path === ApiUrlsV1.auth.logout) {
       return LIST_MOCKS[request.path];
+    }
+
+    if (
+      request.method === 'POST' &&
+      request.path === ApiUrlsV1.restaurant.menus.create &&
+      isRecord(request.body)
+    ) {
+      const now = new Date().toISOString();
+      const scope = request.body.scope === 'branch' ? 'branch' : 'company';
+      const menuType = String(request.body.menu_type ?? 'all');
+      return {
+        success: true,
+        data: {
+          id: Date.now(),
+          organization_id: 126,
+          company_id: 94,
+          catalogue_scope: scope,
+          branch_id:
+            scope === 'branch' && request.body.assign_branch_id != null
+              ? Number(request.body.assign_branch_id)
+              : null,
+          name: String(request.body.name ?? 'Menu'),
+          menu: String(request.body.menu ?? 'breakfast'),
+          code: String(request.body.code ?? 'MENU'),
+          description: request.body.description != null ? String(request.body.description) : null,
+          menu_type: menuType,
+          display_order: Number(request.body.display_order ?? 0),
+          status: 'active',
+          branch_assignment_id: null,
+          created_at: now,
+          updated_at: now,
+        },
+        message: 'Menu created',
+      };
     }
 
     if (
@@ -266,6 +310,70 @@ export function resolveMock(request: MockRequest): unknown | undefined {
           updated_at: now,
         },
         message: 'Menu category created',
+      };
+    }
+
+    const menusListPath = ApiUrlsV1.restaurant.menus.list;
+    if (
+      request.method === 'POST' &&
+      request.path.endsWith('/category-assignments') &&
+      request.path.startsWith(`${menusListPath}/`) &&
+      isRecord(request.body)
+    ) {
+      const idSegment = request.path.slice(menusListPath.length + 1).split('/')[0];
+      const menuId = Number(idSegment);
+      const categoryId = Number(request.body.category_id);
+      const category = MOCK_MENU_CATEGORIES.find((row) => row.id === categoryId);
+      const now = new Date().toISOString();
+      const record = menuCategoryAssignmentSchema.parse({
+        id: Date.now(),
+        menu_id: Number.isFinite(menuId) ? menuId : 0,
+        category_id: Number.isFinite(categoryId) ? categoryId : 0,
+        display_order: Number(request.body.display_order ?? 0),
+        category: category
+          ? { id: category.id, name: category.name, status: category.status }
+          : { id: categoryId, name: `Category #${categoryId}`, status: 'active' },
+        created_at: now,
+        updated_at: now,
+      });
+      appendMockMenuCategoryAssignment(record);
+      return {
+        success: true,
+        data: record,
+        message: 'Menu category assigned',
+      };
+    }
+
+    if (
+      request.method === 'POST' &&
+      (request.path.endsWith('/activate') || request.path.endsWith('/deactivate')) &&
+      request.path.startsWith(`${menusListPath}/`)
+    ) {
+      const idSegment = request.path.slice(menusListPath.length + 1).split('/')[0];
+      const menuId = Number(idSegment);
+      const existing = MOCK_RESTAURANT_MENUS.find((item) => item.id === menuId);
+      const now = new Date().toISOString();
+      const nextStatus = request.path.endsWith('/activate') ? 'active' : 'inactive';
+      return {
+        success: true,
+        data: {
+          id: Number.isFinite(menuId) ? menuId : Date.now(),
+          organization_id: existing?.organization_id ?? 126,
+          company_id: existing?.company_id ?? 94,
+          catalogue_scope: existing?.catalogue_scope ?? 'company',
+          branch_id: existing?.branch_id ?? null,
+          name: existing?.name ?? 'Menu',
+          menu: existing?.menu ?? 'breakfast',
+          code: existing?.code ?? 'MENU',
+          description: existing?.description ?? null,
+          menu_type: existing?.menu_type ?? 'all',
+          display_order: existing?.display_order ?? 0,
+          status: nextStatus,
+          branch_assignment_id: existing?.branch_assignment_id ?? null,
+          created_at: existing?.created_at ?? now,
+          updated_at: now,
+        },
+        message: nextStatus === 'active' ? 'Menu activated' : 'Menu deactivated',
       };
     }
 
@@ -396,7 +504,8 @@ export function resolveMock(request: MockRequest): unknown | undefined {
     if (
       listPath === ApiUrlsV1.restaurant.menuCategories.list ||
       listPath === ApiUrlsV1.restaurant.menuItems.list ||
-      listPath === ApiUrlsV1.restaurant.menuItemTags.list
+      listPath === ApiUrlsV1.restaurant.menuItemTags.list ||
+      listPath === ApiUrlsV1.restaurant.menus.list
     ) {
       let items = Array.isArray(payload) ? payload : [];
       if (listPath === ApiUrlsV1.restaurant.menuItemTags.list) {
@@ -404,6 +513,20 @@ export function resolveMock(request: MockRequest): unknown | undefined {
         if (typeof statusFilter === 'string' && statusFilter.length > 0) {
           items = items.filter(
             (row) => isRecord(row) && String(row.status ?? 'active') === statusFilter,
+          );
+        }
+      }
+      if (listPath === ApiUrlsV1.restaurant.menus.list) {
+        const statusFilter = request.params?.status;
+        if (typeof statusFilter === 'string' && statusFilter.length > 0) {
+          items = items.filter(
+            (row) => isRecord(row) && String(row.status ?? 'active') === statusFilter,
+          );
+        }
+        const menuTypeFilter = request.params?.menu_type;
+        if (typeof menuTypeFilter === 'string' && menuTypeFilter.length > 0) {
+          items = items.filter(
+            (row) => isRecord(row) && String(row.menu_type ?? '') === menuTypeFilter,
           );
         }
       }

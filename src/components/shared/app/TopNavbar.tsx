@@ -114,7 +114,10 @@ export function TopNavbar({
     context.branchName?.trim() ||
     (context.branchId != null ? `Branch ${context.branchId}` : 'Restaurant workspace');
 
-  const { options: mobileBranchOptions } = useNavbarBranchOptions();
+  const skipBranchDirectoryFetch = pathname.includes('/menu/menus');
+  const { options: mobileBranchOptions } = useNavbarBranchOptions({
+    enabled: !skipBranchDirectoryFetch,
+  });
 
   const mobileSelectedOutletSlug =
     context.branchId != null ? String(context.branchId) : (mobileBranchOptions[0]?.id ?? '');

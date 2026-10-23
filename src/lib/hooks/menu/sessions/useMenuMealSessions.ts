@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 
 import { mealSessionToSessionRecord } from '@/lib/helpers/mealSessionMapper';
 import { useQuery } from '@/lib/hooks/api/useQuery';
-import { useActiveBranchId } from '@/lib/hooks/menu/menus/useBranchMenus';
+import { useActiveBranchId } from '@/lib/hooks/menu/menus/menusHooks';
 import {
   parseMealSessionRecord,
   parseMealSessions,

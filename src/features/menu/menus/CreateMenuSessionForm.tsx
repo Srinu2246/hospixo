@@ -9,11 +9,14 @@ import Typography from '@mui/material/Typography';
 import { Check, ChevronLeft } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
 import {
   menuSessionFormSchema,
+  RESTAURANT_MENU_SLUG_OPTIONS,
   type MenuSessionFormValues,
-} from '@/lib/schemas/menu/menus/menuSessionFormSchema';
+  type RestaurantMenuSlug,
+} from '@/lib/schemas/menu/menus/menusSchema';
 import { colors } from '@/lib/theme/mui/colors';
 import { useThemeStore } from '@/stores/themeStore';
 
@@ -43,7 +46,8 @@ export function CreateMenuSessionForm({
   const borderColor = isDark ? colors.border.dark : colors.border.default;
   const [name, setName] = useState(initialValues?.name ?? '');
   const [code, setCode] = useState(initialValues?.code ?? '');
-  const [menuType, setMenuType] = useState(initialValues?.menuType ?? '');
+  const [menu, setMenu] = useState<RestaurantMenuSlug>(initialValues?.menu ?? 'breakfast');
+  const [menuType, setMenuType] = useState(initialValues?.menuType ?? 'all');
   const [description, setDescription] = useState(initialValues?.description ?? '');
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<keyof MenuSessionFormValues, string>>
@@ -62,7 +66,8 @@ export function CreateMenuSessionForm({
     const result = menuSessionFormSchema.safeParse({
       name,
       code,
-      menuType: isEdit ? menuType || initialValues?.menuType || 'ALL' : menuType,
+      menu: isEdit ? menu || initialValues?.menu || 'breakfast' : menu,
+      menuType: isEdit ? menuType || initialValues?.menuType || 'all' : menuType,
       description,
     });
 
@@ -194,20 +199,53 @@ export function CreateMenuSessionForm({
               }}
             />
             {!isEdit ? (
-              <Input
-                id="menu-session-type"
-                label="Menu Type"
-                required
-                placeholder="e.g., ALL"
-                value={menuType}
-                disabled={submitting}
-                error={Boolean(fieldErrors.menuType)}
-                helperText={fieldErrors.menuType}
-                onChange={(event) => {
-                  setMenuType(event.target.value);
-                  clearFieldError('menuType');
-                }}
-              />
+              <>
+                <Box>
+                  <Typography
+                    component="label"
+                    htmlFor="menu-session-menu"
+                    sx={{
+                      display: 'block',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      mb: 0.75,
+                    }}
+                  >
+                    Menu *
+                  </Typography>
+                  <Dropdown
+                    options={[...RESTAURANT_MENU_SLUG_OPTIONS]}
+                    value={menu}
+                    onChange={(value) => {
+                      setMenu(value as RestaurantMenuSlug);
+                      clearFieldError('menu');
+                    }}
+                    disabled={submitting}
+                    minWidth="100%"
+                    sx={{ width: '100%' }}
+                  />
+                  {fieldErrors.menu ? (
+                    <Typography sx={{ mt: 0.5, fontSize: '0.75rem', color: 'error.main' }}>
+                      {fieldErrors.menu}
+                    </Typography>
+                  ) : null}
+                </Box>
+                <Input
+                  id="menu-session-type"
+                  label="Menu type"
+                  required
+                  placeholder="e.g., all"
+                  value={menuType}
+                  disabled={submitting}
+                  error={Boolean(fieldErrors.menuType)}
+                  helperText={fieldErrors.menuType ?? 'Service channel (all, dine_in, …)'}
+                  onChange={(event) => {
+                    setMenuType(event.target.value);
+                    clearFieldError('menuType');
+                  }}
+                />
+              </>
             ) : null}
           </Box>
 

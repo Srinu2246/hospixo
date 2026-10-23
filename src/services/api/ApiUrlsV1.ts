@@ -102,6 +102,11 @@ const ApiUrlsV1 = {
       root: '/v1/restaurant/branches',
       list: (branchId: number | string) => restaurantBranchMenusPath(branchId),
     },
+    /** GET/POST /v1/restaurant/menus */
+    menus: {
+      list: '/v1/restaurant/menus',
+      create: '/v1/restaurant/menus',
+    },
   },
   kitchen: {
     kitchenBoard: resource('/v1/kitchen-display'),
@@ -243,6 +248,53 @@ export function organizationCompanyBranchesPath(
 /** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
 export function restaurantBranchMenusPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branchMenus.root}/${encodeURIComponent(String(branchId))}/menus`;
+}
+
+/** POST /v1/restaurant/branches/{branch_id}/menus/{assignment_id}/activate | .../deactivate */
+export function restaurantBranchMenuAssignmentPath(
+  branchId: number | string,
+  assignmentId: number | string,
+): string {
+  return `${restaurantBranchMenusPath(branchId)}/${encodeURIComponent(String(assignmentId))}`;
+}
+
+export function restaurantBranchMenuActivatePath(
+  branchId: number | string,
+  assignmentId: number | string,
+): string {
+  return `${restaurantBranchMenuAssignmentPath(branchId, assignmentId)}/activate`;
+}
+
+export function restaurantBranchMenuDeactivatePath(
+  branchId: number | string,
+  assignmentId: number | string,
+): string {
+  return `${restaurantBranchMenuAssignmentPath(branchId, assignmentId)}/deactivate`;
+}
+
+/** GET/POST /v1/restaurant/menus */
+export function restaurantMenusPath(): string {
+  return ApiUrlsV1.restaurant.menus.create;
+}
+
+/** GET/PATCH /v1/restaurant/menus/{menu_id} */
+export function restaurantMenuPath(menuId: number | string): string {
+  return `${restaurantMenusPath()}/${encodeURIComponent(String(menuId))}`;
+}
+
+/** POST /v1/restaurant/menus/{menu_id}/activate */
+export function restaurantMenuActivatePath(menuId: number | string): string {
+  return `${restaurantMenuPath(menuId)}/activate`;
+}
+
+/** POST /v1/restaurant/menus/{menu_id}/deactivate */
+export function restaurantMenuDeactivatePath(menuId: number | string): string {
+  return `${restaurantMenuPath(menuId)}/deactivate`;
+}
+
+/** POST /v1/restaurant/menus/{menu_id}/category-assignments */
+export function restaurantMenuCategoryAssignmentsPath(menuId: number | string): string {
+  return `${restaurantMenuPath(menuId)}/category-assignments`;
 }
 
 /** GET/POST /v1/restaurant/gst-rates */
