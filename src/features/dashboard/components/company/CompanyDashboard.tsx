@@ -6,7 +6,6 @@ import { COMPANY_STAT_CARDS } from '@/lib/mocks/dashboard/dashboard.mocks';
 import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
 import type { DashboardStatItem } from '../../types/dashboard.types';
 import { DashboardStatCard } from '../shared/DashboardStatCard';
-import { BranchDirectory } from '../organization/OrganizationDashboard';
 import { CompanyOperationsSummary } from './CompanyOperationsSummary';
 import { CustomerInsightsCard } from './CustomerInsightsCard';
 import { RevenueForecastCard } from './RevenueForecastCard';
@@ -36,17 +35,14 @@ export function CompanyDashboard({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' },
-          gap: 2.5,
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gap: 1.5,
         }}
       >
         {stats.map((stat) => (
           <DashboardStatCard key={stat.id} stat={stat} />
         ))}
       </Box>
-
-      {/* 2. Live branch list */}
-      <BranchDirectory branches={rows} isLoading={isLoading} />
 
       {/* 3. Sales by Outlet (Bar Chart / Table View) */}
       <SalesByOutletSection />
@@ -58,7 +54,7 @@ export function CompanyDashboard({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr' },
           gap: 2.5,
         }}
       >

@@ -18,3 +18,19 @@ export enum PeriodOption {
   LAST_7_DAYS = 'Last 7 Days',
   THIS_MONTH = 'This Month',
 }
+
+/** Ordered options for dashboard header date menu. */
+export const DASHBOARD_DATE_RANGE_OPTIONS: readonly DateRangeOption[] = [
+  DateRangeOption.TODAY,
+  DateRangeOption.YESTERDAY,
+  DateRangeOption.THIS_WEEK,
+  DateRangeOption.LAST_7_DAYS,
+  DateRangeOption.THIS_MONTH,
+  DateRangeOption.LAST_MONTH,
+  DateRangeOption.CUSTOM_RANGE,
+];
+
+/** Compact label for the date picker trigger (omits parenthetical hints). */
+export function dateRangeButtonLabel(option: DateRangeOption): string {
+  return option.replace(/\s*\([^)]*\)/g, '').trim();
+}

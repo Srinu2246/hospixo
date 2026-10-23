@@ -1,40 +1,201 @@
 'use client';
 
-import React from 'react';
-import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
 
+const RETURN_RATE = 72;
+const DONUT_BLUE = '#1B59F8';
+const DONUT_GREEN = '#00C49F';
+const MOBILE_DONUT_SIZE = 90;
+const DESKTOP_DONUT_SIZE = 132;
+
+const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
+const SLOTS = ['Morning', 'Afternoon', 'Evening', 'Night'] as const;
+
+const HEATMAP_DATA: readonly (readonly number[])[] = [
+  [0, 1, 2, 2, 3, 2, 1],
+  [1, 2, 3, 3, 3, 3, 2],
+  [2, 3, 3, 3, 3, 3, 3],
+  [1, 1, 2, 2, 2, 3, 1],
+];
+
+function getCellColor(val: number): string {
+  switch (val) {
+    case 0:
+      return 'rgba(27, 89, 248, 0.15)';
+    case 1:
+      return 'rgba(27, 89, 248, 0.35)';
+    case 2:
+      return 'rgba(27, 89, 248, 0.65)';
+    case 3:
+    default:
+      return DONUT_BLUE;
+  }
+}
+
+function AverageOrderValueBlock() {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
+      <Typography
+        sx={{ fontSize: { xs: '0.75rem', md: '0.8125rem' }, color: colors.text.secondary }}
+      >
+        Average Order Value
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+        <Typography
+          sx={{
+            fontSize: { xs: '1.0625rem', md: '1.375rem' },
+            fontWeight: 700,
+            color: 'text.primary',
+            lineHeight: 1.2,
+          }}
+        >
+          ₹412
+        </Typography>
+        <Typography sx={{ fontSize: '0.6875rem', color: '#16A34A', fontWeight: 700 }}>
+          ↑ 5.2%
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function ReturnDonut({ size }: Readonly<{ size: number }>) {
+  const radius = size * 0.386;
+  const strokeWidth = size * 0.1;
+  const center = size / 2;
+  const circumference = 2 * Math.PI * radius;
+  const greenLength = (RETURN_RATE / 100) * circumference;
+  const blueLength = circumference - greenLength;
+  const isLarge = size >= 120;
+
+  return (
+    <Box sx={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <g transform={`rotate(-90 ${center} ${center})`}>
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="transparent"
+            stroke={DONUT_BLUE}
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${blueLength} ${greenLength}`}
+            strokeLinecap="round"
+          />
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="transparent"
+            stroke={DONUT_GREEN}
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${greenLength} ${blueLength}`}
+            strokeDashoffset={-blueLength}
+            strokeLinecap="round"
+          />
+        </g>
+      </svg>
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: isLarge ? '1.375rem' : '0.9375rem',
+            fontWeight: 700,
+            color: 'text.primary',
+            lineHeight: 1.1,
+          }}
+        >
+          {RETURN_RATE}%
+        </Typography>
+        <Typography
+          sx={{ fontSize: isLarge ? '0.75rem' : '0.5625rem', color: colors.text.secondary }}
+        >
+          Return
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function PeakHoursHeatmap() {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+      <Typography sx={{ fontSize: '0.8125rem', color: colors.text.secondary, mb: 0.25 }}>
+        Peak Hours Heatmap
+      </Typography>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: '70px repeat(7, 1fr)', gap: 0.5 }}>
+        <Box />
+        {DAYS.map((day, index) => (
+          <Typography
+            key={`${day}-${index}`}
+            sx={{
+              fontSize: '0.5625rem',
+              textAlign: 'center',
+              color: colors.text.secondary,
+              fontWeight: 700,
+            }}
+          >
+            {day}
+          </Typography>
+        ))}
+      </Box>
+
+      {SLOTS.map((slot, rowIdx) => (
+        <Box
+          key={slot}
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: '70px repeat(7, 1fr)',
+            gap: 0.5,
+            alignItems: 'center',
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: '0.5625rem',
+              color: colors.text.secondary,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {slot}
+          </Typography>
+
+          {HEATMAP_DATA[rowIdx]?.map((val, colIdx) => (
+            <Box
+              key={`${slot}-${colIdx}`}
+              sx={{
+                height: { xs: 14, md: 16 },
+                borderRadius: '4px',
+                bgcolor: getCellColor(val),
+              }}
+            />
+          ))}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
 export function CustomerInsightsCard() {
   const theme = useTheme();
-  const bgCircleStroke = theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#E5E7EB';
-
-  const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const SLOTS = ['Morning', 'Afternoon', 'Evening', 'Night'];
-
-  // Intensity matrix (0: light, 1: medium, 2: vibrant, 3: dark)
-  const HEATMAP_DATA = [
-    [0, 1, 2, 2, 3, 2, 1], // Morning
-    [1, 2, 3, 3, 3, 3, 2], // Afternoon
-    [2, 3, 3, 3, 3, 3, 3], // Evening
-    [1, 1, 2, 2, 2, 3, 1], // Night
-  ];
-
-  const getCellColor = (val: number) => {
-    switch (val) {
-      case 0:
-        return 'rgba(27, 89, 248, 0.15)';
-      case 1:
-        return 'rgba(27, 89, 248, 0.35)';
-      case 2:
-        return 'rgba(27, 89, 248, 0.65)';
-      case 3:
-      default:
-        return '#1B59F8';
-    }
-  };
+  const isDesktopLayout = useMediaQuery(theme.breakpoints.up('md'));
+  const donutSize = isDesktopLayout ? DESKTOP_DONUT_SIZE : MOBILE_DONUT_SIZE;
 
   return (
     <Card
@@ -49,14 +210,13 @@ export function CustomerInsightsCard() {
         boxShadow: 'none',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
-        gap: 2,
+        gap: 2.5,
         height: '100%',
       }}
     >
       <Typography
         sx={{
-          fontSize: '0.6875rem',
+          fontSize: '0.75rem',
           fontWeight: 700,
           letterSpacing: '0.04em',
           color: colors.text.secondary,
@@ -69,132 +229,43 @@ export function CustomerInsightsCard() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '130px 1fr' },
-          gap: 3,
-          alignItems: 'center',
+          flex: 1,
+          alignItems: { xs: 'center', md: 'stretch' },
+          columnGap: { md: 4 },
+          rowGap: { xs: 2.5, md: 3 },
+          gridTemplateColumns: { xs: 'auto 1fr', md: 'auto 1fr' },
+          gridTemplateAreas: {
+            xs: `"donut aov" "heat heat"`,
+            md: `"donut aov" "donut heat"`,
+          },
         }}
       >
-        {/* Left: 72% Return Donut */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ position: 'relative', width: 90, height: 90 }}>
-            <svg width="90" height="90" viewBox="0 0 90 90">
-              <circle
-                cx="45"
-                cy="45"
-                r="36"
-                fill="transparent"
-                stroke={bgCircleStroke}
-                strokeWidth="10"
-              />
-              <circle
-                cx="45"
-                cy="45"
-                r="36"
-                fill="transparent"
-                stroke="#00C49F"
-                strokeWidth="10"
-                strokeDasharray={`${(72 / 100) * 226.2} 226.2`}
-                strokeLinecap="round"
-                transform="rotate(-90 45 45)"
-              />
-            </svg>
-            <Box
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: 'text.primary' }}>
-                72%
-              </Typography>
-              <Typography sx={{ fontSize: '0.5625rem', color: colors.text.secondary }}>
-                Return
-              </Typography>
-            </Box>
-          </Box>
+        <Box
+          sx={{
+            gridArea: 'donut',
+            gridRow: { md: '1 / 3' },
+            alignSelf: { md: 'center' },
+            pl: { md: 1 },
+          }}
+        >
+          <ReturnDonut size={donutSize} />
         </Box>
 
-        {/* Right: Average Order Value & Heatmap */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, width: '100%' }}>
-          {/* AOV Stat */}
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary }}>
-              Average Order Value
-            </Typography>
-            <Typography sx={{ fontSize: '1.0625rem', fontWeight: 700, color: 'text.primary' }}>
-              ₹412
-            </Typography>
-            <Typography sx={{ fontSize: '0.6875rem', color: '#16A34A', fontWeight: 700 }}>
-              ↑ 5.2%
-            </Typography>
-          </Box>
+        <Box
+          sx={{
+            gridArea: 'aov',
+            alignSelf: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            pl: { xs: 1.5, md: 2.5 },
+          }}
+        >
+          <AverageOrderValueBlock />
+        </Box>
 
-          {/* Peak Hours Heatmap */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.6875rem', color: colors.text.secondary, mb: 0.25 }}>
-              Peak Hours Heatmap
-            </Typography>
-
-            {/* Days Header */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: '70px repeat(7, 1fr)', gap: 0.5 }}>
-              <Box />
-              {DAYS.map((d, i) => (
-                <Typography
-                  key={i}
-                  sx={{
-                    fontSize: '0.5625rem',
-                    textAlign: 'center',
-                    color: colors.text.secondary,
-                    fontWeight: 700,
-                  }}
-                >
-                  {d}
-                </Typography>
-              ))}
-            </Box>
-
-            {/* Rows */}
-            {SLOTS.map((slot, rowIdx) => (
-              <Box
-                key={slot}
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: '70px repeat(7, 1fr)',
-                  gap: 0.5,
-                  alignItems: 'center',
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontSize: '0.5625rem',
-                    color: colors.text.secondary,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {slot}
-                </Typography>
-
-                {HEATMAP_DATA[rowIdx].map((val, colIdx) => (
-                  <Box
-                    key={colIdx}
-                    sx={{
-                      height: 14,
-                      borderRadius: '3px',
-                      bgcolor: getCellColor(val),
-                      transition: 'transform 0.1s ease',
-                      '&:hover': {
-                        transform: 'scale(1.2)',
-                      },
-                    }}
-                  />
-                ))}
-              </Box>
-            ))}
-          </Box>
+        <Box sx={{ gridArea: 'heat', minWidth: 0 }}>
+          <PeakHoursHeatmap />
         </Box>
       </Box>
     </Card>
