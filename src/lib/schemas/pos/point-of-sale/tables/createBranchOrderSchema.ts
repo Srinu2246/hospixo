@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+import {
+  posKitchenBadgeSchema,
+  posOrderStatusSchema,
+  posOrderTypeSchema,
+  posPaymentStatusSchema,
+} from '@/lib/schemas/pos/point-of-sale/all-orders/posOrdersSchema';
 import { ApiError } from '@/services/api/types';
 
 const nullableText = z.string().nullable().optional();
@@ -16,45 +22,44 @@ export const createBranchOrderBodySchema = z.object({
 export type CreateBranchOrderBody = z.infer<typeof createBranchOrderBodySchema>;
 
 /** Created / full branch order record (create response `data`). */
-export const branchOrderSchema = z
-  .object({
-    id: z.number(),
-    public_id: nullableText,
-    order_number: nullableText,
-    order_type: z.string(),
-    branch_id: nullableNumber,
-    table_id: nullableNumber,
-    table_name: nullableText,
-    floor_id: nullableNumber,
-    section_id: nullableNumber,
-    guest_count: nullableNumber,
-    business_date: nullableText,
-    meal_session_id: nullableNumber,
-    currency: nullableText,
-    status: z.string(),
-    payment_status: nullableText,
-    opened_at: nullableText,
-    created_by_user_id: nullableNumber,
-    version: nullableNumber,
-    subtotal: nullableNumber,
-    discount_total: nullableNumber,
-    tax_total: nullableNumber,
-    cgst_total: nullableNumber,
-    sgst_total: nullableNumber,
-    igst_total: nullableNumber,
-    calculated_total: nullableNumber,
-    round_off: nullableNumber,
-    grand_total: nullableNumber,
-    amount_paid: nullableNumber,
-    tip_total: nullableNumber,
-    balance_due: nullableNumber,
-    invoice_number: nullableText,
-    closed_at: nullableText,
-    cancellation_reason: nullableText,
-    items: z.array(z.unknown()).optional(),
-    payments: z.array(z.unknown()).optional(),
-  })
-  .passthrough();
+export const branchOrderSchema = z.object({
+  id: z.number(),
+  public_id: nullableText,
+  order_number: nullableText,
+  order_type: posOrderTypeSchema,
+  branch_id: nullableNumber,
+  table_id: nullableNumber,
+  table_name: nullableText,
+  floor_id: nullableNumber,
+  section_id: nullableNumber,
+  guest_count: nullableNumber,
+  business_date: nullableText,
+  meal_session_id: nullableNumber,
+  currency: nullableText,
+  status: posOrderStatusSchema,
+  payment_status: posPaymentStatusSchema.nullable().optional(),
+  kitchen_badge: posKitchenBadgeSchema.nullable().optional(),
+  opened_at: nullableText,
+  created_by_user_id: nullableNumber,
+  version: nullableNumber,
+  subtotal: nullableNumber,
+  discount_total: nullableNumber,
+  tax_total: nullableNumber,
+  cgst_total: nullableNumber,
+  sgst_total: nullableNumber,
+  igst_total: nullableNumber,
+  calculated_total: nullableNumber,
+  round_off: nullableNumber,
+  grand_total: nullableNumber,
+  amount_paid: nullableNumber,
+  tip_total: nullableNumber,
+  balance_due: nullableNumber,
+  invoice_number: nullableText,
+  closed_at: nullableText,
+  cancellation_reason: nullableText,
+  items: z.array(z.unknown()).optional(),
+  payments: z.array(z.unknown()).optional(),
+});
 
 export type BranchOrder = z.infer<typeof branchOrderSchema>;
 

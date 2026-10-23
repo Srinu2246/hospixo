@@ -141,7 +141,7 @@ export function CreateUserStepOne({
       };
     }
 
-    if (matchedBranch.companyId != null && matchedBranch.companyId !== '') {
+    if (matchedBranch.companyId != null) {
       const matchedCompany = companies.find(
         (c) => String(c.id) === String(matchedBranch.companyId),
       );

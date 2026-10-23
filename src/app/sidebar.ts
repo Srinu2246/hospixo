@@ -742,6 +742,14 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 4,
+        name: 'Cash Counter',
+        href: '/branch-manager/management/cash-counter',
+        featureFlag: FEATURE_FLAGS.branch_management_cashCounter_nav,
+        icon: 'point_of_sale',
+        permission: PERMISSIONS.POS_SESSIONS_OPEN,
+      },
+      {
+        id: 5,
         name: 'Due Payments',
         href: '/branch-manager/management/due-payments',
         featureFlag: FEATURE_FLAGS.branch_management_duePayments_nav,
@@ -749,7 +757,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.PAYMENTS_VIEW,
       },
       {
-        id: 5,
+        id: 6,
         name: 'Inventory',
         href: '/branch-manager/management/inventory',
         featureFlag: FEATURE_FLAGS.branch_management_inventory_nav,
@@ -757,7 +765,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.INVENTORY_VIEW,
       },
       {
-        id: 6,
+        id: 7,
         name: 'Customers',
         href: '/branch-manager/management/customers',
         featureFlag: FEATURE_FLAGS.branch_management_customers_nav,
@@ -765,7 +773,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.BOOKINGS_VIEW,
       },
       {
-        id: 7,
+        id: 8,
         name: 'Reports',
         href: '/branch-manager/management/reports',
         featureFlag: FEATURE_FLAGS.branch_management_reports_nav,
@@ -773,7 +781,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.REPORTS_VIEW,
       },
       {
-        id: 8,
+        id: 9,
         name: 'Settings',
         href: '/branch-manager/management/settings',
         featureFlag: FEATURE_FLAGS.branch_management_settings_nav,
@@ -781,7 +789,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.FEATURES_CONFIGURE,
       },
       {
-        id: 9,
+        id: 10,
         name: 'Floor & Table Set-up',
         href: '/branch-manager/management/floor-and-table-setup',
         featureFlag: FEATURE_FLAGS.branch_management_floorAndTableSetup_nav,

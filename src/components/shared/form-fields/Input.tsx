@@ -148,11 +148,21 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           sx={{
             fontSize: '0.875rem',
             color: 'text.primary',
+            // Keep value text readable when disabled (MUI fades disabled inputs).
+            '&.Mui-disabled': {
+              opacity: 1,
+              color: 'text.primary',
+              WebkitTextFillColor: (theme) => theme.palette.text.primary,
+            },
             '& input': {
               p: 0,
               '&::placeholder': {
                 color: 'text.disabled',
                 opacity: 1,
+              },
+              '&.Mui-disabled': {
+                opacity: 1,
+                WebkitTextFillColor: (theme) => theme.palette.text.primary,
               },
             },
             '& textarea': {
@@ -160,6 +170,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
               '&::placeholder': {
                 color: '#9CA3AF',
                 opacity: 1,
+              },
+              '&.Mui-disabled': {
+                opacity: 1,
+                WebkitTextFillColor: (theme) => theme.palette.text.primary,
               },
             },
             ...((inputSx as object) || {}),

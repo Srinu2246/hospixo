@@ -1,10 +1,25 @@
 import { z } from 'zod';
 
-import type { PosTableItem, PosTableStatus } from '@/lib/mocks/pos/usePosTables.mocks';
+import {
+  type PosTableItem,
+  type PosTableStatus,
+} from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import { ApiError } from '@/services/api/types';
 
 const nullableText = z.string().nullable().optional();
 const nullableNumber = z.number().nullable().optional();
+
+/** Catalog status on a table availability row. */
+export const tableCatalogStatusSchema = z.enum(['active', 'inactive']);
+
+/** Live floor occupancy from availability API. */
+export const tableOccupancyStatusSchema = z.enum([
+  'available',
+  'occupied',
+  'reserved',
+  'billing',
+  'cleaning',
+]);
 
 /**
  * One row from GET /v1/branches/{branch_id}/tables/availability
@@ -16,10 +31,8 @@ export const tableAvailabilityRowSchema = z.object({
   floor_name: nullableText,
   section_id: z.number().int(),
   section_name: nullableText,
-  /** Catalog status (e.g. active / inactive). */
-  status: z.string(),
-  /** Live floor occupancy — drive POS card status from this. */
-  occupancy_status: z.string(),
+  status: tableCatalogStatusSchema,
+  occupancy_status: tableOccupancyStatusSchema,
   active_order_id: nullableNumber,
   available_for_order: z.boolean(),
   capacity: nullableNumber,
@@ -49,24 +62,22 @@ export function parseTableAvailability(payload: unknown): TableAvailabilityRow[]
   return parsed.data.data.items;
 }
 
-function mapOccupancyStatus(occupancy: string): PosTableStatus {
-  const raw = occupancy.toLowerCase();
-  if (raw === 'available') return 'available';
-  if (raw === 'reserved') return 'reserved';
-  if (raw === 'billing') return 'billing';
-  if (raw === 'cleaning') return 'cleaning';
-  if (raw === 'occupied') return 'occupied';
-  return 'occupied';
-}
+const OCCUPANCY_TO_UI: Record<z.infer<typeof tableOccupancyStatusSchema>, PosTableStatus> = {
+  available: 'available',
+  occupied: 'occupied',
+  reserved: 'reserved',
+  billing: 'billing',
+  cleaning: 'cleaning',
+};
 
 /** Map availability API rows into POS floor-plan cards. */
 export function mapTableAvailabilityToPosTables(
   rows: readonly TableAvailabilityRow[],
 ): PosTableItem[] {
   return rows
-    .filter((row) => row.status.toLowerCase() !== 'inactive')
+    .filter((row) => row.status !== 'inactive')
     .map((row) => {
-      const status = mapOccupancyStatus(row.occupancy_status);
+      const status = OCCUPANCY_TO_UI[row.occupancy_status];
       const hasOrder = row.active_order_id != null;
 
       return {

@@ -65,6 +65,7 @@ export const FEATURE_FLAGS = {
   branch_management_tables_nav: 'branch_management_tables_nav',
   branch_management_dineIn_nav: 'branch_management_dineIn_nav',
   branch_management_openBusiness_nav: 'branch_management_openBusiness_nav',
+  branch_management_cashCounter_nav: 'branch_management_cashCounter_nav',
   branch_management_duePayments_nav: 'branch_management_duePayments_nav',
   branch_management_inventory_nav: 'branch_management_inventory_nav',
   branch_management_customers_nav: 'branch_management_customers_nav',
@@ -185,12 +186,13 @@ export const FEATURE_FLAG_DEFAULTS: Record<FeatureFlagName, boolean> = {
   branch_management_tables_nav: false,
   branch_management_dineIn_nav: false,
   branch_management_openBusiness_nav: true,
+  branch_management_cashCounter_nav: true,
   branch_management_duePayments_nav: false,
   branch_management_inventory_nav: false,
   branch_management_customers_nav: false,
   branch_management_reports_nav: true,
   branch_management_settings_nav: true,
-  branch_management_floorAndTableSetup_nav: false,
+  branch_management_floorAndTableSetup_nav: true,
 
   // Company
   company_home_dashboard_nav: true,

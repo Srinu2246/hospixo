@@ -109,6 +109,8 @@
     "subfeatures",
     "retarget",
     "unbilled",
-    "providerspecific"
+    "providerspecific",
+    "growthfalcons",
+    "GrowthFalcons"
   ]
 }

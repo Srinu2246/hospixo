@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -100,11 +100,15 @@ export function EditStaffProfileScreen({
   const remoteCategories = staffProfile.categories;
   const isPermissionsLoading = staffProfile.isPermissionsLoading;
   const [categories, setCategories] = useState<PermissionCategory[]>([]);
+  const [appliedRemoteCategories, setAppliedRemoteCategories] = useState<
+    PermissionCategory[] | null
+  >(null);
 
-  useEffect(() => {
-    if (remoteCategories.length === 0) return;
+  // Sync remote permission matrix into editable local state when the query result changes.
+  if (remoteCategories.length > 0 && remoteCategories !== appliedRemoteCategories) {
+    setAppliedRemoteCategories(remoteCategories);
     setCategories(remoteCategories);
-  }, [remoteCategories]);
+  }
 
   const displayCategories = categories;
 

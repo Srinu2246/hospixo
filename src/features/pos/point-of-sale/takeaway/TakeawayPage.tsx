@@ -10,7 +10,7 @@ import { OrderSettle } from '@/features/pos/point-of-sale/all-orders/OrderSettle
 import { buildReviewOrderData, resolvePosTableName } from '@/lib/helpers/posOrderHelpers';
 import { usePosOrder } from '@/lib/hooks/pos/point-of-sale/usePosOrder';
 import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
-import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
+import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 
 import { TakeawayMenuCatalog } from './TakeawayMenuCatalog';
 import { TakeawayTopBar } from './TakeawayTopBar';

@@ -166,13 +166,13 @@ export function companiesFromBranches(branches: readonly BranchListItem[]): Comp
 
   branches.forEach((branch) => {
     const companyId = branch.companyId;
-    if (companyId === '' || companyId == null) return;
+    if (companyId == null) return;
 
     const key = String(companyId);
     const existing = counts.get(key);
     if (existing) {
       existing.branchCount += 1;
-      if (branch.companyName?.trim()) {
+      if (branch.companyName.trim()) {
         existing.item.name = branch.companyName.trim();
       }
       return;
@@ -182,7 +182,7 @@ export function companiesFromBranches(branches: readonly BranchListItem[]): Comp
       branchCount: 1,
       item: {
         id: companyId,
-        name: branch.companyName?.trim() || `Company #${companyId}`,
+        name: branch.companyName.trim() || `Company #${companyId}`,
         code: null,
         businessType: null,
         status: 'active',
@@ -227,16 +227,30 @@ export function enrichDirectoryWithSession(
 
   const branchId = hints.branchId;
   if (branchId != null && !nextBranches.some((branch) => String(branch.id) === String(branchId))) {
+    const resolvedCompanyId =
+      typeof companyId === 'number'
+        ? companyId
+        : typeof companyId === 'string' && Number.isFinite(Number(companyId))
+          ? Number(companyId)
+          : 0;
+    const resolvedBranchId =
+      typeof branchId === 'number'
+        ? branchId
+        : typeof branchId === 'string' && Number.isFinite(Number(branchId))
+          ? Number(branchId)
+          : 0;
+
     nextBranches = [
       ...nextBranches,
       {
-        id: branchId,
+        id: resolvedBranchId,
         name: hints.branchName?.trim() || `Branch #${branchId}`,
-        companyId: companyId ?? 0,
-        companyName: hints.companyName ?? null,
-        code: null,
-        city: null,
+        companyId: resolvedCompanyId,
+        companyName: hints.companyName?.trim() || `Company #${resolvedCompanyId}`,
+        code: String(branchId),
+        city: '—',
         status: 'active',
+        isDefault: false,
       },
     ];
   }

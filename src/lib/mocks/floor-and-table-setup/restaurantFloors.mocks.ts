@@ -1,8 +1,7 @@
-import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
-import {
-  mapTableAvailabilityToPosTables,
-  type TableAvailabilityRow,
-} from '@/lib/schemas/pos/point-of-sale/tables/tableAvailabilitySchema';
+import { MOCK_POS_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
+import type { PosOrderListItem } from '@/lib/schemas/pos/point-of-sale/all-orders/posOrdersSchema';
+import { createBranchOrderBodySchema } from '@/lib/schemas/pos/point-of-sale/tables/createBranchOrderSchema';
+import type { TableAvailabilityRow } from '@/lib/schemas/pos/point-of-sale/tables/tableAvailabilitySchema';
 import { ApiError, type HttpMethod, type QueryParams } from '@/services/api/types';
 
 type MockRequest = {
@@ -86,76 +85,10 @@ const tables: TableRecord[] = [
 ];
 
 /**
- * Open dine-in orders for GET /v1/branches/{branch_id}/orders.
- * Same table ids as the floor catalog above.
+ * Open orders for GET /v1/branches/{branch_id}/orders.
+ * Seeded from All Orders mock rows (same contract as the live API).
  */
-const MOCK_OPEN_ORDERS = [
-  {
-    id: 501,
-    public_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-    order_number: 'ORD-104',
-    order_type: 'dine_in',
-    table_id: 104,
-    table_name: 'T2',
-    floor_id: 59,
-    section_id: 93,
-    guest_count: 4,
-    status: 'in_progress',
-    kitchen_badge: 'preparing',
-    payment_status: 'pending',
-    grand_total: 1250,
-    opened_at: '2026-10-16T17:56:22.140Z',
-  },
-  {
-    id: 502,
-    public_id: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
-    order_number: 'ORD-106',
-    order_type: 'dine_in',
-    table_id: 106,
-    table_name: 'T4',
-    floor_id: 59,
-    section_id: 93,
-    guest_count: 3,
-    status: 'in_progress',
-    kitchen_badge: 'ordering',
-    payment_status: 'pending',
-    grand_total: 882,
-    opened_at: '2026-10-16T17:40:00.000Z',
-  },
-  {
-    id: 503,
-    public_id: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
-    order_number: 'ORD-102',
-    order_type: 'dine_in',
-    table_id: 102,
-    table_name: 'T10',
-    floor_id: 66,
-    section_id: 92,
-    guest_count: 2,
-    status: 'billing',
-    kitchen_badge: 'ready',
-    payment_status: 'billing',
-    grand_total: 920,
-    opened_at: '2026-10-16T16:20:00.000Z',
-  },
-  {
-    id: 504,
-    public_id: '6ba7b811-9dad-11d1-80b4-00c04fd430c8',
-    order_number: 'ORD-111',
-    order_type: 'dine_in',
-    table_id: 111,
-    table_name: 'T11',
-    floor_id: 66,
-    section_id: 92,
-    guest_count: 4,
-    status: 'in_progress',
-    kitchen_badge: 'preparing',
-    payment_status: 'pending',
-    grand_total: 1120,
-    opened_at: '2026-10-16T18:05:00.000Z',
-  },
-];
-
+const MOCK_OPEN_ORDERS: PosOrderListItem[] = [...MOCK_POS_ORDERS];
 let nextId = 200;
 
 const FLOOR_PATH = /^\/v1\/branches\/(\d+)\/floors(?:\/(.*))?$/;
@@ -521,11 +454,6 @@ function floorMap(branchId: number, floorId?: number, sectionId?: number) {
   };
 }
 
-/** Legacy POS list endpoints — same rows as tables/availability. */
-export function getMockPosTablesData(branchId = 49): PosTableItem[] {
-  return mapTableAvailabilityToPosTables(buildAvailabilityRows(branchId));
-}
-
 /** GET /v1/branches/{branch_id}/tables/availability */
 function tablesAvailabilityList(branchId: number, params?: QueryParams) {
   const floorId = queryNumber(params, 'floor_id');
@@ -552,7 +480,12 @@ function buildAvailabilityRows(
   floorId?: number,
   sectionId?: number,
 ): TableAvailabilityRow[] {
-  const ordersByTable = new Map(MOCK_OPEN_ORDERS.map((order) => [order.table_id, order]));
+  const ordersByTable = new Map(
+    MOCK_OPEN_ORDERS.filter((order) => order.table_id != null).map((order) => [
+      order.table_id as number,
+      order,
+    ]),
+  );
   const floorNameById = new Map(floors.map((floor) => [floor.id, floor.name]));
   const sectionNameById = new Map(sections.map((section) => [section.id, section.name]));
 
@@ -637,30 +570,34 @@ function mealSessionsList(branchId: number) {
 
 /** POST /v1/branches/{branch_id}/orders — create dine-in order and keep it in the open list. */
 function createBranchOrder(branchId: number, body: unknown) {
-  const record = isRecord(body) ? body : {};
-  const tableId = Number(record.table_id);
-  const guestCount = Number(record.guest_count);
-  const mealSessionId = Number(record.meal_session_id);
+  const parsed = createBranchOrderBodySchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ApiError('Invalid create order body', 400);
+  }
+  const {
+    table_id: tableId,
+    guest_count: guestCount,
+    meal_session_id: mealSessionId,
+  } = parsed.data;
   const table = tables.find((row) => row.id === tableId && row.branch_id === branchId);
   const now = new Date().toISOString();
   const orderId = 600 + MOCK_OPEN_ORDERS.length;
   const order = {
     id: orderId,
     public_id: `mock-order-${orderId}`,
-    order_number: `ORD-${tableId || orderId}`,
-    order_type: 'dine_in',
+    order_number: `ORD-${tableId}`,
+    order_type: 'dine_in' as const,
     branch_id: branchId,
-    table_id: Number.isFinite(tableId) ? tableId : 0,
+    table_id: tableId,
     table_name: table?.name ?? `Table ${tableId}`,
     floor_id: table?.floor_id ?? 0,
     section_id: table?.section_id ?? 0,
-    guest_count:
-      Number.isFinite(guestCount) && guestCount > 0 ? guestCount : (table?.capacity ?? 2),
+    guest_count: guestCount,
     business_date: now.slice(0, 10),
-    meal_session_id: Number.isFinite(mealSessionId) ? mealSessionId : 0,
+    meal_session_id: mealSessionId,
     currency: 'INR',
-    status: 'draft',
-    payment_status: 'pending',
+    status: 'draft' as const,
+    payment_status: 'pending' as const,
     opened_at: now,
     created_by_user_id: 1,
     version: 1,
@@ -681,7 +618,7 @@ function createBranchOrder(branchId: number, body: unknown) {
     items: [],
     payments: [],
     cancellation_reason: null,
-    kitchen_badge: 'ordering',
+    kitchen_badge: 'ordering' as const,
   };
 
   MOCK_OPEN_ORDERS.push({
@@ -721,10 +658,11 @@ function openOrdersList(branchId: number, params?: QueryParams) {
     tables.filter((table) => table.branch_id === branchId).map((table) => table.id),
   );
 
-  const items =
+  const filtered =
     status === 'open'
       ? MOCK_OPEN_ORDERS.filter((order) => {
-          if (!branchTableIds.has(order.table_id)) return false;
+          // Dine-in must belong to this branch's tables; counter/delivery may have null table_id.
+          if (order.table_id != null && !branchTableIds.has(order.table_id)) return false;
           if (orderType && order.order_type !== orderType) return false;
           if (floorId != null && order.floor_id !== floorId) return false;
           if (sectionId != null && order.section_id !== sectionId) return false;
@@ -732,15 +670,18 @@ function openOrdersList(branchId: number, params?: QueryParams) {
         })
       : [];
 
+  const start = (page - 1) * pageSize;
+  const items = filtered.slice(start, start + pageSize);
+
   return {
     success: true,
     data: {
       items,
-      total: items.length,
+      total: filtered.length,
       page,
       page_size: pageSize,
     },
-    message: 'OK',
+    message: 'Orders retrieved',
     request_id: 'mock-branch-orders',
   };
 }

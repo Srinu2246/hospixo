@@ -14,7 +14,8 @@ import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import { MOCK_DUE_PAYMENTS, type DuePaymentItem } from '@/lib/mocks/pos/usePosDuePayments.mocks';
+import { MOCK_DUE_PAYMENTS } from '@/lib/mocks/pos/usePosDuePayments.mocks';
+import type { DuePaymentItem } from '@/lib/schemas/pos/point-of-sale/due-payments/duePaymentsSchema';
 
 /**
  * DuePaymentsPage Component

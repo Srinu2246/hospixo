@@ -1,0 +1,68 @@
+import { z } from 'zod';
+
+/** Floor-plan card status used by dine-in / tables UI. */
+export const posTableStatusSchema = z.enum([
+  'available',
+  'occupied',
+  'reserved',
+  'billing',
+  'cleaning',
+]);
+
+export type PosTableStatus = z.infer<typeof posTableStatusSchema>;
+
+/** View model for a POS floor-plan table card. */
+export const posTableItemSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  floorId: z.string().min(1),
+  sectionId: z.string().min(1),
+  status: posTableStatusSchema,
+  capacity: z.number().int().positive().optional(),
+  orderId: z.string().optional(),
+  orderNumber: z.string().optional(),
+  amount: z.string().optional(),
+  guests: z.number().int().nonnegative().optional(),
+  waiter: z.string().optional(),
+  time: z.string().optional(),
+  message: z.string().optional(),
+});
+
+export type PosTableItem = z.infer<typeof posTableItemSchema>;
+
+export interface PosFloorTab {
+  id: string;
+  label: string;
+}
+
+export interface PosStatusFilter {
+  id: string;
+  label: string;
+}
+
+/** Fallback floor tabs when the floors API has not loaded yet. */
+export const POS_FLOOR_TABS: PosFloorTab[] = [
+  { id: '59', label: 'Ground Floor' },
+  { id: '66', label: 'First Floor' },
+];
+
+export const POS_STATUS_FILTERS: PosStatusFilter[] = [
+  { id: 'all', label: 'All' },
+  { id: 'available', label: 'Available' },
+  { id: 'occupied', label: 'Occupied' },
+  { id: 'billing', label: 'Billing' },
+];
+
+/** Dine-in only lists tables that already have a reservation or an active order. */
+export const DINE_IN_TABLE_STATUSES: readonly PosTableStatus[] = [
+  'reserved',
+  'occupied',
+  'billing',
+];
+
+export const DINE_IN_STATUS_FILTERS: PosStatusFilter[] = [
+  { id: 'all', label: 'All' },
+  { id: 'occupied', label: 'Occupied' },
+  { id: 'reserved', label: 'Reserved' },
+  { id: 'billing', label: 'Billing' },
+];
