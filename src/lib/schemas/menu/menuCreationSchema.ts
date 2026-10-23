@@ -70,6 +70,8 @@ export const modifierItemSchema = z.object({
   id: z.string(),
   name: z.string().trim().min(1, 'Modifier name is required'),
   price: z.number().min(0, 'Price must be positive'),
+  /** Catalog modifier group id — required for POST modifier_groups. */
+  modifierGroupId: z.number().int().positive().optional(),
 });
 
 export const createMenuItemFormSchema = z.object({
@@ -102,3 +104,10 @@ export type CreateCategoryInput = z.infer<typeof createCategoryInputSchema>;
 export type VariantItem = z.infer<typeof variantItemSchema>;
 export type ModifierItem = z.infer<typeof modifierItemSchema>;
 export type CreateMenuItemFormValues = z.infer<typeof createMenuItemFormSchema>;
+
+/** Create-item submit payload (form + optional upload file). */
+export type CreateMenuItemSubmitValues = CreateMenuItemFormValues & {
+  imageFile?: File | null;
+  /** Lowercase tag label → tag definition id (from POST item-tags or existing items). */
+  tagIdsByName?: Record<string, number>;
+};

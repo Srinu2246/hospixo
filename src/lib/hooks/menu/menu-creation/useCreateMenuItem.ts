@@ -1,30 +1,19 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { toCatalogDietary, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import type {
-  CreateMenuItemFormValues,
+  CreateMenuItemSubmitValues,
   VariantItem,
   ModifierItem,
   MenuCatalogItem,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import type { MenuItemTagDefinition } from '@/lib/schemas/menu/menuItemTagsSchema';
 import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import type { DietaryType } from '@/features/menu/menu-creation/DietaryIcon';
 
-const DEFAULT_AVAILABLE_TAGS = [
-  'spicy',
-  'chef-special',
-  'mrp-item',
-  'no spicy',
-  'vegan',
-  'extra-spicy',
-  'low spicy',
-  'Set As Favorite',
-  'extra-masala',
-  'Set As Combo',
-  'gluten-free',
-  'jain',
-];
+/** UI-only flags; not menu item tag definitions from GET item-tags. */
+const OPERATIONAL_TAG_LABELS = ['Set As Favorite', 'Set As Combo'];
 
 const DEFAULT_VARIANTS: VariantItem[] = [
   { id: 'v1', name: 'Mini', price: 149 },
@@ -33,23 +22,25 @@ const DEFAULT_VARIANTS: VariantItem[] = [
   { id: 'v4', name: 'Family Pack', price: 599 },
 ];
 
-const DEFAULT_MODIFIERS: ModifierItem[] = [
-  { id: 'm1', name: 'Extra Raita', price: 40 },
-  { id: 'm2', name: 'Extra Gravy', price: 69 },
-  { id: 'm3', name: 'Egg', price: 29 },
-];
+const DEFAULT_MODIFIERS: ModifierItem[] = [];
 
 export interface UseCreateMenuItemProps {
   initialItem?: MenuCatalogItem | null;
   /** Full GET /items/{id} record — seeds variants, modifiers, GST, margin. */
   initialDetail?: MenuItemResponse | null;
-  onSave?: (data: CreateMenuItemFormValues) => void;
+  /** From `?category=` / sidebar selection when creating a new item. */
+  defaultCategoryId?: string;
+  /** GET /v1/restaurant/menu/item-tags */
+  apiTagDefinitions?: readonly MenuItemTagDefinition[];
+  onSave?: (data: CreateMenuItemSubmitValues) => void | Promise<void>;
   onBack?: () => void;
 }
 
 export function useCreateMenuItem({
   initialItem,
   initialDetail = null,
+  defaultCategoryId,
+  apiTagDefinitions,
   onSave,
   onBack,
 }: UseCreateMenuItemProps = {}) {
@@ -67,13 +58,14 @@ export function useCreateMenuItem({
 
   const detailModifiers: ModifierItem[] =
     initialDetail?.modifier_groups.map((group) => ({
-      id: String(group.id),
+      id: String(group.modifier_group_id),
+      modifierGroupId: group.modifier_group_id,
       name: group.modifier_group?.name ?? `Group ${group.modifier_group_id}`,
       price: 0,
     })) ?? [];
 
   // Form fields
-  const [category, setCategory] = useState(seedItem?.categoryId ?? '');
+  const [category, setCategory] = useState(seedItem?.categoryId ?? defaultCategoryId?.trim() ?? '');
   const [name, setName] = useState(seedItem?.name ?? '');
   const [onlineDisplayName, setOnlineDisplayName] = useState(seedItem?.name ?? '');
   const [code, setCode] = useState(seedItem?.code ?? '');
@@ -102,21 +94,36 @@ export function useCreateMenuItem({
     initialDetail ? (initialDetail.expose_captain_app ? ['Captain App'] : []) : ['Captain App'],
   );
 
-  const [availableTags, setAvailableTags] = useState<string[]>(() => {
-    const combined = [...DEFAULT_AVAILABLE_TAGS];
+  const [selectedTags, setSelectedTags] = useState<string[]>(seedItem?.tags ?? []);
+  const [localCreatedTags, setLocalCreatedTags] = useState<Array<{ id: number; name: string }>>([]);
+
+  const { availableTags, tagIdsByName } = useMemo(() => {
+    const fromApi = (apiTagDefinitions ?? []).filter((tag) => tag.status !== 'inactive');
+    const definitions = [...fromApi, ...localCreatedTags];
+    const ids: Record<string, number> = {};
+    const names: string[] = [];
+
+    for (const tag of definitions) {
+      const label = tag.name.trim();
+      const key = label.toLowerCase();
+      if (!label) continue;
+      ids[key] = tag.id;
+      if (!names.includes(label)) names.push(label);
+    }
+
+    const merged = [...names, ...OPERATIONAL_TAG_LABELS];
     if (seedItem?.tags) {
-      for (const t of seedItem.tags) {
-        if (!combined.includes(t)) {
-          combined.push(t);
-        }
+      for (const label of seedItem.tags) {
+        if (!merged.includes(label)) merged.push(label);
       }
     }
-    return combined;
-  });
 
-  const [selectedTags, setSelectedTags] = useState<string[]>(seedItem?.tags ?? []);
+    return { availableTags: merged, tagIdsByName: ids };
+  }, [apiTagDefinitions, localCreatedTags, seedItem]);
 
-  const [images, setImages] = useState<string[]>(seedItem?.imageUrl ? [seedItem.imageUrl] : []);
+  /** User uploads only (data URLs). Existing server URLs are shown separately in the screen. */
+  const [images, setImages] = useState<string[]>([]);
+  const [primaryImageFile, setPrimaryImageFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<{
     fileName: string;
     fileSizeMb?: number;
@@ -173,10 +180,13 @@ export function useCreateMenuItem({
   }, []);
 
   // Add custom tag
-  const addCustomTag = useCallback((newTag: string) => {
-    const trimmed = newTag.trim();
-    if (!trimmed) return;
-    setAvailableTags((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+  const addCustomTag = useCallback((tag: { id: number; name: string }) => {
+    const trimmed = tag.name.trim();
+    if (!trimmed || !Number.isFinite(tag.id) || tag.id <= 0) return;
+    setLocalCreatedTags((prev) => {
+      if (prev.some((row) => row.id === tag.id)) return prev;
+      return [...prev, { id: tag.id, name: trimmed }];
+    });
     setSelectedTags((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
   }, []);
 
@@ -202,20 +212,37 @@ export function useCreateMenuItem({
   }, []);
 
   // Add modifier
-  const addModifier = useCallback((item: { name: string; price: number }) => {
-    const newMod: ModifierItem = {
-      id: `m_${Date.now()}`,
-      name: item.name,
-      price: item.price,
-    };
-    setModifiers((prev) => [...prev, newMod]);
-  }, []);
+  const addModifier = useCallback(
+    (item: { name: string; price: number; modifierGroupId?: number }) => {
+      const newMod: ModifierItem = {
+        id: item.modifierGroupId != null ? String(item.modifierGroupId) : `m_${Date.now()}`,
+        modifierGroupId: item.modifierGroupId,
+        name: item.name,
+        price: item.price,
+      };
+      setModifiers((prev) => [...prev, newMod]);
+    },
+    [],
+  );
 
-  const updateModifier = useCallback((id: string, item: { name: string; price: number }) => {
-    setModifiers((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, name: item.name, price: item.price } : m)),
-    );
-  }, []);
+  const updateModifier = useCallback(
+    (id: string, item: { name: string; price: number; modifierGroupId?: number }) => {
+      setModifiers((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                name: item.name,
+                price: item.price,
+                modifierGroupId: item.modifierGroupId ?? m.modifierGroupId,
+                id: item.modifierGroupId != null ? String(item.modifierGroupId) : m.id,
+              }
+            : m,
+        ),
+      );
+    },
+    [],
+  );
 
   // Remove modifier
   const removeModifier = useCallback((id: string) => {
@@ -253,7 +280,11 @@ export function useCreateMenuItem({
       const reader = new FileReader();
       reader.onload = (e) => {
         if (typeof e.target?.result === 'string') {
-          setImages((prev) => (prev.length < 5 ? [...prev, e.target!.result as string] : prev));
+          setImages((prev) => {
+            if (prev.length >= 5) return prev;
+            if (prev.length === 0) setPrimaryImageFile(file);
+            return [...prev, e.target!.result as string];
+          });
           setUploadError(null);
         }
       };
@@ -266,7 +297,11 @@ export function useCreateMenuItem({
   }, []);
 
   const removeImage = useCallback((index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImages((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (index === 0) setPrimaryImageFile(null);
+      return next;
+    });
   }, []);
 
   // Validation
@@ -288,10 +323,14 @@ export function useCreateMenuItem({
     if (orderTypes.length === 0) {
       newErrors.orderTypes = 'Select at least one order type';
     }
+    const gstId = Number(gst.trim());
+    if (!gst.trim() || !Number.isFinite(gstId) || gstId <= 0) {
+      newErrors.gst = 'Select a GST rate';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [category, name, code, itemPrice, orderTypes]);
+  }, [category, name, code, itemPrice, orderTypes, gst]);
 
   // Submit
   const handleSubmit = useCallback(async () => {
@@ -299,7 +338,7 @@ export function useCreateMenuItem({
 
     setIsSubmitting(true);
     try {
-      const data: CreateMenuItemFormValues = {
+      const data: CreateMenuItemSubmitValues = {
         category,
         name: name.trim(),
         onlineDisplayName: onlineDisplayName.trim() || undefined,
@@ -315,10 +354,12 @@ export function useCreateMenuItem({
         images,
         variants,
         modifiers,
+        imageFile: primaryImageFile,
+        tagIdsByName,
       };
 
       if (onSave) {
-        onSave(data);
+        await onSave(data);
       }
     } finally {
       setIsSubmitting(false);
@@ -340,6 +381,8 @@ export function useCreateMenuItem({
     images,
     variants,
     modifiers,
+    primaryImageFile,
+    tagIdsByName,
     onSave,
   ]);
 

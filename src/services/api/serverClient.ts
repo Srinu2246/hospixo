@@ -104,10 +104,14 @@ async function request<T>(
   }
 
   const requestBody = isLogout ? await logoutBody() : options.body;
-  let body: string | undefined;
+  let body: BodyInit | undefined;
   if (requestBody !== undefined && method !== 'GET') {
-    headers.set('Content-Type', 'application/json');
-    body = JSON.stringify(requestBody);
+    if (requestBody instanceof FormData) {
+      body = requestBody;
+    } else {
+      headers.set('Content-Type', 'application/json');
+      body = JSON.stringify(requestBody);
+    }
   }
 
   let response: Response;

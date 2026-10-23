@@ -4,10 +4,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useQuery } from '@/lib/hooks/api/useQuery';
 
+import { buildCreateMenuItemFormData } from '@/lib/helpers/createMenuItemFormData';
 import {
   buildMenuItemStatusChangeBody,
   type MenuCataloguePageScope,
 } from '@/lib/helpers/menuBranchContext';
+import type { CreateMenuItemFormValues } from '@/lib/schemas/menu/menuCreationSchema';
 import {
   parseMenuItemList,
   parseMenuItemRecord,
@@ -41,6 +43,14 @@ function listParams(params?: MenuItemListParams) {
 export type UseMenuItemMutationsOptions = Readonly<{
   /** Route scope from menu page config — branch sends branch_id on activate/deactivate. */
   scope?: MenuCataloguePageScope;
+}>;
+
+export type CreateMenuItemVariables = Readonly<{
+  values: CreateMenuItemFormValues;
+  branchId?: number;
+  imageFile?: File | null;
+  tagNameToId?: ReadonlyMap<string, number>;
+  tagIdsByName?: Readonly<Record<string, number>>;
 }>;
 
 /**
@@ -88,6 +98,39 @@ export function useDeactivateMenuItem(options?: UseMenuItemMutationsOptions) {
     onSuccess: async (_data, itemId) => {
       await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
       await queryClient.invalidateQueries({ queryKey: menuItemQueryKey(itemId) });
+    },
+  });
+}
+
+/**
+ * Create menu item (multipart).
+ * POST /v1/restaurant/menu/items
+ */
+export function useCreateMenuItem(options?: UseMenuItemMutationsOptions) {
+  const queryClient = useQueryClient();
+  const pageScope = options?.scope ?? 'company';
+
+  return useMutation({
+    mutationFn: async ({
+      values,
+      branchId,
+      imageFile,
+      tagNameToId,
+      tagIdsByName,
+    }: CreateMenuItemVariables) => {
+      const formData = buildCreateMenuItemFormData({
+        values,
+        pageScope,
+        branchId,
+        imageFile,
+        tagNameToId,
+        tagIdsByName,
+      });
+      const payload = await api.post(restaurantMenuItemsPath(), formData, { silent: true });
+      return parseMenuItemRecord(payload);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
     },
   });
 }

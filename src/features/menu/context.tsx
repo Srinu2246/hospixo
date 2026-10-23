@@ -19,12 +19,13 @@ import type { MenuItemListParams } from '@/lib/schemas/menu/menuItemsSchema';
 import {
   createCategoryInputSchema,
   type CreateCategoryInput,
-  type CreateMenuItemFormValues,
+  type CreateMenuItemSubmitValues,
   type MenuCatalogItem,
   type MenuCategory,
   type MenuCreationViewMode,
   type MenuPageConfig,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import { buildTagNameToIdMap } from '@/lib/helpers/createMenuItemFormData';
 import { toCatalogDietary, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import {
   useCreateMenuCategory,
@@ -33,6 +34,7 @@ import {
   useUpdateMenuCategory,
 } from '@/lib/hooks/menu/useMenuCategories';
 import {
+  useCreateMenuItem,
   useDeactivateMenuItem,
   useMenuItems,
   useSetMenuItemActive,
@@ -112,11 +114,12 @@ export interface MenuCreationContextValue {
   updateCategory: (input: CreateCategoryInput) => Promise<void>;
   /** POST .../activate | .../deactivate */
   toggleCategoryStatus: (categoryId: string, nextActive: boolean) => Promise<void>;
-  addItem: (data: CreateMenuItemFormValues) => void;
-  updateItem: (id: string, data: CreateMenuItemFormValues) => void;
+  addItem: (data: CreateMenuItemSubmitValues) => Promise<void>;
+  updateItem: (id: string, data: CreateMenuItemSubmitValues) => void;
   /** Soft-delete via POST .../items/{id}/deactivate */
   deleteItem: (id: string) => Promise<void>;
   isDeletingItem?: boolean;
+  isCreatingItem?: boolean;
   isCreatingCategory?: boolean;
   isUpdatingCategory?: boolean;
 }
@@ -176,6 +179,7 @@ export function MenuCreationProvider({
 
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
   const itemsQuery = useMenuItems(menuListParams);
+  const createMenuItem = useCreateMenuItem({ scope: pageConfig.scope });
   const deactivateMenuItem = useDeactivateMenuItem({ scope: pageConfig.scope });
   const createMenuCategory = useCreateMenuCategory();
   const updateMenuCategory = useUpdateMenuCategory();
@@ -211,6 +215,8 @@ export function MenuCreationProvider({
     }
     return map;
   }, [categories]);
+
+  const tagNameToId = useMemo(() => buildTagNameToIdMap(apiItems ?? []), [apiItems]);
 
   const items: MenuCatalogItem[] = useMemo(() => {
     if (localItems.length > 0) return localItems;
@@ -381,6 +387,7 @@ export function MenuCreationProvider({
       },
       editingCategory,
       isDeletingItem: deactivateMenuItem.isPending,
+      isCreatingItem: createMenuItem.isPending,
       isCreatingCategory: createMenuCategory.isPending,
       isUpdatingCategory: updateMenuCategory.isPending || setMenuCategoryActive.isPending,
       backToList: () => {
@@ -460,28 +467,27 @@ export function MenuCreationProvider({
         setLocalCategories([]);
         await refetchCategories();
       },
-      addItem: (data: CreateMenuItemFormValues) => {
-        const cat = categories.find((c) => c.id === data.category);
-        const newItem: MenuCatalogItem = {
-          id: `item_${Date.now()}`,
-          name: data.name,
-          categoryId: data.category,
-          categoryName: cat?.name ?? 'Starters',
-          basePrice: data.itemPrice,
-          dietary: data.dietaryType as 'Veg' | 'Non-Veg' | 'Egg',
-          status: 'Available',
-          code: data.code,
-          description: data.description,
-          imageUrl: data.images[0] ?? undefined,
-          orderTypes: data.orderTypes,
-          tags: data.tags,
-        };
-        setLocalItems([newItem, ...items]);
-        setActiveCategoryId(data.category);
+      addItem: async (data: CreateMenuItemSubmitValues) => {
+        const { imageFile, tagIdsByName, ...values } = data;
+        if (pageConfig.scope === 'branch' && (branchIdForList == null || branchIdForList <= 0)) {
+          throw new ApiError('Branch is required to create a menu item for this account.', 400);
+        }
+
+        await createMenuItem.mutateAsync({
+          values,
+          branchId: branchIdForList,
+          imageFile,
+          tagNameToId,
+          tagIdsByName,
+        });
+
+        setLocalItems([]);
+        await refetchItems();
+        setActiveCategoryId(values.category);
         setViewMode('list');
-        pushMenuCreationList({ categoryFilterId: data.category });
+        pushMenuCreationList({ categoryFilterId: values.category });
       },
-      updateItem: (id: string, data: CreateMenuItemFormValues) => {
+      updateItem: (id: string, data: CreateMenuItemSubmitValues) => {
         const cat = categories.find((c) => c.id === data.category);
         setLocalItems(
           items.map((item) =>
@@ -526,6 +532,9 @@ export function MenuCreationProvider({
       refetchCategories,
       refetchItems,
       deactivateMenuItem,
+      createMenuItem,
+      branchIdForList,
+      tagNameToId,
       createMenuCategory,
       updateMenuCategory,
       setMenuCategoryActive,

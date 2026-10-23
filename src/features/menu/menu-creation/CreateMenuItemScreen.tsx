@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
@@ -31,13 +31,21 @@ import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { Modal } from '@/components/shared/ui/Modal';
 import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
+import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
 import { toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import { useCreateMenuItem } from '@/lib/hooks/menu/menu-creation/useCreateMenuItem';
+import type { MenuCataloguePageScope } from '@/lib/helpers/menuBranchContext';
+import { menuItemTagNameToCode } from '@/lib/helpers/menuItemTagHelpers';
+import { useCreateMenuItemTag, useMenuItemTags } from '@/lib/hooks/menu/useMenuItemTags';
+import { useGstRates } from '@/lib/hooks/menu/useGstRates';
 import { useMenuItem } from '@/lib/hooks/menu/useMenuItems';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { useToastStore } from '@/stores/toastStore';
+import { ApiError } from '@/services/api/types';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { shouldSimulateMenuItemUploadError } from '@/lib/params/menu';
 import type {
-  CreateMenuItemFormValues,
+  CreateMenuItemSubmitValues,
   MenuCatalogItem,
   ModifierItem,
   VariantItem,
@@ -47,8 +55,17 @@ import { colors } from '@/lib/theme/mui/colors';
 import { useMenuCreation } from '@/features/menu/context';
 import { DietaryIcon, type DietaryType } from './DietaryIcon';
 
-const DEFAULT_PANEER_TIKKA_IMG =
-  'https://images.unsplash.com/photo-1567184109411-b28f2700e1e5?w=600&auto=format&fit=crop&q=80';
+function isPreviewImageSrc(value: string | undefined | null): value is string {
+  const trimmed = value?.trim();
+  if (!trimmed) return false;
+  return (
+    trimmed.startsWith('data:image/') ||
+    trimmed.startsWith('blob:') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/')
+  );
+}
 
 export interface CreateMenuItemScreenProps {
   initialItem?: MenuCatalogItem | null;
@@ -145,6 +162,8 @@ export function CreateMenuItemScreen({
   );
 }
 
+const OPERATIONAL_TAG_COUNT = 2;
+
 function CreateMenuItemForm({
   initialItem = null,
   initialDetail = null,
@@ -182,35 +201,71 @@ function CreateMenuItemForm({
     }
   };
 
-  const handleSaveItem = (values: CreateMenuItemFormValues) => {
-    if (mode === 'edit' && initialItem && menuContext) {
-      menuContext.updateItem(initialItem.id, values);
-    } else if (menuContext) {
-      menuContext.addItem(values);
-    }
+  const handleSaveItem = async (values: CreateMenuItemSubmitValues) => {
+    try {
+      if (mode === 'edit' && initialItem && menuContext) {
+        menuContext.updateItem(initialItem.id, values);
+      } else if (menuContext) {
+        await menuContext.addItem(values);
+      } else if (mode === 'create') {
+        throw new ApiError('Open Menu Creation from the sidebar to save new items.', 400);
+      }
 
-    setToastFeedback({
-      open: true,
-      message:
-        mode === 'edit' ? 'Menu item updated successfully!' : 'Menu item created successfully!',
-      severity: 'success',
-    });
+      setToastFeedback({
+        open: true,
+        message:
+          mode === 'edit' ? 'Menu item updated successfully!' : 'Menu item created successfully!',
+        severity: 'success',
+      });
 
-    if (onSaveSuccess) {
-      onSaveSuccess();
-    } else {
-      setTimeout(() => {
-        handleBackNavigation();
-      }, 500);
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      } else {
+        setTimeout(() => {
+          handleBackNavigation();
+        }, 500);
+      }
+    } catch (error) {
+      setToastFeedback({
+        open: true,
+        message: getErrorMessage(error),
+        severity: 'error',
+      });
     }
   };
+
+  const gstRatesQuery = useGstRates({ active_only: true, page_size: 100 });
+  const itemTagsQuery = useMenuItemTags({ status: 'active', page_size: 100 });
+  const account = useSidebarStore((state) => state.account);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const tagCreateBranchId = useMemo(() => {
+    if (menuContext?.pageConfig.scope !== 'branch') return undefined;
+    const raw = sidebarContext.branchId ?? account?.branch_id;
+    if (raw == null) return undefined;
+    const id = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [account?.branch_id, menuContext?.pageConfig.scope, sidebarContext.branchId]);
 
   const formHook = useCreateMenuItem({
     initialItem,
     initialDetail,
+    defaultCategoryId: mode === 'create' ? (menuContext?.activeCategoryId ?? undefined) : undefined,
+    apiTagDefinitions: itemTagsQuery.data?.items,
     onSave: handleSaveItem,
     onBack: handleBackNavigation,
   });
+
+  const existingRemoteImageUrl = useMemo(() => {
+    if (mode !== 'edit') return undefined;
+    const primary =
+      initialDetail?.images.find((image) => image.is_primary) ?? initialDetail?.images[0];
+    const candidate = primary?.url ?? initialItem?.imageUrl;
+    return isPreviewImageSrc(candidate) ? candidate.trim() : undefined;
+  }, [initialDetail, initialItem?.imageUrl, mode]);
+
+  const primaryPreviewSrc = formHook.images[0] ?? existingRemoteImageUrl;
+  const [failedPreviewSrc, setFailedPreviewSrc] = useState<string | null>(null);
+  const showPrimaryPreview = Boolean(primaryPreviewSrc) && failedPreviewSrc !== primaryPreviewSrc;
 
   const { setUploadError } = formHook;
   useEffect(() => {
@@ -225,6 +280,11 @@ function CreateMenuItemForm({
   }, [setUploadError]);
 
   // Available categories from context or fallback mocks
+  const gstRateOptions = (gstRatesQuery.data?.items ?? []).map((rate) => ({
+    id: String(rate.id),
+    label: `${rate.total_rate}% — ${rate.name}`,
+  }));
+
   const categoryOptions = (
     menuContext?.categories ?? [
       { id: 'cat_starters', name: 'Starters' },
@@ -276,7 +336,7 @@ function CreateMenuItemForm({
       <ActionButton
         variant="primary"
         onClick={formHook.handleSubmit}
-        loading={formHook.isSubmitting}
+        loading={formHook.isSubmitting || Boolean(menuContext?.isCreatingItem)}
         sx={{
           height: 40,
           px: 3,
@@ -573,14 +633,67 @@ function CreateMenuItemForm({
           />
 
           {/* Row 3: GST % */}
-          <Input
-            id="item-gst"
-            label="GST %"
-            placeholder="5%"
-            value={formHook.gst}
-            onChange={(e) => formHook.setGst(e.target.value)}
-            fullWidth
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+            <Typography
+              component="label"
+              htmlFor="item-gst-select"
+              sx={{
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: 'text.primary',
+                mb: 0.75,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+              }}
+            >
+              GST rate
+              <Box component="span" sx={{ color: 'error.main', fontWeight: 600 }}>
+                *
+              </Box>
+            </Typography>
+            <Select
+              id="item-gst-select"
+              value={formHook.gst}
+              onChange={(e) => formHook.setGst(e.target.value)}
+              displayEmpty
+              disabled={gstRatesQuery.isLoading}
+              IconComponent={ChevronDown}
+              sx={{
+                width: '100%',
+                height: 44,
+                minHeight: 44,
+                borderRadius: '10px',
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: formHook.errors.gst ? 'error.main' : 'divider',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                '& .MuiSelect-select': {
+                  py: 0,
+                  px: 1.75,
+                  height: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                },
+              }}
+            >
+              <MenuItem value="" disabled>
+                {gstRatesQuery.isLoading ? 'Loading GST rates…' : 'Select GST rate'}
+              </MenuItem>
+              {gstRateOptions.map((rate) => (
+                <MenuItem key={rate.id} value={rate.id}>
+                  {rate.label}
+                </MenuItem>
+              ))}
+            </Select>
+            {formHook.errors.gst && (
+              <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, display: 'block' }}>
+                {formHook.errors.gst}
+              </Typography>
+            )}
+          </Box>
 
           {/* Empty spacer for 3-column layout */}
           <Box sx={{ display: { xs: 'none', md: 'block' } }} />
@@ -829,59 +942,71 @@ function CreateMenuItemForm({
                   fontWeight: 600,
                 }}
               >
-                12 tags
+                {formHook.availableTags.length} tags
               </Box>
             </Stack>
 
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
-                gap: 1.5,
-              }}
-            >
-              {formHook.availableTags.map((tag) => {
-                const isSelected = formHook.selectedTags.includes(tag);
-                return (
-                  <Box
-                    key={tag}
-                    onClick={() => formHook.toggleTag(tag)}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.25,
-                      p: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid',
-                      borderColor: isSelected ? 'primary.main' : 'divider',
-                      bgcolor: 'background.paper',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease-in-out',
-                      '&:hover': {
-                        borderColor: 'primary.main',
-                      },
-                    }}
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onChange={() => formHook.toggleTag(tag)}
-                      size="small"
-                      sx={{ p: 0, '&.Mui-checked': { color: 'primary.main' } }}
-                    />
-                    <Typography
+            {itemTagsQuery.isError ? (
+              <AlertMessage
+                variant="error"
+                title="Unable to load tags"
+                message={getErrorMessage(itemTagsQuery.error)}
+              />
+            ) : null}
+
+            {itemTagsQuery.isLoading && formHook.availableTags.length <= OPERATIONAL_TAG_COUNT ? (
+              <SkeletonLoader count={6} height={40} />
+            ) : (
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
+                  gap: 1.5,
+                }}
+              >
+                {formHook.availableTags.map((tag) => {
+                  const isSelected = formHook.selectedTags.includes(tag);
+                  return (
+                    <Box
+                      key={tag}
+                      onClick={() => formHook.toggleTag(tag)}
                       sx={{
-                        fontSize: '0.8125rem',
-                        fontWeight: 600,
-                        color: 'text.primary',
-                        userSelect: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.25,
+                        p: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid',
+                        borderColor: isSelected ? 'primary.main' : 'divider',
+                        bgcolor: 'background.paper',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease-in-out',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                        },
                       }}
                     >
-                      {tag}
-                    </Typography>
-                  </Box>
-                );
-              })}
-            </Box>
+                      <Checkbox
+                        checked={isSelected}
+                        onChange={() => formHook.toggleTag(tag)}
+                        size="small"
+                        sx={{ p: 0, '&.Mui-checked': { color: 'primary.main' } }}
+                      />
+                      <Typography
+                        sx={{
+                          fontSize: '0.8125rem',
+                          fontWeight: 600,
+                          color: 'text.primary',
+                          userSelect: 'none',
+                        }}
+                      >
+                        {tag}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
           </Paper>
         </Box>
       </Box>
@@ -1022,6 +1147,7 @@ function CreateMenuItemForm({
             <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
               {/* Main / Active uploaded image */}
               <Box
+                onClick={!showPrimaryPreview ? () => fileInputRef.current?.click() : undefined}
                 sx={{
                   position: 'relative',
                   width: 84,
@@ -1031,18 +1157,32 @@ function CreateMenuItemForm({
                   border: '1px solid',
                   borderColor: 'divider',
                   flexShrink: 0,
+                  bgcolor: '#F8FAFC',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'text.secondary',
+                  ...(!showPrimaryPreview ? { cursor: 'pointer' } : {}),
                 }}
               >
-                <Box
-                  component="img"
-                  src={formHook.images[0] || initialItem?.imageUrl || DEFAULT_PANEER_TIKKA_IMG}
-                  alt="Item thumbnail"
-                  sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+                {showPrimaryPreview && primaryPreviewSrc ? (
+                  <Box
+                    component="img"
+                    src={primaryPreviewSrc}
+                    alt="Item thumbnail"
+                    onError={() => setFailedPreviewSrc(primaryPreviewSrc)}
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <ImageIcon size={22} />
+                )}
                 {formHook.images.length > 0 && (
                   <IconButton
                     size="small"
-                    onClick={() => formHook.removeImage(0)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      formHook.removeImage(0);
+                    }}
                     sx={{
                       position: 'absolute',
                       top: 2,
@@ -1482,6 +1622,8 @@ function CreateMenuItemForm({
       <CreateTagModal
         open={formHook.isCreateTagOpen}
         onClose={() => formHook.setIsCreateTagOpen(false)}
+        pageScope={menuContext?.pageConfig.scope ?? 'branch'}
+        branchId={tagCreateBranchId}
         onCreateTag={formHook.addCustomTag}
       />
 
@@ -1501,8 +1643,8 @@ interface ItemOptionModalProps {
   type: 'variant' | 'modifier';
   initialItem?: VariantItem | ModifierItem | null;
   onClose: () => void;
-  onAdd: (item: { name: string; price: number }) => void;
-  onUpdate?: (id: string, item: { name: string; price: number }) => void;
+  onAdd: (item: { name: string; price: number; modifierGroupId?: number }) => void;
+  onUpdate?: (id: string, item: { name: string; price: number; modifierGroupId?: number }) => void;
 }
 
 function ItemOptionModal({
@@ -1514,8 +1656,13 @@ function ItemOptionModal({
   onUpdate,
 }: Readonly<ItemOptionModalProps>) {
   const isVariant = type === 'variant';
+  const initialModifier =
+    !isVariant && initialItem && 'modifierGroupId' in initialItem ? initialItem : null;
   const [name, setName] = useState(initialItem?.name ?? '');
   const [price, setPrice] = useState(initialItem ? String(initialItem.price) : '');
+  const [modifierGroupId, setModifierGroupId] = useState(
+    initialModifier?.modifierGroupId != null ? String(initialModifier.modifierGroupId) : '',
+  );
   const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = () => {
@@ -1530,10 +1677,30 @@ function ItemOptionModal({
       return;
     }
 
+    let parsedModifierGroupId: number | undefined;
+    if (!isVariant) {
+      const trimmedGroupId = modifierGroupId.trim();
+      if (!trimmedGroupId) {
+        setError('Modifier group id is required (from your modifier groups catalog)');
+        return;
+      }
+      parsedModifierGroupId = Number(trimmedGroupId);
+      if (!Number.isFinite(parsedModifierGroupId) || parsedModifierGroupId <= 0) {
+        setError('Enter a valid modifier group id');
+        return;
+      }
+    }
+
+    const payload = {
+      name: trimmed,
+      price: priceNum,
+      ...(parsedModifierGroupId != null ? { modifierGroupId: parsedModifierGroupId } : {}),
+    };
+
     if (initialItem && onUpdate) {
-      onUpdate(initialItem.id, { name: trimmed, price: priceNum });
+      onUpdate(initialItem.id, payload);
     } else {
-      onAdd({ name: trimmed, price: priceNum });
+      onAdd(payload);
     }
     setError(null);
     onClose();
@@ -1560,7 +1727,7 @@ function ItemOptionModal({
       subtitle={
         isVariant
           ? 'Define size or portion options for this menu item'
-          : 'Attach add-on options or customizations (e.g. Extra Cheese, Extra Sauce)'
+          : 'Link a catalog modifier group by id (name/price here are for your reference until group pickers are wired)'
       }
       width={460}
       height="auto"
@@ -1602,10 +1769,25 @@ function ItemOptionModal({
             setPrice(e.target.value);
             if (error) setError(null);
           }}
-          error={Boolean(error)}
-          helperText={error ?? undefined}
+          error={Boolean(error) && isVariant}
+          helperText={isVariant ? (error ?? undefined) : undefined}
           required
         />
+        {!isVariant ? (
+          <Input
+            label="Modifier group id"
+            placeholder="e.g. 12"
+            type="number"
+            value={modifierGroupId}
+            onChange={(e) => {
+              setModifierGroupId(e.target.value);
+              if (error) setError(null);
+            }}
+            error={Boolean(error)}
+            helperText={error ?? 'Required — id from modifier groups catalog'}
+            required
+          />
+        ) : null}
       </Box>
     </Modal>
   );
@@ -1614,27 +1796,52 @@ function ItemOptionModal({
 interface CreateTagModalProps {
   open: boolean;
   onClose: () => void;
-  onCreateTag: (tag: string) => void;
+  pageScope: MenuCataloguePageScope;
+  branchId?: number;
+  onCreateTag: (tag: { id: number; name: string }) => void;
 }
 
-function CreateTagModal({ open, onClose, onCreateTag }: Readonly<CreateTagModalProps>) {
+function CreateTagModal({
+  open,
+  onClose,
+  pageScope,
+  branchId,
+  onCreateTag,
+}: Readonly<CreateTagModalProps>) {
+  const createTag = useCreateMenuItemTag();
+  const showToast = useToastStore((state) => state.show);
   const [tagName, setTagName] = useState('');
+  const [tagCode, setTagCode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const trimmed = tagName.trim();
     if (!trimmed) {
       setError('Tag name is required');
       return;
     }
-    onCreateTag(trimmed);
-    setTagName('');
-    setError(null);
-    onClose();
+
+    try {
+      const created = await createTag.mutateAsync({
+        name: trimmed,
+        code: tagCode.trim() || menuItemTagNameToCode(trimmed),
+        pageScope,
+        branchId,
+      });
+      onCreateTag({ id: created.id, name: created.name });
+      showToast(`Tag "${created.name}" created successfully`, 'success');
+      setTagName('');
+      setTagCode('');
+      setError(null);
+      onClose();
+    } catch (cause) {
+      setError(getErrorMessage(cause));
+    }
   };
 
   const handleClose = () => {
     setTagName('');
+    setTagCode('');
     setError(null);
     onClose();
   };
@@ -1649,10 +1856,14 @@ function CreateTagModal({ open, onClose, onCreateTag }: Readonly<CreateTagModalP
       height="auto"
       footer={
         <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end', width: '100%' }}>
-          <ActionButton variant="outlined" onClick={handleClose}>
+          <ActionButton variant="outlined" onClick={handleClose} disabled={createTag.isPending}>
             Cancel
           </ActionButton>
-          <ActionButton variant="primary" onClick={handleConfirm}>
+          <ActionButton
+            variant="primary"
+            onClick={() => void handleConfirm()}
+            loading={createTag.isPending}
+          >
             Create Tag
           </ActionButton>
         </Stack>
@@ -1667,10 +1878,19 @@ function CreateTagModal({ open, onClose, onCreateTag }: Readonly<CreateTagModalP
             setTagName(e.target.value);
             if (error) setError(null);
           }}
-          error={Boolean(error)}
-          helperText={error ?? undefined}
           required
           autoFocus
+        />
+        <Input
+          label="Tag Code"
+          placeholder="Auto-generated from name if empty"
+          value={tagCode}
+          onChange={(e) => {
+            setTagCode(e.target.value);
+            if (error) setError(null);
+          }}
+          error={Boolean(error)}
+          helperText={error ?? undefined}
         />
       </Box>
     </Modal>

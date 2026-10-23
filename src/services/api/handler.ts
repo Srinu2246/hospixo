@@ -35,6 +35,7 @@ import { resolveBranchReportsMock } from '@/lib/mocks/reports/reports.mocks';
 import { resolveBranchMenusMock } from '@/lib/mocks/menu/resolveBranchMenusMock';
 import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
 import { MOCK_MENU_CATEGORIES, MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
+import { MOCK_MENU_ITEM_TAGS } from '@/lib/mocks/menu/useMenuItemTags.mocks';
 import { resolveCashRegistersMock } from '@/lib/mocks/pos/useCashCounters.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
@@ -104,6 +105,7 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.restaurant.branches]: MOCK_BRANCHES,
   [ApiUrlsV1.restaurant.menuCategories.list]: MOCK_MENU_CATEGORIES,
   [ApiUrlsV1.restaurant.menuItems.list]: MOCK_MENU_ITEMS,
+  [ApiUrlsV1.restaurant.menuItemTags.list]: MOCK_MENU_ITEM_TAGS,
 };
 
 export function isMockApiEnabled(): boolean {
@@ -157,6 +159,87 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   if (request.method !== 'GET') {
     if (request.path === ApiUrlsV1.auth.login || request.path === ApiUrlsV1.auth.logout) {
       return LIST_MOCKS[request.path];
+    }
+
+    if (
+      request.method === 'POST' &&
+      request.path === ApiUrlsV1.restaurant.menuItemTags.create &&
+      isRecord(request.body)
+    ) {
+      const now = new Date().toISOString();
+      const scope = request.body.scope === 'branch' ? 'branch' : 'company';
+      return {
+        success: true,
+        data: {
+          id: Date.now(),
+          organization_id: 126,
+          company_id: 94,
+          catalogue_scope: scope,
+          branch_id:
+            scope === 'branch' && request.body.assign_branch_id != null
+              ? Number(request.body.assign_branch_id)
+              : null,
+          name: String(request.body.name ?? 'Tag'),
+          code: String(request.body.code ?? 'TAG'),
+          status: 'active',
+          created_at: now,
+          updated_at: now,
+        },
+        message: 'Menu item tag created',
+      };
+    }
+
+    if (request.method === 'POST' && request.path === ApiUrlsV1.restaurant.menuItems.create) {
+      const fields = formFieldsFromBody(request.body);
+      const now = new Date().toISOString();
+      const categoryId = Number(fields.category_id) || 1;
+      const basePrice = Number(fields.base_price) || 0;
+      const nextId = Date.now();
+      const taxes = parseJsonArray(fields.taxes);
+      const modifier_groups = parseJsonArray(fields.modifier_groups);
+      const variants = parseJsonArray(fields.variants);
+      const tag_ids = parseJsonArray(fields.tag_ids);
+      return {
+        success: true,
+        data: {
+          id: nextId,
+          organization_id: 126,
+          company_id: 94,
+          catalogue_scope: fields.scope === 'branch' ? 'branch' : 'company',
+          branch_id:
+            fields.scope === 'branch' && fields.assign_branch_id
+              ? Number(fields.assign_branch_id)
+              : null,
+          category_id: categoryId,
+          taxes,
+          preparation_stations: [],
+          modifier_groups,
+          name: fields.name ?? 'Menu item',
+          code: fields.code ?? null,
+          description: fields.description ?? null,
+          sku: fields.sku ?? null,
+          barcode: fields.barcode ?? null,
+          base_price: basePrice,
+          profit_margin_percent: fields.profit_margin_percent
+            ? Number(fields.profit_margin_percent)
+            : null,
+          allow_dine_in: fields.allow_dine_in !== 'false',
+          allow_takeaway: fields.allow_takeaway !== 'false',
+          allow_delivery: fields.allow_delivery !== 'false',
+          expose_captain_app: fields.expose_captain_app !== 'false',
+          is_favorite: fields.is_favorite === 'true',
+          is_combo: fields.is_combo === 'true',
+          tag_ids,
+          tags: [],
+          dietary_type: fields.dietary_type === 'non_veg' ? 'non_veg' : 'veg',
+          status: 'active',
+          variants,
+          images: [],
+          created_at: now,
+          updated_at: now,
+        },
+        message: 'Menu item created',
+      };
     }
 
     if (
@@ -312,16 +395,29 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   if (request.path === listPath) {
     if (
       listPath === ApiUrlsV1.restaurant.menuCategories.list ||
-      listPath === ApiUrlsV1.restaurant.menuItems.list
+      listPath === ApiUrlsV1.restaurant.menuItems.list ||
+      listPath === ApiUrlsV1.restaurant.menuItemTags.list
     ) {
-      const items = Array.isArray(payload) ? payload : [];
+      let items = Array.isArray(payload) ? payload : [];
+      if (listPath === ApiUrlsV1.restaurant.menuItemTags.list) {
+        const statusFilter = request.params?.status;
+        if (typeof statusFilter === 'string' && statusFilter.length > 0) {
+          items = items.filter(
+            (row) => isRecord(row) && String(row.status ?? 'active') === statusFilter,
+          );
+        }
+      }
+      const page = Number(request.params?.page) || 1;
+      const pageSize = Number(request.params?.page_size) || 15;
+      const start = (page - 1) * pageSize;
+      const pageItems = items.slice(start, start + pageSize);
       return {
         success: true,
         data: {
-          items,
+          items: pageItems,
           total: items.length,
-          page: 1,
-          page_size: items.length || 15,
+          page,
+          page_size: pageSize,
         },
         message: 'OK',
       };
@@ -354,4 +450,34 @@ function findListPath(path: string): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseJsonArray(raw: string | undefined): unknown[] {
+  if (!raw?.trim()) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function formFieldsFromBody(body: unknown): Record<string, string> {
+  if (body instanceof FormData) {
+    const record: Record<string, string> = {};
+    body.forEach((value, key) => {
+      if (typeof value === 'string') {
+        record[key] = value;
+      }
+    });
+    return record;
+  }
+
+  if (isRecord(body)) {
+    return Object.fromEntries(
+      Object.entries(body).map(([key, value]) => [key, value == null ? '' : String(value)]),
+    );
+  }
+
+  return {};
 }

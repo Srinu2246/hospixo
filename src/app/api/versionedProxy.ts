@@ -24,7 +24,7 @@ export function createVersionedHandlers(version: ApiVersion) {
         method,
         path,
         searchParamsOf(request),
-        await readJsonBody(request, method),
+        await readRequestBody(request, method),
       );
 
       if (data === undefined) {
@@ -78,10 +78,14 @@ function searchParamsOf(request: NextRequest): QueryParams {
   return params;
 }
 
-async function readJsonBody(request: NextRequest, method: HttpMethod): Promise<unknown> {
+async function readRequestBody(request: NextRequest, method: HttpMethod): Promise<unknown> {
   if (method === 'GET') return undefined;
 
   const contentType = request.headers.get('content-type') ?? '';
+  if (contentType.includes('multipart/form-data')) {
+    return await request.formData();
+  }
+
   if (!contentType.includes('application/json')) return undefined;
 
   try {

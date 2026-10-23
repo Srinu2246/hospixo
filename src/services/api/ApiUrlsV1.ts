@@ -91,6 +91,11 @@ const ApiUrlsV1 = {
     gstRates: '/v1/restaurant/gst-rates',
     menuCategories: resource('/v1/restaurant/menu/categories'),
     menuItems: resource('/v1/restaurant/menu/items'),
+    /** POST /v1/restaurant/menu/item-tags */
+    menuItemTags: {
+      list: '/v1/restaurant/menu/item-tags',
+      create: '/v1/restaurant/menu/item-tags',
+    },
     /** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
     branchMenus: {
       /** Prefix for session-bearer matching and nested branch menu paths. */
@@ -268,6 +273,11 @@ export function restaurantMenuCategoryActivatePath(categoryId: number | string):
 /** POST /v1/restaurant/menu/categories/{category_id}/deactivate */
 export function restaurantMenuCategoryDeactivatePath(categoryId: number | string): string {
   return `${restaurantMenuCategoryPath(categoryId)}/deactivate`;
+}
+
+/** POST /v1/restaurant/menu/item-tags */
+export function restaurantMenuItemTagsPath(): string {
+  return ApiUrlsV1.restaurant.menuItemTags.create;
 }
 
 /** GET/POST /v1/restaurant/menu/items */
