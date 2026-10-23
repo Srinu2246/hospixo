@@ -1,21 +1,37 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
-import type { FilterBarItem } from '@/components/shared/form-fields/FilterBar';
-import { buildInitialCart, createCartLineId, toPosMenuItem } from '@/lib/helpers/posOrderHelpers';
+import type { DropdownOption } from '@/components/shared/form-fields/Dropdown';
+import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
+import {
+  buildAddBranchOrderItemsBody,
+  buildInitialCart,
+  createCartLineId,
+  mapBranchOrderItemsToCart,
+  toPosMenuItem,
+} from '@/lib/helpers/posOrderHelpers';
+import { useBranchMenus, useMenuCategoryAssignments } from '@/lib/hooks/menu/menus/menusHooks';
 import { useMenuCategories } from '@/lib/hooks/menu/useMenuCategories';
 import { useMenuItems } from '@/lib/hooks/menu/useMenuItems';
+import { useBranchOrder } from '@/lib/hooks/pos/point-of-sale/all-orders/useBranchOrder';
+import {
+  useAddBranchOrderItems,
+  useSubmitBranchOrder,
+} from '@/lib/hooks/pos/point-of-sale/all-orders/useBranchOrderItems';
 import {
   INITIAL_CART_ITEMS,
   type CartCustomization,
   type CartItem,
   type PosMenuItem,
 } from '@/lib/mocks/pos/usePosMenu.mocks';
+import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 
-const ACTIVE_MENU_PARAMS = { status: 'active' as const, page_size: 100 };
+/** Same list params as Menus / MenuSessionDetailPage in the sidebar. */
+const ACTIVE_MENU_PARAMS = { status: 'active' as const, page: 1, page_size: 100 };
+const BRANCH_MENUS_PARAMS = { status: 'active' as const, page: 1, page_size: 50 };
 
 export interface UsePosOrderArgs {
   effectiveOrderId: string | null | undefined;
@@ -29,6 +45,7 @@ export interface UsePosOrderArgs {
 
 /**
  * Menu catalog + cart for takeaway, dine-in, and tables (shared TakeawayPage).
+ * Reuses existing menus hooks only — same as MenusPage + MenuSessionDetailPage.
  */
 export function usePosOrder({
   effectiveOrderId,
@@ -42,53 +59,149 @@ export function usePosOrder({
   const router = useRouter();
   const pathname = usePathname();
 
+  // MenusPage: GET /v1/restaurant/branches/{branch_id}/menus
+  const branchMenusQuery = useBranchMenus(BRANCH_MENUS_PARAMS);
+  // MenuSessionDetailPage: categories + items + category-assignments for the selected menu
   const categoriesQuery = useMenuCategories(ACTIVE_MENU_PARAMS);
   const itemsQuery = useMenuItems(ACTIVE_MENU_PARAMS);
+  const shouldLoadOrder = Boolean(effectiveOrderId) && (!table || table.status !== 'available');
+  const orderDetailQuery = useBranchOrder(shouldLoadOrder ? effectiveOrderId : null);
+  const addOrderItemsMutation = useAddBranchOrderItems();
+  const submitOrderMutation = useSubmitBranchOrder();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all');
+  /** User pick; falls back to default branch menu when unset/invalid. */
+  const [menuIdOverride, setMenuIdOverride] = useState<string | null>(null);
+  /** User pick; falls back to `all` when unset/invalid for the active menu. */
+  const [categoryIdOverride, setCategoryIdOverride] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [cartItems, setCartItems] = useState<CartItem[]>(() =>
     buildInitialCart(effectiveOrderId, table),
   );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(startInCheckout);
+  const [isSendingKot, setIsSendingKot] = useState(false);
 
-  const categoryNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const category of categoriesQuery.data?.items ?? []) {
-      map.set(String(category.id), category.name);
-    }
-    return map;
-  }, [categoriesQuery.data?.items]);
+  const hydratedOrderIdRef = useRef<string | null>(null);
 
-  const categoryFilterItems = useMemo<FilterBarItem<string>[]>(
-    () => [
-      { id: 'all', label: 'ALL' },
-      ...(categoriesQuery.data?.items ?? []).map((category) => ({
-        id: String(category.id),
-        label: category.name.toUpperCase(),
+  const branchMenus = useMemo(() => branchMenusQuery.data ?? [], [branchMenusQuery.data]);
+
+  const menuOptions = useMemo<DropdownOption<string>[]>(
+    () =>
+      branchMenus.map((assignment) => ({
+        id: String(assignment.menu_id ?? assignment.id),
+        label: assignment.menu.name,
       })),
-    ],
-    [categoriesQuery.data?.items],
+    [branchMenus],
   );
 
+  const defaultMenuId = useMemo(() => {
+    if (menuOptions.length === 0) return '';
+    const defaultAssignment = branchMenus.find((row) => row.is_default) ?? branchMenus[0];
+    return defaultAssignment ? String(defaultAssignment.menu_id ?? defaultAssignment.id) : '';
+  }, [branchMenus, menuOptions]);
+
+  const selectedMenuId =
+    menuIdOverride != null && menuOptions.some((opt) => opt.id === menuIdOverride)
+      ? menuIdOverride
+      : defaultMenuId;
+
+  const selectedMenuIdNumber = useMemo(() => {
+    const n = Number(selectedMenuId);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  }, [selectedMenuId]);
+
+  // MenuSessionDetailPage: GET /v1/restaurant/menus/{menu_id}/category-assignments
+  const assignmentsQuery = useMenuCategoryAssignments(selectedMenuIdNumber, {
+    page: 1,
+    page_size: 100,
+  });
+
+  const categories = useMemo(
+    () => categoriesQuery.data?.items ?? [],
+    [categoriesQuery.data?.items],
+  );
+  const categoryAssignments = useMemo(
+    () => assignmentsQuery.data?.items ?? [],
+    [assignmentsQuery.data?.items],
+  );
+
+  const assignedCategoryIds = useMemo(
+    () => categoryAssignments.map((row) => row.category_id),
+    [categoryAssignments],
+  );
+
+  // Same name map as MenuSessionDetailPage (catalogue + assignment.category).
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categories) {
+      map.set(String(category.id), category.name);
+    }
+    for (const assignment of categoryAssignments) {
+      if (assignment.category?.name) {
+        map.set(String(assignment.category_id), assignment.category.name);
+      }
+    }
+    return map;
+  }, [categories, categoryAssignments]);
+
+  const categoryOptions = useMemo<DropdownOption<string>[]>(() => {
+    const assigned = assignedCategoryIds.map((categoryId) => ({
+      id: String(categoryId),
+      label: categoryNameById.get(String(categoryId)) ?? `Category #${categoryId}`,
+    }));
+    return [{ id: 'all', label: 'All categories' }, ...assigned];
+  }, [assignedCategoryIds, categoryNameById]);
+
+  const selectedCategoryId =
+    categoryIdOverride != null && categoryOptions.some((opt) => opt.id === categoryIdOverride)
+      ? categoryIdOverride
+      : 'all';
+
+  const handleMenuChange = (menuId: string) => {
+    setMenuIdOverride(menuId);
+    setCategoryIdOverride('all');
+  };
+
+  // Available tables stay empty; occupied / other statuses hydrate once from GET order detail.
+  useEffect(() => {
+    if (table?.status === 'available') {
+      hydratedOrderIdRef.current = null;
+      queueMicrotask(() => setCartItems([]));
+      return;
+    }
+
+    const orderKey = effectiveOrderId ? String(effectiveOrderId) : null;
+    if (!orderKey || !orderDetailQuery.data) return;
+    if (hydratedOrderIdRef.current === orderKey) return;
+
+    hydratedOrderIdRef.current = orderKey;
+    const nextCart = mapBranchOrderItemsToCart(orderDetailQuery.data.items);
+    queueMicrotask(() => setCartItems(nextCart));
+  }, [table?.status, effectiveOrderId, orderDetailQuery.data]);
+
+  const assignedCategorySet = useMemo(() => new Set(assignedCategoryIds), [assignedCategoryIds]);
+
+  // MenuSessionDetailPage: items whose category is assigned to the selected menu.
   const menuItems = useMemo(
-    () => (itemsQuery.data?.items ?? []).map((item) => toPosMenuItem(item, categoryNameById)),
-    [itemsQuery.data?.items, categoryNameById],
+    () =>
+      (itemsQuery.data?.items ?? [])
+        .filter((item) => assignedCategorySet.has(item.category_id))
+        .map((item) => toPosMenuItem(item, categoryNameById)),
+    [assignedCategorySet, categoryNameById, itemsQuery.data?.items],
   );
 
   const filteredMenuItems = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     return menuItems.filter((item) => {
-      if (activeCategory !== 'all' && item.category !== activeCategory) return false;
+      if (selectedCategoryId !== 'all' && item.category !== selectedCategoryId) return false;
       if (!query) return true;
       return (
         item.name.toLowerCase().includes(query) ||
         item.categorySection.toLowerCase().includes(query)
       );
     });
-  }, [activeCategory, menuItems, searchQuery]);
+  }, [menuItems, searchQuery, selectedCategoryId]);
 
   const groupedSections = useMemo(() => {
     const sections: Record<string, PosMenuItem[]> = {};
@@ -228,12 +341,20 @@ export function usePosOrder({
     router.push(parent);
   };
 
-  const isSendToKot = mode === 'table';
+  const isSendToKot = mode === 'table' || mode === 'dine-in' || Boolean(table);
   const primaryOrderLabel = isSendToKot
     ? 'Send to KOT'
     : `Serve to ${resolvedTableName ?? table?.name ?? 'Table'}`;
 
-  const handleServeItems = () => {
+  const catalogById = useMemo(() => {
+    const map = new Map<number, MenuItemResponse>();
+    for (const item of itemsQuery.data?.items ?? []) {
+      map.set(item.id, item);
+    }
+    return map;
+  }, [itemsQuery.data?.items]);
+
+  const handleServeItems = async () => {
     const targetTable = resolvedTableName ?? table?.name ?? 'Table';
     if (cartItems.length === 0) {
       setToastMessage(
@@ -243,27 +364,98 @@ export function usePosOrder({
       );
       return;
     }
+
+    const orderId = effectiveOrderId ? String(effectiveOrderId).replace(/^#/, '') : null;
+    const hasOrderId = Boolean(orderId) && orderId !== 'undefined';
+
+    // Live KOT path: POST …/items then POST …/submit
+    if (isSendToKot && hasOrderId) {
+      if (!selectedMenuIdNumber) {
+        setToastMessage('Select a menu before sending to KOT.');
+        return;
+      }
+
+      const body = buildAddBranchOrderItemsBody(selectedMenuIdNumber, cartItems, catalogById);
+
+      setIsSendingKot(true);
+      try {
+        if (body) {
+          await addOrderItemsMutation.mutateAsync({ orderId: orderId!, body });
+        }
+        await submitOrderMutation.mutateAsync(orderId!);
+
+        const totalQty = cartItems
+          .filter((ci) => !ci.isExisting)
+          .reduce((acc, ci) => acc + ci.quantity, 0);
+        // Mark newly sent lines as existing so a second tap only re-submits.
+        setCartItems((prev) =>
+          prev.map((ci) =>
+            ci.isExisting
+              ? ci
+              : {
+                  ...ci,
+                  isExisting: true,
+                  disableDelete: true,
+                  originalQuantity: ci.quantity,
+                },
+          ),
+        );
+        setToastMessage(
+          `✓ ${totalQty > 0 ? totalQty : cartItems.reduce((a, c) => a + c.quantity, 0)} item(s) sent to KOT for ${targetTable}!`,
+        );
+        if (table && onServeOrder) {
+          onServeOrder(table, cartItems);
+        }
+      } catch (error) {
+        setToastMessage(getErrorMessage(error, 'Failed to send items to KOT.'));
+      } finally {
+        setIsSendingKot(false);
+      }
+      return;
+    }
+
+    if (isSendToKot && !hasOrderId) {
+      setToastMessage('Open an order before sending to KOT.');
+      return;
+    }
+
     const totalQty = cartItems.reduce((acc, ci) => acc + ci.quantity, 0);
-    setToastMessage(
-      isSendToKot
-        ? `✓ ${totalQty} item(s) sent to KOT for ${targetTable}!`
-        : `✓ ${totalQty} item(s) successfully served to ${targetTable}!`,
-    );
+    setToastMessage(`✓ ${totalQty} item(s) successfully served to ${targetTable}!`);
     if (table && onServeOrder) {
       onServeOrder(table, cartItems);
     }
   };
 
+  const isMenuLoading =
+    branchMenusQuery.isLoading ||
+    categoriesQuery.isLoading ||
+    (Boolean(selectedMenuIdNumber) && assignmentsQuery.isLoading) ||
+    itemsQuery.isLoading;
+
+  const isMenuError =
+    branchMenusQuery.isError ||
+    categoriesQuery.isError ||
+    assignmentsQuery.isError ||
+    itemsQuery.isError;
+
   return {
+    branchMenusQuery,
     categoriesQuery,
+    assignmentsQuery,
     itemsQuery,
+    orderDetailQuery,
     searchQuery,
     setSearchQuery,
-    activeCategory,
-    setActiveCategory,
+    selectedMenuId,
+    setSelectedMenuId: handleMenuChange,
+    selectedCategoryId,
+    setSelectedCategoryId: setCategoryIdOverride,
+    menuOptions,
+    categoryOptions,
     viewMode,
     setViewMode,
-    categoryFilterItems,
+    isMenuLoading,
+    isMenuError,
     groupedSections,
     cartItems,
     setCartItems,
@@ -280,6 +472,7 @@ export function usePosOrder({
     handleGenerateBill: () => setToastMessage('Bill generated successfully!'),
     leaveCheckout,
     handleServeItems,
+    isSendingKot,
     primaryOrderLabel,
   };
 }

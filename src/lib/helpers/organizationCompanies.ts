@@ -147,6 +147,6 @@ export async function loadCompanyById(
   return null;
 }
 
-function isMissingEndpoint(error: ApiError | Error | object): boolean {
+function isMissingEndpoint(error: unknown): boolean {
   return error instanceof ApiError && (error.status === 403 || error.status === 404);
 }

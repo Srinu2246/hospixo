@@ -275,15 +275,16 @@ export function ReportsUsersLogsPage() {
     [data, comparisonRange.compareFrom, comparisonRange.compareTo],
   );
 
-  const billingUserOptions = viewModel?.billingUserOptions ?? [
-    { value: 'all', label: 'All Billing User' },
-  ];
+  const billingUserOptions = useMemo(
+    () => viewModel?.billingUserOptions ?? [{ value: 'all', label: 'All Billing User' }],
+    [viewModel?.billingUserOptions],
+  );
 
   useEffect(() => {
     if (billingUser === 'all') return;
     const stillValid = billingUserOptions.some((option) => option.value === billingUser);
     if (!stillValid) {
-      setBillingUser('all');
+      queueMicrotask(() => setBillingUser('all'));
     }
   }, [billingUser, billingUserOptions]);
 

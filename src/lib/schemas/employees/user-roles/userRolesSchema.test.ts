@@ -411,14 +411,20 @@ test('userRolesHelpers - resolveCreateUserBranchOptions filters branches by acti
       name: 'Downtown Branch',
       companyId: 10,
       companyName: 'Acme Corp',
+      code: 'DT',
+      city: 'Downtown',
       status: 'active' as const,
+      isDefault: true,
     },
     {
       id: 2,
       name: 'Uptown Branch',
       companyId: 20,
       companyName: 'Beta LLC',
+      code: 'UT',
+      city: 'Uptown',
       status: 'active' as const,
+      isDefault: false,
     },
   ];
   const companies = [
