@@ -60,7 +60,10 @@ export async function loadBranchDirectory(
 
   return branches.map((branch) => ({
     ...branch,
-    companyName: branch.companyName ?? namesById.get(String(branch.companyId)) ?? null,
+    companyName:
+      branch.companyName ||
+      namesById.get(String(branch.companyId)) ||
+      `Company #${branch.companyId}`,
   }));
 }
 

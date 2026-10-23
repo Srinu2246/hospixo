@@ -24,6 +24,7 @@ export const MOCK_BRANCHES: BranchListItem[] = branchListSchema.parse([
     code: 'WSM',
     city: 'Bengaluru',
     status: 'active',
+    isDefault: false,
   },
   {
     id: 103,
@@ -43,5 +44,6 @@ export const MOCK_BRANCHES: BranchListItem[] = branchListSchema.parse([
     code: 'HBF',
     city: 'Mumbai',
     status: 'inactive',
+    isDefault: false,
   },
 ]);

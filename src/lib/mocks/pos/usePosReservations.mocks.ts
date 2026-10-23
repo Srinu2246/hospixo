@@ -1,35 +1,19 @@
-export type ReservationStatus = 'confirmed' | 'checked-in' | 'cancelled';
+import { z } from 'zod';
 
-export interface ReservationItem {
-  id: string;
-  time: string;
-  guestName: string;
-  guestCount: number;
-  section: string;
-  sectionId: string;
-  status: ReservationStatus;
-  date: string; // YYYY-MM-DD format
-  phone?: string;
-  tableNumber?: string;
-  notes?: string;
-}
+import {
+  RESERVATION_SECTION_OPTIONS,
+  RESERVATION_STATUS_OPTIONS,
+  reservationDetailItemSchema,
+  reservationListSchema,
+  type ReservationDetailItem,
+  type ReservationItem,
+  type ReservationStatus,
+} from '@/lib/schemas/pos/point-of-sale/reservation/reservationSchema';
 
-export const RESERVATION_STATUS_OPTIONS = [
-  { id: 'all', label: 'All Statuses' },
-  { id: 'confirmed', label: 'Confirmed' },
-  { id: 'checked-in', label: 'Checked In' },
-  { id: 'cancelled', label: 'Cancelled' },
-] as const;
+export type { ReservationDetailItem, ReservationItem, ReservationStatus };
+export { RESERVATION_STATUS_OPTIONS, RESERVATION_SECTION_OPTIONS };
 
-export const RESERVATION_SECTION_OPTIONS = [
-  { id: 'all', label: 'All Sections' },
-  { id: 'indoor', label: 'Indoor' },
-  { id: 'outdoor-patio', label: 'Outdoor Patio' },
-  { id: 'private-room', label: 'Private Room' },
-  { id: 'bar', label: 'Bar' },
-] as const;
-
-export const MOCK_RESERVATIONS: ReservationItem[] = [
+export const MOCK_RESERVATIONS: ReservationItem[] = reservationListSchema.parse([
   {
     id: 'res-1',
     time: '11:30 AM',
@@ -318,90 +302,72 @@ export const MOCK_RESERVATIONS: ReservationItem[] = [
     phone: '+1 (555) 567-8903',
     tableNumber: 'T-09',
   },
-];
+]);
 
-export interface ReservationDetailItem {
-  id: string; // Formatted code (e.g. #RES-2024-0847)
-  status: ReservationStatus; // Status (confirmed | checked-in | cancelled)
-  guestName: string; // Full name
-  phone: string; // Contact phone
-  visitHistory: string; // Frequency & last visit
-  description?: string; // Additional notes
-  smsStatus: string; // SMS delivery status
-  date: string; // Full formatted date string
-  time: string; // Time window
-  partySize: number; // Number of guests
-  table: string; // Table name & seating summary
-  seatingPreference: string; // Section preference
-  specialRequests: string[]; // List of special requests
-}
-
-export const MOCK_RESERVATION_DETAILS: Record<string, ReservationDetailItem> = {
-  'RES-2024-0847': {
-    id: '#RES-2024-0847',
-    status: 'confirmed',
-    guestName: 'Jonathan Doe',
-    phone: '+1 (555) 019-2834',
-    visitHistory: '14 visits · Last visit Sep 28 2024',
-    description: '—',
-    smsStatus: 'Delivered 10:45 AM',
-    date: 'Friday, October 12, 2024',
-    time: '12:00 PM to 2:00 PM',
-    partySize: 4,
-    table: 'Table 12 (Outdoor Patio, Seats 4)',
-    seatingPreference: 'Outdoor Patio',
-    specialRequests: ['High chair', 'Wheelchair accessible', 'Anniversary setup'],
-  },
-  'res-2': {
-    id: '#RES-2024-0847',
-    status: 'confirmed',
-    guestName: 'Jonathan Doe',
-    phone: '+1 (555) 019-2834',
-    visitHistory: '14 visits · Last visit Sep 28 2024',
-    description: '—',
-    smsStatus: 'Delivered 10:45 AM',
-    date: 'Friday, October 12, 2024',
-    time: '12:00 PM to 2:00 PM',
-    partySize: 4,
-    table: 'Table 12 (Outdoor Patio, Seats 4)',
-    seatingPreference: 'Outdoor Patio',
-    specialRequests: ['High chair', 'Wheelchair accessible', 'Anniversary setup'],
-  },
-  'res-1': {
-    id: '#RES-2024-0846',
-    status: 'confirmed',
-    guestName: 'Maria Garcia',
-    phone: '+1 (555) 234-5678',
-    visitHistory: '6 visits · Last visit Aug 14 2024',
-    description: 'VIP regular customer',
-    smsStatus: 'Delivered 10:15 AM',
-    date: 'Friday, October 12, 2024',
-    time: '11:30 AM to 1:30 PM',
-    partySize: 2,
-    table: 'Table 02 (Indoor, Seats 2)',
-    seatingPreference: 'Indoor',
-    specialRequests: ['Quiet corner table', 'Window view'],
-  },
-  'res-3': {
-    id: '#RES-2024-0848',
-    status: 'confirmed',
-    guestName: 'James Wilson',
-    phone: '+1 (555) 456-7890',
-    visitHistory: '2 visits · Last visit Jul 10 2024',
-    description: 'Corporate dinner reservation',
-    smsStatus: 'Delivered 11:00 AM',
-    date: 'Friday, October 12, 2024',
-    time: '12:30 PM to 2:30 PM',
-    partySize: 6,
-    table: 'Table 01 (Private Room, Seats 6)',
-    seatingPreference: 'Private Room',
-    specialRequests: ['Business presentation setup', 'Projector access'],
-  },
-};
-
-/**
- * Resolves a detailed mock reservation by ID, with case-insensitive matching and fallback
- */
+export const MOCK_RESERVATION_DETAILS: Record<string, ReservationDetailItem> = z
+  .record(z.string(), reservationDetailItemSchema)
+  .parse({
+    'RES-2024-0847': {
+      id: '#RES-2024-0847',
+      status: 'confirmed',
+      guestName: 'Jonathan Doe',
+      phone: '+1 (555) 019-2834',
+      visitHistory: '14 visits · Last visit Sep 28 2024',
+      description: '—',
+      smsStatus: 'Delivered 10:45 AM',
+      date: 'Friday, October 12, 2024',
+      time: '12:00 PM to 2:00 PM',
+      partySize: 4,
+      table: 'Table 12 (Outdoor Patio, Seats 4)',
+      seatingPreference: 'Outdoor Patio',
+      specialRequests: ['High chair', 'Wheelchair accessible', 'Anniversary setup'],
+    },
+    'res-2': {
+      id: '#RES-2024-0847',
+      status: 'confirmed',
+      guestName: 'Jonathan Doe',
+      phone: '+1 (555) 019-2834',
+      visitHistory: '14 visits · Last visit Sep 28 2024',
+      description: '—',
+      smsStatus: 'Delivered 10:45 AM',
+      date: 'Friday, October 12, 2024',
+      time: '12:00 PM to 2:00 PM',
+      partySize: 4,
+      table: 'Table 12 (Outdoor Patio, Seats 4)',
+      seatingPreference: 'Outdoor Patio',
+      specialRequests: ['High chair', 'Wheelchair accessible', 'Anniversary setup'],
+    },
+    'res-1': {
+      id: '#RES-2024-0846',
+      status: 'confirmed',
+      guestName: 'Maria Garcia',
+      phone: '+1 (555) 234-5678',
+      visitHistory: '6 visits · Last visit Aug 14 2024',
+      description: 'VIP regular customer',
+      smsStatus: 'Delivered 10:15 AM',
+      date: 'Friday, October 12, 2024',
+      time: '11:30 AM to 1:30 PM',
+      partySize: 2,
+      table: 'Table 02 (Indoor, Seats 2)',
+      seatingPreference: 'Indoor',
+      specialRequests: ['Quiet corner table', 'Window view'],
+    },
+    'res-3': {
+      id: '#RES-2024-0848',
+      status: 'confirmed',
+      guestName: 'James Wilson',
+      phone: '+1 (555) 456-7890',
+      visitHistory: '2 visits · Last visit Jul 10 2024',
+      description: 'Corporate dinner reservation',
+      smsStatus: 'Delivered 11:00 AM',
+      date: 'Friday, October 12, 2024',
+      time: '12:30 PM to 2:30 PM',
+      partySize: 6,
+      table: 'Table 01 (Private Room, Seats 6)',
+      seatingPreference: 'Private Room',
+      specialRequests: ['Business presentation setup', 'Projector access'],
+    },
+  });
 export function getMockReservationDetail(id?: string): ReservationDetailItem {
   if (!id) return MOCK_RESERVATION_DETAILS['RES-2024-0847'];
 
@@ -422,7 +388,7 @@ export function getMockReservationDetail(id?: string): ReservationDetailItem {
   );
 
   if (baseRes) {
-    return {
+    return reservationDetailItemSchema.parse({
       id: `#RES-${baseRes.id.replace(/^res-/, '').padStart(4, '0')}`,
       status: baseRes.status,
       guestName: baseRes.guestName,
@@ -436,7 +402,7 @@ export function getMockReservationDetail(id?: string): ReservationDetailItem {
       table: `${baseRes.tableNumber || 'Table 05'} (${baseRes.section}, Seats ${baseRes.guestCount})`,
       seatingPreference: baseRes.section,
       specialRequests: ['Standard dining setup'],
-    };
+    });
   }
 
   // Default fallback matching design

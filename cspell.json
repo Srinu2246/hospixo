@@ -13,6 +13,7 @@
     "pnpm-workspace.yaml",
     "tsconfig.tsbuildinfo",
     "public/**",
+    "hospixo-frontend/**",
     "src/lib/mocks/**",
     "**/mocks/**",
     "**/mock/**",
@@ -109,6 +110,8 @@
     "subfeatures",
     "retarget",
     "unbilled",
-    "providerspecific"
+    "providerspecific",
+    "growthfalcons",
+    "GrowthFalcons"
   ]
 }

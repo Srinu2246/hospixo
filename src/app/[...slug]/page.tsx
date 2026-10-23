@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { PosDashboard } from '@/features/pos/point-of-sale/dashboard';
 import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
 import { ReservationList, ReservationDetails } from '@/features/pos/point-of-sale/reservation';
@@ -21,8 +21,10 @@ import {
   CashAndShiftPage,
   CloseShiftPage,
   CloseShiftSuccessPage,
-  CreateNewShiftPage,
+  OpenBusinessPage,
 } from '@/features/pos/point-of-sale/cash-and-shift';
+import { CreateNewShiftPage } from '@/features/pos/point-of-sale/cash-and-shift/CreateNewShiftPage';
+import { CashCounterPage } from '@/features/pos/point-of-sale/cash-counter';
 import { UnderConstructionPage } from '@/components/shared/UnderConstruction';
 import {
   UsersAndRolesScreen,
@@ -38,6 +40,7 @@ import {
   MenuAvailabilityLayout,
   MenuCreationLayout,
   MenusPage,
+  SessionsPage,
 } from '@/features/menu';
 import type { MenuAvailabilityScope } from '@/lib/schemas/menu/menuAvailabilitySchema';
 import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
@@ -78,6 +81,18 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     name: 'POS Close Shift',
     match: (path) => path.endsWith('pos/point-of-sale/cash-shift/close'),
     render: () => <CloseShiftPage />,
+  },
+  {
+    name: 'Open Business',
+    match: (path) =>
+      path.endsWith('management/open-business') || path.endsWith('operations/open-business'),
+    render: () => <OpenBusinessPage />,
+  },
+  {
+    name: 'Cash Counter',
+    match: (path) =>
+      path.includes('/management/cash-counter') || path.includes('/management/cash-registers'),
+    render: () => <CashCounterPage />,
   },
   {
     name: 'POS Create New Shift',
@@ -147,8 +162,16 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
   // 1. Order Settle: .../pos/point-of-sale/all-orders/[orderId]
   {
     name: 'Order Settle',
-    match: (path, slug) => {
-      return slug.length >= 2 && slug[slug.length - 2] === 'all-orders';
+    match: (_path, slug) => {
+      const last = slug[slug.length - 1];
+      return (
+        slug.length >= 2 &&
+        slug[slug.length - 2] === 'all-orders' &&
+        Boolean(last) &&
+        last !== 'all-orders' &&
+        last !== 'checkout' &&
+        last !== 'success'
+      );
     },
     render: (_, slug) => {
       const orderId = slug[slug.length - 1];
@@ -458,14 +481,21 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     },
   },
 
-  // 16. Menus (meal sessions): .../menu/menus[/create|/:id/edit]
+  // 16. Sessions: .../menu/sessions[/create|/:id/edit] or .../session-management/sessions
+  {
+    name: 'Sessions',
+    match: (path) => path.includes('menu/sessions') || path.includes('session-management'),
+    render: () => <SessionsPage />,
+  },
+
+  // 17. Menus (meal menus list): .../menu/menus[/create|/:id|/:id/edit]
   {
     name: 'Menus',
     match: (path) => path.includes('menu/menus'),
     render: () => <MenusPage />,
   },
 
-  // 17. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
+  // 18. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
   {
     name: 'GST Rates',
     match: (path) => path.includes('menu/gst-rates'),
@@ -480,7 +510,8 @@ export default async function CatchAllPage({ params, searchParams }: CatchAllPag
 
   for (const route of ROUTE_REGISTRY) {
     if (route.match(path, slug)) {
-      return route.render(path, slug, resolvedSearchParams);
+      // Key by path so catch-all soft navigation (e.g. settle → list) remounts the screen.
+      return <Fragment key={path}>{route.render(path, slug, resolvedSearchParams)}</Fragment>;
     }
   }
 

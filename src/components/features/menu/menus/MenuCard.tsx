@@ -11,6 +11,7 @@ import { TagsGrid } from '@/components/shared/ui/TagsGrid';
 import { formatUpdatedAgo } from '@/lib/helpers';
 import type { MenuAssignment } from '@/lib/schemas/menu/menus/menuListSchema';
 import { colors } from '@/lib/theme/mui/colors';
+import { useThemeStore } from '@/stores/themeStore';
 
 export interface MenuCardProps {
   menu: MenuAssignment;
@@ -32,6 +33,13 @@ export function MenuCard({
   onActivate,
   sx,
 }: Readonly<MenuCardProps>) {
+  const mode = useThemeStore((state) => state.mode);
+  const isDark = mode === 'dark';
+  const textPrimary = isDark ? colors.text.darkPrimary : colors.text.primary;
+  const textSecondary = isDark ? colors.text.darkSecondary : colors.text.secondary;
+  const surfaceBg = isDark ? colors.surface.dark : colors.surface.default;
+  const borderColor = isDark ? colors.border.dark : colors.border.default;
+
   const isActive = menu.status.toLowerCase() === 'active';
   const statusActionLabel = isActive ? 'Deactivate' : 'Activate';
   const statusAction = isActive ? onDeactivate : onActivate;
@@ -44,6 +52,7 @@ export function MenuCard({
       headerPadding={2}
       footerPadding={2}
       borderRadius="12px"
+      onClick={onView ? () => onView(menu) : undefined}
       title={
         <Typography
           component="span"
@@ -51,7 +60,7 @@ export function MenuCard({
             fontWeight: 700,
             fontSize: '1rem',
             lineHeight: 1.3,
-            color: colors.text.primary,
+            color: textPrimary,
             letterSpacing: '-0.01em',
           }}
         >
@@ -75,13 +84,18 @@ export function MenuCard({
         >
           <Typography
             variant="caption"
-            sx={{ color: colors.text.secondary, fontSize: '0.75rem', lineHeight: 1.4 }}
+            sx={{ color: textSecondary, fontSize: '0.75rem', lineHeight: 1.4 }}
           >
             {formatUpdatedAgo(menu.updated_at ?? menu.menu.updated_at)}
           </Typography>
           <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, alignItems: 'center' }}>
             <CardAction label="View" tone="primary" onClick={() => onView?.(menu)} />
-            <CardAction label="Edit" tone="neutral" onClick={() => onEdit?.(menu)} />
+            <CardAction
+              label="Edit"
+              tone="neutral"
+              textPrimary={textPrimary}
+              onClick={() => onEdit?.(menu)}
+            />
             <CardAction
               label={statusActionLabel}
               tone={isActive ? 'danger' : 'success'}
@@ -93,8 +107,8 @@ export function MenuCard({
       footerDivider
       sx={{
         height: '100%',
-        bgcolor: colors.surface.default,
-        borderColor: colors.border.default,
+        bgcolor: surfaceBg,
+        borderColor,
         overflow: 'hidden',
         ...sx,
       }}
@@ -108,7 +122,7 @@ export function MenuCard({
             fontWeight: 600,
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
-            color: colors.text.secondary,
+            color: textSecondary,
           }}
         >
           Menu type:
@@ -129,10 +143,12 @@ export function MenuCard({
 function CardAction({
   label,
   tone,
+  textPrimary = colors.text.primary,
   onClick,
 }: Readonly<{
   label: string;
   tone: 'primary' | 'neutral' | 'danger' | 'success';
+  textPrimary?: string;
   onClick?: () => void;
 }>) {
   const color =
@@ -142,7 +158,7 @@ function CardAction({
         ? colors.danger.default
         : tone === 'success'
           ? colors.success.default
-          : colors.text.primary;
+          : textPrimary;
 
   return (
     <ButtonBase

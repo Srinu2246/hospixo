@@ -1,8 +1,8 @@
 import { resolveCaptainFlowBase } from '@/lib/helpers/posCaptainFlow';
+import type { PosOrderItem } from '@/lib/helpers/posAllOrdersHelpers';
 import {
   getMockOrderSettleDetail,
   type OrderSettleDetail,
-  type PosOrderItem,
 } from '@/lib/mocks/pos/usePosOrders.mocks';
 import type { OrderReviewData } from '@/features/pos/point-of-sale/components/OrderReviewSection';
 import {
@@ -10,7 +10,7 @@ import {
   type CartItem,
   type PosMenuItem,
 } from '@/lib/mocks/pos/usePosMenu.mocks';
-import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
+import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 
 const EXISTING_ORDER_IMAGE =
@@ -20,9 +20,10 @@ const EXISTING_ORDER_IMAGE =
  * Shared helpers for takeaway, dine-in, and tables ordering (same TakeawayPage).
  */
 
-/** Table route segment for dine-in navigation (mock reference or explicit tableId). */
+/** Table route segment for dine-in navigation (API table id or reference label). */
 export function resolvePosOrderTableId(order: PosOrderItem): string | null {
-  if (order.tableId?.trim()) return order.tableId.trim();
+  if (order.tableId != null) return String(order.tableId);
+  if (order.tableName) return order.tableName;
   const tableMatch = order.reference.match(/Table\s*(T\d+|[A-Za-z0-9_-]+)/i);
   if (!tableMatch?.[1]) return null;
   const raw = tableMatch[1];
@@ -31,32 +32,34 @@ export function resolvePosOrderTableId(order: PosOrderItem): string | null {
 
 /** Add-items navigation from open orders / captain all-orders. */
 export function buildPosAddItemsPath(pathname: string, order: PosOrderItem): string {
-  const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
   const normalizedPath = pathname.replace(/\/+$/, '') || '/pos/point-of-sale/all-orders';
   const isCaptain = normalizedPath.includes('captain-flow');
   const baseFlow = isCaptain
     ? resolveCaptainFlowBase(normalizedPath)
     : normalizedPath.replace(/\/all-orders(\/.*)?$/, '') || '/pos/point-of-sale';
 
+  const orderId = String(order.orderApiId);
   const tableId = resolvePosOrderTableId(order);
-  const orderQuery = `orderId=${encodeURIComponent(cleanOrderNumber)}`;
 
   if (order.type === 'dine-in' && tableId) {
-    return `${baseFlow}/dine-in/${tableId}?${orderQuery}`;
+    const tableSegment = encodeURIComponent(tableId);
+    if (isCaptain) {
+      return `${baseFlow}/order-menu?orderId=${encodeURIComponent(orderId)}&tableId=${tableSegment}`;
+    }
+    return `${baseFlow}/dine-in/${tableSegment}?orderId=${encodeURIComponent(orderId)}`;
   }
 
   if (isCaptain) {
-    return `${baseFlow}/order-menu?${orderQuery}`;
+    return `${baseFlow}/order-menu?orderId=${encodeURIComponent(orderId)}`;
   }
 
-  return `${baseFlow}/takeaway?${orderQuery}`;
+  return `${baseFlow}/takeaway?orderId=${encodeURIComponent(orderId)}`;
 }
 
 /** Settle flow URL for an open order (preserves branch / tenant prefix). */
 export function buildPosSettleOrderPath(pathname: string, order: PosOrderItem): string {
   const basePath = pathname.replace(/\/+$/, '') || '/pos/point-of-sale/all-orders';
-  const cleanOrderNumber = order.orderNumber.replace(/^#/, '');
-  return `${basePath}/${cleanOrderNumber}`;
+  return `${basePath}/${encodeURIComponent(String(order.orderApiId))}`;
 }
 
 /** Strip settle step suffixes (`/checkout`, `/success`) from the current URL. */

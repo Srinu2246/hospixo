@@ -15,7 +15,7 @@ import { useCaptainWorkspaceFloorFilters } from '@/lib/hooks/pos/point-of-sale/u
 import { usePosOrder } from '@/lib/hooks/pos/point-of-sale/usePosOrder';
 import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
 import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
-import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
+import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 
 import { TakeawayMenuCatalog } from './TakeawayMenuCatalog';
 import { TakeawayTopBar } from './TakeawayTopBar';

@@ -9,7 +9,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { colors } from '@/lib/theme/mui/colors';
-import type { ReadyOrderItem } from '@/lib/mocks/pos/usePosOrders.mocks';
+import type { ReadyOrderItem } from '@/lib/schemas/pos/point-of-sale/ready-list/readyListSchema';
 
 export interface ReadyOrderCardProps {
   order: ReadyOrderItem;

@@ -2,6 +2,7 @@ export * from './posStatusHelpers';
 export * from './posOrderHelpers';
 export * from './posCaptainFlow';
 export * from './waiterWorkspaceNav';
+export * from './posAllOrdersHelpers';
 export * from './menuItemHelpers';
 export * from './formatUpdatedAgo';
 export * from './floorAndTableSetup';

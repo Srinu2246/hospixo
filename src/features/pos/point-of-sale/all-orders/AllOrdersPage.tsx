@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -15,17 +15,16 @@ import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { CaptainOpenOrderCard } from '@/features/pos/point-of-sale/components/CaptainOpenOrderCard';
 import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
 import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
+import { Loading } from '@/components/shared/ui/Loading';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { buildPosAddItemsPath, buildPosSettleOrderPath } from '@/lib/helpers/posOrderHelpers';
 import { POS_CAPTAIN_LIST_BOTTOM_GAP } from '@/lib/helpers/posCaptainFlow';
+import { type OrderType, type PosOrderItem } from '@/lib/helpers/posAllOrdersHelpers';
+import { usePosOrders } from '@/lib/hooks/pos/point-of-sale/all-orders/usePosOrders';
 import { colors } from '@/lib/theme/mui/colors';
-import {
-  MOCK_POS_ORDERS,
-  type PosOrderItem,
-  type OrderType,
-} from '@/lib/mocks/pos/usePosOrders.mocks';
 
 const ORDER_FILTER_ITEMS: readonly FilterBarItem<OrderType>[] = [
   { id: 'all', label: 'All' },
@@ -47,21 +46,22 @@ export function AllOrdersPage() {
   const pathname = usePathname();
   const captainCompact = useCaptainCompactLayout();
 
-  const [orders] = useState<PosOrderItem[]>(MOCK_POS_ORDERS);
   const [activeFilter, setActiveFilter] = useState<OrderType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 6;
 
-  // Filter orders based on active tab and search query
+  const ordersQuery = usePosOrders({
+    page: 1,
+    pageSize: 50,
+    status: 'open',
+    orderType: activeFilter,
+  });
+  const orders = useMemo(() => ordersQuery.data?.rows ?? [], [ordersQuery.data?.rows]);
+
+  // Filter orders by search query (type filter is applied via the orders API).
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      // Type filter
-      if (activeFilter !== 'all' && order.type !== activeFilter) {
-        return false;
-      }
-
-      // Search query across orderNumber, reference, type, status, and amount
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         const matchesOrder = order.orderNumber.toLowerCase().includes(query);
@@ -76,7 +76,7 @@ export function AllOrdersPage() {
 
       return true;
     });
-  }, [orders, activeFilter, searchQuery]);
+  }, [orders, searchQuery]);
 
   // Paginated subset
   const paginatedRows = useMemo(() => {
@@ -270,6 +270,20 @@ export function AllOrdersPage() {
     ],
     [handleAddItems, handleSettle],
   );
+
+  if (ordersQuery.isLoading && orders.length === 0) {
+    return <Loading message="Loading orders..." />;
+  }
+
+  if (ordersQuery.isError) {
+    return (
+      <AlertMessage
+        variant="error"
+        title="Could not load orders"
+        message="Refresh the page or try again in a moment."
+      />
+    );
+  }
 
   return (
     <Box

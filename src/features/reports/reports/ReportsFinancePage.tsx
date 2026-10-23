@@ -1,36 +1,37 @@
 'use client';
 
-/** Reports finance tab — collections, tender mix, cash reconciliation, and attention items. */
+/**
+ * Reports finance tab — payments collections, tender mix, and coverage notes.
+ * Data from GET /v1/branches/{branch_id}/reports/payments.
+ */
 
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Box, Button, Card, Typography } from '@mui/material';
-import {
-  AlertCircle,
-  CalendarDays,
-  Download,
-  IndianRupee,
-  Scale,
-  Wallet,
-  type LucideIcon,
-} from 'lucide-react';
+import { AlertCircle, Download, IndianRupee, Receipt, Wallet, type LucideIcon } from 'lucide-react';
 
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Loading } from '@/components/shared/ui/Loading';
 import { TrendChart } from '@/components/shared/ui/TrendChart';
 import { KpiCard, type KpiCardAccent } from '@/components/shared/ui/KpiCard';
+import { ReportsOverviewDateRange } from '@/features/reports/reports/ReportsOverviewDateRange';
 import {
-  MOCK_REPORTS_FINANCE_ATTENTION,
-  MOCK_REPORTS_FINANCE_COLLECTIONS_TREND,
-  MOCK_REPORTS_FINANCE_PAGE_KPIS,
-  MOCK_REPORTS_FINANCE_RECONCILIATION,
-  MOCK_REPORTS_FINANCE_TENDER,
-  reportsFinanceCopy,
-} from '@/lib/mocks/reports/reports.mocks';
+  createDefaultReportsDateRange,
+  deriveComparisonRange,
+  formatIsoDate,
+} from '@/lib/helpers/reportsOverview';
+import { useReportsPayments } from '@/lib/hooks/reports/reports/useBranchReports';
+import {
+  toReportsPaymentsViewModel,
+  type ReportsPaymentsViewModel,
+} from '@/lib/schemas/reports/reports/branchReports';
+import { reportsFinanceCopy } from '@/lib/mocks/reports/reports.mocks';
 
 const KPI_ICONS: Record<string, LucideIcon> = {
   'net-collections': Wallet,
-  'cash-variance': Scale,
-  'net-sales': IndianRupee,
-  'recipe-cost': Wallet,
-  contribution: IndianRupee,
+  'tips-collected': IndianRupee,
+  'transaction-count': Receipt,
+  'previous-period': Wallet,
+  'avg-collection': IndianRupee,
 };
 
 function SectionCard({ children }: Readonly<{ children: ReactNode }>) {
@@ -50,9 +51,9 @@ function SectionCard({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-function FinanceSummary() {
-  const headline = MOCK_REPORTS_FINANCE_PAGE_KPIS.slice(0, 2);
-  const supporting = MOCK_REPORTS_FINANCE_PAGE_KPIS.slice(2);
+function FinanceSummary({ viewModel }: Readonly<{ viewModel: ReportsPaymentsViewModel }>) {
+  const headline = viewModel.kpis.slice(0, 2);
+  const supporting = viewModel.kpis.slice(2);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -64,9 +65,9 @@ function FinanceSummary() {
             value={stat.value}
             icon={KPI_ICONS[stat.id] ?? Wallet}
             accent={stat.accent as KpiCardAccent}
-            changePercent={'changePercent' in stat ? stat.changePercent : undefined}
-            changeLabel={'changeLabel' in stat ? stat.changeLabel : undefined}
-            helperText={'helperText' in stat ? stat.helperText : undefined}
+            changePercent={stat.changePercent}
+            changeLabel={stat.changeLabel}
+            helperText={stat.helperText}
           />
         ))}
       </Box>
@@ -80,7 +81,7 @@ function FinanceSummary() {
             value={stat.value}
             icon={KPI_ICONS[stat.id] ?? Wallet}
             accent={stat.accent as KpiCardAccent}
-            helperText={'helperText' in stat ? stat.helperText : undefined}
+            helperText={stat.helperText}
           />
         ))}
       </Box>
@@ -88,7 +89,7 @@ function FinanceSummary() {
   );
 }
 
-function CollectionsAndTender() {
+function CollectionsAndTender({ viewModel }: Readonly<{ viewModel: ReportsPaymentsViewModel }>) {
   return (
     <Box
       sx={{
@@ -102,19 +103,19 @@ function CollectionsAndTender() {
           {reportsFinanceCopy.trendTitle}
         </Typography>
         <TrendChart
-          title={MOCK_REPORTS_FINANCE_COLLECTIONS_TREND.title}
-          xLabels={MOCK_REPORTS_FINANCE_COLLECTIONS_TREND.xLabels}
-          primarySeries={MOCK_REPORTS_FINANCE_COLLECTIONS_TREND.primarySeries}
+          title={viewModel.collectionsTrend.title}
+          xLabels={viewModel.collectionsTrend.xLabels}
+          primarySeries={viewModel.collectionsTrend.primarySeries}
           comparisonSeries={[]}
-          primaryLegendLabel=""
+          primaryLegendLabel={viewModel.periodLabel}
           comparisonLegendLabel=""
-          yAxisStep={MOCK_REPORTS_FINANCE_COLLECTIONS_TREND.yAxisStep}
+          yAxisStep={viewModel.collectionsTrend.yAxisStep}
           formatYAxisValue={(value) => `₹${(value / 1000).toLocaleString('en-IN')}k`}
           ariaLabel="Daily net collections"
           height={180}
         />
         <Typography sx={{ mt: 1, fontSize: '0.75rem', color: 'text.secondary' }}>
-          {reportsFinanceCopy.trendCaption}
+          {viewModel.coverageNote}
         </Typography>
       </SectionCard>
 
@@ -129,117 +130,79 @@ function CollectionsAndTender() {
           {reportsFinanceCopy.tenderSubtitle}
         </Typography>
         <Typography sx={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
-          {MOCK_REPORTS_FINANCE_TENDER.total}
+          {viewModel.tender.total}
         </Typography>
-        <Box sx={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', my: 2 }}>
-          {MOCK_REPORTS_FINANCE_TENDER.rows.map((row) => (
-            <Box key={row.id} sx={{ width: `${row.share}%`, bgcolor: row.color }} />
-          ))}
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          {MOCK_REPORTS_FINANCE_TENDER.rows.map((row) => (
-            <Box
-              key={row.id}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 1,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: row.color }} />
-                <Typography sx={{ fontSize: '0.8125rem' }}>{row.label}</Typography>
-              </Box>
-              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700 }}>{row.amount}</Typography>
+        {viewModel.tender.rows.length > 0 ? (
+          <>
+            <Box sx={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', my: 2 }}>
+              {viewModel.tender.rows.map((row) => (
+                <Box key={row.id} sx={{ width: `${row.share}%`, bgcolor: row.color }} />
+              ))}
             </Box>
-          ))}
-        </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+              {viewModel.tender.rows.map((row) => (
+                <Box
+                  key={row.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: row.color }} />
+                    <Typography sx={{ fontSize: '0.8125rem' }}>{row.label}</Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700 }}>
+                    {row.amount}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </>
+        ) : (
+          <Typography sx={{ mt: 2, fontSize: '0.8125rem', color: 'text.secondary' }}>
+            No tender collections in this range.
+          </Typography>
+        )}
       </SectionCard>
     </Box>
   );
 }
 
-function CashReconciliation() {
+function CoverageNotes({ viewModel }: Readonly<{ viewModel: ReportsPaymentsViewModel }>) {
+  if (viewModel.showCashReconciliation) {
+    return null;
+  }
+
   return (
     <SectionCard>
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 2,
-          mb: 2,
-        }}
-      >
-        <Box>
-          <Typography sx={{ fontSize: '1rem', fontWeight: 700 }}>
-            {reportsFinanceCopy.reconciliationTitle}
-          </Typography>
-          <Typography sx={{ mt: 0.5, fontSize: '0.8125rem', color: 'text.secondary' }}>
-            {reportsFinanceCopy.reconciliationSubtitle}
-          </Typography>
-        </Box>
-        <Button
-          type="button"
-          variant="outlined"
-          size="small"
-          startIcon={<CalendarDays size={14} />}
-          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '0.5rem' }}
-        >
-          {reportsFinanceCopy.reconciliationDate}
-        </Button>
-      </Box>
-      <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700 }}>
-        {reportsFinanceCopy.shiftTitle}
+      <Typography sx={{ fontSize: '1rem', fontWeight: 700 }}>
+        {reportsFinanceCopy.reconciliationTitle}
       </Typography>
-      <Typography sx={{ mt: 0.25, mb: 2, fontSize: '0.8125rem', color: 'text.secondary' }}>
-        {reportsFinanceCopy.shiftMeta}
+      <Typography sx={{ mt: 0.5, fontSize: '0.8125rem', color: 'text.secondary' }}>
+        {reportsFinanceCopy.reconciliationSubtitle}
       </Typography>
-      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-        {MOCK_REPORTS_FINANCE_RECONCILIATION.map((row) => (
-          <Box
-            key={row.id}
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 2,
-              py: 1.25,
-              borderTop: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <Typography sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-              {row.label}
-            </Typography>
-            <Typography
-              sx={{
-                fontSize: '0.875rem',
-                fontWeight: 700,
-                color: row.value.startsWith('−') ? 'error.main' : 'text.primary',
-              }}
-            >
-              {row.value}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-      <Typography sx={{ mt: 1.5, fontSize: '0.75rem', color: 'text.secondary' }}>
-        {reportsFinanceCopy.reconciliationNote}
+      <Typography sx={{ mt: 2, fontSize: '0.875rem', color: 'text.secondary' }}>
+        {viewModel.reconciliationNote}
       </Typography>
     </SectionCard>
   );
 }
 
-function NeedsAttention() {
+function NeedsAttention({ viewModel }: Readonly<{ viewModel: ReportsPaymentsViewModel }>) {
+  if (viewModel.attentionItems.length === 0) {
+    return null;
+  }
+
   return (
     <SectionCard>
       <Typography sx={{ mb: 1.5, fontSize: '1rem', fontWeight: 700 }}>
         {reportsFinanceCopy.attentionTitle}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        {MOCK_REPORTS_FINANCE_ATTENTION.map((item) => (
+        {viewModel.attentionItems.map((item) => (
           <Box key={item.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
             <AlertCircle size={16} aria-hidden />
             <Box>
@@ -255,7 +218,53 @@ function NeedsAttention() {
   );
 }
 
+function FinanceReportBody({ viewModel }: Readonly<{ viewModel: ReportsPaymentsViewModel }>) {
+  return (
+    <>
+      <FinanceSummary viewModel={viewModel} />
+      <CollectionsAndTender viewModel={viewModel} />
+      <CoverageNotes viewModel={viewModel} />
+      <NeedsAttention viewModel={viewModel} />
+    </>
+  );
+}
+
 export function ReportsFinancePage() {
+  const defaultRange = useMemo(() => createDefaultReportsDateRange(), []);
+  const [dateFrom, setDateFrom] = useState(defaultRange.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultRange.dateTo);
+
+  const comparisonRange = useMemo(
+    () => deriveComparisonRange(dateFrom, dateTo),
+    [dateFrom, dateTo],
+  );
+
+  const { data, isLoading, isError, error } = useReportsPayments({
+    dateFrom,
+    dateTo,
+    compareFrom: formatIsoDate(comparisonRange.compareFrom),
+    compareTo: formatIsoDate(comparisonRange.compareTo),
+  });
+
+  const viewModel = useMemo(() => (data ? toReportsPaymentsViewModel(data) : undefined), [data]);
+
+  let reportBody: ReactNode;
+  if (isLoading) {
+    reportBody = <Loading message="Loading payments report…" />;
+  } else if (isError || !viewModel) {
+    reportBody = (
+      <AlertMessage
+        variant="error"
+        title="Unable to load payments report"
+        message={
+          error instanceof Error ? error.message : 'Try adjusting the date range and refresh.'
+        }
+      />
+    );
+  } else {
+    reportBody = <FinanceReportBody viewModel={viewModel} />;
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
       <Box
@@ -278,19 +287,12 @@ export function ReportsFinancePage() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
-          <Button
-            type="button"
-            variant="outlined"
-            size="small"
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.8125rem',
-              borderRadius: '0.5rem',
-            }}
-          >
-            {reportsFinanceCopy.dateRangeLabel}
-          </Button>
+          <ReportsOverviewDateRange
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+          />
           <Button
             type="button"
             variant="outlined"
@@ -309,10 +311,7 @@ export function ReportsFinancePage() {
         </Box>
       </Box>
 
-      <FinanceSummary />
-      <CollectionsAndTender />
-      <CashReconciliation />
-      <NeedsAttention />
+      {reportBody}
     </Box>
   );
 }

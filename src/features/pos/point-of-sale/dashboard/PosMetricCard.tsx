@@ -5,7 +5,7 @@ import { Box, Typography } from '@mui/material';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import TrendingDownOutlinedIcon from '@mui/icons-material/TrendingDownOutlined';
 import { Card } from '@/components/shared/ui/Card';
-import type { PosMetricCardData } from '@/lib/mocks/pos/usePosDashboard.mocks';
+import type { PosMetricCardData } from '@/lib/schemas/pos/point-of-sale/dashboard/posDashboardSchema';
 
 export interface PosMetricCardProps {
   data: PosMetricCardData;

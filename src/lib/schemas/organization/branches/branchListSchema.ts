@@ -1,14 +1,18 @@
 import { z } from 'zod';
 
+/**
+ * Branch list item — matches GET /v1/branches item shape:
+ * { id, name, companyId, companyName, code, city, status, isDefault }
+ */
 export const branchListItemSchema = z.object({
-  id: z.union([z.string(), z.number()]),
+  id: z.number().int(),
   name: z.string().min(1),
-  companyId: z.union([z.string(), z.number()]),
-  companyName: z.string().nullable().optional(),
-  code: z.string().nullable().optional(),
-  city: z.string().nullable().optional(),
+  companyId: z.number().int(),
+  companyName: z.string().min(1),
+  code: z.string().min(1),
+  city: z.string().min(1),
   status: z.enum(['active', 'inactive']),
-  isDefault: z.boolean().optional(),
+  isDefault: z.boolean(),
 });
 
 export const branchListSchema = z.array(branchListItemSchema);
@@ -40,6 +44,11 @@ function unwrapBranches(payload: unknown): Record<string, unknown>[] {
     }
   }
 
+  // Single branch object
+  if ('id' in unwrapped || 'branch_id' in unwrapped || 'branchId' in unwrapped) {
+    return [unwrapped];
+  }
+
   return [];
 }
 
@@ -54,25 +63,39 @@ function mapBranch(raw: Record<string, unknown>, fallbackCompanyId?: number | st
   const statusRaw = String(raw.status ?? 'active')
     .toLowerCase()
     .trim();
-  const id = raw.id ?? raw.branch_id ?? raw.branchId;
-  const companyId = raw.company_id ?? raw.companyId ?? fallbackCompanyId ?? 0;
+  const id = toInt(raw.id ?? raw.branch_id ?? raw.branchId);
+  const companyId = toInt(raw.company_id ?? raw.companyId ?? fallbackCompanyId);
+
+  const name = text(raw.name) ?? text(raw.branch_name) ?? text(raw.outlet_name) ?? 'Branch';
+  const companyName =
+    text(raw.companyName) ??
+    text(raw.company_name) ??
+    (companyId != null ? `Company #${companyId}` : 'Company');
+  const code = text(raw.code) ?? text(raw.branch_code) ?? (id != null ? String(id) : 'BR');
+  const city = text(raw.city) ?? text(raw.location) ?? '—';
 
   return {
-    id: typeof id === 'number' || typeof id === 'string' ? id : String(id ?? ''),
-    name: text(raw.name) ?? text(raw.branch_name) ?? text(raw.outlet_name) ?? 'Branch',
-    companyId:
-      typeof companyId === 'number' || typeof companyId === 'string'
-        ? companyId
-        : String(companyId),
-    companyName: text(raw.companyName) ?? text(raw.company_name) ?? null,
-    code: text(raw.code) ?? text(raw.branch_code) ?? null,
-    city: text(raw.city) ?? text(raw.location) ?? null,
+    id: id ?? 0,
+    name,
+    companyId: companyId ?? 0,
+    companyName,
+    code,
+    city,
     status:
       statusRaw === 'inactive' || statusRaw === 'disabled' || statusRaw === 'closed'
         ? 'inactive'
         : 'active',
     isDefault: Boolean(raw.isDefault ?? raw.is_default),
   };
+}
+
+function toInt(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return Math.trunc(parsed);
+  }
+  return undefined;
 }
 
 function text(value: unknown): string | undefined {

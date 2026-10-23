@@ -30,7 +30,7 @@ import {
   POS_STATUS_FILTERS,
   type PosTableItem,
   type PosTableStatus,
-} from '@/lib/mocks/pos/usePosTables.mocks';
+} from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import { colors } from '@/lib/theme/mui/colors';
 import {
   POS_CAPTAIN_COMPACT_PADDING,
@@ -85,6 +85,7 @@ export function PosTableSelection({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const fromTables = searchParams?.get('from') === 'tables';
+  const queryOrderId = searchParams?.get('orderId');
   const isCaptainFlow = Boolean(pathname?.includes('captain-flow'));
   const captainCompact = useCaptainCompactLayout();
   const footerTarget = useAppShellFooterTarget();
@@ -189,10 +190,27 @@ export function PosTableSelection({
           t.id.toLowerCase() === routeTableId.toLowerCase() ||
           t.name.toLowerCase() === routeTableId.toLowerCase(),
       );
-      if (match) return match;
+      if (match) {
+        // All Orders → Add Items passes ?orderId= when availability has not hydrated yet.
+        if (queryOrderId && !match.orderId) {
+          return { ...match, orderId: queryOrderId, status: 'occupied' as const };
+        }
+        return match;
+      }
+      // Deep link before the floor/section list includes this table.
+      if (queryOrderId) {
+        return {
+          id: routeTableId,
+          name: routeTableId,
+          floorId: activeFloor,
+          sectionId: activeSection,
+          status: 'occupied' as const,
+          orderId: queryOrderId,
+        };
+      }
     }
     return manualActiveTable;
-  }, [routeTableId, tables, manualActiveTable]);
+  }, [routeTableId, tables, manualActiveTable, queryOrderId, activeFloor, activeSection]);
 
   const selectedTableMatch = tables.find((t) => t.id === selectedTableId);
   const selectedTable: PosTableItem | undefined =
@@ -315,6 +333,7 @@ export function PosTableSelection({
 
   const hasNoDineInTables = isDineIn && dineInEligibleTables.length === 0;
 
+  const menuOrderId = activeOrderTable?.orderId ?? queryOrderId ?? undefined;
   if (activeOrderTable) {
     const allowMenu =
       !isDineIn ||
@@ -327,7 +346,7 @@ export function PosTableSelection({
         <TakeawayPage
           table={activeOrderTable}
           mode={fromTables || !isDineIn ? 'table' : 'dine-in'}
-          orderId={activeOrderTable.orderId}
+          orderId={menuOrderId}
           onBackToTables={handleBackToTables}
           onServeOrder={handleServeOrder}
         />

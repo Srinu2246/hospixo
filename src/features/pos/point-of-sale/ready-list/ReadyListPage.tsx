@@ -14,11 +14,11 @@ import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/componen
 import { ReadyOrderDetailsModal } from '@/features/pos/point-of-sale/ready-list/ReadyOrderDetailsModal';
 import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 import { POS_CAPTAIN_LIST_BOTTOM_GAP } from '@/lib/helpers/posCaptainFlow';
-import {
-  MOCK_READY_ORDERS,
-  type ReadyOrderItem,
-  type ReadyOrderQueue,
-} from '@/lib/mocks/pos/usePosOrders.mocks';
+import { MOCK_READY_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
+import type {
+  ReadyOrderItem,
+  ReadyOrderQueue,
+} from '@/lib/schemas/pos/point-of-sale/ready-list/readyListSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 type ReadyListTab = ReadyOrderQueue;

@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useFloorSections } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { usePosFloorLayout } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorLayout';
-import { POS_FLOOR_TABS } from '@/lib/mocks/pos/usePosTables.mocks';
-import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
+import {
+  POS_FLOOR_TABS,
+  type PosTableItem,
+} from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 /** Floor / section dropdowns for captain mobile menu and table screens (Figma). */

@@ -1,22 +1,11 @@
-import type { StatusChipVariant } from '@/components/shared/ui/StatusChip';
+import {
+  duePaymentListSchema,
+  type DuePaymentItem,
+} from '@/lib/schemas/pos/point-of-sale/due-payments/duePaymentsSchema';
 
-export type DuePaymentStatus = 'overdue' | 'pending' | 'paid';
+export type { DuePaymentItem };
 
-export interface DuePaymentItem {
-  id: string;
-  customerId: string;
-  customerName: string;
-  dueDate: string;
-  amount: string;
-  rawAmount: number;
-  status: DuePaymentStatus;
-  statusLabel: string;
-  statusVariant: StatusChipVariant;
-  phone?: string;
-  orderNumber?: string;
-}
-
-export const MOCK_DUE_PAYMENTS: DuePaymentItem[] = [
+export const MOCK_DUE_PAYMENTS: DuePaymentItem[] = duePaymentListSchema.parse([
   {
     id: 'due-1',
     customerId: 'HOSP-4921',
@@ -82,4 +71,4 @@ export const MOCK_DUE_PAYMENTS: DuePaymentItem[] = [
     phone: '+1 (555) 234-8809',
     orderNumber: '#0044',
   },
-];
+]);

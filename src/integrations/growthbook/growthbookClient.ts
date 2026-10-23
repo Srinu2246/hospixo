@@ -122,6 +122,10 @@ export async function initGrowthBook(gb: GrowthBook): Promise<void> {
 
 /** Refreshes feature definitions from the GrowthBook API. */
 export async function refreshGrowthBook(gb?: GrowthBook): Promise<void> {
+  const clientKey = getGrowthBookClientKey();
+  const apiHost = getGrowthBookApiHost();
+  if (!clientKey || !apiHost) return;
+
   const client = gb ?? growthbookInstance;
   if (!client) return;
 

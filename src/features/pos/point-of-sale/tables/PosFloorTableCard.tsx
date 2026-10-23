@@ -5,7 +5,10 @@ import { Box, Typography } from '@mui/material';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
-import type { PosTableItem, PosTableStatus } from '@/lib/mocks/pos/usePosTables.mocks';
+import type {
+  PosTableItem,
+  PosTableStatus,
+} from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 export interface PosFloorTableCardProps {
