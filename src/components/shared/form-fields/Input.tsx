@@ -15,6 +15,7 @@ export interface InputProps {
   onBlur?: (e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void; // Blur event handler
   placeholder?: string; // Placeholder copy
   type?: string; // Input type (e.g., text, email, number)
+  autoComplete?: string;
   autoFocus?: boolean; // Auto-focus input on mount
   error?: boolean; // Visual error state
   helperText?: string; // Supplemental helper or error message
@@ -41,6 +42,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     onBlur,
     placeholder,
     type = 'text',
+    autoComplete,
     autoFocus = false,
     error = false,
     helperText,
@@ -136,6 +138,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           id={id}
           name={name}
           type={type}
+          autoComplete={autoComplete}
           value={value}
           defaultValue={defaultValue}
           onChange={onChange}

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import type { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -64,7 +65,7 @@ export function InviteAcceptPage({ token }: Readonly<InviteAcceptPageProps>) {
     setValue,
     formState: { errors },
     setError,
-  } = useForm<AcceptInvitationFormValues>({
+  } = useForm<z.input<typeof acceptInvitationFormSchema>, unknown, AcceptInvitationFormValues>({
     resolver: zodResolver(acceptInvitationFormSchema),
     mode: 'onTouched',
     reValidateMode: 'onChange',
@@ -78,7 +79,7 @@ export function InviteAcceptPage({ token }: Readonly<InviteAcceptPageProps>) {
 
   const linkError = tokenChecked ? inviteLinkError(resolvedToken) : null;
   const firstName = watch('firstName');
-  const lastName = watch('lastName');
+  const lastName = watch('lastName') ?? '';
   const password = watch('password');
   const parsedForm = acceptInvitationFormSchema.safeParse({
     token: resolvedToken,
