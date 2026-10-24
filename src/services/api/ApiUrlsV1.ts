@@ -30,6 +30,10 @@ const ApiUrlsV1 = {
     logout: '/v1/auth/logout',
     me: '/v1/auth/me',
   },
+  invitations: {
+    accept: '/v1/invitations/accept',
+    reject: '/v1/invitations/reject',
+  },
   pos: {
     pointOfSale: {
       /** GET/POST /v1/branches/{branch_id}/orders — All Orders list + create + detail + items + submit */
@@ -481,7 +485,11 @@ export function restaurantFloorSectionRestorePath(
 
 const ENDPOINT_PREFIXES = collectStaticPaths(ApiUrlsV1);
 
-const PUBLIC_ENDPOINTS = new Set<string>([ApiUrlsV1.auth.login]);
+const PUBLIC_ENDPOINTS = new Set<string>([
+  ApiUrlsV1.auth.login,
+  ApiUrlsV1.invitations.accept,
+  ApiUrlsV1.invitations.reject,
+]);
 
 export function isPublicEndpoint(path: string): boolean {
   return PUBLIC_ENDPOINTS.has(path);

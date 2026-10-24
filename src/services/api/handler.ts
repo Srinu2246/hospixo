@@ -135,6 +135,22 @@ export function isApiProxyEnabled(): boolean {
 }
 
 export function resolveMock(request: MockRequest): unknown | undefined {
+  if (
+    request.method === 'POST' &&
+    request.path === ApiUrlsV1.invitations.accept &&
+    isRecord(request.body)
+  ) {
+    return {
+      success: true,
+      message: 'Invitation accepted. You can sign in with your new password.',
+      data: {
+        id: 1,
+        status: 'accepted',
+        email: typeof request.body.email === 'string' ? request.body.email : 'invited@example.com',
+      },
+    };
+  }
+
   // Floors, sections, tables, and floor-map under /v1/branches/:id/floors/**
   const restaurant = resolveRestaurantFloorMock(request);
   if (restaurant !== undefined) return restaurant;

@@ -47,14 +47,21 @@ function toAppPath(endpoint: string, params?: QueryParams): string {
 }
 
 function isAuthPath(endpoint: string): boolean {
-  return endpoint === ApiUrlsV1.auth.login || endpoint === ApiUrlsV1.auth.logout;
+  return (
+    endpoint === ApiUrlsV1.auth.login ||
+    endpoint === ApiUrlsV1.auth.logout ||
+    endpoint === ApiUrlsV1.invitations.accept ||
+    endpoint === ApiUrlsV1.invitations.reject
+  );
 }
 
 /** Cookies are cleared server-side on 401; clear client session and go to login. */
 function redirectToLoginAfterUnauthorized(): void {
   if (typeof window === 'undefined') return;
   if (redirectingToLogin) return;
-  if (window.location.pathname === '/login') return;
+  if (window.location.pathname === '/login' || window.location.pathname.startsWith('/invite/')) {
+    return;
+  }
 
   redirectingToLogin = true;
   clearSidebarSession();
