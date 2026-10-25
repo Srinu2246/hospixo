@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { FieldHelperText } from '@/components/shared/form-fields/FieldHelperText';
 import { Input } from '@/components/shared/form-fields/Input';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
@@ -47,9 +48,11 @@ import { shouldSimulateMenuItemUploadError } from '@/lib/params/menu';
 import type {
   CreateMenuItemSubmitValues,
   MenuCatalogItem,
+  ItemOptionFormPayload,
   ModifierItem,
   VariantItem,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 import { useMenuCreation } from '@/features/menu/context';
@@ -173,7 +176,7 @@ function CreateMenuItemForm({
   menuContext,
 }: Readonly<
   CreateMenuItemScreenProps & {
-    initialDetail?: import('@/lib/schemas/menu/menuItemsSchema').MenuItemResponse | null;
+    initialDetail?: MenuItemResponse | null;
     menuContext: ReturnType<typeof useMenuCreation> | null;
   }
 >) {
@@ -204,26 +207,19 @@ function CreateMenuItemForm({
   const handleSaveItem = async (values: CreateMenuItemSubmitValues) => {
     try {
       if (mode === 'edit' && initialItem && menuContext) {
-        menuContext.updateItem(initialItem.id, values);
-      } else if (menuContext) {
-        await menuContext.addItem(values);
-      } else if (mode === 'create') {
-        throw new ApiError('Open Menu Creation from the sidebar to save new items.', 400);
+        await menuContext.updateItem(initialItem.id, values);
+        onSaveSuccess?.();
+        return;
       }
 
-      setToastFeedback({
-        open: true,
-        message:
-          mode === 'edit' ? 'Menu item updated successfully!' : 'Menu item created successfully!',
-        severity: 'success',
-      });
+      if (menuContext) {
+        await menuContext.addItem(values);
+        onSaveSuccess?.();
+        return;
+      }
 
-      if (onSaveSuccess) {
-        onSaveSuccess();
-      } else {
-        setTimeout(() => {
-          handleBackNavigation();
-        }, 500);
+      if (mode === 'create') {
+        throw new ApiError('Open Menu Creation from the sidebar to save new items.', 400);
       }
     } catch (error) {
       setToastFeedback({
@@ -247,6 +243,7 @@ function CreateMenuItemForm({
   }, [account?.branch_id, menuContext?.pageConfig.scope, sidebarContext.branchId]);
 
   const formHook = useCreateMenuItem({
+    mode,
     initialItem,
     initialDetail,
     defaultCategoryId: mode === 'create' ? (menuContext?.activeCategoryId ?? undefined) : undefined,
@@ -336,7 +333,12 @@ function CreateMenuItemForm({
       <ActionButton
         variant="primary"
         onClick={formHook.handleSubmit}
-        loading={formHook.isSubmitting || Boolean(menuContext?.isCreatingItem)}
+        disabled={!formHook.canSubmit}
+        loading={
+          formHook.isSubmitting ||
+          Boolean(menuContext?.isCreatingItem) ||
+          Boolean(menuContext?.isUpdatingItem)
+        }
         sx={{
           height: 40,
           px: 3,
@@ -483,7 +485,13 @@ function CreateMenuItemForm({
             <Select
               id="item-category-select"
               value={formHook.category}
-              onChange={(e) => formHook.setCategory(e.target.value)}
+              onChange={(e) => {
+                formHook.setCategory(e.target.value);
+                if (formHook.isFieldTouched('category')) {
+                  formHook.validateField('category');
+                }
+              }}
+              onClose={() => formHook.handleFieldBlur('category')}
               displayEmpty
               IconComponent={ChevronDown}
               sx={{
@@ -493,7 +501,7 @@ function CreateMenuItemForm({
                 borderRadius: '10px',
                 bgcolor: 'background.paper',
                 border: '1px solid',
-                borderColor: formHook.errors.category ? 'error.main' : 'divider',
+                borderColor: formHook.fieldError('category') ? 'error.main' : 'divider',
                 fontSize: '0.875rem',
                 fontWeight: 500,
                 color: formHook.category ? 'text.primary' : 'text.secondary',
@@ -502,14 +510,14 @@ function CreateMenuItemForm({
                   border: 'none',
                 },
                 '&:focus-within, &.Mui-focused': {
-                  borderColor: formHook.errors.category ? 'error.main' : 'primary.main',
+                  borderColor: formHook.fieldError('category') ? 'error.main' : 'primary.main',
                   boxShadow: (theme) =>
-                    formHook.errors.category
+                    formHook.fieldError('category')
                       ? '0 0 0 2px rgba(239, 68, 68, 0.2)'
                       : `0 0 0 2px ${theme.palette.mode === 'dark' ? 'rgba(51, 84, 244, 0.35)' : 'rgba(51, 84, 244, 0.15)'}`,
                 },
                 '&:hover': {
-                  borderColor: formHook.errors.category ? 'error.main' : 'text.secondary',
+                  borderColor: formHook.fieldError('category') ? 'error.main' : 'text.secondary',
                 },
                 '& .MuiSelect-select': {
                   py: 0,
@@ -569,11 +577,7 @@ function CreateMenuItemForm({
                 </MenuItem>
               ))}
             </Select>
-            {formHook.errors.category && (
-              <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, display: 'block' }}>
-                {formHook.errors.category}
-              </Typography>
-            )}
+            <FieldHelperText message={formHook.fieldError('category')} reserveSpace />
           </Box>
 
           <Input
@@ -582,18 +586,31 @@ function CreateMenuItemForm({
             required
             placeholder="eg. Paneer Tikka"
             value={formHook.name}
-            onChange={(e) => formHook.setName(e.target.value)}
-            error={Boolean(formHook.errors.name)}
-            helperText={formHook.errors.name}
+            onChange={(e) => {
+              formHook.setName(e.target.value);
+              if (formHook.isFieldTouched('name')) formHook.validateField('name');
+            }}
+            onBlur={() => formHook.handleFieldBlur('name')}
+            error={Boolean(formHook.fieldError('name'))}
+            helperText={formHook.fieldError('name')}
             fullWidth
           />
 
           <Input
             id="item-online-display-name"
             label="Online Display Name"
+            required
             placeholder="eg. Paneer Tikka Masala"
             value={formHook.onlineDisplayName}
-            onChange={(e) => formHook.setOnlineDisplayName(e.target.value)}
+            onChange={(e) => {
+              formHook.setOnlineDisplayName(e.target.value);
+              if (formHook.isFieldTouched('onlineDisplayName')) {
+                formHook.validateField('onlineDisplayName');
+              }
+            }}
+            onBlur={() => formHook.handleFieldBlur('onlineDisplayName')}
+            error={Boolean(formHook.fieldError('onlineDisplayName'))}
+            helperText={formHook.fieldError('onlineDisplayName')}
             fullWidth
           />
 
@@ -604,22 +621,30 @@ function CreateMenuItemForm({
             required
             placeholder="eg. PNT"
             value={formHook.code}
-            onChange={(e) => formHook.setCode(e.target.value)}
-            error={Boolean(formHook.errors.code)}
-            helperText={formHook.errors.code}
+            onChange={(e) => {
+              formHook.setCode(e.target.value);
+              if (formHook.isFieldTouched('code')) formHook.validateField('code');
+            }}
+            onBlur={() => formHook.handleFieldBlur('code')}
+            error={Boolean(formHook.fieldError('code'))}
+            helperText={formHook.fieldError('code')}
             fullWidth
           />
 
           <Input
             id="item-base-price"
-            label="Item Base Price (₹) *"
+            label="Item Base Price (₹)"
             required
             type="number"
             placeholder="0.00"
             value={formHook.itemPrice}
-            onChange={(e) => formHook.setItemPrice(e.target.value)}
-            error={Boolean(formHook.errors.itemPrice)}
-            helperText={formHook.errors.itemPrice}
+            onChange={(e) => {
+              formHook.setItemPrice(e.target.value);
+              if (formHook.isFieldTouched('itemPrice')) formHook.validateField('itemPrice');
+            }}
+            onBlur={() => formHook.handleFieldBlur('itemPrice')}
+            error={Boolean(formHook.fieldError('itemPrice'))}
+            helperText={formHook.fieldError('itemPrice')}
             fullWidth
           />
 
@@ -655,7 +680,11 @@ function CreateMenuItemForm({
             <Select
               id="item-gst-select"
               value={formHook.gst}
-              onChange={(e) => formHook.setGst(e.target.value)}
+              onChange={(e) => {
+                formHook.setGst(e.target.value);
+                if (formHook.isFieldTouched('gst')) formHook.validateField('gst');
+              }}
+              onClose={() => formHook.handleFieldBlur('gst')}
               displayEmpty
               disabled={gstRatesQuery.isLoading}
               IconComponent={ChevronDown}
@@ -666,7 +695,18 @@ function CreateMenuItemForm({
                 borderRadius: '10px',
                 bgcolor: 'background.paper',
                 border: '1px solid',
-                borderColor: formHook.errors.gst ? 'error.main' : 'divider',
+                borderColor: formHook.fieldError('gst') ? 'error.main' : 'divider',
+                transition: 'all 0.15s ease',
+                '&:focus-within, &.Mui-focused': {
+                  borderColor: formHook.fieldError('gst') ? 'error.main' : 'primary.main',
+                  boxShadow: (theme) =>
+                    formHook.fieldError('gst')
+                      ? '0 0 0 2px rgba(239, 68, 68, 0.2)'
+                      : `0 0 0 2px ${theme.palette.mode === 'dark' ? 'rgba(51, 84, 244, 0.35)' : 'rgba(51, 84, 244, 0.15)'}`,
+                },
+                '&:hover': {
+                  borderColor: formHook.fieldError('gst') ? 'error.main' : 'text.secondary',
+                },
                 fontSize: '0.875rem',
                 fontWeight: 500,
                 '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
@@ -688,11 +728,7 @@ function CreateMenuItemForm({
                 </MenuItem>
               ))}
             </Select>
-            {formHook.errors.gst && (
-              <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, display: 'block' }}>
-                {formHook.errors.gst}
-              </Typography>
-            )}
+            <FieldHelperText message={formHook.fieldError('gst')} reserveSpace />
           </Box>
 
           {/* Empty spacer for 3-column layout */}
@@ -772,9 +808,20 @@ function CreateMenuItemForm({
             {/* Order Type */}
             <Box>
               <Typography
-                sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary', mb: 1 }}
+                sx={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: 'text.primary',
+                  mb: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                }}
               >
                 Order Type
+                <Box component="span" sx={{ color: 'error.main', fontWeight: 600 }}>
+                  *
+                </Box>
               </Typography>
               <Stack direction="row" spacing={3} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
                 {['Delivery', 'Take Away', 'Dine In'].map((type) => {
@@ -802,14 +849,7 @@ function CreateMenuItemForm({
                   );
                 })}
               </Stack>
-              {formHook.errors.orderTypes && (
-                <Typography
-                  variant="caption"
-                  sx={{ color: 'error.main', mt: 0.5, display: 'block' }}
-                >
-                  {formHook.errors.orderTypes}
-                </Typography>
-              )}
+              <FieldHelperText message={formHook.fieldError('orderTypes')} reserveSpace />
             </Box>
 
             {/* Expose This Item In */}
@@ -1643,8 +1683,8 @@ interface ItemOptionModalProps {
   type: 'variant' | 'modifier';
   initialItem?: VariantItem | ModifierItem | null;
   onClose: () => void;
-  onAdd: (item: { name: string; price: number; modifierGroupId?: number }) => void;
-  onUpdate?: (id: string, item: { name: string; price: number; modifierGroupId?: number }) => void;
+  onAdd: (item: ItemOptionFormPayload) => void;
+  onUpdate?: (id: string, item: ItemOptionFormPayload) => void;
 }
 
 function ItemOptionModal({
@@ -1656,13 +1696,8 @@ function ItemOptionModal({
   onUpdate,
 }: Readonly<ItemOptionModalProps>) {
   const isVariant = type === 'variant';
-  const initialModifier =
-    !isVariant && initialItem && 'modifierGroupId' in initialItem ? initialItem : null;
   const [name, setName] = useState(initialItem?.name ?? '');
   const [price, setPrice] = useState(initialItem ? String(initialItem.price) : '');
-  const [modifierGroupId, setModifierGroupId] = useState(
-    initialModifier?.modifierGroupId != null ? String(initialModifier.modifierGroupId) : '',
-  );
   const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = () => {
@@ -1677,25 +1712,7 @@ function ItemOptionModal({
       return;
     }
 
-    let parsedModifierGroupId: number | undefined;
-    if (!isVariant) {
-      const trimmedGroupId = modifierGroupId.trim();
-      if (!trimmedGroupId) {
-        setError('Modifier group id is required (from your modifier groups catalog)');
-        return;
-      }
-      parsedModifierGroupId = Number(trimmedGroupId);
-      if (!Number.isFinite(parsedModifierGroupId) || parsedModifierGroupId <= 0) {
-        setError('Enter a valid modifier group id');
-        return;
-      }
-    }
-
-    const payload = {
-      name: trimmed,
-      price: priceNum,
-      ...(parsedModifierGroupId != null ? { modifierGroupId: parsedModifierGroupId } : {}),
-    };
+    const payload: ItemOptionFormPayload = { name: trimmed, price: priceNum };
 
     if (initialItem && onUpdate) {
       onUpdate(initialItem.id, payload);
@@ -1727,7 +1744,7 @@ function ItemOptionModal({
       subtitle={
         isVariant
           ? 'Define size or portion options for this menu item'
-          : 'Link a catalog modifier group by id (name/price here are for your reference until group pickers are wired)'
+          : 'Add-on name and price; group rules are applied on the server'
       }
       width={460}
       height="auto"
@@ -1751,7 +1768,7 @@ function ItemOptionModal({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Input
           label={isVariant ? 'Variant Name' : 'Modifier Name'}
-          placeholder={isVariant ? 'e.g. Medium, Half, Large' : 'e.g. Extra Cheese, Extra Mint Dip'}
+          placeholder={isVariant ? 'e.g. Medium, Half, Large' : 'e.g. Extra Raita, Extra Gravy'}
           value={name}
           onChange={(e) => {
             setName(e.target.value);
@@ -1762,32 +1779,17 @@ function ItemOptionModal({
         />
         <Input
           label="Price (₹)"
-          placeholder={isVariant ? 'e.g. 249' : 'e.g. 30'}
+          placeholder={isVariant ? 'e.g. 249' : 'e.g. 40'}
           type="number"
           value={price}
           onChange={(e) => {
             setPrice(e.target.value);
             if (error) setError(null);
           }}
-          error={Boolean(error) && isVariant}
-          helperText={isVariant ? (error ?? undefined) : undefined}
+          error={Boolean(error)}
+          helperText={error ?? undefined}
           required
         />
-        {!isVariant ? (
-          <Input
-            label="Modifier group id"
-            placeholder="e.g. 12"
-            type="number"
-            value={modifierGroupId}
-            onChange={(e) => {
-              setModifierGroupId(e.target.value);
-              if (error) setError(null);
-            }}
-            error={Boolean(error)}
-            helperText={error ?? 'Required — id from modifier groups catalog'}
-            required
-          />
-        ) : null}
       </Box>
     </Modal>
   );

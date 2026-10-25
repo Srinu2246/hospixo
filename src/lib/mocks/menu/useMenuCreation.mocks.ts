@@ -12,14 +12,6 @@ import {
 const ORGANIZATION_ID = 126;
 const COMPANY_ID = 94;
 
-/** Session / menu filter options for the Menu Creation toolbar dropdown. */
-export const MENU_SESSION_OPTIONS = [
-  { id: 'session-wise', label: 'Session Wise Menu' },
-  { id: 'all-day', label: 'All-Day Dining' },
-  { id: 'breakfast', label: 'Breakfast Specials' },
-  { id: 'dinner', label: 'Dinner Menu' },
-] as const;
-
 /** Seed categories for Menu Creation layout matching GET /v1/restaurant/menu/categories. */
 export const MOCK_MENU_CATEGORIES: MenuCategoryResponse[] = menuCategoryResponseListSchema.parse([
   {
@@ -136,6 +128,7 @@ function menuItem(input: {
         min_select: modifier.min ?? 0,
         max_select: modifier.max ?? 1,
         is_required: (modifier.min ?? 0) > 0,
+        options: [],
       },
     })),
     name: input.name,

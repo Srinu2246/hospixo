@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { toCatalogDietary, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
-import type {
-  CreateMenuItemSubmitValues,
-  VariantItem,
-  ModifierItem,
-  MenuCatalogItem,
+import { zodFieldMessage } from '@/lib/schemas/menu/menuCreationSchema';
+import {
+  menuItemConfigurationSchema,
+  type CreateMenuItemSubmitValues,
+  type MenuItemConfigurationField,
+  type VariantItem,
+  type ItemOptionFormPayload,
+  type ModifierItem,
+  type MenuCatalogItem,
 } from '@/lib/schemas/menu/menuCreationSchema';
 import type { MenuItemTagDefinition } from '@/lib/schemas/menu/menuItemTagsSchema';
 import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
@@ -15,16 +19,63 @@ import type { DietaryType } from '@/features/menu/menu-creation/DietaryIcon';
 /** UI-only flags; not menu item tag definitions from GET item-tags. */
 const OPERATIONAL_TAG_LABELS = ['Set As Favorite', 'Set As Combo'];
 
-const DEFAULT_VARIANTS: VariantItem[] = [
-  { id: 'v1', name: 'Mini', price: 149 },
-  { id: 'v2', name: 'Single', price: 249 },
-  { id: 'v3', name: 'Double', price: 399 },
-  { id: 'v4', name: 'Family Pack', price: 599 },
-];
-
 const DEFAULT_MODIFIERS: ModifierItem[] = [];
 
+const CONFIGURATION_FIELDS: MenuItemConfigurationField[] = [
+  'category',
+  'name',
+  'onlineDisplayName',
+  'code',
+  'itemPrice',
+  'gst',
+  'orderTypes',
+];
+
+type EditFormSnapshot = Readonly<{
+  category: string;
+  name: string;
+  onlineDisplayName: string;
+  code: string;
+  itemPrice: string;
+  profitMargin: string;
+  gst: string;
+  description: string;
+  dietaryType: DietaryType;
+  orderTypesKey: string;
+  exposedInKey: string;
+  tagsKey: string;
+  variantsKey: string;
+  modifiersKey: string;
+}>;
+
+function sortedKey(values: readonly string[]): string {
+  return [...values]
+    .map((v) => v.trim())
+    .sort()
+    .join('\u0001');
+}
+
+function variantsKey(rows: readonly VariantItem[]): string {
+  return rows.map((row) => `${row.id}:${row.name.trim()}:${row.price}`).join('\u0001');
+}
+
+function modifiersKey(rows: readonly ModifierItem[]): string {
+  return rows.map((row) => `${row.id}:${row.name.trim()}:${row.price}`).join('\u0001');
+}
+
+function resolveSeedDietary(
+  initialDetail: MenuItemResponse | null,
+  seedItem: MenuCatalogItem | null,
+): DietaryType {
+  if (initialDetail) {
+    const mapped = toCatalogDietary(initialDetail.dietary_type);
+    return mapped === 'Vegan' ? 'Veg' : (mapped as DietaryType);
+  }
+  return (seedItem?.dietary as DietaryType) || 'Veg';
+}
+
 export interface UseCreateMenuItemProps {
+  mode?: 'create' | 'edit';
   initialItem?: MenuCatalogItem | null;
   /** Full GET /items/{id} record — seeds variants, modifiers, GST, margin. */
   initialDetail?: MenuItemResponse | null;
@@ -37,6 +88,7 @@ export interface UseCreateMenuItemProps {
 }
 
 export function useCreateMenuItem({
+  mode = 'create',
   initialItem,
   initialDetail = null,
   defaultCategoryId,
@@ -44,6 +96,7 @@ export function useCreateMenuItem({
   onSave,
   onBack,
 }: UseCreateMenuItemProps = {}) {
+  const isEdit = mode === 'edit';
   const detailCatalog = initialDetail
     ? toMenuCatalogItem(initialDetail, undefined, initialItem?.categoryName)
     : null;
@@ -57,12 +110,23 @@ export function useCreateMenuItem({
     })) ?? [];
 
   const detailModifiers: ModifierItem[] =
-    initialDetail?.modifier_groups.map((group) => ({
-      id: String(group.modifier_group_id),
-      modifierGroupId: group.modifier_group_id,
-      name: group.modifier_group?.name ?? `Group ${group.modifier_group_id}`,
-      price: 0,
-    })) ?? [];
+    initialDetail?.modifier_groups.flatMap((group) => {
+      const options = group.modifier_group?.options ?? [];
+      if (options.length > 0) {
+        return options.map((option) => ({
+          id: String(option.id),
+          name: option.name,
+          price: Number(option.price_delta) || 0,
+        }));
+      }
+      return [
+        {
+          id: String(group.modifier_group_id),
+          name: group.modifier_group?.name ?? `Group ${group.modifier_group_id}`,
+          price: 0,
+        },
+      ];
+    }) ?? [];
 
   // Form fields
   const [category, setCategory] = useState(seedItem?.categoryId ?? defaultCategoryId?.trim() ?? '');
@@ -124,19 +188,54 @@ export function useCreateMenuItem({
   /** User uploads only (data URLs). Existing server URLs are shown separately in the screen. */
   const [images, setImages] = useState<string[]>([]);
   const [primaryImageFile, setPrimaryImageFile] = useState<File | null>(null);
+  const [uploadedImageFiles, setUploadedImageFiles] = useState<File[]>([]);
   const [uploadError, setUploadError] = useState<{
     fileName: string;
     fileSizeMb?: number;
     message: string;
   } | null>(null);
 
-  const [variants, setVariants] = useState<VariantItem[]>(
-    initialDetail ? detailVariants : DEFAULT_VARIANTS,
-  );
+  const [variants, setVariants] = useState<VariantItem[]>(initialDetail ? detailVariants : []);
   const [modifiers, setModifiers] = useState<ModifierItem[]>(
     initialDetail ? detailModifiers : DEFAULT_MODIFIERS,
   );
 
+  const initialEditSnapshot = useMemo((): EditFormSnapshot | null => {
+    if (!isEdit) return null;
+    const seedDietary = resolveSeedDietary(initialDetail, seedItem);
+    const seedOrderTypes = seedItem?.orderTypes ?? ['Delivery', 'Take Away', 'Dine In'];
+    const seedExposedIn = initialDetail
+      ? initialDetail.expose_captain_app
+        ? ['Captain App']
+        : []
+      : ['Captain App'];
+    const seedTags = seedItem?.tags ?? [];
+    const seedVariants = initialDetail ? detailVariants : [];
+    const seedModifiers = initialDetail ? detailModifiers : DEFAULT_MODIFIERS;
+
+    return {
+      category: (seedItem?.categoryId ?? defaultCategoryId?.trim() ?? '').trim(),
+      name: (seedItem?.name ?? '').trim(),
+      onlineDisplayName: (seedItem?.name ?? '').trim(),
+      code: (seedItem?.code ?? '').trim(),
+      itemPrice: seedItem ? String(seedItem.basePrice).trim() : '',
+      profitMargin:
+        initialDetail?.profit_margin_percent != null
+          ? String(initialDetail.profit_margin_percent)
+          : '',
+      gst:
+        initialDetail?.taxes[0]?.gst_rate_id != null
+          ? String(initialDetail.taxes[0].gst_rate_id)
+          : '',
+      description: (seedItem?.description ?? '').trim(),
+      dietaryType: seedDietary,
+      orderTypesKey: sortedKey(seedOrderTypes),
+      exposedInKey: sortedKey(seedExposedIn),
+      tagsKey: sortedKey(seedTags),
+      variantsKey: variantsKey(seedVariants),
+      modifiersKey: modifiersKey(seedModifiers),
+    };
+  }, [defaultCategoryId, detailModifiers, detailVariants, initialDetail, isEdit, seedItem]);
   // Modals state
   const [isAddVariantOpen, setIsAddVariantOpen] = useState(false);
   const [isAddModifierOpen, setIsAddModifierOpen] = useState(false);
@@ -144,9 +243,74 @@ export function useCreateMenuItem({
   const [editingVariant, setEditingVariant] = useState<VariantItem | null>(null);
   const [editingModifier, setEditingModifier] = useState<ModifierItem | null>(null);
 
-  // Validation errors
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<MenuItemConfigurationField, string>>
+  >({});
+  const [touched, setTouched] = useState<Partial<Record<MenuItemConfigurationField, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const configurationValues = useCallback(
+    () => ({
+      category,
+      name,
+      onlineDisplayName,
+      code,
+      itemPrice,
+      gst,
+      orderTypes,
+    }),
+    [category, code, gst, itemPrice, name, onlineDisplayName, orderTypes],
+  );
+
+  const allConfigurationErrors = useCallback((): Partial<
+    Record<MenuItemConfigurationField, string>
+  > => {
+    const result = menuItemConfigurationSchema.safeParse(configurationValues());
+    if (result.success) return {};
+    const next: Partial<Record<MenuItemConfigurationField, string>> = {};
+    for (const issue of result.error.issues) {
+      const key = issue.path[0];
+      if (typeof key === 'string' && !(key in next)) {
+        next[key as MenuItemConfigurationField] = issue.message;
+      }
+    }
+    return next;
+  }, [configurationValues]);
+
+  const validateField = useCallback(
+    (field: MenuItemConfigurationField) => {
+      const message = zodFieldMessage(menuItemConfigurationSchema, configurationValues(), field);
+      setFieldErrors((prev) => {
+        if (!message) {
+          if (!prev[field]) return prev;
+          const next = { ...prev };
+          delete next[field];
+          return next;
+        }
+        return { ...prev, [field]: message };
+      });
+    },
+    [configurationValues],
+  );
+
+  const touchField = useCallback((field: MenuItemConfigurationField) => {
+    setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
+  }, []);
+
+  const handleFieldBlur = useCallback(
+    (field: MenuItemConfigurationField) => {
+      touchField(field);
+      validateField(field);
+    },
+    [touchField, validateField],
+  );
+
+  const fieldError = useCallback(
+    (field: MenuItemConfigurationField): string | undefined => {
+      return touched[field] ? fieldErrors[field] : undefined;
+    },
+    [fieldErrors, touched],
+  );
 
   // Dietary toggle
   const handleDietaryChange = useCallback((type: DietaryType) => {
@@ -154,16 +318,21 @@ export function useCreateMenuItem({
   }, []);
 
   // Order types toggle
-  const toggleOrderType = useCallback((type: string) => {
-    setOrderTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
-    );
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next.orderTypes;
-      return next;
-    });
-  }, []);
+  const toggleOrderType = useCallback(
+    (type: string) => {
+      setOrderTypes((prev) =>
+        prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+      );
+      touchField('orderTypes');
+    },
+    [touchField],
+  );
+
+  useEffect(() => {
+    if (touched.orderTypes) {
+      validateField('orderTypes');
+    }
+  }, [orderTypes, touched.orderTypes, validateField]);
 
   // Expose in toggle
   const toggleExposedIn = useCallback((channel: string) => {
@@ -212,37 +381,20 @@ export function useCreateMenuItem({
   }, []);
 
   // Add modifier
-  const addModifier = useCallback(
-    (item: { name: string; price: number; modifierGroupId?: number }) => {
-      const newMod: ModifierItem = {
-        id: item.modifierGroupId != null ? String(item.modifierGroupId) : `m_${Date.now()}`,
-        modifierGroupId: item.modifierGroupId,
-        name: item.name,
-        price: item.price,
-      };
-      setModifiers((prev) => [...prev, newMod]);
-    },
-    [],
-  );
+  const addModifier = useCallback((item: ItemOptionFormPayload) => {
+    const newMod: ModifierItem = {
+      id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: item.name,
+      price: item.price,
+    };
+    setModifiers((prev) => [...prev, newMod]);
+  }, []);
 
-  const updateModifier = useCallback(
-    (id: string, item: { name: string; price: number; modifierGroupId?: number }) => {
-      setModifiers((prev) =>
-        prev.map((m) =>
-          m.id === id
-            ? {
-                ...m,
-                name: item.name,
-                price: item.price,
-                modifierGroupId: item.modifierGroupId ?? m.modifierGroupId,
-                id: item.modifierGroupId != null ? String(item.modifierGroupId) : m.id,
-              }
-            : m,
-        ),
-      );
-    },
-    [],
-  );
+  const updateModifier = useCallback((id: string, item: ItemOptionFormPayload) => {
+    setModifiers((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, name: item.name, price: item.price } : m)),
+    );
+  }, []);
 
   // Remove modifier
   const removeModifier = useCallback((id: string) => {
@@ -283,6 +435,7 @@ export function useCreateMenuItem({
           setImages((prev) => {
             if (prev.length >= 5) return prev;
             if (prev.length === 0) setPrimaryImageFile(file);
+            setUploadedImageFiles((files) => [...files, file]);
             return [...prev, e.target!.result as string];
           });
           setUploadError(null);
@@ -300,48 +453,88 @@ export function useCreateMenuItem({
     setImages((prev) => {
       const next = prev.filter((_, i) => i !== index);
       if (index === 0) setPrimaryImageFile(null);
+      setUploadedImageFiles((files) => files.filter((_, i) => i !== index));
       return next;
     });
   }, []);
 
-  // Validation
-  const validate = useCallback(() => {
-    const newErrors: Record<string, string> = {};
-    if (!category.trim()) {
-      newErrors.category = 'Please select a category';
-    }
-    if (!name.trim()) {
-      newErrors.name = 'Item name is required';
-    }
-    if (!code.trim()) {
-      newErrors.code = 'Item code is required';
-    }
-    const priceNum = parseFloat(itemPrice);
-    if (isNaN(priceNum) || priceNum < 0) {
-      newErrors.itemPrice = 'Valid item price is required';
-    }
-    if (orderTypes.length === 0) {
-      newErrors.orderTypes = 'Select at least one order type';
-    }
-    const gstId = Number(gst.trim());
-    if (!gst.trim() || !Number.isFinite(gstId) || gstId <= 0) {
-      newErrors.gst = 'Select a GST rate';
-    }
+  const hasEditChanges = useMemo(() => {
+    if (!isEdit || !initialEditSnapshot) return true;
+    if (uploadedImageFiles.length > 0 || images.length > 0) return true;
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [category, name, code, itemPrice, orderTypes, gst]);
+    const current: EditFormSnapshot = {
+      category: category.trim(),
+      name: name.trim(),
+      onlineDisplayName: onlineDisplayName.trim(),
+      code: code.trim(),
+      itemPrice: itemPrice.trim(),
+      profitMargin: profitMargin.trim(),
+      gst: gst.trim(),
+      description: description.trim(),
+      dietaryType,
+      orderTypesKey: sortedKey(orderTypes),
+      exposedInKey: sortedKey(exposedIn),
+      tagsKey: sortedKey(selectedTags),
+      variantsKey: variantsKey(variants),
+      modifiersKey: modifiersKey(modifiers),
+    };
+
+    return (Object.keys(initialEditSnapshot) as (keyof EditFormSnapshot)[]).some(
+      (key) => current[key] !== initialEditSnapshot[key],
+    );
+  }, [
+    category,
+    code,
+    description,
+    dietaryType,
+    exposedIn,
+    gst,
+    images.length,
+    initialEditSnapshot,
+    isEdit,
+    itemPrice,
+    modifiers,
+    name,
+    onlineDisplayName,
+    orderTypes,
+    profitMargin,
+    selectedTags,
+    uploadedImageFiles.length,
+    variants,
+  ]);
+
+  const canSubmit = useMemo(() => {
+    const isValid = Object.keys(allConfigurationErrors()).length === 0;
+    if (!isValid) return false;
+    if (isEdit) return hasEditChanges;
+    return true;
+  }, [allConfigurationErrors, hasEditChanges, isEdit]);
+
+  const validate = useCallback(() => {
+    const nextErrors = allConfigurationErrors();
+    const nextTouched: Partial<Record<MenuItemConfigurationField, boolean>> = {};
+    for (const key of Object.keys(nextErrors) as MenuItemConfigurationField[]) {
+      nextTouched[key] = true;
+    }
+    for (const key of CONFIGURATION_FIELDS) {
+      nextTouched[key] = true;
+    }
+    setTouched((prev) => ({ ...prev, ...nextTouched }));
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }, [allConfigurationErrors]);
 
   // Submit
   const handleSubmit = useCallback(async () => {
     if (!validate()) return;
+    if (isEdit && !hasEditChanges) return;
 
     setIsSubmitting(true);
     try {
       const data: CreateMenuItemSubmitValues = {
         category,
         name: name.trim(),
-        onlineDisplayName: onlineDisplayName.trim() || undefined,
+        onlineDisplayName: onlineDisplayName.trim(),
         code: code.trim(),
         itemPrice: parseFloat(itemPrice) || 0,
         profitMargin: profitMargin.trim() || undefined,
@@ -355,7 +548,9 @@ export function useCreateMenuItem({
         variants,
         modifiers,
         imageFile: primaryImageFile,
+        imageFiles: uploadedImageFiles,
         tagIdsByName,
+        initialDetail: initialDetail ?? undefined,
       };
 
       if (onSave) {
@@ -366,6 +561,8 @@ export function useCreateMenuItem({
     }
   }, [
     validate,
+    isEdit,
+    hasEditChanges,
     category,
     name,
     onlineDisplayName,
@@ -382,7 +579,9 @@ export function useCreateMenuItem({
     variants,
     modifiers,
     primaryImageFile,
+    uploadedImageFiles,
     tagIdsByName,
+    initialDetail,
     onSave,
   ]);
 
@@ -439,7 +638,12 @@ export function useCreateMenuItem({
     isCreateTagOpen,
     setIsCreateTagOpen,
     // Validation & actions
-    errors,
+    fieldError,
+    isFieldTouched: (field: MenuItemConfigurationField) => Boolean(touched[field]),
+    handleFieldBlur,
+    validateField,
+    touchField,
+    canSubmit,
     isSubmitting,
     handleSubmit,
     onBack,

@@ -25,6 +25,7 @@ export function createVersionedHandlers(version: ApiVersion) {
         path,
         searchParamsOf(request),
         await readRequestBody(request, method),
+        readCatalogueContextHeaders(request),
       );
 
       if (data === undefined) {
@@ -51,12 +52,23 @@ function callServerApi(
   path: string,
   params: QueryParams,
   body: unknown,
+  contextHeaders: Record<string, string>,
 ): Promise<unknown> {
-  if (method === 'GET') return serverApi.get(path, params);
-  if (method === 'PUT') return serverApi.put(path, body);
-  if (method === 'PATCH') return serverApi.patch(path, body);
-  if (method === 'DELETE') return serverApi.delete(path);
-  return serverApi.post(path, body);
+  const context = { contextHeaders };
+  if (method === 'GET') return serverApi.get(path, params, undefined, context);
+  if (method === 'PUT') return serverApi.put(path, body, undefined, context);
+  if (method === 'PATCH') return serverApi.patch(path, body, undefined, context);
+  if (method === 'DELETE') return serverApi.delete(path, undefined, context);
+  return serverApi.post(path, body, undefined, context);
+}
+
+function readCatalogueContextHeaders(request: NextRequest): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const companyId = request.headers.get('x-company-id');
+  const branchId = request.headers.get('x-branch-id');
+  if (companyId?.trim()) headers['X-Company-Id'] = companyId.trim();
+  if (branchId?.trim()) headers['X-Branch-Id'] = branchId.trim();
+  return headers;
 }
 
 function pathnameFromSegments(version: ApiVersion, segments: string[]): string {

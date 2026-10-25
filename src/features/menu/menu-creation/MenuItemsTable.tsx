@@ -6,8 +6,9 @@ import Box from '@mui/material/Box';
 import { useMediaQuery, useTheme } from '@mui/material';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
-import { Eye, Pencil, Plus, Trash2, UtensilsCrossed } from 'lucide-react';
+import { Eye, Pencil, Plus, UtensilsCrossed } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
@@ -33,11 +34,17 @@ function statusVariant(status: MenuCatalogItem['status']): 'success' | 'warning'
   return 'default';
 }
 
+function isMenuItemActive(status: MenuCatalogItem['status']): boolean {
+  return status === 'Available' || status === 'Active';
+}
+
 export interface MenuItemsTableProps {
   items: readonly MenuCatalogItem[];
   onView: (item: MenuCatalogItem) => void;
   onEdit: (item: MenuCatalogItem) => void;
-  onDelete?: (item: MenuCatalogItem) => void;
+  onToggleActive?: (item: MenuCatalogItem, nextActive: boolean) => void;
+  togglingItemId?: string | null;
+  statusToggleDisabled?: boolean;
   onAddCategory?: () => void;
   emptyBecauseNoCategories?: boolean;
 }
@@ -46,7 +53,9 @@ export function MenuItemsTable({
   items,
   onView,
   onEdit,
-  onDelete,
+  onToggleActive,
+  togglingItemId = null,
+  statusToggleDisabled = false,
   onAddCategory,
   emptyBecauseNoCategories = false,
 }: Readonly<MenuItemsTableProps>) {
@@ -113,10 +122,29 @@ export function MenuItemsTable({
     {
       field: 'tags',
       headerName: 'Tags',
-      minWidth: 80,
-      width: 80,
+      minWidth: 120,
+      width: 148,
+      maxWidth: 168,
       sortable: false,
-      renderCell: ({ row }) => <TagsGrid tags={row.tags} />,
+      renderCell: ({ row }) => (
+        <Box
+          sx={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <TagsGrid
+            tags={row.tags}
+            maxVisible={1}
+            chipSx={{
+              maxWidth: 72,
+              '& .MuiChip-label': {
+                px: 0.75,
+                fontSize: '0.6875rem',
+              },
+            }}
+          />
+        </Box>
+      ),
     },
     {
       field: 'status',
@@ -131,8 +159,8 @@ export function MenuItemsTable({
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 130,
-      minWidth: 120,
+      width: 142,
+      minWidth: 142,
       align: 'center',
       headerAlign: 'center',
       sortable: false,
@@ -178,23 +206,24 @@ export function MenuItemsTable({
           >
             <Pencil size={16} />
           </IconButton>
-          {onDelete ? (
-            <IconButton
+          {onToggleActive ? (
+            <Switch
               size="small"
-              aria-label={`Delete ${row.name}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelete(row);
+              checked={isMenuItemActive(row.status)}
+              disabled={statusToggleDisabled || togglingItemId === row.id}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(_event, nextActive) => onToggleActive(row, nextActive)}
+              slotProps={{
+                input: {
+                  'aria-label': `${row.name} ${isMenuItemActive(row.status) ? 'active' : 'inactive'}`,
+                },
               }}
               sx={{
-                width: 30,
-                height: 30,
-                color: '#EF4444',
-                '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.08)' },
+                '& .MuiSwitch-switchBase.Mui-checked': {
+                  color: 'primary.main',
+                },
               }}
-            >
-              <Trash2 size={16} />
-            </IconButton>
+            />
           ) : null}
         </Stack>
       ),
@@ -254,7 +283,7 @@ export function MenuItemsTable({
         paginationEntityName="items"
         stickyHeader
         height={tableHeight}
-        minWidth={720}
+        minWidth="100%"
         rowHeight={64}
         emptyIcon={UtensilsCrossed}
         emptyTitle="No menu items"

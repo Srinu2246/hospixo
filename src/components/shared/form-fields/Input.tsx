@@ -19,6 +19,8 @@ export interface InputProps {
   autoFocus?: boolean; // Auto-focus input on mount
   error?: boolean; // Visual error state
   helperText?: string; // Supplemental helper or error message
+  /** Reserve one helper line (defaults to true when `required`). Prevents layout shift on error. */
+  reserveHelperSpace?: boolean;
   disabled?: boolean; // Disabled interaction state
   fullWidth?: boolean; // Expands input to 100% width
   startIcon?: ReactNode; // Leading icon or adornment
@@ -46,6 +48,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     autoFocus = false,
     error = false,
     helperText,
+    reserveHelperSpace,
     disabled = false,
     fullWidth = true,
     startIcon,
@@ -59,6 +62,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   },
   ref,
 ) {
+  const holdHelperSpace = reserveHelperSpace ?? required;
+
   return (
     <Box
       sx={{
@@ -192,18 +197,22 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         ) : null}
       </Box>
 
-      {/* Helper / Error Text */}
-      {helperText ? (
-        <Typography
-          variant="caption"
-          sx={{
-            mt: 0.5,
-            fontSize: '0.75rem',
-            color: error ? '#EF4444' : 'text.secondary',
-          }}
-        >
-          {helperText}
-        </Typography>
+      {helperText || holdHelperSpace ? (
+        <Box sx={{ mt: 0.5, minHeight: '1.125rem', lineHeight: '1.125rem' }}>
+          {helperText ? (
+            <Typography
+              variant="caption"
+              component="span"
+              sx={{
+                fontSize: '0.75rem',
+                color: error ? 'error.main' : 'text.secondary',
+                display: 'block',
+              }}
+            >
+              {helperText}
+            </Typography>
+          ) : null}
+        </Box>
       ) : null}
     </Box>
   );

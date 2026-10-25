@@ -299,7 +299,7 @@ export function MenusPage() {
           initialValues={{
             name: activeMenu.menu.name,
             code: activeMenu.menu.code ?? '',
-            menuType: (activeMenu.menu.menu_type || 'all').toUpperCase(),
+            menuType: activeMenu.menu.menu_type || 'all',
             description: activeMenu.menu.description ?? '',
           }}
           submitting={submitting}

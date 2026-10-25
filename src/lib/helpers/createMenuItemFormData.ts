@@ -155,7 +155,7 @@ export function buildCreateMenuItemBody(
 }
 
 /** Multipart POST /v1/restaurant/menu/items — scalar fields + JSON array strings + optional image. */
-export function buildCreateMenuItemFormData(input: BuildCreateMenuItemFormDataInput): FormData {
+function buildCreateMenuItemFormData(input: BuildCreateMenuItemFormDataInput): FormData {
   const body = buildCreateMenuItemBody(input);
   const form = new FormData();
 

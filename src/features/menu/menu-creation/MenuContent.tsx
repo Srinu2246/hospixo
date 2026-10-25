@@ -8,18 +8,15 @@ import Typography from '@mui/material/Typography';
 import { Calendar, Plus, Upload } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Card } from '@/components/shared/ui/Card';
 import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 import { useMenuCreation } from '@/features/menu/context';
-import { MENU_SESSION_OPTIONS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 
 import { CreateCategoryForm } from './CreateCategoryForm';
 import { CreateMenuItemScreen } from './CreateMenuItemScreen';
-import { DeleteMenuItemModal } from './DeleteMenuItemModal';
 import { MenuItemDetailPanel } from './MenuItemDetailPanel';
 import { MenuItemsTable } from './MenuItemsTable';
 import { MenuSidebar } from './MenuSidebar';
@@ -58,7 +55,9 @@ function MenuItemsListBody({
   itemsError,
   onView,
   onEdit,
-  onDelete,
+  onToggleActive,
+  togglingItemId,
+  statusToggleDisabled,
   onAddCategory,
 }: Readonly<{
   listKey: string;
@@ -70,7 +69,9 @@ function MenuItemsListBody({
   itemsError: Error | null | undefined;
   onView: (item: MenuCatalogItem) => void;
   onEdit: (item: MenuCatalogItem) => void;
-  onDelete: (item: MenuCatalogItem) => void;
+  onToggleActive: (item: MenuCatalogItem, nextActive: boolean) => void;
+  togglingItemId: string | null;
+  statusToggleDisabled: boolean;
   onAddCategory?: () => void;
 }>) {
   if (itemsError) {
@@ -96,7 +97,9 @@ function MenuItemsListBody({
       emptyBecauseNoCategories={categoriesEmpty}
       onView={onView}
       onEdit={onEdit}
-      onDelete={onDelete}
+      onToggleActive={onToggleActive}
+      togglingItemId={togglingItemId}
+      statusToggleDisabled={statusToggleDisabled}
       onAddCategory={canManageCategories ? onAddCategory : undefined}
     />
   );
@@ -109,24 +112,38 @@ function MenuListPane() {
     filteredItems,
     searchQuery,
     setSearchQuery,
-    sessionFilter,
-    setSessionFilter,
     activeCategoryId,
     openCreateCategory,
     openCreateItem,
     openEditItem,
     openViewItem,
-    deleteItem,
-    isDeletingItem,
+    toggleItemStatus,
+    isUpdatingItemStatus,
     items,
     isItemsLoading,
     itemsError,
   } = useMenuCreation();
 
   const router = useRouter();
-  const [deleteTargetItem, setDeleteTargetItem] = useState<MenuCatalogItem | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}::${sessionFilter}`;
+  const [togglingItemId, setTogglingItemId] = useState<string | null>(null);
+  const [statusToggleError, setStatusToggleError] = useState<string | null>(null);
+  const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}`;
+
+  async function handleToggleItemActive(item: MenuCatalogItem, nextActive: boolean) {
+    const isActive = item.status === 'Available' || item.status === 'Active';
+    if (nextActive === isActive) return;
+    setTogglingItemId(item.id);
+    setStatusToggleError(null);
+    try {
+      await toggleItemStatus(item.id, nextActive);
+    } catch (error) {
+      setStatusToggleError(
+        error instanceof Error ? error.message : 'Unable to update item status.',
+      );
+    } finally {
+      setTogglingItemId(null);
+    }
+  }
 
   return (
     <Stack
@@ -137,6 +154,10 @@ function MenuListPane() {
         minHeight: 0,
         width: '100%',
         display: 'flex',
+        pl: { xs: 1, sm: 2 },
+        pt: { xs: 1, sm: 2 },
+        pr: { xs: 1, sm: 2 },
+        boxSizing: 'border-box',
       }}
     >
       <Stack
@@ -187,29 +208,18 @@ function MenuListPane() {
         </Stack>
       </Stack>
 
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        sx={{ alignItems: { sm: 'center' }, flexShrink: 0 }}
-      >
-        <SearchBar
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search items..."
-          showClear
-          fullWidth
-          width="100%"
-          sx={{ flex: 1, maxWidth: { sm: 420 } }}
-        />
-        <Dropdown
-          options={[...MENU_SESSION_OPTIONS]}
-          value={sessionFilter}
-          onChange={setSessionFilter}
-          minWidth={200}
-          size="medium"
-          sx={{ width: { xs: '100%', sm: 'auto' } }}
-        />
-      </Stack>
+      <SearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search items..."
+        showClear
+        fullWidth
+        sx={{
+          flexShrink: 0,
+          width: '100%',
+          maxWidth: 300,
+        }}
+      />
 
       <Box
         sx={{
@@ -231,40 +241,23 @@ function MenuListPane() {
           itemsError={itemsError}
           onView={openViewItem}
           onEdit={openEditItem}
-          onDelete={setDeleteTargetItem}
+          onToggleActive={(item, nextActive) => {
+            void handleToggleItemActive(item, nextActive);
+          }}
+          togglingItemId={togglingItemId}
+          statusToggleDisabled={Boolean(isUpdatingItemStatus)}
           onAddCategory={openCreateCategory}
         />
       </Box>
 
-      {deleteError ? (
+      {statusToggleError ? (
         <AlertMessage
           variant="error"
-          title="Unable to delete menu item"
-          message={deleteError}
+          title="Unable to update item status"
+          message={statusToggleError}
           sx={{ mt: 1 }}
         />
       ) : null}
-
-      <DeleteMenuItemModal
-        open={Boolean(deleteTargetItem)}
-        loading={Boolean(isDeletingItem)}
-        onClose={() => {
-          if (isDeletingItem) return;
-          setDeleteTargetItem(null);
-          setDeleteError(null);
-        }}
-        onConfirm={async () => {
-          if (!deleteTargetItem) return;
-          setDeleteError(null);
-          try {
-            await deleteItem(deleteTargetItem.id);
-            setDeleteTargetItem(null);
-          } catch (error) {
-            setDeleteError(error instanceof Error ? error.message : 'The delete request failed.');
-          }
-        }}
-        item={deleteTargetItem}
-      />
     </Stack>
   );
 }

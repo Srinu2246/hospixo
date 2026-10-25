@@ -4,6 +4,8 @@
  * This file is the only place those paths are defined.
  */
 
+import ApiUrlsV2 from './ApiUrlsV2';
+
 type EndpointResource = {
   list: string;
   create: string;
@@ -483,7 +485,8 @@ export function restaurantFloorSectionRestorePath(
   return `${restaurantFloorSectionPath(branchId, floorId, sectionId)}/restore`;
 }
 
-const ENDPOINT_PREFIXES = collectStaticPaths(ApiUrlsV1);
+/** BFF allowlist: v1 catalog + explicit v2 paths (see ApiUrlsV2). */
+const ENDPOINT_PREFIXES = [...collectStaticPaths(ApiUrlsV1), ...collectStaticPaths(ApiUrlsV2)];
 
 const PUBLIC_ENDPOINTS = new Set<string>([
   ApiUrlsV1.auth.login,

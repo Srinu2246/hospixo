@@ -17,6 +17,8 @@ type ServerRequestOptions = {
   params?: QueryParams;
   body?: unknown;
   signal?: AbortSignal;
+  /** Forwarded from the browser BFF (`X-Company-Id`, `X-Branch-Id`). */
+  contextHeaders?: Record<string, string>;
 };
 
 async function requireSession(): Promise<string> {
@@ -101,6 +103,10 @@ async function request<T>(
   if (session) {
     headers.set('Authorization', `Bearer ${session}`);
     headers.set('X-Session-Id', session);
+  }
+
+  for (const [key, value] of Object.entries(options.contextHeaders ?? {})) {
+    if (value) headers.set(key, value);
   }
 
   const requestBody = isLogout ? await logoutBody() : options.body;
@@ -262,25 +268,47 @@ function readSessionToken(payload: unknown): string | null {
   return null;
 }
 
+type ServerCallExtras = Pick<ServerRequestOptions, 'contextHeaders'>;
+
 export const serverApi = {
-  get<T>(path: string, params?: QueryParams, signal?: AbortSignal): Promise<T> {
-    return request<T>('GET', path, { params, signal });
+  get<T>(
+    path: string,
+    params?: QueryParams,
+    signal?: AbortSignal,
+    extras?: ServerCallExtras,
+  ): Promise<T> {
+    return request<T>('GET', path, { params, signal, ...extras });
   },
 
-  post<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-    return request<T>('POST', path, { body, signal });
+  post<T>(
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+    extras?: ServerCallExtras,
+  ): Promise<T> {
+    return request<T>('POST', path, { body, signal, ...extras });
   },
 
-  put<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-    return request<T>('PUT', path, { body, signal });
+  put<T>(
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+    extras?: ServerCallExtras,
+  ): Promise<T> {
+    return request<T>('PUT', path, { body, signal, ...extras });
   },
 
-  patch<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-    return request<T>('PATCH', path, { body, signal });
+  patch<T>(
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+    extras?: ServerCallExtras,
+  ): Promise<T> {
+    return request<T>('PATCH', path, { body, signal, ...extras });
   },
 
-  delete<T>(path: string, signal?: AbortSignal): Promise<T> {
-    return request<T>('DELETE', path, { signal });
+  delete<T>(path: string, signal?: AbortSignal, extras?: ServerCallExtras): Promise<T> {
+    return request<T>('DELETE', path, { signal, ...extras });
   },
 };
 

@@ -41,9 +41,14 @@ import {
 } from '@/lib/mocks/menu/menu.mocks';
 import { menuCategoryAssignmentSchema } from '@/lib/schemas/menu/menus/menusSchema';
 import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
+import {
+  parseCreateMenuItemV2RequestBody,
+  parseUpdateMenuItemV2RequestBody,
+} from '@/lib/helpers/createMenuItemV2Body';
 import { MOCK_MENU_CATEGORIES, MOCK_MENU_ITEMS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 import { resolveCashRegistersMock } from '@/lib/mocks/pos/useCashCounters.mocks';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
+import ApiUrlsV2 from '@/services/api/ApiUrlsV2';
 
 import type { HttpMethod, QueryParams } from '@/services/api/types';
 
@@ -246,6 +251,142 @@ export function resolveMock(request: MockRequest): unknown | undefined {
           updated_at: now,
         },
         message: 'Menu item tag created',
+      };
+    }
+
+    if (request.method === 'POST' && request.path === ApiUrlsV2.restaurant.menuItems) {
+      let v2Body;
+      try {
+        v2Body = parseCreateMenuItemV2RequestBody(request.body);
+      } catch {
+        return {
+          success: false,
+          message: 'Invalid menu item create payload',
+        };
+      }
+
+      const now = new Date().toISOString();
+      const item = v2Body.item;
+      const nextId = Date.now();
+      const basePrice = Number(item.base_price) || 0;
+      const categoryId = Number(item.category_id) || 1;
+      const scope = item.scope === 'branch' ? 'branch' : 'company';
+      const variantsRaw = v2Body.variants;
+      const variants = variantsRaw.map((variant, index) => {
+        const adjustment = Number(variant.price_adjustment) || 0;
+        return {
+          id: nextId + index + 1,
+          name: variant.name,
+          price_adjustment: adjustment,
+          final_price: basePrice + adjustment,
+          display_order: variant.display_order ?? index,
+          is_default: variant.is_default,
+          sku: null,
+        };
+      });
+      return {
+        success: true,
+        data: {
+          id: nextId,
+          organization_id: 126,
+          company_id: 94,
+          catalogue_scope: scope,
+          branch_id:
+            scope === 'branch' && item.assign_branch_id != null
+              ? Number(item.assign_branch_id)
+              : null,
+          category_id: categoryId,
+          taxes: v2Body.taxes,
+          preparation_stations: v2Body.preparation_stations,
+          modifier_groups: v2Body.modifier_groups,
+          name: String(item.name ?? 'Menu item'),
+          code: String(item.code ?? null),
+          description: item.description != null ? String(item.description) : null,
+          sku: item.sku != null ? String(item.sku) : null,
+          barcode: item.barcode != null ? String(item.barcode) : null,
+          base_price: basePrice,
+          profit_margin_percent:
+            item.profit_margin_percent != null ? Number(item.profit_margin_percent) : null,
+          allow_dine_in: item.allow_dine_in !== false,
+          allow_takeaway: item.allow_takeaway !== false,
+          allow_delivery: item.allow_delivery !== false,
+          expose_captain_app: item.expose_captain_app !== false,
+          is_favorite: item.is_favorite === true,
+          is_combo: item.is_combo === true,
+          tag_ids: [],
+          tags: [],
+          dietary_type: item.dietary_type === 'non_veg' ? 'non_veg' : 'veg',
+          status: 'active',
+          variants,
+          images: [],
+          created_at: now,
+          updated_at: now,
+        },
+        message: 'Menu item created',
+      };
+    }
+
+    if (
+      request.method === 'PATCH' &&
+      request.path.startsWith(`${ApiUrlsV2.restaurant.menuItems}/`)
+    ) {
+      const idSegment = request.path.slice(ApiUrlsV2.restaurant.menuItems.length + 1).split('/')[0];
+      const itemId = Number(idSegment);
+      if (!Number.isFinite(itemId) || itemId <= 0) {
+        return { success: false, message: 'Invalid menu item id' };
+      }
+
+      let v2Body;
+      try {
+        v2Body = parseUpdateMenuItemV2RequestBody(request.body);
+      } catch {
+        return {
+          success: false,
+          message: 'Invalid menu item update payload',
+        };
+      }
+
+      const existing =
+        MOCK_MENU_ITEMS.find((row) => Number(row.id) === itemId) ?? MOCK_MENU_ITEMS[0] ?? null;
+      const now = new Date().toISOString();
+      const item = v2Body.item;
+      const basePrice = Number(item.base_price) || existing?.base_price || 0;
+
+      return {
+        success: true,
+        message: 'Menu item updated',
+        data: {
+          ...(existing ?? {}),
+          id: itemId,
+          category_id: item.category_id,
+          name: item.name,
+          code: item.code,
+          description: item.description,
+          base_price: basePrice,
+          profit_margin_percent: item.profit_margin_percent,
+          allow_dine_in: item.allow_dine_in,
+          allow_takeaway: item.allow_takeaway,
+          allow_delivery: item.allow_delivery,
+          expose_captain_app: item.expose_captain_app,
+          is_favorite: item.is_favorite,
+          is_combo: item.is_combo,
+          dietary_type: item.dietary_type,
+          taxes: v2Body.taxes,
+          preparation_stations: v2Body.preparation_stations,
+          modifier_groups: v2Body.modifier_groups,
+          variants: v2Body.variants.map((variant, index) => ({
+            id: variant.id ?? itemId + index + 1,
+            name: variant.name,
+            price_adjustment: Number(variant.price_adjustment) || 0,
+            final_price: basePrice + (Number(variant.price_adjustment) || 0),
+            display_order: variant.display_order ?? index,
+            is_default: variant.is_default,
+            status: 'active',
+          })),
+          tags: [],
+          images: [],
+          updated_at: now,
+        },
       };
     }
 

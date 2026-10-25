@@ -1,4 +1,5 @@
 import { clearSidebarSession } from '@/lib/auth/session';
+import { resolveUpstreamContextHeaders } from '@/lib/helpers/apiContextHeaders';
 import { getErrorMessage, getSuccessMessage } from '@/lib/helpers/getErrorMessage';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -104,6 +105,9 @@ async function request<T>(
   }
 
   const headers = new Headers({ Accept: 'application/json' });
+  for (const [key, value] of Object.entries(resolveUpstreamContextHeaders())) {
+    headers.set(key, value);
+  }
   let body: BodyInit | undefined;
 
   if (options.body !== undefined && method !== 'GET') {

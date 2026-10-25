@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { catalogueNameSchema, menuSessionNameSchema } from '@/lib/schemas/menu/menuCreationSchema';
 import { catalogueScopeSchema } from '@/lib/schemas/menu/menuCategoriesSchema';
 import { ApiError } from '@/services/api/types';
 
@@ -106,7 +107,7 @@ export type RestaurantMenuSlug = z.infer<typeof restaurantMenuSlugSchema>;
 
 /** POST /v1/restaurant/menus — company omits scope / assign_branch_id */
 export const createRestaurantMenuBodySchema = z.object({
-  name: z.string().trim().min(1),
+  name: catalogueNameSchema,
   menu: restaurantMenuSlugSchema,
   code: z.string().trim().min(1),
   description: z.string().trim().optional(),
@@ -247,8 +248,18 @@ export const RESTAURANT_MENU_SLUG_OPTIONS = [
   { id: 'all', label: 'All' },
 ] as const satisfies ReadonlyArray<{ id: RestaurantMenuSlug; label: string }>;
 
+export const editMenuSessionFormSchema = z.object({
+  name: menuSessionNameSchema,
+  code: z
+    .string()
+    .trim()
+    .min(2, 'Session code must be at least 2 characters')
+    .max(32, 'Session code must be at most 32 characters'),
+  description: z.string().trim().optional().default(''),
+});
+
 export const menuSessionFormSchema = z.object({
-  name: z.string().trim().min(2, 'Session name must be at least 2 characters'),
+  name: menuSessionNameSchema,
   code: z
     .string()
     .trim()
