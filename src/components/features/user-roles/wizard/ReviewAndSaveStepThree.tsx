@@ -263,39 +263,6 @@ export function ReviewAndSaveStepThree({
             </Typography>
           </Box>
         </Box>
-
-        {/* Invitation Status & Personal Message */}
-        <Box
-          sx={{
-            pt: 2,
-            borderTop: '1px solid',
-            borderColor: (theme) =>
-              theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              Send invitation email immediately
-            </Typography>
-            <Typography
-              sx={{ fontSize: '0.8125rem', fontWeight: 700, color: colors.success.default }}
-            >
-              Enabled
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              Personal Message
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', color: 'text.primary', lineHeight: 1.5 }}>
-              {formValues.personalMessage || 'Welcome to the team! Here is your access to Hospixo.'}
-            </Typography>
-          </Box>
-        </Box>
       </Card>
 
       {/* 3. Permissions summary (same groups as configure step, read-only) */}

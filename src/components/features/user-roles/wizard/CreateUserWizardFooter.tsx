@@ -29,7 +29,7 @@ export function CreateUserWizardFooter({
   const getFooterNextLabel = (): string => {
     if (currentStep === 'user-form') return 'Setup Permissions';
     if (currentStep === 'permissions') return 'Save User Access';
-    return 'Send Invitation';
+    return 'Save User';
   };
 
   const getFooterBackLabel = (): string => {

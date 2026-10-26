@@ -117,9 +117,9 @@ export function CreateUserStepOne({
     const byContext = targetCompanyId
       ? companies.find((c) => String(c.id) === String(targetCompanyId))?.name
       : undefined;
-    if (byContext) return byContext;
-    if (companies.length > 0) return companies[0]?.name;
-    return undefined;
+    if (byContext && !isFallbackEntityName(byContext)) return byContext;
+    const firstReal = companies.find((c) => c.name && !isFallbackEntityName(c.name));
+    return firstReal?.name;
   }, [contextCompanyId, accountCompanyId, directoryCompanyId, directory.data?.companies]);
 
   const sessionCompanyName = useResolvedCompanyName(companyName, { scope: currentScope });
@@ -157,7 +157,7 @@ export function CreateUserStepOne({
 
     if (!targetBranch) return undefined;
 
-    if (targetBranch.companyName?.trim()) {
+    if (targetBranch.companyName?.trim() && !isFallbackEntityName(targetBranch.companyName)) {
       return {
         id: targetBranch.companyId,
         name: targetBranch.companyName.trim(),
@@ -166,7 +166,7 @@ export function CreateUserStepOne({
 
     if (targetBranch.companyId != null) {
       const matchedCompany = companies.find((c) => String(c.id) === String(targetBranch.companyId));
-      if (matchedCompany?.name?.trim()) {
+      if (matchedCompany?.name?.trim() && !isFallbackEntityName(matchedCompany.name)) {
         return {
           id: matchedCompany.id,
           name: matchedCompany.name.trim(),
@@ -182,8 +182,10 @@ export function CreateUserStepOne({
     branchBoundCompany?.name ||
     sessionCompanyName ||
     directoryCompanyName ||
-    companyOptions[0] ||
-    formValues.company ||
+    companyOptions.find((name) => !isFallbackEntityName(name)) ||
+    (formValues.company && !isFallbackEntityName(formValues.company)
+      ? formValues.company
+      : undefined) ||
     '—';
   const lockedCompanyLabel = resolvedCompanyLabel;
 
@@ -239,27 +241,43 @@ export function CreateUserStepOne({
   );
 
   const defaultRole = formValues.role || roleOptions[0] || DEFAULT_FALLBACK_ROLES[0] || '';
-  const initialCompany =
-    lockCompanyField || currentScope === 'branch' || currentScope === 'company'
-      ? resolvedCompanyLabel !== '—'
-        ? resolvedCompanyLabel
-        : formValues.company
-      : formValues.company;
-  const initialBranch =
-    currentScope === 'branch'
-      ? lockedBranchLabel !== '—'
-        ? lockedBranchLabel
-        : formValues.branch
-      : formValues.branch;
+  const pickCompanyFormValue = (value?: string) =>
+    value?.trim() && !isFallbackEntityName(value) ? value.trim() : '';
+
+  const derivedCompanyValue = useMemo(() => {
+    if (lockCompanyField || currentScope === 'branch' || currentScope === 'company') {
+      if (resolvedCompanyLabel !== '—' && !isFallbackEntityName(resolvedCompanyLabel)) {
+        return resolvedCompanyLabel;
+      }
+      return pickCompanyFormValue(formValues.company);
+    }
+    return pickCompanyFormValue(formValues.company);
+  }, [lockCompanyField, currentScope, resolvedCompanyLabel, formValues.company]);
+
+  const derivedBranchValue = useMemo(() => {
+    if (currentScope === 'branch') {
+      if (lockedBranchLabel !== '—' && !isFallbackEntityName(lockedBranchLabel)) {
+        return lockedBranchLabel;
+      }
+      return formValues.branch ?? '';
+    }
+    return formValues.branch ?? '';
+  }, [currentScope, lockedBranchLabel, formValues.branch]);
+
+  const syncedFormValues = useMemo(
+    (): CreateUserFormValues => ({
+      ...formValues,
+      role: defaultRole,
+      company: derivedCompanyValue,
+      branch: derivedBranchValue,
+    }),
+    [formValues, defaultRole, derivedCompanyValue, derivedBranchValue],
+  );
 
   const { control, handleSubmit, setValue, getValues } = useForm<CreateUserFormValues>({
     resolver: zodResolver(validationSchema),
-    defaultValues: {
-      ...formValues,
-      role: defaultRole,
-      company: initialCompany === '—' ? '' : initialCompany,
-      branch: initialBranch === '—' ? '' : initialBranch,
-    },
+    values: syncedFormValues,
+    resetOptions: { keepDirtyValues: true },
     mode: 'onBlur',
   });
 

@@ -4,7 +4,6 @@ import React from 'react';
 import { Controller, type Control, type FieldErrors } from 'react-hook-form';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import MailOutlineOutlinedIcon from '@mui/icons-material/MailOutlineOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
 import { Input } from '@/components/shared/form-fields/Input';
@@ -22,7 +21,6 @@ export interface StaffProfileBasicInfoSectionProps {
   assignedBranch?: string;
   onCountryCodeChange: (code: string) => void;
   onSendResetPassword: () => void;
-  onResendInvitation: () => void;
 }
 
 export function StaffProfileBasicInfoSection({
@@ -34,7 +32,6 @@ export function StaffProfileBasicInfoSection({
   assignedBranch,
   onCountryCodeChange,
   onSendResetPassword,
-  onResendInvitation,
 }: Readonly<StaffProfileBasicInfoSectionProps>) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -271,24 +268,15 @@ export function StaffProfileBasicInfoSection({
             Password & Security
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <Box sx={{ mt: 0.5 }}>
             <ActionButton
               variant="outlined"
               size="small"
               startIcon={<LockOutlinedIcon sx={{ fontSize: 16 }} />}
               onClick={onSendResetPassword}
-              sx={{ flex: 1, height: 42 }}
+              sx={{ height: 42 }}
             >
               Reset Password
-            </ActionButton>
-            <ActionButton
-              variant="outlined"
-              size="small"
-              startIcon={<MailOutlineOutlinedIcon sx={{ fontSize: 16 }} />}
-              onClick={onResendInvitation}
-              sx={{ flex: 1, height: 42 }}
-            >
-              Resend Invite
             </ActionButton>
           </Box>
         </Box>

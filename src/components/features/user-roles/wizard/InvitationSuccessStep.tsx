@@ -159,16 +159,16 @@ export function InvitationSuccessStep({
             </Typography>
           </Box>
 
-          {/* Status Row: Yellow/Amber Dot with Crisp Bold Invited Label */}
+          {/* Status Row */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
               Status
             </Typography>
             <StatusChip
-              status="invited"
-              label="Invited"
+              status="active"
+              label="Active"
               showDot
-              dotColor={colors.warning.default}
+              dotColor={colors.success.default}
               textColor="text.primary"
               bgColor="transparent"
               sx={{
