@@ -129,7 +129,6 @@ export function DashboardScreen({
 
   const scopeDetails = useMemo(() => {
     const companies = directory.data?.companies ?? [];
-    const branches = directory.data?.branches ?? [];
 
     switch (currentLevel) {
       case 'organization':

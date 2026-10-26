@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -20,6 +20,7 @@ import {
   type EntityStatusFilter,
   type EntityTableColumn,
 } from '@/components/shared/entity-list';
+import { TablePagination } from '@/components/shared/ui/TablePagination';
 import { useOrganizationBranches } from '@/lib/hooks/organization/branches/useOrganizationBranches';
 import { branchDashboardHref } from '@/lib/helpers';
 import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
@@ -65,26 +66,24 @@ export function BranchesPage({
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
   const orgId = organizationId ?? accountOrgId;
   const scopedCompanyId = scope === 'company' ? (companyId ?? contextCompanyId) : undefined;
-  const branches = useOrganizationBranches(orgId, scopedCompanyId, initialBranches, scope);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EntityStatusFilter>('all');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const branches = useOrganizationBranches({
+    organizationId: orgId,
+    companyId: scopedCompanyId,
+    scope,
+    search,
+    status: statusFilter,
+    page,
+    pageSize,
+    initialBranches,
+  });
 
-  const rows = useMemo(() => branches.data ?? [], [branches.data]);
-  const counts = useMemo(() => {
-    const active = rows.filter((branch) => branch.status === 'active').length;
-    return { all: rows.length, active, inactive: rows.length - active };
-  }, [rows]);
-
-  const visibleRows = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return rows.filter((branch) => {
-      if (statusFilter !== 'all' && branch.status !== statusFilter) return false;
-      if (!query) return true;
-      return [branch.name, branch.code, branch.city, branch.companyName]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query));
-    });
-  }, [rows, search, statusFilter]);
+  const rows = branches.items;
+  const counts = branches.counts;
+  const listTotal = branches.total;
 
   const openBranch = (branch: BranchListItem) => {
     const nextContext = {
@@ -125,27 +124,44 @@ export function BranchesPage({
 
       <EntityListToolbar
         searchQuery={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value);
+          setPage(1);
+        }}
         searchPlaceholder="Search branches by name, code, or city..."
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        onStatusFilterChange={(next) => {
+          setStatusFilter(next);
+          setPage(1);
+        }}
         counts={counts}
       />
 
       <EntityTable
         columns={COLUMNS}
         isLoading={branches.isLoading}
-        isEmpty={visibleRows.length === 0}
+        isEmpty={rows.length === 0}
         emptyIcon={Store}
         emptyTitle="No branches found"
         emptySubtitle={
-          search ? 'Try adjusting your search criteria.' : 'No branches are currently registered.'
+          search || statusFilter !== 'all'
+            ? 'Try adjusting your search criteria.'
+            : 'No branches are currently registered.'
         }
       >
-        {visibleRows.map((branch) => (
+        {rows.map((branch) => (
           <BranchRow key={String(branch.id)} branch={branch} onOpen={openBranch} />
         ))}
       </EntityTable>
+
+      {listTotal > 0 ? (
+        <TablePagination
+          page={page}
+          pageCount={Math.max(1, Math.ceil(listTotal / pageSize))}
+          onPageChange={setPage}
+          summary={`Showing ${rows.length} of ${counts.all} branches`}
+        />
+      ) : null}
     </EntityListPageLayout>
   );
 }

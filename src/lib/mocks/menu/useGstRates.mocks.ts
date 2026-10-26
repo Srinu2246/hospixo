@@ -116,8 +116,9 @@ export function resolveGstRatesMock(request: MockRequest): unknown | undefined {
       const items = filterRates(request.params);
       const page = Number(request.params?.page ?? 1) || 1;
       const pageSize = Number(request.params?.page_size ?? 15) || 15;
+      const start = (page - 1) * pageSize;
       return ok({
-        items,
+        items: items.slice(start, start + pageSize),
         total: items.length,
         page,
         page_size: pageSize,

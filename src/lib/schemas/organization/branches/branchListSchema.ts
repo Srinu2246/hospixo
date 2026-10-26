@@ -19,6 +19,22 @@ export const branchListSchema = z.array(branchListItemSchema);
 
 export type BranchListItem = z.infer<typeof branchListItemSchema>;
 
+export type BranchListParams = {
+  company_id?: number;
+  organization_id?: number;
+  search?: string;
+  status?: 'active' | 'inactive';
+  page?: number;
+  page_size?: number;
+};
+
+export type PagedBranchListData = {
+  items: BranchListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
 /** Turn a branches API payload into the list the dashboards render. */
 export function parseBranchList(
   payload: unknown,
@@ -28,6 +44,20 @@ export function parseBranchList(
     const parsed = branchListItemSchema.safeParse(mapBranch(item, fallbackCompanyId));
     return parsed.success ? [parsed.data] : [];
   });
+}
+
+/** GET /v1/branches?company_id&search&status&page&page_size */
+export function parsePagedBranchList(
+  payload: unknown,
+  fallbackCompanyId?: number | string,
+): PagedBranchListData {
+  const items = parseBranchList(payload, fallbackCompanyId);
+  return {
+    items,
+    total: readPagedNumber(payload, ['total', 'total_count', 'totalCount', 'count'], items.length),
+    page: readPagedNumber(payload, ['page'], 1),
+    page_size: readPagedNumber(payload, ['page_size', 'pageSize'], items.length || 15),
+  };
 }
 
 function unwrapBranches(payload: unknown): Record<string, unknown>[] {
@@ -104,4 +134,32 @@ function text(value: unknown): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readPagedNumber(payload: unknown, keys: readonly string[], fallback: number): number {
+  let node: unknown = payload;
+  for (let depth = 0; depth < 4; depth += 1) {
+    node = unwrapEnvelope(node);
+    if (!isRecord(node)) break;
+    for (const key of keys) {
+      const value = node[key];
+      const parsed = typeof value === 'number' ? value : Number(value);
+      if (Number.isFinite(parsed) && parsed >= 0) return Math.trunc(parsed);
+    }
+    if (isRecord(node.meta)) {
+      for (const key of keys) {
+        const value = node.meta[key];
+        const parsed = typeof value === 'number' ? value : Number(value);
+        if (Number.isFinite(parsed) && parsed >= 0) return Math.trunc(parsed);
+      }
+    }
+    if (isRecord(node.pagination)) {
+      for (const key of keys) {
+        const value = node.pagination[key];
+        const parsed = typeof value === 'number' ? value : Number(value);
+        if (Number.isFinite(parsed) && parsed >= 0) return Math.trunc(parsed);
+      }
+    }
+  }
+  return fallback;
 }

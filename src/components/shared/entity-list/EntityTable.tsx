@@ -12,7 +12,7 @@ import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
 
-import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
+import { Loading } from '@/components/shared/ui/Loading';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { colors } from '@/lib/theme/mui/colors';
 
@@ -33,7 +33,7 @@ export interface EntityTableProps {
   sx?: SxProps<Theme>;
 }
 
-/** Outlined table with skeleton rows while loading and an empty state. */
+/** Outlined table with a loading state and an empty state. */
 export function EntityTable({
   columns,
   isLoading,
@@ -84,23 +84,11 @@ export function EntityTable({
           </TableHead>
           <TableBody>
             {isLoading ? (
-              Array.from({ length: 4 }).map((_, rowIndex) => (
-                <TableRow key={rowIndex}>
-                  {columns.map((column, columnIndex) => (
-                    <TableCell
-                      key={column.label}
-                      align={column.align ?? 'left'}
-                      sx={{ py: 1, px: 1.5 }}
-                    >
-                      <SkeletonLoader
-                        width={columnIndex === 0 ? 180 : 80}
-                        height={24}
-                        sx={column.align === 'center' ? { mx: 'auto' } : undefined}
-                      />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              <TableRow>
+                <TableCell colSpan={columns.length} sx={{ py: 4, border: 'none' }}>
+                  <Loading fullPage={false} sx={{ minHeight: 160, py: 2 }} />
+                </TableCell>
+              </TableRow>
             ) : isEmpty ? (
               <TableRow>
                 <TableCell colSpan={columns.length} sx={{ py: 6, textAlign: 'center' }}>

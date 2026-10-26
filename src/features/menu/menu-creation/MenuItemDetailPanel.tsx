@@ -14,7 +14,7 @@ import { ArrowLeft, Pencil } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
-import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
+import { Loading } from '@/components/shared/ui/Loading';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { gstLabelFromItem, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import { useMenuItem } from '@/lib/hooks/menu/useMenuItems';
@@ -72,7 +72,7 @@ export function MenuItemDetailPanel({
   if (detailQuery.isLoading) {
     return (
       <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', py: 2 }}>
-        <SkeletonLoader count={8} height={56} />
+        <Loading fullPage={false} />
       </Box>
     );
   }

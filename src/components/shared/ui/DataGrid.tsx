@@ -18,7 +18,7 @@ import {
 import type { SxProps, Theme } from '@mui/material/styles';
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 
-import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
+import { Loading } from '@/components/shared/ui/Loading';
 import { colors } from '@/lib/theme/mui/colors';
 
 /** Opaque header fill — sticky cells need a solid color so rows don't show through. */
@@ -52,7 +52,6 @@ export interface DataGridProps<T = object> {
   onRowClick?: (row: T, event: MouseEvent<HTMLTableRowElement>) => void; // Row click handler
   loading?: boolean; // Loading state flag
   isLoading?: boolean; // Alias for loading
-  loadingRowCount?: number; // Skeleton row count (default: 5)
   emptyTitle?: string; // Empty state title
   emptySubtitle?: string; // Empty state description
   emptyIcon?: ElementType; // Empty state icon component
@@ -134,7 +133,6 @@ export function DataGrid<T = object>({
   onRowClick,
   loading = false,
   isLoading = false,
-  loadingRowCount = 5,
   emptyTitle = 'No data available',
   emptySubtitle,
   emptyIcon: EmptyIcon = Inbox,
@@ -372,34 +370,11 @@ export function DataGrid<T = object>({
 
           <TableBody>
             {isDataLoading ? (
-              Array.from({ length: loadingRowCount }).map((_, rIdx) => (
-                <TableRow key={`loading-row-${rIdx}`}>
-                  {columns.map((col, cIdx) => (
-                    <TableCell
-                      key={`loading-cell-${col.field || cIdx}`}
-                      align={col.align ?? 'left'}
-                      sx={{
-                        py: dense ? 1 : 1.25,
-                        px: 2,
-                        borderColor: 'divider',
-                      }}
-                    >
-                      <SkeletonLoader
-                        variant="text"
-                        height={24}
-                        width={cIdx === 0 ? '70%' : cIdx === colSpan - 1 ? '40%' : '55%'}
-                        sx={
-                          col.align === 'center'
-                            ? { mx: 'auto' }
-                            : col.align === 'right'
-                              ? { ml: 'auto' }
-                              : undefined
-                        }
-                      />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              <TableRow>
+                <TableCell colSpan={colSpan} sx={{ py: 4, border: 'none' }}>
+                  <Loading fullPage={false} sx={{ minHeight: 160, py: 2 }} />
+                </TableCell>
+              </TableRow>
             ) : displayRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colSpan} sx={{ py: 6, textAlign: 'center', border: 'none' }}>

@@ -7,7 +7,7 @@ import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { CheckCircle2, XCircle } from 'lucide-react';
 
-import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
+import { Loading } from '@/components/shared/ui/Loading';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { colors } from '@/lib/theme/mui/colors';
 
@@ -103,7 +103,16 @@ export function EntityListMetricsRow({
               component="div"
               sx={{ fontSize: '1.35rem', fontWeight: 700, color: card.color, mt: 0.25 }}
             >
-              {isLoading ? <SkeletonLoader width={48} height={32} /> : card.value}
+              {isLoading ? (
+                <Loading
+                  message=""
+                  fullPage={false}
+                  size={20}
+                  sx={{ minHeight: 32, p: 0, width: 'auto' }}
+                />
+              ) : (
+                card.value
+              )}
             </Typography>
           </Box>
           <Box
