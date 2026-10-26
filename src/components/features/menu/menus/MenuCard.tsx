@@ -9,7 +9,7 @@ import { Card } from '@/components/shared/ui/Card';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { TagsGrid } from '@/components/shared/ui/TagsGrid';
 import { formatUpdatedAgo } from '@/lib/helpers';
-import type { MenuAssignment } from '@/lib/schemas/menu/menus/menuListSchema';
+import type { MenuAssignment } from '@/lib/schemas/menu/menus/menusSchema';
 import { colors } from '@/lib/theme/mui/colors';
 import { useThemeStore } from '@/stores/themeStore';
 

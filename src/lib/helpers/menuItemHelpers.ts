@@ -1,5 +1,10 @@
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
-import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
+import {
+  isMenuItemCreatedMessage,
+  isMenuItemUpdatedMessage,
+  type MenuItemResponse,
+} from '@/lib/schemas/menu/menuItemsSchema';
+import { useToastStore } from '@/stores/toastStore';
 
 export function toCatalogDietary(
   dietary: MenuItemResponse['dietary_type'],
@@ -49,4 +54,22 @@ export function gstLabelFromItem(item: MenuItemResponse): string {
   if (!tax?.gst_rate) return '—';
   const rate = tax.gst_rate;
   return `${rate.total_rate}% (${rate.name})`;
+}
+
+/** Success toast for POST/PATCH menu item writes (matches API `message` strings). */
+export function showMenuItemWriteSuccessToast(message: string | null | undefined): void {
+  const trimmed = message?.trim() ?? '';
+  if (!trimmed) return;
+
+  if (isMenuItemUpdatedMessage(trimmed)) {
+    useToastStore.getState().show('Menu item updated', 'success');
+    return;
+  }
+
+  if (isMenuItemCreatedMessage(trimmed)) {
+    useToastStore.getState().show('Menu item created', 'success');
+    return;
+  }
+
+  useToastStore.getState().show(trimmed, 'success');
 }

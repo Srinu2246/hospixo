@@ -30,8 +30,8 @@ export function useCaptainWorkspaceFloorFilters(table?: PosTableItem | null) {
   const [activeSection, setActiveSection] = useState(() => table?.sectionId ?? '');
 
   useEffect(() => {
-    if (table?.floorId) setActiveFloor(table.floorId);
-    if (table?.sectionId) setActiveSection(table.sectionId);
+    if (table?.floorId) queueMicrotask(() => setActiveFloor(table.floorId));
+    if (table?.sectionId) queueMicrotask(() => setActiveSection(table.sectionId));
   }, [table?.floorId, table?.sectionId]);
 
   const numericFloorId = /^\d+$/.test(activeFloor) ? Number(activeFloor) : undefined;

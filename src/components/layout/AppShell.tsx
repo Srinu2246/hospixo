@@ -8,6 +8,7 @@ import { TopNavbar } from '@/components/shared/app/TopNavbar';
 import { WorkspaceBottomNav } from '@/components/shared/app/WorkspaceBottomNav';
 import { Toast } from '@/components/shared/ui/Toast';
 import { isSidebarlessRole } from '@/app/sidebar';
+import { isPublicAuthPath } from '@/lib/auth/publicAuthRoutes';
 import type { SidebarSession } from '@/lib/auth/session';
 import {
   captainMainUsesStickyFooter,
@@ -76,7 +77,7 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
     />
   );
 
-  if (pathname === '/login' || pathname.startsWith('/login/')) {
+  if (isPublicAuthPath(pathname)) {
     return (
       <Box sx={{ minHeight: '100vh', width: '100%', bgcolor: 'background.default' }}>
         {children}

@@ -12,13 +12,6 @@ export function useAppShellFooterTarget(): HTMLElement | null {
 
   useLayoutEffect(() => {
     const read = () => document.getElementById(FOOTER_ID);
-
-    const node = read();
-    if (node) {
-      setTarget(node);
-      return;
-    }
-
     const frame = requestAnimationFrame(() => {
       setTarget(read());
     });

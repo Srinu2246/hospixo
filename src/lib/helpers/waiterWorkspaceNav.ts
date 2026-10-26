@@ -2,8 +2,9 @@ import { CAPTAIN_WORKSPACE_NAV, type WaiterWorkspaceNavItem } from '@/app/sideba
 
 /** Footer + sidebar tabs for captain-flow (same catalog for waiter and branch manager). */
 export function workspaceBottomNavItemsForRole(
-  _role?: string | null,
+  role?: string | null,
 ): readonly WaiterWorkspaceNavItem[] {
+  void role;
   return CAPTAIN_WORKSPACE_NAV;
 }
 

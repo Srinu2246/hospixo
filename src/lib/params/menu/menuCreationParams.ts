@@ -1,4 +1,7 @@
-import type { MenuCreationViewMode } from '@/lib/schemas/menu/menuCreationSchema';
+import type {
+  MenuCreationScope,
+  MenuCreationViewMode,
+} from '@/lib/schemas/menu/menuCreationSchema';
 
 /** Query keys for Menu Creation URL state. */
 export const MENU_CREATION_PARAMS = {
@@ -180,15 +183,32 @@ export function pushMenuCreationView(
   );
 }
 
+const MENU_CREATION_LIST_PATH: Record<MenuCreationScope, string> = {
+  company: '/company/menu/menu-creation',
+  branch: '/branch-manager/menu/menu-creation',
+  organization: '/organization/menu/menu-creation',
+};
+
+export function menuCreationListPath(scope: MenuCreationScope): string {
+  return MENU_CREATION_LIST_PATH[scope];
+}
+
 export type PushMenuCreationListOptions = {
   categoryFilterId?: string | null;
   /** Normalize create-item path segments back to menu-creation. */
   cleanPath?: boolean;
+  /** When set, pathname becomes the scope list URL (e.g. branch-manager menu-creation). */
+  scope?: MenuCreationScope;
 };
 
 /** Return to list view; keeps or sets category filter. */
 export function pushMenuCreationList(options: PushMenuCreationListOptions = {}) {
-  const url = currentUrl();
+  if (typeof window === 'undefined') return;
+
+  const url =
+    options.scope != null
+      ? new URL(menuCreationListPath(options.scope), window.location.origin)
+      : currentUrl();
   if (!url) return;
 
   clearViewParams(url);
@@ -201,6 +221,10 @@ export function pushMenuCreationList(options: PushMenuCreationListOptions = {}) 
     url.pathname = url.pathname
       .replace(/\/create-menu-item$/, '/menu-creation')
       .replace(/\/create$/, '');
+  }
+
+  if (options.scope != null) {
+    url.pathname = menuCreationListPath(options.scope);
   }
 
   window.history.pushState({}, '', `${url.pathname}${url.search}`);

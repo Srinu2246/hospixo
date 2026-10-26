@@ -26,7 +26,8 @@ export interface AssignMenuItemsModalProps {
   /** Already assigned item ids. */
   assignedIds: readonly number[];
   onClose: () => void;
-  onAssign: (itemIds: number[]) => void;
+  onAssign: (categoryIds: number[]) => void | Promise<void>;
+  assigning?: boolean;
 }
 
 /**
@@ -41,6 +42,7 @@ export function AssignMenuItemsModal({
   assignedIds,
   onClose,
   onAssign,
+  assigning = false,
 }: Readonly<AssignMenuItemsModalProps>) {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
 
@@ -83,14 +85,9 @@ export function AssignMenuItemsModal({
     onClose();
   }
 
-  function handleAssign() {
-    if (selectedCategoryIds.length === 0) return;
-    const selected = new Set(selectedCategoryIds);
-    const itemIds = catalogItems
-      .filter((item) => selected.has(item.categoryId) && !assignedSet.has(item.id))
-      .map((item) => item.id);
-    if (itemIds.length === 0) return;
-    onAssign(itemIds);
+  async function handleAssign() {
+    if (selectedCategoryIds.length === 0 || assigning) return;
+    await onAssign([...selectedCategoryIds]);
     handleClose();
   }
 
@@ -125,7 +122,11 @@ export function AssignMenuItemsModal({
             <ActionButton variant="outlined" onClick={handleClose}>
               Cancel
             </ActionButton>
-            <ActionButton onClick={handleAssign} disabled={selectedItemCount === 0}>
+            <ActionButton
+              onClick={() => void handleAssign()}
+              loading={assigning}
+              disabled={selectedCategoryIds.length === 0 || assigning}
+            >
               Assign Selected
             </ActionButton>
           </Stack>

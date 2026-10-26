@@ -354,32 +354,34 @@ function MenuItemDetailBody({
           Description
         </Typography>
 
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={3}
-          sx={{ alignItems: { md: 'center' }, justifyContent: 'space-between' }}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'minmax(200px, 320px) 1fr' },
+            gap: 3,
+            alignItems: 'start',
+          }}
         >
-          <Typography
-            sx={{ flex: 1, color: 'text.secondary', fontSize: '0.875rem', lineHeight: 1.65 }}
-          >
-            {catalog.description || 'No description provided.'}
-          </Typography>
-
           <Box
             component="img"
             src={primaryImage}
             alt={catalog.name}
             sx={{
-              width: { xs: '100%', md: 320 },
-              height: 180,
+              width: '100%',
+              height: { xs: 200, md: 180 },
               objectFit: 'cover',
               borderRadius: '12px',
               border: '1px solid',
               borderColor: 'divider',
-              flexShrink: 0,
             }}
           />
-        </Stack>
+
+          <Typography
+            sx={{ color: 'text.secondary', fontSize: '0.875rem', lineHeight: 1.65, minWidth: 0 }}
+          >
+            {catalog.description || 'No description provided.'}
+          </Typography>
+        </Box>
       </Paper>
 
       <Paper

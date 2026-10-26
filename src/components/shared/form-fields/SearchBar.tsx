@@ -105,7 +105,8 @@ export function SearchBar({
         },
         '&:focus-within': {
           borderColor: 'primary.main',
-          boxShadow: (theme) => `0 0 0 1px ${theme.palette.primary.main}`,
+          boxShadow: (theme) =>
+            `0 0 0 2px ${theme.palette.mode === 'dark' ? 'rgba(51, 84, 244, 0.35)' : 'rgba(51, 84, 244, 0.15)'}`,
         },
         ...sx,
       }}

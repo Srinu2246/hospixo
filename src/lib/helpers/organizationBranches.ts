@@ -66,7 +66,7 @@ export async function loadBranchDirectory(
   let companies: CompanyListItem[] = [];
   if (listAllowed && organizationId != null) {
     companies = await loadOrganizationCompanies(organizationId, get, listContext).catch(() => []);
-  } else if (companyId != null) {
+  } else if (companyId != null && scope !== 'branch') {
     const detail = await loadCompanyById(companyId, get).catch(() => null);
     if (detail) companies = [detail];
   }
@@ -144,6 +144,6 @@ function dedupeBranches(items: readonly BranchListItem[]): BranchListItem[] {
   return [...byId.values()];
 }
 
-function isMissingEndpoint(error: ApiError | Error | object): boolean {
+function isMissingEndpoint(error: unknown): boolean {
   return error instanceof ApiError && (error.status === 403 || error.status === 404);
 }

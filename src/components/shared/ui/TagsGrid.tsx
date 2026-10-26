@@ -102,6 +102,11 @@ export function TagsGrid({
   );
 
   const recalculate = useCallback(() => {
+    if (typeof maxVisible === 'number') {
+      setVisibleCount(Math.min(tags.length, maxVisible));
+      return;
+    }
+
     const container = containerRef.current;
     const measure = measureRef.current;
     if (!container || !measure || tags.length === 0) return;
@@ -184,6 +189,8 @@ export function TagsGrid({
   const boundedCount = Math.min(Math.max(0, visibleCount), tags.length);
   const visibleTags = tags.slice(0, boundedCount);
   const remainingTags = tags.slice(boundedCount);
+  const overflowTooltipTags =
+    typeof maxVisible === 'number' && tags.length > maxVisible ? tags : remainingTags;
 
   const renderBadge = (count: number) => {
     if (renderOverflowBadge) {
@@ -236,7 +243,6 @@ export function TagsGrid({
 
   return (
     <Box
-      ref={containerRef}
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -244,23 +250,38 @@ export function TagsGrid({
         width: '100%',
         minWidth: 0,
         maxWidth: '100%',
-        overflow: 'hidden',
         position: 'relative',
         ...sx,
       }}
     >
-      {/* Visible tags within measured container width */}
-      {visibleTags.map((tag, idx) => (
-        <Box key={`${tag}-${idx}`} sx={{ display: 'inline-flex', flexShrink: 0, minWidth: 0 }}>
-          {renderTagItem(tag, idx)}
-        </Box>
-      ))}
+      <Box
+        ref={containerRef}
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          gap,
+        }}
+      >
+        {visibleTags.map((tag, idx) => (
+          <Box
+            key={`${tag}-${idx}`}
+            sx={{ display: 'inline-flex', flexShrink: 1, minWidth: 0, maxWidth: '100%' }}
+          >
+            {renderTagItem(tag, idx)}
+          </Box>
+        ))}
+      </Box>
 
-      {/* Overflow +N badge with interactive tooltip showing remaining tags */}
-      {remainingTags.length > 0 && (
+      {remainingTags.length > 0 ? (
         <Tooltip
           arrow
           placement={tooltipPlacement}
+          describeChild
+          enterDelay={200}
+          enterTouchDelay={0}
           title={
             <Box
               sx={{
@@ -282,7 +303,9 @@ export function TagsGrid({
                     textTransform: 'uppercase',
                   }}
                 >
-                  Remaining Tags ({remainingTags.length})
+                  {overflowTooltipTags.length === tags.length
+                    ? `All tags (${tags.length})`
+                    : `Remaining tags (${remainingTags.length})`}
                 </Typography>
               )}
               <Box
@@ -294,15 +317,19 @@ export function TagsGrid({
                   overflowY: 'auto',
                 }}
               >
-                {remainingTags.map((tag, idx) => (
-                  <Box key={`remaining-${tag}-${idx}`} sx={{ display: 'inline-flex' }}>
-                    {renderTagItem(tag, visibleCount + idx)}
+                {overflowTooltipTags.map((tag, idx) => (
+                  <Box key={`overflow-tip-${tag}-${idx}`} sx={{ display: 'inline-flex' }}>
+                    {renderTagItem(tag, idx)}
                   </Box>
                 ))}
               </Box>
             </Box>
           }
           slotProps={{
+            popper: {
+              disablePortal: false,
+              sx: { zIndex: 1600 },
+            },
             tooltip: {
               sx: {
                 bgcolor: 'background.paper',
@@ -315,6 +342,7 @@ export function TagsGrid({
                 borderColor: 'divider',
                 borderRadius: '10px',
                 p: 1.25,
+                pointerEvents: 'auto',
               },
             },
             arrow: {
@@ -328,13 +356,17 @@ export function TagsGrid({
             },
           }}
         >
-          <Box component="span" sx={{ display: 'inline-flex' }}>
+          <Box
+            component="span"
+            sx={{ display: 'inline-flex', flexShrink: 0 }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+          >
             {renderBadge(remainingTags.length)}
           </Box>
         </Tooltip>
-      )}
+      ) : null}
 
-      {/* Hidden offscreen container for accurate element width measurement */}
       <Box
         ref={measureRef}
         aria-hidden="true"

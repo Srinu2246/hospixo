@@ -7,12 +7,18 @@ import { loadBranchDirectory } from '@/lib/helpers/organizationBranches';
 import { useQuery } from '@/lib/hooks/api/useQuery';
 import { api } from '@/services/api/browserClient';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import type { JsonValue } from '@/types/json';
+
+export type UseNavbarBranchOptionsConfig = Readonly<{
+  /** When false, skips companies/branches directory API calls. */
+  enabled?: boolean;
+}>;
 
 /**
  * Branch/outlet options for the top navbar (mobile/tablet selector).
  * Loads from the same directory API as organization branch screens — no mock list.
  */
-export function useNavbarBranchOptions() {
+export function useNavbarBranchOptions(config?: UseNavbarBranchOptionsConfig) {
   const context = useSidebarStore((state) => state.context);
   const role = useSidebarStore((state) => state.role || state.user?.role || '');
   const authScope = useSidebarStore((state) => state.account?.scope ?? '');
@@ -33,10 +39,10 @@ export function useNavbarBranchOptions() {
       loadBranchDirectory(
         context.organizationId,
         context.companyId,
-        (path, params) => api.get<unknown>(path, params, signal),
+        (path, params) => api.get<JsonValue>(path, params, signal),
         { role, authScope, scope },
       ),
-    enabled: Boolean(role?.trim()),
+    enabled: (config?.enabled ?? true) && Boolean(role?.trim()),
     staleTime: 60_000,
   });
 

@@ -29,7 +29,9 @@ export const availabilityItemSchema = z.object({
   /** True when API `status` is `active`. */
   isActive: z.boolean().default(true),
   visibility: itemVisibilitySchema,
+  /** Primary tag label (search / legacy). */
   tag: z.string().min(1),
+  tags: z.array(z.string()).default([]),
   isHidden: z.boolean().default(false),
 });
 

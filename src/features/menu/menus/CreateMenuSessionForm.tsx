@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Paper from '@mui/material/Paper';
@@ -9,11 +9,16 @@ import Typography from '@mui/material/Typography';
 import { Check, ChevronLeft } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
+import { zodFieldMessage } from '@/lib/schemas/menu/menuCreationSchema';
 import {
+  editMenuSessionFormSchema,
   menuSessionFormSchema,
+  RESTAURANT_MENU_SLUG_OPTIONS,
   type MenuSessionFormValues,
-} from '@/lib/schemas/menu/menus/menuSessionFormSchema';
+  type RestaurantMenuSlug,
+} from '@/lib/schemas/menu/menus/menusSchema';
 import { colors } from '@/lib/theme/mui/colors';
 import { useThemeStore } from '@/stores/themeStore';
 
@@ -43,11 +48,59 @@ export function CreateMenuSessionForm({
   const borderColor = isDark ? colors.border.dark : colors.border.default;
   const [name, setName] = useState(initialValues?.name ?? '');
   const [code, setCode] = useState(initialValues?.code ?? '');
-  const [menuType, setMenuType] = useState(initialValues?.menuType ?? '');
+  const [menu, setMenu] = useState<RestaurantMenuSlug>(initialValues?.menu ?? 'breakfast');
+  const [menuType, setMenuType] = useState(initialValues?.menuType ?? 'all');
   const [description, setDescription] = useState(initialValues?.description ?? '');
+  const [touched, setTouched] = useState<Partial<Record<keyof MenuSessionFormValues, boolean>>>({});
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<keyof MenuSessionFormValues, string>>
   >({});
+
+  function sessionFormValues(): MenuSessionFormValues {
+    return {
+      name,
+      code,
+      menu: isEdit ? menu || initialValues?.menu || 'breakfast' : menu,
+      menuType: isEdit ? (menuType || initialValues?.menuType || 'all').toLowerCase() : menuType,
+      description,
+    };
+  }
+
+  const activeSchema = isEdit ? editMenuSessionFormSchema : menuSessionFormSchema;
+
+  function validationPayload() {
+    const values = sessionFormValues();
+    if (isEdit) {
+      return {
+        name: values.name,
+        code: values.code,
+        description: values.description,
+      };
+    }
+    return values;
+  }
+
+  function touchField(field: keyof MenuSessionFormValues) {
+    setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
+  }
+
+  function validateField(field: keyof MenuSessionFormValues) {
+    const message = zodFieldMessage(activeSchema, validationPayload(), field);
+    setFieldErrors((prev) => {
+      if (!message) {
+        if (!prev[field]) return prev;
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      }
+      return { ...prev, [field]: message };
+    });
+  }
+
+  function handleFieldBlur(field: keyof MenuSessionFormValues) {
+    touchField(field);
+    validateField(field);
+  }
 
   function clearFieldError(field: keyof MenuSessionFormValues) {
     setFieldErrors((prev) => {
@@ -58,28 +111,83 @@ export function CreateMenuSessionForm({
     });
   }
 
-  function handleSubmit() {
-    const result = menuSessionFormSchema.safeParse({
-      name,
-      code,
-      menuType: isEdit ? menuType || initialValues?.menuType || 'ALL' : menuType,
-      description,
-    });
+  function inlineError(field: keyof MenuSessionFormValues): string | undefined {
+    return touched[field] ? fieldErrors[field] : undefined;
+  }
 
-    if (!result.success) {
-      const next: Partial<Record<keyof MenuSessionFormValues, string>> = {};
-      for (const issue of result.error.issues) {
-        const key = issue.path[0];
-        if (typeof key === 'string' && !(key in next)) {
-          next[key as keyof MenuSessionFormValues] = issue.message;
+  const initialEditSnapshot = useMemo(
+    () => ({
+      name: (initialValues?.name ?? '').trim(),
+      code: (initialValues?.code ?? '').trim(),
+      description: (initialValues?.description ?? '').trim(),
+    }),
+    [initialValues?.code, initialValues?.description, initialValues?.name],
+  );
+
+  const hasEditChanges = useMemo(() => {
+    if (!isEdit) return true;
+    return (
+      name.trim() !== initialEditSnapshot.name ||
+      code.trim() !== initialEditSnapshot.code ||
+      description.trim() !== initialEditSnapshot.description
+    );
+  }, [code, description, initialEditSnapshot, isEdit, name]);
+
+  const canSubmit = useMemo(() => {
+    const isValid = isEdit
+      ? editMenuSessionFormSchema.safeParse(validationPayload()).success
+      : menuSessionFormSchema.safeParse(sessionFormValues()).success;
+    if (!isValid) return false;
+    if (isEdit) return hasEditChanges;
+    return true;
+  }, [code, description, hasEditChanges, isEdit, menu, menuType, name]);
+
+  function applySchemaErrors(result: {
+    success: false;
+    error: { issues: { path: PropertyKey[]; message: string }[] };
+  }) {
+    const nextTouched: Partial<Record<keyof MenuSessionFormValues, boolean>> = {};
+    const next: Partial<Record<keyof MenuSessionFormValues, string>> = {};
+    for (const issue of result.error.issues) {
+      const key = issue.path[0];
+      if (typeof key === 'string') {
+        const field = key as keyof MenuSessionFormValues;
+        nextTouched[field] = true;
+        if (!(field in next)) {
+          next[field] = issue.message;
         }
       }
-      setFieldErrors(next);
+    }
+    setTouched((prev) => ({ ...prev, ...nextTouched }));
+    setFieldErrors(next);
+  }
+
+  function handleSubmit() {
+    const values = sessionFormValues();
+
+    if (isEdit) {
+      const editResult = editMenuSessionFormSchema.safeParse(validationPayload());
+      if (!editResult.success) {
+        applySchemaErrors(editResult);
+        return;
+      }
+      setFieldErrors({});
+      onSubmit({
+        ...values,
+        name: editResult.data.name,
+        code: editResult.data.code,
+        description: editResult.data.description ?? '',
+      });
       return;
     }
 
+    const createResult = menuSessionFormSchema.safeParse(values);
+    if (!createResult.success) {
+      applySchemaErrors(createResult);
+      return;
+    }
     setFieldErrors({});
-    onSubmit(result.data);
+    onSubmit(createResult.data);
   }
 
   const title = isEdit ? `Edit ${initialValues?.name?.trim() || 'Session'}` : 'Create Menus';
@@ -172,12 +280,14 @@ export function CreateMenuSessionForm({
               placeholder="e.g., Breakfast Buffet"
               value={name}
               disabled={submitting}
-              error={Boolean(fieldErrors.name)}
-              helperText={fieldErrors.name}
+              error={Boolean(inlineError('name'))}
+              helperText={inlineError('name')}
               onChange={(event) => {
                 setName(event.target.value);
-                clearFieldError('name');
+                if (touched.name) validateField('name');
+                else clearFieldError('name');
               }}
+              onBlur={() => handleFieldBlur('name')}
             />
             <Input
               id="menu-session-code"
@@ -186,28 +296,66 @@ export function CreateMenuSessionForm({
               placeholder="e.g., BKFAST"
               value={code}
               disabled={submitting}
-              error={Boolean(fieldErrors.code)}
-              helperText={fieldErrors.code}
+              error={Boolean(inlineError('code'))}
+              helperText={inlineError('code')}
               onChange={(event) => {
                 setCode(event.target.value);
-                clearFieldError('code');
+                if (touched.code) validateField('code');
+                else clearFieldError('code');
               }}
+              onBlur={() => handleFieldBlur('code')}
             />
             {!isEdit ? (
-              <Input
-                id="menu-session-type"
-                label="Menu Type"
-                required
-                placeholder="e.g., ALL"
-                value={menuType}
-                disabled={submitting}
-                error={Boolean(fieldErrors.menuType)}
-                helperText={fieldErrors.menuType}
-                onChange={(event) => {
-                  setMenuType(event.target.value);
-                  clearFieldError('menuType');
-                }}
-              />
+              <>
+                <Box>
+                  <Typography
+                    component="label"
+                    htmlFor="menu-session-menu"
+                    sx={{
+                      display: 'block',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      mb: 0.75,
+                    }}
+                  >
+                    Menu *
+                  </Typography>
+                  <Dropdown
+                    options={[...RESTAURANT_MENU_SLUG_OPTIONS]}
+                    value={menu}
+                    onChange={(value) => {
+                      setMenu(value as RestaurantMenuSlug);
+                      touchField('menu');
+                      validateField('menu');
+                    }}
+                    disabled={submitting}
+                    minWidth="100%"
+                    sx={{ width: '100%' }}
+                  />
+                  {inlineError('menu') ? (
+                    <Typography sx={{ mt: 0.5, fontSize: '0.75rem', color: 'error.main' }}>
+                      {inlineError('menu')}
+                    </Typography>
+                  ) : null}
+                </Box>
+                <Input
+                  id="menu-session-type"
+                  label="Menu type"
+                  required
+                  placeholder="e.g., all"
+                  value={menuType}
+                  disabled={submitting}
+                  error={Boolean(inlineError('menuType'))}
+                  helperText={inlineError('menuType') ?? 'Service channel (all, dine_in, …)'}
+                  onChange={(event) => {
+                    setMenuType(event.target.value);
+                    if (touched.menuType) validateField('menuType');
+                    else clearFieldError('menuType');
+                  }}
+                  onBlur={() => handleFieldBlur('menuType')}
+                />
+              </>
             ) : null}
           </Box>
 
@@ -236,7 +384,7 @@ export function CreateMenuSessionForm({
           startIcon={<Check size={16} />}
           onClick={handleSubmit}
           loading={submitting}
-          disabled={submitting}
+          disabled={submitting || !canSubmit}
         >
           {isEdit ? 'Save Changes' : 'Create Session'}
         </ActionButton>

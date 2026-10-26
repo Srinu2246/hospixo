@@ -21,6 +21,8 @@ export interface MenuOrderSummaryBarProps {
   onProceedCheckout?: () => void;
   onServe?: () => void;
   serveLabel?: string;
+  /** Disables the serve / Send to KOT control while the API is in flight. */
+  serveLoading?: boolean;
   /** Captain mobile/tablet sticky footer (Figma) instead of side panel. */
   layout?: 'panel' | 'compactSticky';
 }
@@ -45,6 +47,7 @@ export function MenuOrderSummaryBar({
   onProceedCheckout,
   onServe,
   serveLabel,
+  serveLoading = false,
   layout = 'panel',
 }: Readonly<MenuOrderSummaryBarProps>) {
   // Calculations
@@ -84,7 +87,8 @@ export function MenuOrderSummaryBar({
           <ActionButton
             variant="primary"
             onClick={onServe}
-            disabled={items.length === 0}
+            disabled={items.length === 0 || serveLoading}
+            loading={serveLoading}
             endIcon={<ChevronRight size={18} strokeWidth={2.5} />}
             sx={{
               flexShrink: 0,
@@ -556,6 +560,8 @@ export function MenuOrderSummaryBar({
             variant="primary"
             size="medium"
             onClick={onServe}
+            disabled={items.length === 0 || serveLoading}
+            loading={serveLoading}
             sx={{
               width: '100%',
               mt: 2,
