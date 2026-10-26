@@ -16,7 +16,8 @@ export const createBranchOrderBodySchema = z.object({
   table_id: z.number().int().positive(),
   order_type: z.literal('dine_in'),
   guest_count: z.number().int().min(1),
-  meal_session_id: z.number().int().nonnegative(),
+  /** Optional — omit when the cashier does not pick a meal session. */
+  meal_session_id: z.number().int().positive().optional(),
 });
 
 export type CreateBranchOrderBody = z.infer<typeof createBranchOrderBodySchema>;

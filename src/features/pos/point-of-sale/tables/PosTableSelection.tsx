@@ -19,9 +19,19 @@ import {
   type NewReservationFormData,
 } from '@/features/pos/point-of-sale/reservation/ReservationDialog';
 import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway/TakeawayPage';
+import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
+import {
+  POS_CAPTAIN_COMPACT_PADDING,
+  POS_CAPTAIN_LIST_BOTTOM_GAP,
+} from '@/lib/helpers/posCaptainFlow';
+import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
 import { useFloorSections } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
+import { useMealSessions } from '@/lib/hooks/menu/sessions/useMenuMealSessions';
+import { useCreateBranchOrder } from '@/lib/hooks/pos/point-of-sale/tables/useCreateBranchOrder';
 import { usePosFloorLayout } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorLayout';
 import { usePosFloorTables } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorTables';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
 import {
   DINE_IN_STATUS_FILTERS,
@@ -32,14 +42,9 @@ import {
   type PosTableStatus,
 } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import { colors } from '@/lib/theme/mui/colors';
-import {
-  POS_CAPTAIN_COMPACT_PADDING,
-  POS_CAPTAIN_LIST_BOTTOM_GAP,
-} from '@/lib/helpers/posCaptainFlow';
-import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
-import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
-import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import { useToastStore } from '@/stores/toastStore';
+import { OpenTableOrderDialog, type OpenTableOrderFormValues } from './OpenTableOrderDialog';
 import { PosFloorTableCard } from './PosFloorTableCard';
 
 function getTableIdFromPathname(pathname?: string | null): string | null {
@@ -92,6 +97,8 @@ export function PosTableSelection({
   const branchId = useSidebarStore((state) => state.context.branchId);
   const floorsQuery = usePosFloorLayout(branchId);
   const floors = useMemo(() => floorsQuery.data ?? [], [floorsQuery.data]);
+  const mealSessionsQuery = useMealSessions(branchId);
+  const createOrderMutation = useCreateBranchOrder(branchId);
 
   const [tableOverrides, setTableOverrides] = useState<Record<string, Partial<PosTableItem>>>({});
   const [activeFloor, setActiveFloor] = useState(POS_FLOOR_TABS[0]?.id ?? '');
@@ -102,6 +109,22 @@ export function PosTableSelection({
   const [manualActiveTable, setManualActiveTable] = useState<PosTableItem | null>(null);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingAvailableTable, setPendingAvailableTable] = useState<PosTableItem | null>(null);
+
+  const mealSessionOptions = useMemo(
+    () =>
+      (mealSessionsQuery.data ?? []).map((session) => ({
+        id: String(session.id),
+        label: session.name,
+      })),
+    [mealSessionsQuery.data],
+  );
+
+  const defaultMealSessionId = useMemo(() => {
+    const sessions = mealSessionsQuery.data ?? [];
+    const active = sessions.find((session) => session.is_active) ?? sessions[0];
+    return active ? String(active.id) : '';
+  }, [mealSessionsQuery.data]);
 
   const floorTabs = useMemo(
     () =>
@@ -247,22 +270,81 @@ export function PosTableSelection({
     setIsReservationOpen(false);
   };
 
-  /** Tables → dine-in?from=tables; Dine In → dine-in; Captain → in-place menu. */
-  const handleOpenTableMenu = (t: PosTableItem) => {
-    setSelectedTableId(t.id);
-    onTableSelect?.(t);
+  /** Navigate to the table menu, optionally with a created/open order id. */
+  const navigateToTableMenu = (t: PosTableItem, orderId?: string | null) => {
+    const tableWithOrder: PosTableItem = orderId
+      ? { ...t, orderId, status: t.status === 'available' ? 'occupied' : t.status }
+      : t;
+
+    setSelectedTableId(tableWithOrder.id);
+    onTableSelect?.(tableWithOrder);
 
     if ((isCaptainFlow || captainCompact) && !isDineIn) {
-      setManualActiveTable(t);
+      setManualActiveTable(tableWithOrder);
       return;
     }
 
-    setManualActiveTable(t);
+    setManualActiveTable(tableWithOrder);
     const params = new URLSearchParams();
     if (!isDineIn) params.set('from', 'tables');
-    if (t.orderId) params.set('orderId', t.orderId);
+    if (orderId) params.set('orderId', orderId);
     const query = params.toString();
-    router.push(`${dineInBasePath}/${t.id}${query ? `?${query}` : ''}`);
+    router.push(`${dineInBasePath}/${tableWithOrder.id}${query ? `?${query}` : ''}`);
+  };
+
+  /**
+   * Available tables open a confirm modal (guest count / optional meal session),
+   * then POST …/orders. Occupied tables with an orderId open the menu directly.
+   */
+  const handleOpenTableMenu = (t: PosTableItem) => {
+    if (createOrderMutation.isPending) return;
+
+    const existingOrderId = t.orderId;
+    if (t.status === 'available' && !existingOrderId) {
+      setSelectedTableId(t.id);
+      setPendingAvailableTable(t);
+      return;
+    }
+
+    navigateToTableMenu(t, existingOrderId);
+  };
+
+  const handleConfirmOpenTableOrder = async (values: OpenTableOrderFormValues) => {
+    const table = pendingAvailableTable;
+    if (!table) return;
+
+    try {
+      const order = await createOrderMutation.mutateAsync({
+        table_id: values.tableId,
+        order_type: 'dine_in',
+        guest_count: values.guestCount,
+        ...(values.mealSessionId != null ? { meal_session_id: values.mealSessionId } : {}),
+      });
+
+      setTableOverrides((prev) => ({
+        ...prev,
+        [table.id]: {
+          status: 'occupied',
+          orderId: String(order.id),
+          guests: order.guest_count ?? values.guestCount,
+        },
+      }));
+
+      setPendingAvailableTable(null);
+      navigateToTableMenu(
+        {
+          ...table,
+          status: 'occupied',
+          orderId: String(order.id),
+          guests: order.guest_count ?? values.guestCount,
+        },
+        String(order.id),
+      );
+    } catch (error) {
+      const errorMsg = getErrorMessage(error, 'Failed to create order for this table.');
+      useToastStore.getState().show(errorMsg, 'error');
+      setToastMessage(errorMsg);
+    }
   };
 
   const handleTableClick = (t: PosTableItem) => {
@@ -728,6 +810,21 @@ export function PosTableSelection({
         onConfirm={handleConfirmReservation}
         title={selectedTable ? `Reserve Table ${selectedTable.name}` : 'Reserve a Table'}
         initialData={{ guestCount: selectedTable?.guests || 2 }}
+      />
+
+      <OpenTableOrderDialog
+        open={Boolean(pendingAvailableTable)}
+        table={pendingAvailableTable}
+        mealSessionOptions={mealSessionOptions}
+        defaultMealSessionId={defaultMealSessionId}
+        loading={createOrderMutation.isPending}
+        onClose={() => {
+          if (createOrderMutation.isPending) return;
+          setPendingAvailableTable(null);
+        }}
+        onConfirm={(values) => {
+          void handleConfirmOpenTableOrder(values);
+        }}
       />
 
       <Toast

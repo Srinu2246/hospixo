@@ -211,7 +211,7 @@ export function buildAddBranchOrderItemsBody(
   }
 
   if (items.length === 0) return null;
-  return { expected_version: 1, branch_menu_id: branchMenuId, items };
+  return { branch_menu_id: branchMenuId, items };
 }
 
 /** Map GET order detail line items into order-summary cart rows. */
