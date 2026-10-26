@@ -36,82 +36,93 @@ export function SalesByOutletSection() {
         gap: 2.5,
       }}
     >
-      {/* Header */}
+      <Typography
+        sx={{
+          fontSize: '0.85rem',
+          fontWeight: 700,
+          letterSpacing: '0.04em',
+          color: colors.text.secondary,
+          textTransform: 'uppercase',
+          pb: 1,
+        }}
+      >
+        SALES BY OUTLET
+      </Typography>
+
+      {/* Toolbar: tabs + view controls */}
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 2,
+          flexWrap: { xs: 'nowrap', sm: 'wrap' },
+          gap: { xs: 1, sm: 2 },
+          width: '100%',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Typography
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            p: 0.5,
+            borderRadius: '6px',
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : '#F3F4F6',
+          }}
+        >
+          <ButtonBase
+            onClick={() => setActiveTab('total')}
             sx={{
+              px: 1.5,
+              py: 0.5,
+              borderRadius: '4px',
               fontSize: '0.75rem',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              color: colors.text.secondary,
-              textTransform: 'uppercase',
-            }}
-          >
-            SALES BY OUTLET
-          </Typography>
-
-          {/* Sub-tabs */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              p: 0.5,
-              borderRadius: '6px',
+              fontWeight: activeTab === 'total' ? 700 : 500,
               bgcolor: (theme) =>
-                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : '#F3F4F6',
+                activeTab === 'total'
+                  ? {
+                      xs: 'transparent',
+                      sm: theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF',
+                    }
+                  : 'transparent',
+              color: activeTab === 'total' ? 'text.primary' : colors.text.secondary,
+              boxShadow:
+                activeTab === 'total' ? { xs: 'none', sm: '0 1px 3px rgba(0,0,0,0.06)' } : 'none',
             }}
           >
-            <ButtonBase
-              onClick={() => setActiveTab('total')}
-              sx={{
-                px: 1.5,
-                py: 0.5,
-                borderRadius: '4px',
-                fontSize: '0.75rem',
-                fontWeight: activeTab === 'total' ? 700 : 500,
-                bgcolor:
-                  activeTab === 'total'
-                    ? (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF')
-                    : 'transparent',
-                color: activeTab === 'total' ? 'text.primary' : colors.text.secondary,
-                boxShadow: activeTab === 'total' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-              }}
-            >
-              Total Sales
-            </ButtonBase>
+            Total Sales
+          </ButtonBase>
 
-            <ButtonBase
-              onClick={() => setActiveTab('top10')}
-              sx={{
-                px: 1.5,
-                py: 0.5,
-                borderRadius: '4px',
-                fontSize: '0.75rem',
-                fontWeight: activeTab === 'top10' ? 700 : 500,
-                bgcolor:
-                  activeTab === 'top10'
-                    ? (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF')
-                    : 'transparent',
-                color: activeTab === 'top10' ? 'text.primary' : colors.text.secondary,
-                boxShadow: activeTab === 'top10' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-              }}
-            >
-              Top 10 Branches
-            </ButtonBase>
-          </Box>
+          <ButtonBase
+            onClick={() => setActiveTab('top10')}
+            sx={{
+              display: { xs: 'none', sm: 'inline-flex' },
+              px: 1.5,
+              py: 0.5,
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              fontWeight: activeTab === 'top10' ? 700 : 500,
+              bgcolor:
+                activeTab === 'top10'
+                  ? (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF')
+                  : 'transparent',
+              color: activeTab === 'top10' ? 'text.primary' : colors.text.secondary,
+              boxShadow: activeTab === 'top10' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+            }}
+          >
+            Top 10 Branches
+          </ButtonBase>
         </Box>
 
         {/* View Switcher & Action */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: { xs: 0.75, sm: 1.5 },
+            flexShrink: 0,
+          }}
+        >
           <Box
             sx={{
               display: 'flex',
@@ -156,10 +167,11 @@ export function SalesByOutletSection() {
             variant="outlined"
             size="small"
             sx={{
-              fontSize: '0.75rem',
+              fontSize: { xs: '0.6875rem', sm: '0.75rem' },
               borderRadius: '8px',
-              px: 1.5,
+              px: { xs: 1, sm: 1.5 },
               py: 0.65,
+              whiteSpace: 'nowrap',
               color: colors.primary.default,
               borderColor: colors.border.default,
             }}
@@ -171,7 +183,7 @@ export function SalesByOutletSection() {
 
       {/* Render Chart or Table */}
       {viewMode === 'chart' ? (
-        <Box sx={{ width: '100%', pt: 2, pb: 1 }}>
+        <Box sx={{ overflowX: 'auto', width: '100%', pt: 2, pb: 1 }}>
           <Box
             sx={{
               display: 'flex',
@@ -179,7 +191,9 @@ export function SalesByOutletSection() {
               justifyContent: 'space-between',
               height: 220,
               gap: 1.5,
-              px: { xs: 0, sm: 2 },
+              minWidth: 640,
+              width: 'max(100%, 640px)',
+              px: { xs: 0.5, sm: 2 },
             }}
           >
             {OUTLET_SALES_CHART_BARS.map((bar) => (
@@ -190,7 +204,9 @@ export function SalesByOutletSection() {
                   flexDirection: 'column',
                   alignItems: 'center',
                   gap: 1.25,
-                  flex: 1,
+                  flex: '1 1 40px',
+                  minWidth: 40,
+                  maxWidth: 54,
                   height: '100%',
                   justifyContent: 'flex-end',
                 }}

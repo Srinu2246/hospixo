@@ -1,17 +1,30 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { PosDashboard } from '@/features/pos/point-of-sale/dashboard';
 import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
 import { ReservationList, ReservationDetails } from '@/features/pos/point-of-sale/reservation';
-import { AllOrdersPage, OrderSettle } from '@/features/pos/point-of-sale/all-orders';
+import {
+  OrderSettle,
+  PosAllOrdersRoutePage,
+  PosOrderSettleRoutePage,
+} from '@/features/pos/point-of-sale/all-orders';
+import { DineInPage } from '@/features/pos/point-of-sale/dine-in';
 import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway';
+import {
+  CaptainFlowAllOrdersRoutePage,
+  CaptainFlowOrderMenuRoutePage,
+  CaptainFlowReadyListRoutePage,
+  CaptainFlowTablesRoutePage,
+} from '@/features/pos/captain-flow';
 import { ReadyListPage } from '@/features/pos/point-of-sale/ready-list';
 import { DuePaymentsPage } from '@/features/pos/point-of-sale/due-payments';
 import {
   CashAndShiftPage,
   CloseShiftPage,
   CloseShiftSuccessPage,
-  CreateNewShiftPage,
+  OpenBusinessPage,
 } from '@/features/pos/point-of-sale/cash-and-shift';
+import { CreateNewShiftPage } from '@/features/pos/point-of-sale/cash-and-shift/CreateNewShiftPage';
+import { CashCounterPage } from '@/features/pos/point-of-sale/cash-counter';
 import { UnderConstructionPage } from '@/components/shared/UnderConstruction';
 import {
   UsersAndRolesScreen,
@@ -27,6 +40,7 @@ import {
   MenuAvailabilityLayout,
   MenuCreationLayout,
   MenusPage,
+  SessionsPage,
 } from '@/features/menu';
 import type { MenuAvailabilityScope } from '@/lib/schemas/menu/menuAvailabilitySchema';
 import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
@@ -69,6 +83,18 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     render: () => <CloseShiftPage />,
   },
   {
+    name: 'Open Business',
+    match: (path) =>
+      path.endsWith('management/open-business') || path.endsWith('operations/open-business'),
+    render: () => <OpenBusinessPage />,
+  },
+  {
+    name: 'Cash Counter',
+    match: (path) =>
+      path.includes('/management/cash-counter') || path.includes('/management/cash-registers'),
+    render: () => <CashCounterPage />,
+  },
+  {
     name: 'POS Create New Shift',
     match: (path) => path.endsWith('pos/point-of-sale/cash-shift/new'),
     render: () => <CreateNewShiftPage />,
@@ -92,7 +118,10 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
         )
           ? slug[slug.length - 2]
           : undefined;
-      return <OrderSettle initialStep="checkout" orderId={tableId} />;
+      if (tableId) {
+        return <PosOrderSettleRoutePage orderId={tableId} initialStep="checkout" />;
+      }
+      return <OrderSettle initialStep="checkout" />;
     },
   },
 
@@ -123,19 +152,30 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
         )
           ? slug[slug.length - 2]
           : undefined;
-      return <OrderSettle initialStep="success" orderId={tableId} />;
+      if (tableId) {
+        return <PosOrderSettleRoutePage orderId={tableId} initialStep="success" />;
+      }
+      return <OrderSettle initialStep="success" />;
     },
   },
 
   // 1. Order Settle: .../pos/point-of-sale/all-orders/[orderId]
   {
     name: 'Order Settle',
-    match: (path, slug) => {
-      return slug.length >= 2 && slug[slug.length - 2] === 'all-orders';
+    match: (_path, slug) => {
+      const last = slug[slug.length - 1];
+      return (
+        slug.length >= 2 &&
+        slug[slug.length - 2] === 'all-orders' &&
+        Boolean(last) &&
+        last !== 'all-orders' &&
+        last !== 'checkout' &&
+        last !== 'success'
+      );
     },
     render: (_, slug) => {
       const orderId = slug[slug.length - 1];
-      return <OrderSettle orderId={orderId} />;
+      return <PosOrderSettleRoutePage orderId={orderId} />;
     },
   },
 
@@ -184,8 +224,11 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
         slug[slug.length - 1] !== 'checkout'
       );
     },
-    render: (_, slug) => {
+    render: (path, slug) => {
       const tableId = slug[slug.length - 1];
+      if (path.includes('captain-flow')) {
+        return <DineInPage initialTableId={tableId} />;
+      }
       return <PosTableSelection isDineIn initialTableId={tableId} />;
     },
   },
@@ -204,14 +247,19 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/point-of-sale/tables') ||
       path.endsWith('pos/captain-flow/tables') ||
       path.endsWith('captain-flow/tables'),
-    render: () => <PosTableSelection isDineIn={false} />,
+    render: (path) =>
+      path.includes('captain-flow') ? (
+        <CaptainFlowTablesRoutePage />
+      ) : (
+        <PosTableSelection isDineIn={false} />
+      ),
   },
 
   // Captain Flow Root -> Tables
   {
     name: 'Captain Flow',
     match: (path) => path.endsWith('pos/captain-flow') || path.endsWith('captain-flow'),
-    render: () => <PosTableSelection isDineIn={false} />,
+    render: () => <CaptainFlowTablesRoutePage />,
   },
 
   // 6. POS Take Away / Order Menu
@@ -222,7 +270,12 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/point-of-sale/take-away') ||
       path.endsWith('pos/captain-flow/order-menu') ||
       path.endsWith('captain-flow/order-menu'),
-    render: () => <TakeawayPage mode="takeaway" />,
+    render: (path) =>
+      path.includes('captain-flow') ? (
+        <CaptainFlowOrderMenuRoutePage />
+      ) : (
+        <TakeawayPage mode="takeaway" />
+      ),
   },
 
   // 6. POS Ready List / Captain Ready List
@@ -232,7 +285,8 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/point-of-sale/ready-list') ||
       path.endsWith('pos/captain-flow/ready-list') ||
       path.endsWith('captain-flow/ready-list'),
-    render: () => <ReadyListPage />,
+    render: (path) =>
+      path.includes('captain-flow') ? <CaptainFlowReadyListRoutePage /> : <ReadyListPage />,
   },
 
   // 7. POS Online Orders
@@ -255,23 +309,24 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/captain-flow/all-orders') ||
       path.endsWith('captain-flow/all-orders') ||
       path.endsWith('pos/all-orders'),
-    render: () => <AllOrdersPage />,
+    render: (path) =>
+      path.includes('captain-flow') ? <CaptainFlowAllOrdersRoutePage /> : <PosAllOrdersRoutePage />,
   },
 
   {
     name: 'Role POS Tables',
     match: (path) => path.endsWith('pos/tables'),
-    render: () => <PosTableSelection isDineIn={false} />,
+    render: () => <CaptainFlowTablesRoutePage />,
   },
   {
     name: 'Role POS Order Menu',
     match: (path) => path.endsWith('pos/order-menu'),
-    render: () => <TakeawayPage mode="takeaway" />,
+    render: () => <CaptainFlowOrderMenuRoutePage />,
   },
   {
     name: 'Role POS Ready List',
     match: (path) => path.endsWith('pos/ready-list'),
-    render: () => <ReadyListPage />,
+    render: () => <CaptainFlowReadyListRoutePage />,
   },
 
   // 10. POS Due Payments
@@ -426,14 +481,21 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     },
   },
 
-  // 16. Menus (meal sessions): .../menu/menus[/create|/:id/edit]
+  // 16. Sessions: .../menu/sessions[/create|/:id/edit] or .../session-management/sessions
+  {
+    name: 'Sessions',
+    match: (path) => path.includes('menu/sessions') || path.includes('session-management'),
+    render: () => <SessionsPage />,
+  },
+
+  // 17. Menus (meal menus list): .../menu/menus[/create|/:id|/:id/edit]
   {
     name: 'Menus',
     match: (path) => path.includes('menu/menus'),
     render: () => <MenusPage />,
   },
 
-  // 17. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
+  // 18. GST Rates: .../menu/gst-rates[/create|/id] (company | branch-manager | …)
   {
     name: 'GST Rates',
     match: (path) => path.includes('menu/gst-rates'),
@@ -448,7 +510,8 @@ export default async function CatchAllPage({ params, searchParams }: CatchAllPag
 
   for (const route of ROUTE_REGISTRY) {
     if (route.match(path, slug)) {
-      return route.render(path, slug, resolvedSearchParams);
+      // Key by path so catch-all soft navigation (e.g. settle → list) remounts the screen.
+      return <Fragment key={path}>{route.render(path, slug, resolvedSearchParams)}</Fragment>;
     }
   }
 

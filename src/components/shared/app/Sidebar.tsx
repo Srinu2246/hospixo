@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -55,6 +55,7 @@ import {
   isSidebarSection,
   resolveSidebarEscape,
   resolveSidebarLevel,
+  resolveSidebarRoute,
   type SidebarItem,
   type SidebarSection,
   type SidebarContext,
@@ -72,6 +73,10 @@ export type SidebarProps = {
   defaultOpen?: boolean;
   onToggle?: (isOpen: boolean) => void;
   activePath?: string;
+  /** Mobile captain drawer: show full branch catalog instead of POS/Captain sub-flow only. */
+  forcePrimaryNavigation?: boolean;
+  /** Close mobile overlay after navigating (hamburger drawer). */
+  onRequestClose?: () => void;
 };
 
 // ----------------------------------------------------------------------
@@ -301,6 +306,8 @@ export function Sidebar({
   defaultOpen = true,
   onToggle,
   activePath,
+  forcePrimaryNavigation = false,
+  onRequestClose,
 }: SidebarProps) {
   const router = useRouter();
   const currentPathname = usePathname();
@@ -338,8 +345,21 @@ export function Sidebar({
   const growthbook = useGrowthBook();
 
   // Resolved Navigation Entries — catalog follows the page, same as the main access sidebar.
-  const navigationLevel = resolveSidebarLevel(effectivePathname, role);
+  const navigationLevel = resolveSidebarLevel(effectivePathname, role, context);
   const hierarchyEscape = resolveSidebarEscape(role, navigationLevel);
+  const hierarchyEscapeHref = hierarchyEscape
+    ? resolveSidebarRoute(hierarchyEscape.href, context, role)
+    : null;
+
+  const previousNavigationLevel = useRef(navigationLevel);
+  useEffect(() => {
+    if (previousNavigationLevel.current !== navigationLevel) {
+      setActiveSubFlowOverride(null);
+      setDismissedPath(null);
+      previousNavigationLevel.current = navigationLevel;
+    }
+  }, [navigationLevel]);
+
   const navigationEntries = useMemo(() => {
     const entries = getSidebarNavigation({
       role,
@@ -386,10 +406,17 @@ export function Sidebar({
 
   // Active sub-flow: manual override > matched sub-flow (unless manually dismissed on this route)
   const activeSubFlow = useMemo(() => {
+    if (forcePrimaryNavigation) return null;
     if (activeSubFlowOverride) return activeSubFlowOverride;
     if (dismissedPath && dismissedPath === effectivePathname) return null;
     return matchedSubFlow;
-  }, [activeSubFlowOverride, dismissedPath, effectivePathname, matchedSubFlow]);
+  }, [
+    activeSubFlowOverride,
+    dismissedPath,
+    effectivePathname,
+    forcePrimaryNavigation,
+    matchedSubFlow,
+  ]);
 
   const getMainDashboardHref = (): string => {
     // 1. Look for a top-level Dashboard item in navigationEntries
@@ -435,8 +462,8 @@ export function Sidebar({
     return null;
   }, [context]);
 
-  // Open 15.5rem, collapsed icon rail 4.75rem — same widths as the main access sidebar.
-  const sidebarWidth = isOpen ? 248 : 76;
+  // Open width shared by every role (Captain, Cashier, Branch, Company, Org, …).
+  const sidebarWidth = isOpen ? 220 : 76;
 
   // Longest / exact match among visible nav hrefs — avoids All Companies + Analytics both lighting up.
   // When several items share the same href (e.g. Kitchen Display / Incoming / Preparing), only the first stays active.
@@ -580,6 +607,7 @@ export function Sidebar({
         <Link
           key={item.name + item.href}
           href={item.href}
+          onClick={() => onRequestClose?.()}
           style={{ textDecoration: 'none', display: 'block', marginBottom: 4 }}
         >
           {wrappedContent}
@@ -742,7 +770,7 @@ export function Sidebar({
         </IconButton>
       </Box>
 
-      {hierarchyEscape && isOpen ? (
+      {hierarchyEscape && hierarchyEscapeHref && isOpen ? (
         <Box
           sx={{
             flexShrink: 0,
@@ -754,7 +782,7 @@ export function Sidebar({
         >
           <Box
             component={Link}
-            href={hierarchyEscape.href}
+            href={hierarchyEscapeHref}
             sx={{
               display: 'flex',
               alignItems: 'center',

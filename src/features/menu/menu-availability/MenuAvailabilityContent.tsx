@@ -27,9 +27,6 @@ import type { AvailabilityChannelGroup } from '@/lib/schemas/menu/menuAvailabili
 
 import { MenuAvailabilitySidebar } from './MenuAvailabilitySidebar';
 
-/** Sticky search toolbar height used so categories + table fill remaining viewport. */
-const STICKY_SEARCH_OFFSET = 64;
-
 export function MenuAvailabilityContent() {
   const {
     pageConfig,
@@ -61,178 +58,185 @@ export function MenuAvailabilityContent() {
         height: '100%',
         minHeight: 0,
         overflow: 'hidden',
+        boxSizing: 'border-box',
+        p: { xs: 1, sm: 2 },
       }}
     >
-      {/* Page scroll region — header scrolls away; search sticks; list fills rest */}
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          overflow: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <Box
-          sx={{
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            pb: 2,
-          }}
-        >
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1.5}
-            sx={{
-              alignItems: { sm: 'flex-start' },
-              justifyContent: 'space-between',
-            }}
-          >
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                variant="h5"
-                component="h1"
-                sx={{
-                  fontWeight: 700,
-                  fontSize: { xs: '1.375rem', sm: '1.5rem' },
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1.2,
-                  color: 'text.primary',
-                }}
-              >
-                {pageConfig.pageTitle}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ mt: 0.5, color: 'text.secondary', fontSize: '0.875rem' }}
-              >
-                {pageConfig.pageSubtitle}
-              </Typography>
-            </Box>
-
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0 }}>
-              <Box
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 0.75,
-                  px: 1.5,
-                  py: 0.75,
-                  borderRadius: '999px',
-                  bgcolor: 'success.main',
-                  color: 'success.contrastText',
-                  opacity: 0.95,
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: 'common.white',
-                    flexShrink: 0,
-                  }}
-                />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'inherit' }}>
-                  {pageConfig.syncLabel}
-                </Typography>
-              </Box>
-              <ActionButton variant="icon" size="small" aria-label="Notifications">
-                <Bell size={16} />
-              </ActionButton>
-            </Stack>
-          </Stack>
-
-          {showAllOnlineTabs ? (
-            <>
-              <Tabs
-                fullWidth={false}
-                tabs={[...AVAILABILITY_GROUP_TABS]}
-                value={channelGroup}
-                onChange={(value) => setChannelGroup(value as AvailabilityChannelGroup)}
-              />
-
-              <ChannelSelector
-                channels={channels}
-                value={activeChannelId}
-                onChange={setActiveChannelId}
-              />
-            </>
-          ) : null}
-
-          <AvailabilityStatsRow stats={stats} />
-        </Box>
-
+      <Stack spacing={2} sx={{ flexShrink: 0, pb: 2 }}>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={1.5}
           sx={{
-            alignItems: { sm: 'center' },
-            flexShrink: 0,
-            position: 'sticky',
-            top: 0,
-            zIndex: 3,
-            py: 1.5,
-            minHeight: STICKY_SEARCH_OFFSET,
-            boxSizing: 'border-box',
-            bgcolor: 'background.default',
-            borderBottom: '1px solid',
-            borderColor: 'divider',
+            alignItems: { sm: 'flex-start' },
+            justifyContent: 'space-between',
           }}
         >
-          <SearchBar
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search items..."
-            showClear
-            fullWidth
-            width="100%"
-            sx={{ flex: 1, maxWidth: { sm: 360 } }}
-          />
-          <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap', flexShrink: 0 }}>
-            <Dropdown
-              options={[...AVAILABILITY_DIETARY_OPTIONS]}
-              value={dietaryFilter}
-              onChange={(value) => setDietaryFilter(value as AvailabilityDietaryFilter)}
-              minWidth={140}
-              size="medium"
-            />
-            <Dropdown
-              options={[...AVAILABILITY_STATUS_OPTIONS]}
-              value={statusFilter}
-              onChange={(value) => setStatusFilter(value as AvailabilityStatusFilter)}
-              minWidth={130}
-              size="medium"
-            />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              variant="h5"
+              component="h1"
+              sx={{
+                fontWeight: 700,
+                fontSize: { xs: '1.375rem', sm: '1.5rem' },
+                letterSpacing: '-0.02em',
+                lineHeight: 1.2,
+                color: 'text.primary',
+              }}
+            >
+              {pageConfig.pageTitle}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ mt: 0.5, color: 'text.secondary', fontSize: '0.875rem' }}
+            >
+              {pageConfig.pageSubtitle}
+            </Typography>
+          </Box>
+
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0 }}>
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                px: 1.5,
+                py: 0.75,
+                borderRadius: '999px',
+                bgcolor: 'success.main',
+                color: 'success.contrastText',
+                opacity: 0.95,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: 'common.white',
+                  flexShrink: 0,
+                }}
+              />
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'inherit' }}>
+                {pageConfig.syncLabel}
+              </Typography>
+            </Box>
+            <ActionButton variant="icon" size="small" aria-label="Notifications">
+              <Bell size={16} />
+            </ActionButton>
           </Stack>
         </Stack>
 
-        {/* Fills remaining viewport under sticky search; scrolls internally */}
-        <Box
+        {showAllOnlineTabs ? (
+          <>
+            <Tabs
+              fullWidth={false}
+              tabs={[...AVAILABILITY_GROUP_TABS]}
+              value={channelGroup}
+              onChange={(value) => setChannelGroup(value as AvailabilityChannelGroup)}
+            />
+
+            <ChannelSelector
+              channels={channels}
+              value={activeChannelId}
+              onChange={setActiveChannelId}
+            />
+          </>
+        ) : null}
+
+        <AvailabilityStatsRow stats={stats} />
+      </Stack>
+
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+          alignItems: 'stretch',
+          overflow: { xs: 'visible', md: 'hidden' },
+        }}
+      >
+        <MenuAvailabilitySidebar />
+
+        <Stack
+          spacing={1.5}
           sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            gap: 2,
-            pt: 2,
-            pb: 1.5,
-            alignItems: 'stretch',
-            flexShrink: 0,
-            height: `calc(100% - ${STICKY_SEARCH_OFFSET}px)`,
-            minHeight: `calc(100% - ${STICKY_SEARCH_OFFSET}px)`,
-            overflow: 'hidden',
+            flex: 1,
+            minWidth: 0,
+            minHeight: { xs: 0, md: 0 },
+            height: { md: '100%' },
+            overflow: { xs: 'visible', md: 'hidden' },
           }}
         >
-          <MenuAvailabilitySidebar />
-          <AvailabilityItemsTable
-            items={filteredItems}
-            toggleDisabled={Boolean(isUpdatingItemStatus)}
-            onToggleMark={(itemId, nextActive) => {
-              void toggleItemMark(itemId, nextActive);
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.25}
+            sx={{
+              alignItems: { sm: 'center' },
+              justifyContent: 'space-between',
+              flexShrink: 0,
+              flexWrap: 'wrap',
+              gap: 1.25,
             }}
-          />
-        </Box>
+          >
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search items..."
+              showClear
+              fullWidth
+              sx={{
+                flexShrink: 0,
+                width: '100%',
+                maxWidth: 300,
+              }}
+            />
+            <Stack
+              direction="row"
+              spacing={1.25}
+              sx={{
+                flexShrink: 0,
+                width: { xs: '100%', sm: 'auto' },
+                justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+              }}
+            >
+              <Dropdown
+                options={[...AVAILABILITY_DIETARY_OPTIONS]}
+                value={dietaryFilter}
+                onChange={(value) => setDietaryFilter(value as AvailabilityDietaryFilter)}
+                minWidth={140}
+                size="medium"
+              />
+              <Dropdown
+                options={[...AVAILABILITY_STATUS_OPTIONS]}
+                value={statusFilter}
+                onChange={(value) => setStatusFilter(value as AvailabilityStatusFilter)}
+                minWidth={130}
+                size="medium"
+              />
+            </Stack>
+          </Stack>
+
+          <Box
+            sx={{
+              flex: { md: 1 },
+              minHeight: { xs: 360, md: 0 },
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <AvailabilityItemsTable
+              items={filteredItems}
+              toggleDisabled={Boolean(isUpdatingItemStatus)}
+              onToggleMark={(itemId, nextActive) => {
+                void toggleItemMark(itemId, nextActive);
+              }}
+            />
+          </Box>
+        </Stack>
       </Box>
     </Box>
   );

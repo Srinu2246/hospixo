@@ -8,7 +8,7 @@ import { UtensilsCrossed } from 'lucide-react';
 
 import { Card } from '@/components/shared/ui/Card';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
-import { StatusChip } from '@/components/shared/ui/StatusChip';
+import { TagsGrid } from '@/components/shared/ui/TagsGrid';
 import type { AvailabilityItem } from '@/lib/schemas/menu/menuAvailabilitySchema';
 
 import { DietaryMarker } from './ChannelSelector';
@@ -109,25 +109,42 @@ export function AvailabilityItemsTable({
     {
       field: 'name',
       headerName: 'Name',
-      minWidth: 280,
+      minWidth: 200,
+      width: '100%',
       sortable: true,
       renderCell: ({ row }) => {
         const visibility = visibilityLabel(row);
         return (
           <Stack direction="row" spacing={1.25} sx={{ alignItems: 'flex-start', minWidth: 0 }}>
-            <Box sx={{ mt: 0.35 }}>
+            <Box sx={{ mt: 0.35, flexShrink: 0 }}>
               <DietaryMarker dietary={row.dietary} />
             </Box>
-            <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
               <Stack
                 direction="row"
                 spacing={1}
-                sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}
+                sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 0.75, minWidth: 0 }}
               >
                 <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }} noWrap>
                   {row.name}
                 </Typography>
-                <StatusChip label={row.tag} variantType="info" size="small" />
+                <Box
+                  sx={{ minWidth: 0, maxWidth: '100%' }}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <TagsGrid
+                    tags={row.tags.length > 0 ? row.tags : [row.tag]}
+                    maxVisible={1}
+                    chipSx={{
+                      maxWidth: 88,
+                      '& .MuiChip-label': {
+                        px: 0.75,
+                        fontSize: '0.6875rem',
+                      },
+                    }}
+                  />
+                </Box>
               </Stack>
               <Typography
                 variant="caption"
@@ -148,7 +165,9 @@ export function AvailabilityItemsTable({
     {
       field: 'mark',
       headerName: 'Status',
-      minWidth: 160,
+      width: 168,
+      minWidth: 168,
+      maxWidth: 168,
       align: 'right',
       headerAlign: 'right',
       sortable: true,

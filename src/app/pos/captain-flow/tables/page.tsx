@@ -1,5 +1,5 @@
-import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
+import { CaptainFlowTablesRoutePage } from '@/features/pos/captain-flow';
 
 export default function CaptainFlowTablesPage() {
-  return <PosTableSelection isDineIn={false} />;
+  return <CaptainFlowTablesRoutePage />;
 }

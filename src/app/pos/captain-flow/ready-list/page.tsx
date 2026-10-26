@@ -1,5 +1,5 @@
-import { ReadyListPage } from '@/features/pos/point-of-sale/ready-list';
+import { CaptainFlowReadyListRoutePage } from '@/features/pos/captain-flow';
 
 export default function CaptainReadyListPage() {
-  return <ReadyListPage />;
+  return <CaptainFlowReadyListRoutePage />;
 }

@@ -18,6 +18,13 @@
     "@treelocator/runtime",
     "lint-staged"
   ],
+  "ignoreIssues": {
+    "src/lib/mocks/reports/reports.mocks.ts": ["exports"],
+    "src/lib/mocks/dashboard/dashboard.mocks.ts": ["exports"],
+    "src/lib/schemas/pos/point-of-sale/tables/createBranchOrderSchema.ts": ["exports", "types"],
+    "src/lib/mocks/pos/usePosOrders.mocks.ts": ["types"],
+    ".husky/**": ["unlisted", "binaries"]
+  },
   "husky": false,
   "rules": {
     "files": "error",

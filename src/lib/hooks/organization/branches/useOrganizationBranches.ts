@@ -5,6 +5,7 @@ import { useQuery } from '@/lib/hooks/api/useQuery';
 import { loadBranchDirectory } from '@/lib/helpers/organizationBranches';
 import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
 import { api } from '@/services/api/browserClient';
+import type { JsonValue } from '@/types/json';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 /**
@@ -33,7 +34,7 @@ export function useOrganizationBranches(
       loadBranchDirectory(
         organizationId,
         companyId,
-        (path, params) => api.get<unknown>(path, params, signal),
+        (path, params) => api.get<JsonValue>(path, params, signal),
         { role, authScope, scope },
       ),
     initialData: initialBranches,

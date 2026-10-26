@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Box, Stack, Typography } from '@mui/material';
 import { Plus } from 'lucide-react';
@@ -18,9 +19,19 @@ import {
   type NewReservationFormData,
 } from '@/features/pos/point-of-sale/reservation/ReservationDialog';
 import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway/TakeawayPage';
+import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
+import {
+  POS_CAPTAIN_COMPACT_PADDING,
+  POS_CAPTAIN_LIST_BOTTOM_GAP,
+} from '@/lib/helpers/posCaptainFlow';
+import { CaptainWorkspaceSubheader } from '@/features/pos/point-of-sale/components/CaptainWorkspaceSubheader';
 import { useFloorSections } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
+import { useMealSessions } from '@/lib/hooks/menu/sessions/useMenuMealSessions';
+import { useCreateBranchOrder } from '@/lib/hooks/pos/point-of-sale/tables/useCreateBranchOrder';
 import { usePosFloorLayout } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorLayout';
 import { usePosFloorTables } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorTables';
+import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
 import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
 import {
   DINE_IN_STATUS_FILTERS,
@@ -29,9 +40,11 @@ import {
   POS_STATUS_FILTERS,
   type PosTableItem,
   type PosTableStatus,
-} from '@/lib/mocks/pos/usePosTables.mocks';
+} from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import { colors } from '@/lib/theme/mui/colors';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import { useToastStore } from '@/stores/toastStore';
+import { OpenTableOrderDialog, type OpenTableOrderFormValues } from './OpenTableOrderDialog';
 import { PosFloorTableCard } from './PosFloorTableCard';
 
 function getTableIdFromPathname(pathname?: string | null): string | null {
@@ -77,10 +90,15 @@ export function PosTableSelection({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const fromTables = searchParams?.get('from') === 'tables';
+  const queryOrderId = searchParams?.get('orderId');
   const isCaptainFlow = Boolean(pathname?.includes('captain-flow'));
+  const captainCompact = useCaptainCompactLayout();
+  const footerTarget = useAppShellFooterTarget();
   const branchId = useSidebarStore((state) => state.context.branchId);
   const floorsQuery = usePosFloorLayout(branchId);
   const floors = useMemo(() => floorsQuery.data ?? [], [floorsQuery.data]);
+  const mealSessionsQuery = useMealSessions(branchId);
+  const createOrderMutation = useCreateBranchOrder(branchId);
 
   const [tableOverrides, setTableOverrides] = useState<Record<string, Partial<PosTableItem>>>({});
   const [activeFloor, setActiveFloor] = useState(POS_FLOOR_TABS[0]?.id ?? '');
@@ -91,6 +109,22 @@ export function PosTableSelection({
   const [manualActiveTable, setManualActiveTable] = useState<PosTableItem | null>(null);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingAvailableTable, setPendingAvailableTable] = useState<PosTableItem | null>(null);
+
+  const mealSessionOptions = useMemo(
+    () =>
+      (mealSessionsQuery.data ?? []).map((session) => ({
+        id: String(session.id),
+        label: session.name,
+      })),
+    [mealSessionsQuery.data],
+  );
+
+  const defaultMealSessionId = useMemo(() => {
+    const sessions = mealSessionsQuery.data ?? [];
+    const active = sessions.find((session) => session.is_active) ?? sessions[0];
+    return active ? String(active.id) : '';
+  }, [mealSessionsQuery.data]);
 
   const floorTabs = useMemo(
     () =>
@@ -179,10 +213,27 @@ export function PosTableSelection({
           t.id.toLowerCase() === routeTableId.toLowerCase() ||
           t.name.toLowerCase() === routeTableId.toLowerCase(),
       );
-      if (match) return match;
+      if (match) {
+        // All Orders → Add Items passes ?orderId= when availability has not hydrated yet.
+        if (queryOrderId && !match.orderId) {
+          return { ...match, orderId: queryOrderId, status: 'occupied' as const };
+        }
+        return match;
+      }
+      // Deep link before the floor/section list includes this table.
+      if (queryOrderId) {
+        return {
+          id: routeTableId,
+          name: routeTableId,
+          floorId: activeFloor,
+          sectionId: activeSection,
+          status: 'occupied' as const,
+          orderId: queryOrderId,
+        };
+      }
     }
     return manualActiveTable;
-  }, [routeTableId, tables, manualActiveTable]);
+  }, [routeTableId, tables, manualActiveTable, queryOrderId, activeFloor, activeSection]);
 
   const selectedTableMatch = tables.find((t) => t.id === selectedTableId);
   const selectedTable: PosTableItem | undefined =
@@ -219,19 +270,81 @@ export function PosTableSelection({
     setIsReservationOpen(false);
   };
 
-  /** Tables → dine-in?from=tables; Dine In → dine-in; Captain → in-place menu. */
-  const handleOpenTableMenu = (t: PosTableItem) => {
-    setSelectedTableId(t.id);
-    onTableSelect?.(t);
+  /** Navigate to the table menu, optionally with a created/open order id. */
+  const navigateToTableMenu = (t: PosTableItem, orderId?: string | null) => {
+    const tableWithOrder: PosTableItem = orderId
+      ? { ...t, orderId, status: t.status === 'available' ? 'occupied' : t.status }
+      : t;
 
-    if (isCaptainFlow && !isDineIn) {
-      setManualActiveTable(t);
+    setSelectedTableId(tableWithOrder.id);
+    onTableSelect?.(tableWithOrder);
+
+    if ((isCaptainFlow || captainCompact) && !isDineIn) {
+      setManualActiveTable(tableWithOrder);
       return;
     }
 
-    setManualActiveTable(t);
-    const query = !isDineIn ? '?from=tables' : '';
-    router.push(`${dineInBasePath}/${t.id}${query}`);
+    setManualActiveTable(tableWithOrder);
+    const params = new URLSearchParams();
+    if (!isDineIn) params.set('from', 'tables');
+    if (orderId) params.set('orderId', orderId);
+    const query = params.toString();
+    router.push(`${dineInBasePath}/${tableWithOrder.id}${query ? `?${query}` : ''}`);
+  };
+
+  /**
+   * Available tables open a confirm modal (guest count / optional meal session),
+   * then POST …/orders. Occupied tables with an orderId open the menu directly.
+   */
+  const handleOpenTableMenu = (t: PosTableItem) => {
+    if (createOrderMutation.isPending) return;
+
+    const existingOrderId = t.orderId;
+    if (t.status === 'available' && !existingOrderId) {
+      setSelectedTableId(t.id);
+      setPendingAvailableTable(t);
+      return;
+    }
+
+    navigateToTableMenu(t, existingOrderId);
+  };
+
+  const handleConfirmOpenTableOrder = async (values: OpenTableOrderFormValues) => {
+    const table = pendingAvailableTable;
+    if (!table) return;
+
+    try {
+      const order = await createOrderMutation.mutateAsync({
+        table_id: values.tableId,
+        order_type: 'dine_in',
+        guest_count: values.guestCount,
+        ...(values.mealSessionId != null ? { meal_session_id: values.mealSessionId } : {}),
+      });
+
+      setTableOverrides((prev) => ({
+        ...prev,
+        [table.id]: {
+          status: 'occupied',
+          orderId: String(order.id),
+          guests: order.guest_count ?? values.guestCount,
+        },
+      }));
+
+      setPendingAvailableTable(null);
+      navigateToTableMenu(
+        {
+          ...table,
+          status: 'occupied',
+          orderId: String(order.id),
+          guests: order.guest_count ?? values.guestCount,
+        },
+        String(order.id),
+      );
+    } catch (error) {
+      const errorMsg = getErrorMessage(error, 'Failed to create order for this table.');
+      useToastStore.getState().show(errorMsg, 'error');
+      setToastMessage(errorMsg);
+    }
   };
 
   const handleTableClick = (t: PosTableItem) => {
@@ -302,6 +415,7 @@ export function PosTableSelection({
 
   const hasNoDineInTables = isDineIn && dineInEligibleTables.length === 0;
 
+  const menuOrderId = activeOrderTable?.orderId ?? queryOrderId ?? undefined;
   if (activeOrderTable) {
     const allowMenu =
       !isDineIn ||
@@ -314,6 +428,7 @@ export function PosTableSelection({
         <TakeawayPage
           table={activeOrderTable}
           mode={fromTables || !isDineIn ? 'table' : 'dine-in'}
+          orderId={menuOrderId}
           onBackToTables={handleBackToTables}
           onServeOrder={handleServeOrder}
         />
@@ -321,22 +436,123 @@ export function PosTableSelection({
     }
   }
 
+  const footerTable = selectedTable ?? tables.find((table) => table.id === selectedTableId) ?? null;
+
+  const captainSelectionFooter =
+    captainCompact && footerTable && footerTarget
+      ? createPortal(
+          <Box
+            sx={{
+              width: '100%',
+              bgcolor: 'background.paper',
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              px: POS_CAPTAIN_COMPACT_PADDING,
+              py: 1.25,
+              minHeight: 64,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1.5,
+              boxSizing: 'border-box',
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 700,
+                  color: 'text.secondary',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                SELECTED TABLE
+              </Typography>
+              <Typography sx={{ fontWeight: 800, fontSize: '0.9375rem', lineHeight: 1.3 }} noWrap>
+                {footerTable.name}
+                {footerTable.guests != null
+                  ? ` · ${footerTable.guests} Guest${footerTable.guests === 1 ? '' : 's'}`
+                  : ''}
+                {footerTable.waiter ? ` (${footerTable.waiter})` : ''}
+              </Typography>
+            </Box>
+            <ActionButton
+              variant="primary"
+              startIcon={<Plus size={16} />}
+              onClick={() => handleOpenTableMenu(footerTable)}
+              sx={{
+                flexShrink: 0,
+                minHeight: 44,
+                px: 2,
+                borderRadius: '10px',
+                fontWeight: 700,
+                bgcolor: colors.captainFlow.primary,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Order Menu
+            </ActionButton>
+          </Box>,
+          footerTarget,
+        )
+      : null;
+
   return (
     <Box
       sx={{
         width: '100%',
-        height: '100%',
-        maxHeight: '100%',
-        flex: 1,
-        minHeight: 0,
+        height: captainCompact ? 'auto' : '100%',
+        maxHeight: captainCompact ? 'none' : '100%',
+        flex: captainCompact ? '0 1 auto' : 1,
+        minHeight: captainCompact ? 'auto' : 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px',
+        gap: captainCompact ? '12px' : '20px',
         boxSizing: 'border-box',
-        overflow: 'hidden',
+        overflow: captainCompact ? 'visible' : 'hidden',
       }}
     >
-      <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {captainSelectionFooter}
+
+      {captainCompact ? (
+        <Stack spacing={1.5} sx={{ flexShrink: 0 }}>
+          <CaptainWorkspaceSubheader
+            title={isDineIn ? 'Dine In' : 'Order Menu'}
+            subtitle={
+              footerTable
+                ? `${footerTable.name}${footerTable.waiter ? ` · ${footerTable.waiter}` : ''}`
+                : isDineIn
+                  ? 'Active dine-in tables'
+                  : 'Select a table to start ordering'
+            }
+            floorOptions={floorTabs}
+            floorValue={activeFloor}
+            onFloorChange={setActiveFloor}
+            sectionOptions={sectionOptions}
+            sectionValue={activeSection}
+            onSectionChange={setActiveSection}
+            sectionDisabled={sectionsQuery.isLoading || isSingleSection}
+          />
+          <SearchBar
+            placeholder="Search table name..."
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onClear={() => setSearchQuery('')}
+            showClear
+            fullWidth
+            sx={{ height: 44, borderRadius: '12px' }}
+          />
+        </Stack>
+      ) : null}
+
+      <Box
+        sx={{
+          flexShrink: 0,
+          display: captainCompact ? 'none' : 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
         <Box
           sx={{
             display: 'flex',
@@ -482,7 +698,7 @@ export function PosTableSelection({
             ) : null}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Box
-                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.primary.default }}
+                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.warning.default }}
               />
               <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                 Occupied
@@ -490,7 +706,7 @@ export function PosTableSelection({
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Box
-                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.warning.default }}
+                sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.danger.default }}
               />
               <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                 Reserved
@@ -502,9 +718,9 @@ export function PosTableSelection({
 
       <Box
         sx={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
+          flex: captainCompact ? '0 1 auto' : 1,
+          minHeight: captainCompact ? 'auto' : 0,
+          overflowY: captainCompact ? 'visible' : 'auto',
           overflowX: 'hidden',
           pr: 0.5,
           '&::-webkit-scrollbar': { width: 6 },
@@ -551,14 +767,16 @@ export function PosTableSelection({
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(2, 1fr)',
-                md: 'repeat(3, 1fr)',
-                lg: 'repeat(4, 1fr)',
-              },
-              gap: '20px',
-              pb: 2,
+              gridTemplateColumns: captainCompact
+                ? { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, 1fr)' }
+                : {
+                    xs: '1fr',
+                    sm: 'repeat(2, 1fr)',
+                    md: 'repeat(3, 1fr)',
+                    lg: 'repeat(4, 1fr)',
+                  },
+              gap: captainCompact ? '12px' : '20px',
+              pb: captainCompact ? `${POS_CAPTAIN_LIST_BOTTOM_GAP}px` : 2,
             }}
           >
             {filteredTables.length === 0 ? (
@@ -577,6 +795,7 @@ export function PosTableSelection({
               <PosFloorTableCard
                 key={table.id}
                 table={table}
+                compact={captainCompact}
                 isSelected={selectedTableId === table.id}
                 onClick={handleTableClick}
               />
@@ -591,6 +810,21 @@ export function PosTableSelection({
         onConfirm={handleConfirmReservation}
         title={selectedTable ? `Reserve Table ${selectedTable.name}` : 'Reserve a Table'}
         initialData={{ guestCount: selectedTable?.guests || 2 }}
+      />
+
+      <OpenTableOrderDialog
+        open={Boolean(pendingAvailableTable)}
+        table={pendingAvailableTable}
+        mealSessionOptions={mealSessionOptions}
+        defaultMealSessionId={defaultMealSessionId}
+        loading={createOrderMutation.isPending}
+        onClose={() => {
+          if (createOrderMutation.isPending) return;
+          setPendingAvailableTable(null);
+        }}
+        onConfirm={(values) => {
+          void handleConfirmOpenTableOrder(values);
+        }}
       />
 
       <Toast

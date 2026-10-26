@@ -11,6 +11,11 @@ import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import {
+  DASHBOARD_DATE_RANGE_OPTIONS,
+  DateRangeOption,
+  dateRangeButtonLabel,
+} from '@/features/dashboard/enums';
 import { colors } from '@/lib/theme/mui/colors';
 
 export interface DashboardHeaderProps {
@@ -38,16 +43,9 @@ export function DashboardHeader({
 }: Readonly<DashboardHeaderProps>) {
   const [scopeAnchor, setScopeAnchor] = useState<null | HTMLElement>(null);
   const [dateAnchor, setDateAnchor] = useState<null | HTMLElement>(null);
-  const [selectedDateRange, setSelectedDateRange] = useState('Today');
-
-  const DATE_OPTIONS = [
-    'Today',
-    'Yesterday',
-    'Last 7 Days (28 Jun - 4 Jul 2025)',
-    'This Month',
-    'Last Month',
-    'Custom Range...',
-  ];
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>(
+    DateRangeOption.TODAY,
+  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%' }}>
@@ -164,7 +162,7 @@ export function DashboardHeader({
             }}
           >
             <CalendarMonthOutlinedIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-            {selectedDateRange}
+            {dateRangeButtonLabel(selectedDateRange)}
             <KeyboardArrowDownIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
           </ButtonBase>
 
@@ -182,11 +180,12 @@ export function DashboardHeader({
               },
             }}
           >
-            {DATE_OPTIONS.map((range) => (
+            {DASHBOARD_DATE_RANGE_OPTIONS.map((range) => (
               <MenuItem
                 key={range}
+                selected={range === selectedDateRange}
                 onClick={() => {
-                  setSelectedDateRange(range.replace(/\s*\(.*\)/, ''));
+                  setSelectedDateRange(range);
                   setDateAnchor(null);
                 }}
                 sx={{ fontSize: '0.8125rem' }}

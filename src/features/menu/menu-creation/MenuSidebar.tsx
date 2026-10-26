@@ -12,8 +12,6 @@ import { Pencil, Plus } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
-import { useToastStore } from '@/stores/toastStore';
-
 import { useMenuCreation } from '@/features/menu/context';
 import type { MenuCategory } from '@/lib/schemas/menu/menuCreationSchema';
 
@@ -151,7 +149,6 @@ export function MenuSidebar() {
     toggleCategoryStatus,
     isUpdatingCategory,
   } = useMenuCreation();
-  const showToast = useToastStore((state) => state.show);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   async function handleToggle(category: MenuCategory, nextActive: boolean) {
@@ -160,11 +157,8 @@ export function MenuSidebar() {
     setTogglingId(category.id);
     try {
       await toggleCategoryStatus(category.id, nextActive);
-    } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'Unable to update category status.',
-        'error',
-      );
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     } finally {
       setTogglingId(null);
     }
@@ -179,6 +173,7 @@ export function MenuSidebar() {
         flexShrink: 0,
         alignSelf: 'stretch',
         height: { md: '100%' },
+        maxHeight: { xs: 240, sm: 280, md: 'none' },
         overflow: 'auto',
       }}
     >

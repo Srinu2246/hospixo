@@ -17,9 +17,16 @@ import {
   MOCK_CASH_TRANSACTIONS,
   type CashTransactionItem,
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
+import {
+  formatShiftCurrency,
+  formatShiftStartTime,
+  type CurrentShift,
+} from '@/lib/schemas/pos/point-of-sale/cash-and-shift/currentShiftSchema';
 import { MetricCardsGrid, ActiveShiftBanner } from './MetricCardAndBanner';
 
 export interface CashAndShiftDashboardPageProps {
+  /** Open shift from GET …/shifts/current when present. */
+  currentShift?: CurrentShift | null;
   onCloseShift?: () => void;
   onAddCashIn?: () => void;
   onAddCashOut?: () => void;
@@ -40,6 +47,7 @@ export interface CashAndShiftDashboardPageProps {
  * Powered by `@/stores/themeStore` and `@/lib/theme/mui/colors`.
  */
 export function CashAndShiftDashboardPage({
+  currentShift = null,
   onCloseShift,
   onAddCashIn: _onAddCashIn,
   onAddCashOut: _onAddCashOut,
@@ -284,12 +292,49 @@ export function CashAndShiftDashboardPage({
       {/* ------------------------------------------------------------- */}
       {/* 2. Top Metric Cards (4 KPI Cards in a Row)                    */}
       {/* ------------------------------------------------------------- */}
-      <MetricCardsGrid />
+      <MetricCardsGrid
+        items={
+          currentShift
+            ? [
+                {
+                  id: 'current-shift',
+                  label: 'CURRENT SHIFT',
+                  value: 'Active',
+                  hasLiveIndicator: true,
+                },
+                {
+                  id: 'cash-in-drawer',
+                  label: 'CASH IN DRAWER',
+                  value: formatShiftCurrency(
+                    currentShift.cash_in_drawer ?? currentShift.opening_balance,
+                  ),
+                },
+                {
+                  id: 'total-sales',
+                  label: 'TOTAL SALES',
+                  value: formatShiftCurrency(currentShift.total_sales ?? 0),
+                },
+                {
+                  id: 'transactions',
+                  label: 'TRANSACTIONS',
+                  value: String(currentShift.transaction_count ?? 0),
+                },
+              ]
+            : undefined
+        }
+      />
 
       {/* ------------------------------------------------------------- */}
       {/* 3. Themed Active Shift Banner (Directly below metric cards)   */}
       {/* ------------------------------------------------------------- */}
-      <ActiveShiftBanner />
+      <ActiveShiftBanner
+        shiftNumber={currentShift?.shift_number}
+        openedBy={currentShift?.opened_by}
+        startTime={currentShift ? formatShiftStartTime(currentShift.opened_at) : undefined}
+        openingBalance={
+          currentShift ? formatShiftCurrency(currentShift.opening_balance) : undefined
+        }
+      />
 
       {/* ------------------------------------------------------------- */}
       {/* 4. Transaction History Table (Remaining Height, Only Scrolls)  */}

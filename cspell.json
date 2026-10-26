@@ -13,6 +13,7 @@
     "pnpm-workspace.yaml",
     "tsconfig.tsbuildinfo",
     "public/**",
+    "hospixo-frontend/**",
     "src/lib/mocks/**",
     "**/mocks/**",
     "**/mock/**",
@@ -32,6 +33,7 @@
     "Knip",
     "CSpell",
     "MUI",
+    "bgcolor",
     "logomark",
     "codequality",
     "treelocator",
@@ -109,6 +111,8 @@
     "subfeatures",
     "retarget",
     "unbilled",
-    "providerspecific"
+    "providerspecific",
+    "growthfalcons",
+    "GrowthFalcons"
   ]
 }

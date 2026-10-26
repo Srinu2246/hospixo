@@ -5,15 +5,14 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
-import IconButton from '@mui/material/IconButton';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-import { ChevronDown, ChevronLeft, Plus, SlidersHorizontal, Utensils } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, Utensils } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { colors } from '@/lib/theme/mui/colors';
-import type { PosTableItem } from '@/lib/mocks/pos/usePosTables.mocks';
+import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 
 function MetaBadge({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -91,7 +90,6 @@ function TableMeta({ table }: Readonly<{ table: PosTableItem }>) {
   return (
     <>
       <StatusChip status={table.status} label={table.status.toUpperCase()} size="small" showDot />
-      <MetaBadge>{table.floorId?.replace('-', ' ').toUpperCase() ?? 'GROUND FLOOR'}</MetaBadge>
       {table.guests !== undefined && (
         <MetaBadge>
           <GroupOutlinedIcon sx={{ fontSize: 15 }} />
@@ -211,23 +209,9 @@ export function TakeawayTopBar({
 
         {table ? <TableMeta table={table} /> : <CounterMeta />}
       </Stack>
-
       <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
-        <IconButton
-          size="small"
-          sx={{
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: '8px',
-            color: 'text.primary',
-            p: 0.85,
-            '&:hover': { bgcolor: 'action.hover' },
-          }}
-        >
-          <SlidersHorizontal size={18} />
-        </IconButton>
-
-        {(resolvedTableName || table) && (
+        {/* Dine-in: no Serve / Send KOT in the header */}
+        {mode !== 'dine-in' && (resolvedTableName || table) ? (
           <ActionButton
             variant="primary"
             size="medium"
@@ -247,7 +231,7 @@ export function TakeawayTopBar({
           >
             {primaryOrderLabel}
           </ActionButton>
-        )}
+        ) : null}
 
         {!table && !resolvedTableName && mode === 'takeaway' && (
           <ActionButton

@@ -1,17 +1,28 @@
 import { loadBranchDirectory, loadOrganizationBranches } from '@/lib/helpers/organizationBranches';
-import { loadCompanyById, loadOrganizationCompanies } from '@/lib/helpers/organizationCompanies';
+import {
+  loadCompanyById,
+  loadOrganizationCompanies,
+  shouldLoadOrganizationCompanyList,
+} from '@/lib/helpers/organizationCompanies';
 import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import {
   roleRequiresBranchId,
+  roleRequiresCompanyId,
+  rolePermissionsPayloadSchema,
   unwrapEnvelope,
   type CreateUserRequestContext,
   type RoleCatalogItem,
+  type RolePermissionsPayload,
+  isMatch,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import type { ScopeType } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { QueryParams } from '@/services/api/types';
+import type { JsonValue } from '@/types/json';
+import { userRolePermissionsPath } from '@/services/api/ApiUrlsV1';
 
-type GetJson = (path: string, params?: QueryParams) => Promise<unknown>;
+type GetJson = (path: string, params?: QueryParams) => Promise<JsonValue>;
 
 export type SessionDirectoryHints = {
   companyId?: number;
@@ -24,12 +35,64 @@ export type LoadEmployeeDirectoryInput = {
   organizationId?: number;
   companyId?: number;
   session: SessionDirectoryHints;
+  role?: string | null;
+  authScope?: string | null;
+  scope?: 'organization' | 'company' | 'branch';
 };
 
 export type EmployeeDirectoryData = {
   companies: CompanyListItem[];
   branches: BranchListItem[];
 };
+
+export type EmployeeDirectoryQueryOptions = {
+  companyId: number | undefined;
+  directoryScope: 'organization' | 'company' | 'branch';
+  lockCompanyField: boolean;
+};
+
+/** Company-scoped logins load one company; org admins load the full directory on org routes. */
+export function resolveEmployeeDirectoryOptions(input: {
+  wizardScope: ScopeType;
+  contextCompanyId?: number;
+  accountCompanyId?: number;
+  role?: string | null;
+  authScope?: string | null;
+}): EmployeeDirectoryQueryOptions {
+  const sessionCompanyId = input.contextCompanyId ?? input.accountCompanyId;
+  const mayListAllCompanies = shouldLoadOrganizationCompanyList({
+    role: input.role,
+    authScope: input.authScope,
+    companyId: null,
+    scope: 'organization',
+  });
+
+  if (mayListAllCompanies && input.wizardScope === 'organization') {
+    return { companyId: undefined, directoryScope: 'organization', lockCompanyField: false };
+  }
+
+  if (input.wizardScope === 'branch') {
+    return {
+      companyId: sessionCompanyId,
+      directoryScope: 'branch',
+      lockCompanyField: true,
+    };
+  }
+
+  if (sessionCompanyId != null) {
+    return {
+      companyId: sessionCompanyId,
+      directoryScope: input.wizardScope === 'organization' ? 'company' : input.wizardScope,
+      lockCompanyField: true,
+    };
+  }
+
+  return {
+    companyId: undefined,
+    directoryScope: input.wizardScope === 'organization' ? 'organization' : 'company',
+    lockCompanyField: input.wizardScope !== 'organization',
+  };
+}
 
 export type CreateUserIdHints = {
   organizationId?: number;
@@ -42,28 +105,85 @@ export type CreateUserNameHints = {
   branch?: string;
 };
 
+export { isMatch };
+
+function normalizeLabel(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? '';
+}
+
+/** Branch names for the create-user branch dropdown (company filter + keep current selection). */
+export function resolveCreateUserBranchOptions(input: {
+  branches: readonly BranchListItem[];
+  companies: readonly CompanyListItem[];
+  currentScope: ScopeType;
+  activeCompanyLabel?: string;
+  directoryCompanyId?: number | string;
+  selectedBranchName?: string;
+}): string[] {
+  const {
+    branches,
+    companies,
+    currentScope,
+    activeCompanyLabel,
+    directoryCompanyId,
+    selectedBranchName,
+  } = input;
+
+  const activeCompany = normalizeLabel(activeCompanyLabel);
+  const matchedCompany =
+    activeCompany.length > 0
+      ? companies.find((company) => normalizeLabel(company.name) === activeCompany)
+      : undefined;
+
+  let filtered = branches;
+
+  if (currentScope === 'organization' && activeCompany.length > 0) {
+    filtered = branches.filter((branch) => {
+      if (normalizeLabel(branch.companyName) === activeCompany) return true;
+      if (matchedCompany && String(branch.companyId) === String(matchedCompany.id)) return true;
+      return false;
+    });
+  } else if (
+    currentScope === 'company' &&
+    directoryCompanyId != null &&
+    directoryCompanyId !== ''
+  ) {
+    filtered = branches.filter((branch) => String(branch.companyId) === String(directoryCompanyId));
+  }
+
+  const names = filtered.map((branch) => branch.name).filter(Boolean);
+  const selected = selectedBranchName?.trim();
+  if (selected && !names.includes(selected)) {
+    const selectedBranch = branches.find((branch) => branch.name.trim() === selected);
+    if (selectedBranch) names.push(selectedBranch.name);
+    else names.push(selected);
+  }
+
+  return names;
+}
+
 export function companiesFromBranches(branches: readonly BranchListItem[]): CompanyListItem[] {
   const counts = new Map<string, { item: CompanyListItem; branchCount: number }>();
 
-  for (const branch of branches) {
+  branches.forEach((branch) => {
     const companyId = branch.companyId;
-    if (companyId === '' || companyId == null) continue;
+    if (companyId == null) return;
 
     const key = String(companyId);
     const existing = counts.get(key);
     if (existing) {
       existing.branchCount += 1;
-      if (branch.companyName?.trim()) {
+      if (branch.companyName.trim()) {
         existing.item.name = branch.companyName.trim();
       }
-      continue;
+      return;
     }
 
     counts.set(key, {
       branchCount: 1,
       item: {
         id: companyId,
-        name: branch.companyName?.trim() || `Company #${companyId}`,
+        name: branch.companyName.trim() || `Company #${companyId}`,
         code: null,
         businessType: null,
         status: 'active',
@@ -71,7 +191,7 @@ export function companiesFromBranches(branches: readonly BranchListItem[]): Comp
         userCount: 0,
       },
     });
-  }
+  });
 
   return [...counts.values()].map(({ item, branchCount }) => ({
     ...item,
@@ -108,16 +228,30 @@ export function enrichDirectoryWithSession(
 
   const branchId = hints.branchId;
   if (branchId != null && !nextBranches.some((branch) => String(branch.id) === String(branchId))) {
+    const resolvedCompanyId =
+      typeof companyId === 'number'
+        ? companyId
+        : typeof companyId === 'string' && Number.isFinite(Number(companyId))
+          ? Number(companyId)
+          : 0;
+    const resolvedBranchId =
+      typeof branchId === 'number'
+        ? branchId
+        : typeof branchId === 'string' && Number.isFinite(Number(branchId))
+          ? Number(branchId)
+          : 0;
+
     nextBranches = [
       ...nextBranches,
       {
-        id: branchId,
+        id: resolvedBranchId,
         name: hints.branchName?.trim() || `Branch #${branchId}`,
-        companyId: companyId ?? 0,
-        companyName: hints.companyName ?? null,
-        code: null,
-        city: null,
+        companyId: resolvedCompanyId,
+        companyName: hints.companyName?.trim() || `Company #${resolvedCompanyId}`,
+        code: String(branchId),
+        city: '—',
         status: 'active',
+        isDefault: false,
       },
     ];
   }
@@ -129,13 +263,38 @@ export async function loadEmployeeDirectory(
   input: LoadEmployeeDirectoryInput,
   get: GetJson,
 ): Promise<EmployeeDirectoryData> {
-  const { organizationId, companyId, session } = input;
+  const { organizationId, companyId, session, role, authScope, scope } = input;
 
-  const branches = await loadBranchDirectory(organizationId, companyId, get).catch(() => []);
+  const directoryScope = scope ?? (companyId != null ? 'company' : 'organization');
+  const directoryContext = { role, authScope, scope: directoryScope };
+
+  const branches = await loadBranchDirectory(
+    organizationId,
+    companyId,
+    get,
+    directoryContext,
+  ).catch(() => []);
+
+  const mayListAllCompanies = shouldLoadOrganizationCompanyList({
+    role,
+    authScope,
+    companyId: null,
+    scope: 'organization',
+  });
 
   let companies: CompanyListItem[] = [];
-  if (companyId == null && organizationId != null) {
-    companies = await loadOrganizationCompanies(organizationId, get).catch(() => []);
+  if (companyId != null && !mayListAllCompanies) {
+    const detail = await loadCompanyById(companyId, get).catch(() => null);
+    if (detail) companies = [detail];
+  } else if (companyId == null && organizationId != null && mayListAllCompanies) {
+    companies = await loadOrganizationCompanies(organizationId, get, {
+      role,
+      authScope,
+      scope: 'organization',
+    }).catch(() => []);
+  } else if (companyId != null) {
+    const detail = await loadCompanyById(companyId, get).catch(() => null);
+    if (detail) companies = [detail];
   }
 
   if (companies.length === 0 && branches.length > 0) {
@@ -156,28 +315,10 @@ export async function loadEmployeeDirectory(
   });
 }
 
-export function mergePermissionCategories(
-  current: readonly PermissionCategory[],
-  incoming: readonly PermissionCategory[],
-): PermissionCategory[] {
-  if (incoming.length === 0) return [...current];
-  if (current.length === 0) return incoming.map((category) => ({ ...category }));
-
-  const enabledByPermissionId = new Map<string, boolean>();
-  for (const category of current) {
-    for (const permission of category.permissions) {
-      enabledByPermissionId.set(permission.id, permission.enabled);
-    }
-  }
-
-  return incoming.map((category) => ({
-    ...category,
-    permissions: category.permissions.map((permission) => ({
-      ...permission,
-      enabled: enabledByPermissionId.get(permission.id) ?? permission.enabled,
-    })),
-  }));
-}
+export type CreateUserDirectoryAuth = {
+  role?: string | null;
+  authScope?: string | null;
+};
 
 export async function resolveCreateUserRequestContext(
   names: CreateUserNameHints,
@@ -185,6 +326,7 @@ export async function resolveCreateUserRequestContext(
   get: GetJson,
   roleCatalog: readonly RoleCatalogItem[] = [],
   roleCode?: string,
+  directoryAuth?: CreateUserDirectoryAuth,
 ): Promise<CreateUserRequestContext> {
   const needsBranch = roleCode ? roleRequiresBranchId(roleCode, roleCatalog) : false;
   const organizationId = ids.organizationId;
@@ -195,7 +337,25 @@ export async function resolveCreateUserRequestContext(
   let companyId = normalizeId(ids.companyId);
   let branchId = normalizeId(ids.branchId);
 
-  const companies = await loadOrganizationCompanies(organizationId, get).catch(() => []);
+  const mayListAllCompanies = shouldLoadOrganizationCompanyList({
+    role: directoryAuth?.role,
+    authScope: directoryAuth?.authScope,
+    companyId: null,
+    scope: 'organization',
+  });
+
+  let companies: CompanyListItem[] = [];
+  if (mayListAllCompanies) {
+    companies = await loadOrganizationCompanies(organizationId, get, {
+      role: directoryAuth?.role,
+      authScope: directoryAuth?.authScope,
+      scope: 'organization',
+    }).catch(() => []);
+  } else if (companyId != null) {
+    const detail = await loadCompanyById(companyId, get).catch(() => null);
+    if (detail) companies = [detail];
+  }
+
   const branches = await loadOrganizationBranches(
     organizationId,
     companies,
@@ -211,7 +371,14 @@ export async function resolveCreateUserRequestContext(
 
   if (branchId == null && names.branch?.trim()) {
     const branchName = names.branch.trim();
-    branchId = normalizeId(branches.find((branch) => branch.name === branchName)?.id);
+    branchId =
+      normalizeId(
+        branches.find(
+          (branch) =>
+            branch.name?.trim().toLowerCase() === branchName.toLowerCase() ||
+            String(branch.id) === branchName,
+        )?.id,
+      ) ?? normalizeId(branchName);
   }
 
   if (companyId == null && branchId != null) {
@@ -235,8 +402,10 @@ export async function resolveCreateUserRequestContext(
     }
   }
 
-  if (companyId == null) {
-    throw new Error('Company is required to create a user.');
+  const needsCompany = roleCode ? roleRequiresCompanyId(roleCode, roleCatalog) : true;
+
+  if (needsCompany && companyId == null) {
+    throw new Error('Company is required for company- and branch-scoped roles.');
   }
 
   if (needsBranch && branchId == null) {
@@ -245,14 +414,14 @@ export async function resolveCreateUserRequestContext(
 
   return {
     organizationId,
-    companyId,
-    ...(needsBranch && branchId != null ? { branchId } : {}),
+    ...(companyId != null ? { companyId } : {}),
+    ...(branchId != null ? { branchId } : {}),
     roleCatalog,
     ...(roleCode ? { roleCode } : {}),
   };
 }
 
-function normalizeId(value: unknown): number | undefined {
+function normalizeId(value: JsonValue | undefined): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim()) {
     const parsed = Number(value);
@@ -261,128 +430,138 @@ function normalizeId(value: unknown): number | undefined {
   return undefined;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function extractAssignedPermissionKeys(payload: unknown): Set<string> {
-  const keys = new Set<string>();
-  const unwrapped = unwrapEnvelope(payload);
-
-  const addCandidate = (val: unknown) => {
-    if (typeof val === 'string' && val.trim()) {
-      keys.add(val.trim());
-      keys.add(val.trim().toLowerCase());
-    } else if (typeof val === 'number') {
-      keys.add(String(val));
-    }
-  };
-
-  const processItem = (item: unknown) => {
-    if (typeof item === 'string' || typeof item === 'number') {
-      addCandidate(item);
-      return;
-    }
-    if (!isRecord(item)) return;
-
-    const isExplicitlyDisabled =
-      item.enabled === false ||
-      item.granted === false ||
-      item.active === false ||
-      item.is_granted === false ||
-      item.isGranted === false;
-
-    if (isExplicitlyDisabled) return;
-
-    for (const prop of [
-      'id',
-      'key',
-      'code',
-      'permission',
-      'permission_id',
-      'permissionId',
-      'permission_code',
-      'permissionCode',
-      'permission_key',
-      'permissionKey',
-      'name',
-    ] as const) {
-      if (item[prop] !== undefined && item[prop] !== null) {
-        addCandidate(item[prop]);
-      }
-    }
-
-    for (const childProp of ['permissions', 'items', 'children'] as const) {
-      if (Array.isArray(item[childProp])) {
-        for (const child of item[childProp] as unknown[]) {
-          processItem(child);
-        }
-      }
-    }
-  };
-
-  if (Array.isArray(unwrapped)) {
-    for (const item of unwrapped) {
-      processItem(item);
-    }
-  } else if (isRecord(unwrapped)) {
-    for (const listProp of [
-      'permissions',
-      'items',
-      'data',
-      'results',
-      'rows',
-      'effective_permissions',
-      'effectivePermissions',
-      'permission_codes',
-      'permissionCodes',
-      'inherited_permission_codes',
-      'inheritedPermissionCodes',
-    ] as const) {
-      if (Array.isArray(unwrapped[listProp])) {
-        for (const item of unwrapped[listProp] as unknown[]) {
-          processItem(item);
-        }
-      }
-    }
-    for (const [k, v] of Object.entries(unwrapped)) {
-      if (v === true) {
-        addCandidate(k);
-      }
-    }
-  }
-
-  return keys;
+function normalizePermissionMatchKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s.-]+/g, '_');
 }
 
 export function autoEnableRolePermissions(
   categories: readonly PermissionCategory[],
   assignedKeys: Set<string>,
 ): PermissionCategory[] {
-  if (assignedKeys.size === 0) return [...categories];
+  return categories.map((category) => ({
+    ...category,
+    permissions: category.permissions.map((perm) => {
+      const permCode = perm.code || perm.id;
+      const permCandidates = [perm.id, permCode, perm.name].map(normalizePermissionMatchKey);
+      const isAssigned =
+        assignedKeys.has(perm.id) ||
+        assignedKeys.has(perm.id.toLowerCase()) ||
+        assignedKeys.has(perm.name) ||
+        assignedKeys.has(perm.name.toLowerCase()) ||
+        assignedKeys.has(permCode) ||
+        assignedKeys.has(permCode.toLowerCase()) ||
+        [...assignedKeys].some((key) => {
+          const normalized = normalizePermissionMatchKey(key);
+          return permCandidates.some(
+            (candidate) =>
+              candidate === normalized ||
+              candidate.endsWith(`_${normalized}`) ||
+              normalized.endsWith(`_${candidate}`),
+          );
+        });
 
-  return categories.map((category) => {
+      return {
+        ...perm,
+        enabled: isAssigned,
+      };
+    }),
+  }));
+}
+
+export function togglePermissionCategory(
+  categories: readonly PermissionCategory[],
+  categoryId: string,
+  permissionId: string,
+): PermissionCategory[] {
+  return categories.map((cat) => {
+    if (cat.id !== categoryId) return cat;
     return {
-      ...category,
-      permissions: category.permissions.map((perm) => {
-        const candidateCode =
-          'code' in perm && typeof (perm as Record<string, unknown>).code === 'string'
-            ? ((perm as Record<string, unknown>).code as string)
-            : undefined;
-        const isAssigned =
-          assignedKeys.has(perm.id) ||
-          assignedKeys.has(perm.id.toLowerCase()) ||
-          assignedKeys.has(perm.name) ||
-          assignedKeys.has(perm.name.toLowerCase()) ||
-          (candidateCode
-            ? assignedKeys.has(candidateCode) || assignedKeys.has(candidateCode.toLowerCase())
-            : false);
-
-        return {
-          ...perm,
-          enabled: isAssigned,
-        };
-      }),
+      ...cat,
+      permissions: cat.permissions.map((p) =>
+        p.id === permissionId ? { ...p, enabled: !p.enabled } : p,
+      ),
     };
   });
+}
+
+export function toggleAllInCategory(
+  categories: readonly PermissionCategory[],
+  categoryId: string,
+  enableAll: boolean,
+): PermissionCategory[] {
+  return categories.map((cat) => {
+    if (cat.id !== categoryId) return cat;
+    return {
+      ...cat,
+      permissions: cat.permissions.map((p) => ({ ...p, enabled: enableAll })),
+    };
+  });
+}
+
+export async function resolveAssignmentPermissionsPayload(
+  userId: number | string,
+  userRoleId: number | string,
+  categories: readonly PermissionCategory[],
+  get: (path: string) => Promise<JsonValue>,
+): Promise<{
+  permission_codes: string[];
+  permission_ids: string[];
+  assignment_adjustments: Array<{ permission_code: string; effect: 'grant' | 'revoke' }>;
+}> {
+  let inheritedCodes: string[] = [];
+  try {
+    const raw = await get(userRolePermissionsPath(userId, userRoleId));
+    const parsed = rolePermissionsPayloadSchema.safeParse(unwrapEnvelope(raw));
+    if (parsed.success) {
+      const payload: RolePermissionsPayload = parsed.data;
+      inheritedCodes = payload.inherited_permission_codes;
+    }
+  } catch {
+    // If GET permissions endpoint fails, fallback to empty list
+  }
+
+  const enabledFromUI = new Set<string>();
+  const disabledFromUI = new Set<string>();
+
+  categories.forEach((cat) => {
+    cat.permissions.forEach((perm) => {
+      const code = perm.code || perm.id;
+      if (perm.enabled) {
+        enabledFromUI.add(code);
+      } else {
+        disabledFromUI.add(code);
+      }
+    });
+  });
+
+  const adjustments: Array<{ permission_code: string; effect: 'grant' | 'revoke' }> = [];
+  const inheritedSet = new Set<string>(inheritedCodes);
+  const hasInheritedBaseline = inheritedSet.size > 0;
+
+  enabledFromUI.forEach((code) => {
+    // Without a baseline, every UI toggle would look like a new grant and the backend
+    // rejects grants the actor does not hold (delegation rule).
+    if (!hasInheritedBaseline) return;
+    if (!inheritedSet.has(code)) {
+      adjustments.push({ permission_code: code, effect: 'grant' });
+    }
+  });
+
+  disabledFromUI.forEach((code) => {
+    if (!hasInheritedBaseline) return;
+    if (inheritedSet.has(code)) {
+      adjustments.push({ permission_code: code, effect: 'revoke' });
+    }
+  });
+
+  const permissionCodesList = hasInheritedBaseline ? Array.from(enabledFromUI) : [];
+
+  return {
+    permission_codes: permissionCodesList,
+    permission_ids: permissionCodesList,
+    assignment_adjustments: adjustments,
+  };
 }
