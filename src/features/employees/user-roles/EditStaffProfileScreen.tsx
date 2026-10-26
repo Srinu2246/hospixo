@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,11 +21,13 @@ import {
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import {
+  isFallbackEntityName,
   togglePermissionCategory,
   toggleAllInCategory,
 } from '@/lib/helpers/employees/userRolesHelpers';
 import { useStaffProfile } from '@/lib/hooks/employees/user-roles';
 import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
+import { useResolvedBranchName } from '@/lib/hooks/useResolvedBranchName';
 import { useUserRolesUiStore } from '@/stores/userRolesUiStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
@@ -60,11 +62,9 @@ export function EditStaffProfileScreen({
   const storeSelectedUserId = useUserRolesUiStore((state) => state.selectedUserId);
   const setSelectedUserId = useUserRolesUiStore((state) => state.setSelectedUserId);
 
-  useEffect(() => {
-    if (queryUserId && queryUserId !== storeSelectedUserId) {
-      setSelectedUserId(queryUserId);
-    }
-  }, [queryUserId, storeSelectedUserId, setSelectedUserId]);
+  if (queryUserId && queryUserId !== storeSelectedUserId) {
+    setSelectedUserId(queryUserId);
+  }
 
   const resolvedScope = resolveScopeFromPathname(pathname, scope);
 
@@ -81,10 +81,20 @@ export function EditStaffProfileScreen({
   const userProfile = staffProfile.profile;
   const userItem = staffProfile.userItem;
   const rawUser = staffProfile.rawUser as { company?: string; branch?: string } | undefined;
-  const resolvedCompanyName = useResolvedCompanyName(companyName);
+  const resolvedCompanyName = useResolvedCompanyName(companyName, { scope: resolvedScope });
+  const resolvedBranchName = useResolvedBranchName(rawUser?.branch, { scope: resolvedScope });
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
   const assignedCompany = userItem?.company || rawUser?.company || resolvedCompanyName || '—';
-  const assignedBranch = userItem?.branch || rawUser?.branch || contextBranchName || '—';
+  const assignedBranch =
+    userItem?.branch ||
+    rawUser?.branch ||
+    (resolvedBranchName && !isFallbackEntityName(resolvedBranchName)
+      ? resolvedBranchName
+      : undefined) ||
+    (contextBranchName && !isFallbackEntityName(contextBranchName)
+      ? contextBranchName
+      : undefined) ||
+    '—';
 
   const baseRoute = getUsersAndRolesBaseRoute(pathname, resolvedScope);
 
@@ -110,7 +120,7 @@ export function EditStaffProfileScreen({
     setCategories(remoteCategories);
   }
 
-  const displayCategories = categories;
+  const displayCategories = categories.length > 0 ? categories : remoteCategories;
 
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
   const [isActivateModalOpen, setIsActivateModalOpen] = useState(false);

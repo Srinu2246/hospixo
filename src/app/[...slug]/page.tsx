@@ -138,6 +138,7 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     match: (path) =>
       !path.includes('cash-shift') &&
       !path.includes('floor-and-table-setup') &&
+      !path.includes('users-and-roles') &&
       (path.endsWith('/success') ||
         path.endsWith('success') ||
         path.endsWith('/payment-success') ||

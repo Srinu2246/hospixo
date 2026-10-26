@@ -131,6 +131,7 @@ export function RoleTemplateSelection({
 
           <ActionButton
             variant="primary"
+            disabled
             onClick={onCreateRoleClick}
             startIcon={<AddIcon fontSize="small" />}
             sx={{ flexShrink: 0, alignSelf: { xs: 'stretch', sm: 'center' } }}
