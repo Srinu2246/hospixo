@@ -28,6 +28,7 @@ import {
 } from '@/lib/mocks/pos/usePosMenu.mocks';
 import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
+import { useToastStore } from '@/stores/toastStore';
 
 /** Same list params as Menus / MenuSessionDetailPage in the sidebar. */
 const ACTIVE_MENU_PARAMS = { status: 'active' as const, page: 1, page_size: 100 };
@@ -84,7 +85,14 @@ export function usePosOrder({
 
   const hydratedOrderIdRef = useRef<string | null>(null);
 
-  const branchMenus = useMemo(() => branchMenusQuery.data ?? [], [branchMenusQuery.data]);
+  // Dine-in / POS ordering: only branch-scoped menus (not company catalogue).
+  const branchMenus = useMemo(
+    () =>
+      (branchMenusQuery.data ?? []).filter(
+        (assignment) => assignment.menu.catalogue_scope === 'branch',
+      ),
+    [branchMenusQuery.data],
+  );
 
   const menuOptions = useMemo<DropdownOption<string>[]>(
     () =>
@@ -182,10 +190,11 @@ export function usePosOrder({
 
   const assignedCategorySet = useMemo(() => new Set(assignedCategoryIds), [assignedCategoryIds]);
 
-  // MenuSessionDetailPage: items whose category is assigned to the selected menu.
+  // Branch-scoped items only, in categories assigned to the selected menu.
   const menuItems = useMemo(
     () =>
       (itemsQuery.data?.items ?? [])
+        .filter((item) => item.catalogue_scope === 'branch')
         .filter((item) => assignedCategorySet.has(item.category_id))
         .map((item) => toPosMenuItem(item, categoryNameById)),
     [assignedCategorySet, categoryNameById, itemsQuery.data?.items],
@@ -355,13 +364,14 @@ export function usePosOrder({
   }, [itemsQuery.data?.items]);
 
   const handleServeItems = async () => {
+    const showToast = useToastStore.getState().show;
     const targetTable = resolvedTableName ?? table?.name ?? 'Table';
     if (cartItems.length === 0) {
-      setToastMessage(
-        isSendToKot
-          ? 'Please add items from the menu before sending to KOT.'
-          : `Please add items from the menu to serve to ${targetTable}.`,
-      );
+      const emptyMsg = isSendToKot
+        ? 'Please add items from the menu before sending to KOT.'
+        : `Please add items from the menu to serve to ${targetTable}.`;
+      showToast(emptyMsg, 'error');
+      setToastMessage(emptyMsg);
       return;
     }
 
@@ -371,7 +381,9 @@ export function usePosOrder({
     // Live KOT path: POST …/items then POST …/submit
     if (isSendToKot && hasOrderId) {
       if (!selectedMenuIdNumber) {
-        setToastMessage('Select a menu before sending to KOT.');
+        const msg = 'Select a menu before sending to KOT.';
+        showToast(msg, 'error');
+        setToastMessage(msg);
         return;
       }
 
@@ -400,14 +412,17 @@ export function usePosOrder({
                 },
           ),
         );
-        setToastMessage(
-          `✓ ${totalQty > 0 ? totalQty : cartItems.reduce((a, c) => a + c.quantity, 0)} item(s) sent to KOT for ${targetTable}!`,
-        );
+        const successMsg = `✓ ${totalQty > 0 ? totalQty : cartItems.reduce((a, c) => a + c.quantity, 0)} item(s) sent to KOT for ${targetTable}!`;
+        showToast(successMsg, 'success');
+        setToastMessage(successMsg);
         if (table && onServeOrder) {
           onServeOrder(table, cartItems);
         }
       } catch (error) {
-        setToastMessage(getErrorMessage(error, 'Failed to send items to KOT.'));
+        const errorMsg = getErrorMessage(error, 'Failed to send items to KOT.');
+        // AppShell toast (silent API calls skip browserClient toasts).
+        showToast(errorMsg, 'error');
+        setToastMessage(errorMsg);
       } finally {
         setIsSendingKot(false);
       }
@@ -415,12 +430,16 @@ export function usePosOrder({
     }
 
     if (isSendToKot && !hasOrderId) {
-      setToastMessage('Open an order before sending to KOT.');
+      const msg = 'Open an order before sending to KOT.';
+      showToast(msg, 'error');
+      setToastMessage(msg);
       return;
     }
 
     const totalQty = cartItems.reduce((acc, ci) => acc + ci.quantity, 0);
-    setToastMessage(`✓ ${totalQty} item(s) successfully served to ${targetTable}!`);
+    const successMsg = `✓ ${totalQty} item(s) successfully served to ${targetTable}!`;
+    showToast(successMsg, 'success');
+    setToastMessage(successMsg);
     if (table && onServeOrder) {
       onServeOrder(table, cartItems);
     }

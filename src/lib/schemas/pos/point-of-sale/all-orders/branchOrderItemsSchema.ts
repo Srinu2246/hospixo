@@ -24,7 +24,6 @@ export const addBranchOrderItemLineSchema = z.object({
 
 /** POST /v1/branches/{branch_id}/orders/{order_id}/items */
 export const addBranchOrderItemsBodySchema = z.object({
-  expected_version: coerceInt.positive().default(1),
   branch_menu_id: coerceInt.positive(),
   items: z.array(addBranchOrderItemLineSchema).min(1),
 });
