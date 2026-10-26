@@ -1,8 +1,21 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
-import { AVAILABILITY_CHANNELS } from '@/lib/mocks/menu/useMenuAvailability.mocks';
+import {
+  AVAILABILITY_CHANNELS,
+  type AvailabilityDietaryFilter,
+  type AvailabilityStatusFilter,
+} from '@/lib/mocks/menu/useMenuAvailability.mocks';
 import type {
   AvailabilityCategory,
   AvailabilityChannel,
@@ -11,20 +24,68 @@ import type {
   ItemAvailabilityMark,
   MenuAvailabilityPageConfig,
 } from '@/lib/schemas/menu/menuAvailabilitySchema';
+import type { MenuItemListParams } from '@/lib/schemas/menu/menuItemsSchema';
+import { showMenuItemWriteSuccessToast } from '@/lib/helpers/menuItemHelpers';
 import {
   createCategoryInputSchema,
-  menuCategorySchema,
   type CreateCategoryInput,
-  type CreateMenuItemFormValues,
+  type CreateMenuItemSubmitValues,
   type MenuCatalogItem,
   type MenuCategory,
   type MenuCreationViewMode,
   type MenuPageConfig,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import { resolveCatalogueContextIds } from '@/lib/helpers/apiContextHeaders';
+import { buildCreateMenuCategoryBody } from '@/lib/helpers/menuBranchContext';
+import { buildTagNameToIdMap } from '@/lib/helpers/createMenuItemFormData';
 import { toCatalogDietary, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
-import { useMenuCategories } from '@/lib/hooks/menu/useMenuCategories';
-import { useDeactivateMenuItem, useMenuItems } from '@/lib/hooks/menu/useMenuItems';
+import {
+  useCreateMenuCategory,
+  useMenuCategories,
+  useSetMenuCategoryActive,
+  useUpdateMenuCategory,
+} from '@/lib/hooks/menu/useMenuCategories';
+import {
+  menuItemQueryKey,
+  useCreateMenuItem,
+  useDeactivateMenuItem,
+  useMenuItems,
+  useSetMenuItemActive,
+  useUpdateMenuItem,
+} from '@/lib/hooks/menu/useMenuItems';
+import type { UpdateMenuCategoryBody } from '@/lib/schemas/menu/menuCategoriesSchema';
 import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
+import {
+  pushMenuCreationList,
+  pushMenuCreationView,
+  readMenuCreationParamsFromLocation,
+  replaceMenuCreationCategoryParam,
+} from '@/lib/params/menu';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { ApiError } from '@/services/api/types';
+
+function toUpdateCategoryBody(
+  category: MenuCategory,
+  overrides: Partial<{
+    name: string;
+    description: string;
+    status: 'active' | 'inactive';
+    display_order: number;
+  }> = {},
+): UpdateMenuCategoryBody {
+  const body: UpdateMenuCategoryBody = {
+    name: overrides.name ?? category.name,
+    display_order: overrides.display_order ?? category.displayOrder,
+    status: overrides.status ?? (category.status === 'Active' ? 'active' : 'inactive'),
+  };
+  if (overrides.description !== undefined) {
+    body.description = overrides.description;
+  } else if (category.description) {
+    body.description = category.description;
+  }
+  if (category.parentId != null) body.parent_id = category.parentId;
+  return body;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Menu Creation                                                              */
@@ -40,7 +101,6 @@ export interface MenuCreationContextValue {
   totalItemCount: number;
   activeCategoryId: string | null;
   searchQuery: string;
-  sessionFilter: string;
   selectedItem: MenuCatalogItem | null;
   isCategoriesLoading?: boolean;
   categoriesError?: Error | null;
@@ -50,19 +110,31 @@ export interface MenuCreationContextValue {
   refetchItems?: () => void;
   setActiveCategoryId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
-  setSessionFilter: (sessionId: string) => void;
   openCreateCategory: () => void;
+  openEditCategory: (category: MenuCategory) => void;
   openCreateItem: () => void;
   openEditItem: (item: MenuCatalogItem) => void;
   openViewItem: (item: MenuCatalogItem) => void;
   backToList: () => void;
-  addCategory: (input: CreateCategoryInput) => void;
-  toggleCategoryStatus: (categoryId: string) => void;
-  addItem: (data: CreateMenuItemFormValues) => void;
-  updateItem: (id: string, data: CreateMenuItemFormValues) => void;
+  editingCategory: MenuCategory | null;
+  /** POST /v1/restaurant/menu/categories */
+  addCategory: (input: CreateCategoryInput) => Promise<void>;
+  /** PATCH /v1/restaurant/menu/categories/{id} — edit name/description */
+  updateCategory: (input: CreateCategoryInput) => Promise<void>;
+  /** POST .../activate | .../deactivate */
+  toggleCategoryStatus: (categoryId: string, nextActive: boolean) => Promise<void>;
+  addItem: (data: CreateMenuItemSubmitValues) => Promise<string | undefined>;
+  updateItem: (id: string, data: CreateMenuItemSubmitValues) => Promise<string | undefined>;
   /** Soft-delete via POST .../items/{id}/deactivate */
   deleteItem: (id: string) => Promise<void>;
+  /** POST .../items/{id}/activate | .../deactivate */
+  toggleItemStatus: (itemId: string, nextActive: boolean) => Promise<void>;
   isDeletingItem?: boolean;
+  isUpdatingItemStatus?: boolean;
+  isCreatingItem?: boolean;
+  isUpdatingItem?: boolean;
+  isCreatingCategory?: boolean;
+  isUpdatingCategory?: boolean;
 }
 
 const MenuCreationContext = createContext<MenuCreationContextValue | null>(null);
@@ -73,24 +145,59 @@ export function MenuCreationProvider({
   pageConfig,
   initialViewMode = 'list',
   initialItemId,
+  initialCategoryId,
   children,
 }: Readonly<{
   pageConfig: MenuPageConfig;
   initialViewMode?: MenuCreationViewMode;
   initialItemId?: string;
+  initialCategoryId?: string;
   children: ReactNode;
 }>) {
   const [localCategories, setLocalCategories] = useState<MenuCategory[]>([]);
   const [localItems, setLocalItems] = useState<MenuCatalogItem[]>([]);
   const [viewMode, setViewMode] = useState<MenuCreationViewMode>(initialViewMode);
   const [selectedItem, setSelectedItem] = useState<MenuCatalogItem | null>(null);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(() =>
+    initialViewMode === 'edit-category' ? (initialCategoryId ?? null) : null,
+  );
+  const [activeCategoryId, setActiveCategoryIdState] = useState<string | null>(
+    () => initialCategoryId ?? null,
+  );
   const [searchQuery, setSearchQuery] = useState('');
-  const [sessionFilter, setSessionFilter] = useState('session-wise');
+  const setActiveCategoryId = (id: string | null) => {
+    setActiveCategoryIdState(id);
+    replaceMenuCreationCategoryParam(id);
+  };
 
+  const account = useSidebarStore((state) => state.account);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const branchIdForList = useMemo(() => {
+    if (pageConfig.scope !== 'branch') return undefined;
+    const raw = sidebarContext.branchId ?? account?.branch_id;
+    if (raw == null) return undefined;
+    const id = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [account?.branch_id, pageConfig.scope, sidebarContext.branchId]);
+
+  const menuListParams = useMemo<MenuItemListParams>(
+    () => ({
+      ...MENU_LIST_PARAMS,
+      ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
+    }),
+    [branchIdForList],
+  );
+
+  const queryClient = useQueryClient();
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
-  const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
-  const deactivateMenuItem = useDeactivateMenuItem();
+  const itemsQuery = useMenuItems(menuListParams);
+  const createMenuItem = useCreateMenuItem({ scope: pageConfig.scope });
+  const updateMenuItem = useUpdateMenuItem({ scope: pageConfig.scope });
+  const deactivateMenuItem = useDeactivateMenuItem({ scope: pageConfig.scope });
+  const setMenuItemActive = useSetMenuItemActive({ scope: pageConfig.scope });
+  const createMenuCategory = useCreateMenuCategory();
+  const updateMenuCategory = useUpdateMenuCategory();
+  const setMenuCategoryActive = useSetMenuCategoryActive();
 
   const apiCategories = categoriesQuery.data?.items;
   const apiItems = itemsQuery.data?.items;
@@ -100,6 +207,29 @@ export function MenuCreationProvider({
   const itemsError = itemsQuery.error;
   const refetchCategories = categoriesQuery.refetch;
   const refetchItems = itemsQuery.refetch;
+
+  const afterMenuItemWrite = useCallback(
+    async (options: {
+      message: string | null | undefined;
+      categoryId: string;
+      itemId?: number;
+    }) => {
+      setLocalItems([]);
+      await refetchItems();
+      if (options.itemId != null && Number.isFinite(options.itemId) && options.itemId > 0) {
+        await queryClient.refetchQueries({ queryKey: menuItemQueryKey(options.itemId) });
+      }
+      showMenuItemWriteSuccessToast(options.message);
+      setActiveCategoryId(options.categoryId);
+      setViewMode('list');
+      pushMenuCreationList({
+        scope: pageConfig.scope,
+        cleanPath: true,
+        categoryFilterId: options.categoryId,
+      });
+    },
+    [pageConfig.scope, queryClient, refetchItems],
+  );
 
   const categories: MenuCategory[] = useMemo(() => {
     if (localCategories.length > 0) {
@@ -111,6 +241,7 @@ export function MenuCreationProvider({
       status: c.status === 'active' ? 'Active' : 'Inactive',
       description: c.description ?? undefined,
       displayOrder: c.display_order,
+      parentId: c.parent_id ?? null,
     }));
   }, [apiCategories, localCategories]);
 
@@ -121,6 +252,8 @@ export function MenuCreationProvider({
     }
     return map;
   }, [categories]);
+
+  const tagNameToId = useMemo(() => buildTagNameToIdMap(apiItems ?? []), [apiItems]);
 
   const items: MenuCatalogItem[] = useMemo(() => {
     if (localItems.length > 0) return localItems;
@@ -138,28 +271,42 @@ export function MenuCreationProvider({
     setActiveCategoryId(match.categoryId);
   }
 
+  const editingCategory = useMemo(() => {
+    if (viewMode !== 'edit-category') return null;
+    const targetId = editingCategoryId ?? initialCategoryId ?? activeCategoryId;
+    if (!targetId) return null;
+    return categories.find((category) => category.id === targetId) ?? null;
+  }, [viewMode, editingCategoryId, initialCategoryId, activeCategoryId, categories]);
+
   // Handle browser back/forward buttons
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handlePopState = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const viewParam = urlParams.get('view');
-      const itemId = urlParams.get('itemId');
-      if (viewParam === 'create-item') {
+      const params = readMenuCreationParamsFromLocation();
+      setActiveCategoryIdState(params.categoryFilterId ?? null);
+
+      if (params.viewMode === 'create-item') {
         setSelectedItem(null);
         setViewMode('create-item');
-      } else if (viewParam === 'edit-item') {
-        const item = (itemId ? items.find((i) => i.id === itemId) : null) ?? items[0];
+      } else if (params.viewMode === 'edit-item') {
+        const item = (params.itemId ? items.find((i) => i.id === params.itemId) : null) ?? items[0];
         setSelectedItem(item);
-        if (item) setActiveCategoryId(item.categoryId);
+        if (item) setActiveCategoryIdState(item.categoryId);
         setViewMode('edit-item');
-      } else if (viewParam === 'view-item') {
-        const item = (itemId ? items.find((i) => i.id === itemId) : null) ?? items[0];
+      } else if (params.viewMode === 'view-item') {
+        const item = (params.itemId ? items.find((i) => i.id === params.itemId) : null) ?? items[0];
         setSelectedItem(item);
-        if (item) setActiveCategoryId(item.categoryId);
+        if (item) setActiveCategoryIdState(item.categoryId);
         setViewMode('view-item');
-      } else if (viewParam === 'create-category') {
+      } else if (params.viewMode === 'create-category') {
+        setEditingCategoryId(null);
         setViewMode('create-category');
+      } else if (params.viewMode === 'edit-category') {
+        if (params.categoryId) {
+          setActiveCategoryIdState(params.categoryId);
+          setEditingCategoryId(params.categoryId);
+        }
+        setViewMode('edit-category');
       } else if (
         window.location.pathname.endsWith('/create-menu-item') ||
         window.location.pathname.endsWith('/menu-creation/create')
@@ -167,6 +314,7 @@ export function MenuCreationProvider({
         setViewMode('create-item');
       } else {
         setSelectedItem(null);
+        setEditingCategoryId(null);
         setViewMode('list');
       }
     };
@@ -206,7 +354,6 @@ export function MenuCreationProvider({
       totalItemCount: items.length,
       activeCategoryId,
       searchQuery,
-      sessionFilter,
       selectedItem,
       isCategoriesLoading,
       categoriesError,
@@ -220,45 +367,42 @@ export function MenuCreationProvider({
       },
       setActiveCategoryId,
       setSearchQuery,
-      setSessionFilter,
       openCreateCategory: () => {
+        setEditingCategoryId(null);
         setViewMode('create-category');
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          url.searchParams.set('view', 'create-category');
-          window.history.pushState({ view: 'create-category' }, '', url.toString());
-        }
+        pushMenuCreationView('create-category');
+      },
+      openEditCategory: (category) => {
+        setEditingCategoryId(category.id);
+        setActiveCategoryIdState(category.id);
+        setViewMode('edit-category');
+        pushMenuCreationView('edit-category', {
+          categoryId: category.id,
+          categoryFilterId: category.id,
+        });
       },
       openCreateItem: () => {
         setSelectedItem(null);
         setViewMode('create-item');
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          url.searchParams.set('view', 'create-item');
-          window.history.pushState({ view: 'create-item' }, '', url.toString());
-        }
+        pushMenuCreationView('create-item');
       },
       openEditItem: (item) => {
         setSelectedItem(item);
-        setActiveCategoryId(item.categoryId);
+        setActiveCategoryIdState(item.categoryId);
         setViewMode('edit-item');
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          url.searchParams.set('view', 'edit-item');
-          url.searchParams.set('itemId', item.id);
-          window.history.pushState({ view: 'edit-item', itemId: item.id }, '', url.toString());
-        }
+        pushMenuCreationView('edit-item', {
+          itemId: item.id,
+          categoryFilterId: item.categoryId,
+        });
       },
       openViewItem: (item) => {
         setSelectedItem(item);
-        setActiveCategoryId(item.categoryId);
+        setActiveCategoryIdState(item.categoryId);
         setViewMode('view-item');
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          url.searchParams.set('view', 'view-item');
-          url.searchParams.set('itemId', item.id);
-          window.history.pushState({ view: 'view-item', itemId: item.id }, '', url.toString());
-        }
+        pushMenuCreationView('view-item', {
+          itemId: item.id,
+          categoryFilterId: item.categoryId,
+        });
       },
       deleteItem: async (id: string) => {
         const itemId = Number(id);
@@ -274,95 +418,162 @@ export function MenuCreationProvider({
         });
         setSelectedItem(null);
         setViewMode('list');
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('view');
-          url.searchParams.delete('itemId');
-          window.history.pushState({}, '', `${url.pathname}${url.search}`);
-        }
+        pushMenuCreationList();
       },
+      toggleItemStatus: async (itemId, nextActive) => {
+        const numericId = Number(itemId);
+        if (!Number.isFinite(numericId) || numericId <= 0) {
+          throw new ApiError('Invalid menu item id.', 400);
+        }
+
+        await setMenuItemActive.mutateAsync({
+          itemId: numericId,
+          active: nextActive,
+        });
+
+        const nextStatus = nextActive ? 'Available' : 'Inactive';
+        setLocalItems((prev) => {
+          const source = prev.length > 0 ? prev : items;
+          return source.map((item) =>
+            item.id === itemId ? { ...item, status: nextStatus } : item,
+          );
+        });
+        await refetchItems();
+        setLocalCategories([]);
+        setLocalItems([]);
+      },
+      editingCategory,
       isDeletingItem: deactivateMenuItem.isPending,
+      isUpdatingItemStatus: setMenuItemActive.isPending,
+      isCreatingItem: createMenuItem.isPending,
+      isUpdatingItem: updateMenuItem.isPending,
+      isCreatingCategory: createMenuCategory.isPending,
+      isUpdatingCategory: updateMenuCategory.isPending || setMenuCategoryActive.isPending,
       backToList: () => {
         setSelectedItem(null);
+        setEditingCategoryId(null);
         setViewMode('list');
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('view');
-          url.searchParams.delete('itemId');
-          const cleanPath = url.pathname
-            .replace(/\/create-menu-item$/, '/menu-creation')
-            .replace(/\/create$/, '');
-          window.history.pushState({}, '', `${cleanPath}${url.search}`);
-        }
+        pushMenuCreationList({ cleanPath: true });
       },
-      addCategory: (input) => {
+      addCategory: async (input) => {
         const parsed = createCategoryInputSchema.parse(input);
-        const next = menuCategorySchema.parse({
-          id: `cat_${Date.now()}`,
+        const contextIds = resolveCatalogueContextIds(pageConfig.scope);
+        const body = buildCreateMenuCategoryBody({
           name: parsed.name,
-          description: parsed.description || undefined,
-          status: 'Active',
-          displayOrder: categories.length + 1,
+          description: parsed.description,
+          pageScope: pageConfig.scope,
+          companyId: contextIds.companyId,
+          branchId: contextIds.branchId,
         });
-        setLocalCategories([...categories, next]);
-        setActiveCategoryId(next.id);
+
+        const created = await createMenuCategory.mutateAsync(body);
+        // Drop local overrides so the refreshed API list is the source of truth.
+        setLocalCategories([]);
+        await refetchCategories();
+
+        const nextId = String(created.id);
+        setEditingCategoryId(null);
+        setActiveCategoryIdState(nextId);
         setViewMode('list');
+        pushMenuCreationList({ categoryFilterId: nextId });
       },
-      toggleCategoryStatus: (categoryId) => {
-        setLocalCategories(
-          categories.map((category) =>
-            category.id === categoryId
-              ? {
-                  ...category,
-                  status: (category.status === 'Active' ? 'Inactive' : 'Active') as
-                    'Active' | 'Inactive',
-                }
-              : category,
-          ),
-        );
-      },
-      addItem: (data: CreateMenuItemFormValues) => {
-        const cat = categories.find((c) => c.id === data.category);
-        const newItem: MenuCatalogItem = {
-          id: `item_${Date.now()}`,
-          name: data.name,
-          categoryId: data.category,
-          categoryName: cat?.name ?? 'Starters',
-          basePrice: data.itemPrice,
-          dietary: data.dietaryType as 'Veg' | 'Non-Veg' | 'Egg',
-          status: 'Available',
-          code: data.code,
-          description: data.description,
-          imageUrl: data.images[0] ?? undefined,
-          orderTypes: data.orderTypes,
-          tags: data.tags,
-        };
-        setLocalItems([newItem, ...items]);
-        setActiveCategoryId(data.category);
+      updateCategory: async (input) => {
+        if (!editingCategory) {
+          throw new ApiError('No category selected to edit.', 400);
+        }
+        const parsed = createCategoryInputSchema.parse(input);
+        const categoryId = Number(editingCategory.id);
+        if (!Number.isFinite(categoryId) || categoryId <= 0) {
+          throw new ApiError('Invalid category id.', 400);
+        }
+
+        await updateMenuCategory.mutateAsync({
+          categoryId,
+          body: toUpdateCategoryBody(editingCategory, {
+            name: parsed.name,
+            description: parsed.description ?? '',
+          }),
+        });
+
+        const editedId = editingCategory.id;
+        setLocalCategories([]);
+        await refetchCategories();
+        setEditingCategoryId(null);
+        setActiveCategoryIdState(editedId);
         setViewMode('list');
+        pushMenuCreationList({ categoryFilterId: editedId });
       },
-      updateItem: (id: string, data: CreateMenuItemFormValues) => {
-        const cat = categories.find((c) => c.id === data.category);
-        setLocalItems(
-          items.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  name: data.name,
-                  categoryId: data.category,
-                  categoryName: cat?.name ?? item.categoryName,
-                  basePrice: data.itemPrice,
-                  dietary: data.dietaryType as 'Veg' | 'Non-Veg' | 'Egg',
-                  code: data.code,
-                  description: data.description,
-                  imageUrl: data.images[0] ?? item.imageUrl,
-                  orderTypes: data.orderTypes,
-                  tags: data.tags,
-                }
-              : item,
-          ),
-        );
-        setViewMode('list');
+      toggleCategoryStatus: async (categoryId, nextActive) => {
+        const category = categories.find((item) => item.id === categoryId);
+        if (!category) {
+          throw new ApiError('Category not found.', 404);
+        }
+        const numericId = Number(categoryId);
+        if (!Number.isFinite(numericId) || numericId <= 0) {
+          throw new ApiError('Invalid category id.', 400);
+        }
+
+        await setMenuCategoryActive.mutateAsync({
+          categoryId: numericId,
+          active: nextActive,
+        });
+
+        setLocalCategories([]);
+        await refetchCategories();
+      },
+      addItem: async (data: CreateMenuItemSubmitValues) => {
+        const { imageFile, tagIdsByName, ...values } = data;
+        if (pageConfig.scope === 'branch' && (branchIdForList == null || branchIdForList <= 0)) {
+          throw new ApiError('Branch is required to create a menu item for this account.', 400);
+        }
+
+        const created = await createMenuItem.mutateAsync({
+          values,
+          branchId: branchIdForList,
+          imageFile,
+          tagNameToId,
+          tagIdsByName,
+        });
+
+        await afterMenuItemWrite({
+          message: created.message,
+          categoryId: values.category,
+        });
+
+        return created.message ?? undefined;
+      },
+      updateItem: async (id: string, data: CreateMenuItemSubmitValues) => {
+        const itemId = Number(id);
+        if (!Number.isFinite(itemId) || itemId <= 0) {
+          throw new ApiError('Invalid menu item id.', 400);
+        }
+        if (!data.initialDetail) {
+          throw new ApiError('Menu item details are missing; reload and try again.', 400);
+        }
+        if (pageConfig.scope === 'branch' && (branchIdForList == null || branchIdForList <= 0)) {
+          throw new ApiError('Branch is required to update a menu item for this account.', 400);
+        }
+
+        const { imageFile: _imageFile, imageFiles, initialDetail, tagIdsByName, ...values } = data;
+        void _imageFile;
+
+        const updated = await updateMenuItem.mutateAsync({
+          itemId,
+          values,
+          initialDetail,
+          branchId: branchIdForList,
+          imageFiles,
+          tagNameToId,
+          tagIdsByName,
+        });
+
+        await afterMenuItemWrite({
+          message: updated.message,
+          categoryId: values.category,
+          itemId,
+        });
+
+        return updated.message ?? undefined;
       },
     }),
     [
@@ -373,8 +584,8 @@ export function MenuCreationProvider({
       items,
       pageConfig,
       searchQuery,
-      sessionFilter,
       selectedItem,
+      editingCategory,
       viewMode,
       isCategoriesLoading,
       categoriesError,
@@ -382,7 +593,18 @@ export function MenuCreationProvider({
       itemsError,
       refetchCategories,
       refetchItems,
+      afterMenuItemWrite,
       deactivateMenuItem,
+      setMenuItemActive,
+      createMenuItem,
+      updateMenuItem,
+      branchIdForList,
+      tagNameToId,
+      createMenuCategory,
+      updateMenuCategory,
+      setMenuCategoryActive,
+      account,
+      sidebarContext.branchId,
     ],
   );
 
@@ -415,21 +637,25 @@ export interface MenuAvailabilityContextValue {
     eightySixCount: number;
     hidden: number;
   };
-  changedCount: number;
   activeCategoryId: string | null;
   searchQuery: string;
   channelGroup: AvailabilityChannelGroup;
   activeChannelId: string;
-  addonStatus: string;
-  storeStatus: string;
+  dietaryFilter: AvailabilityDietaryFilter;
+  statusFilter: AvailabilityStatusFilter;
   setActiveCategoryId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setChannelGroup: (group: AvailabilityChannelGroup) => void;
   setActiveChannelId: (channelId: string) => void;
-  setAddonStatus: (status: string) => void;
-  setStoreStatus: (status: string) => void;
-  toggleItemMark: (itemId: string) => void;
-  updateAvailability: () => void;
+  setDietaryFilter: (value: AvailabilityDietaryFilter) => void;
+  setStatusFilter: (value: AvailabilityStatusFilter) => void;
+  /** POST .../activate | .../deactivate — active (true) / inactive (false). */
+  toggleItemMark: (itemId: string, nextActive: boolean) => Promise<void>;
+  isUpdatingItemStatus?: boolean;
+  isCategoriesLoading?: boolean;
+  isItemsLoading?: boolean;
+  categoriesError?: Error | null;
+  itemsError?: Error | null;
 }
 
 const MenuAvailabilityContext = createContext<MenuAvailabilityContextValue | null>(null);
@@ -445,6 +671,8 @@ function toAvailabilityItem(
 ): AvailabilityItem {
   const categoryId = String(item.category_id);
   const isActive = item.status === 'active';
+  const tagNames = item.tags.map((t) => t.name).filter((name) => name.length > 0);
+  const primaryTag = tagNames[0] ?? item.code ?? item.name;
   return {
     id: String(item.id),
     name: item.name,
@@ -452,14 +680,27 @@ function toAvailabilityItem(
     categoryName: categoryNameById.get(categoryId) ?? 'Uncategorized',
     dietary: toCatalogDietary(item.dietary_type),
     mark: isActive ? 'available' : '86d',
+    isActive,
     visibility: !isActive
       ? 'hidden'
       : item.allow_delivery || item.allow_takeaway
         ? 'online'
         : 'dine-in',
-    tag: item.tags[0]?.name ?? item.code ?? item.name,
+    tag: primaryTag,
+    tags: tagNames.length > 0 ? tagNames : [primaryTag],
     isHidden: !isActive,
   };
+}
+
+function matchesDietaryFilter(
+  dietary: AvailabilityItem['dietary'],
+  filter: AvailabilityDietaryFilter,
+): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'veg') return dietary === 'Veg';
+  if (filter === 'non_veg') return dietary === 'Non-Veg';
+  if (filter === 'egg') return dietary === 'Egg';
+  return dietary === 'Vegan';
 }
 
 export function MenuAvailabilityProvider({
@@ -469,8 +710,40 @@ export function MenuAvailabilityProvider({
   pageConfig: MenuAvailabilityPageConfig;
   children: ReactNode;
 }>) {
+  /** null = All Items (same as Menu Creation). */
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  /** Default DineIn QR — All / Online tabs are feature-flagged off for MVP. */
+  const [channelGroup, setChannelGroup] = useState<AvailabilityChannelGroup>('dine-in-qr');
+  const [activeChannelId, setActiveChannelId] = useState('dine-in-qr');
+  const [dietaryFilter, setDietaryFilter] = useState<AvailabilityDietaryFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<AvailabilityStatusFilter>('all');
+  const [localItems, setLocalItems] = useState<AvailabilityItem[] | null>(null);
+
+  const account = useSidebarStore((state) => state.account);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const branchIdForList = useMemo(() => {
+    if (pageConfig.scope !== 'branch') return undefined;
+    const raw = sidebarContext.branchId ?? account?.branch_id;
+    if (raw == null) return undefined;
+    const id = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [account?.branch_id, pageConfig.scope, sidebarContext.branchId]);
+
+  const itemListParams = useMemo<MenuItemListParams>(
+    () => ({
+      ...MENU_LIST_PARAMS,
+      ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
+      ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+      ...(dietaryFilter !== 'all' ? { dietary_type: dietaryFilter } : {}),
+    }),
+    [branchIdForList, dietaryFilter, statusFilter],
+  );
+
+  // Same list APIs as Menu Creation: GET categories + GET menu items (with status / dietary filters).
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
-  const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
+  const itemsQuery = useMenuItems(itemListParams);
+  const setMenuItemActive = useSetMenuItemActive({ scope: pageConfig.scope });
 
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -486,6 +759,7 @@ export function MenuAvailabilityProvider({
         id: String(category.id),
         name: category.name,
         displayOrder: category.display_order,
+        status: category.status,
       })),
     [categoriesQuery.data?.items],
   );
@@ -495,26 +769,8 @@ export function MenuAvailabilityProvider({
     [itemsQuery.data?.items, categoryNameById],
   );
 
-  const [localItems, setLocalItems] = useState<AvailabilityItem[] | null>(null);
-  const [baselineItems, setBaselineItems] = useState<AvailabilityItem[]>([]);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [channelGroup, setChannelGroup] = useState<AvailabilityChannelGroup>('online');
-  const [activeChannelId, setActiveChannelId] = useState('mayukha-website');
-  const [addonStatus, setAddonStatus] = useState('addon-on');
-  const [storeStatus, setStoreStatus] = useState('store-on');
-
   const categories = apiCategories;
   const items = localItems ?? apiItems;
-
-  // Keep baseline in sync with the latest API payload until the user edits marks.
-  if (localItems == null && apiItems.length > 0 && baselineItems !== apiItems) {
-    setBaselineItems(apiItems);
-  }
-
-  if (activeCategoryId == null && categories.length > 0) {
-    setActiveCategoryId(categories[0].id);
-  }
 
   const channels = useMemo(() => channelsForGroup(channelGroup), [channelGroup]);
 
@@ -530,14 +786,18 @@ export function MenuAvailabilityProvider({
     const query = searchQuery.trim().toLowerCase();
     return items.filter((item) => {
       if (activeCategoryId && item.categoryId !== activeCategoryId) return false;
+      if (!matchesDietaryFilter(item.dietary, dietaryFilter)) return false;
+      if (statusFilter === 'active' && !item.isActive) return false;
+      if (statusFilter === 'inactive' && item.isActive) return false;
       if (!query) return true;
       return (
         item.name.toLowerCase().includes(query) ||
         item.tag.toLowerCase().includes(query) ||
+        item.tags.some((tag) => tag.toLowerCase().includes(query)) ||
         item.categoryName.toLowerCase().includes(query)
       );
     });
-  }, [activeCategoryId, items, searchQuery]);
+  }, [activeCategoryId, dietaryFilter, items, searchQuery, statusFilter]);
 
   const stats = useMemo(() => {
     let available = 0;
@@ -556,15 +816,6 @@ export function MenuAvailabilityProvider({
     };
   }, [items]);
 
-  const changedCount = useMemo(() => {
-    const baselineById = new Map(baselineItems.map((item) => [item.id, item]));
-    return items.reduce((count, item) => {
-      const baseline = baselineById.get(item.id);
-      if (!baseline) return count + 1;
-      return baseline.mark !== item.mark ? count + 1 : count;
-    }, 0);
-  }, [baselineItems, items]);
-
   const value = useMemo<MenuAvailabilityContextValue>(
     () => ({
       pageConfig,
@@ -575,13 +826,12 @@ export function MenuAvailabilityProvider({
       categoryCounts,
       totalItemCount: items.length,
       stats,
-      changedCount,
       activeCategoryId,
       searchQuery,
       channelGroup,
       activeChannelId,
-      addonStatus,
-      storeStatus,
+      dietaryFilter,
+      statusFilter,
       setActiveCategoryId,
       setSearchQuery,
       setChannelGroup: (group) => {
@@ -593,38 +843,67 @@ export function MenuAvailabilityProvider({
         }
       },
       setActiveChannelId,
-      setAddonStatus,
-      setStoreStatus,
-      toggleItemMark: (itemId) => {
+      setDietaryFilter: (next) => {
+        setDietaryFilter(next);
+        setLocalItems(null);
+      },
+      setStatusFilter: (next) => {
+        setStatusFilter(next);
+        setLocalItems(null);
+      },
+      toggleItemMark: async (itemId, nextActive) => {
+        const numericId = Number(itemId);
+        if (!Number.isFinite(numericId) || numericId <= 0) {
+          throw new ApiError('Invalid menu item id.', 400);
+        }
+
+        await setMenuItemActive.mutateAsync({
+          itemId: numericId,
+          active: nextActive,
+        });
+
+        const nextMark: ItemAvailabilityMark = nextActive ? 'available' : '86d';
         setLocalItems((prev) => {
           const source = prev ?? items;
-          return source.map((item) => {
-            if (item.id !== itemId) return item;
-            const nextMark: ItemAvailabilityMark = item.mark === 'available' ? '86d' : 'available';
-            return { ...item, mark: nextMark };
-          });
+          return source.map((item) =>
+            item.id === itemId
+              ? {
+                  ...item,
+                  mark: nextMark,
+                  isActive: nextActive,
+                  isHidden: !nextActive,
+                  visibility: nextActive ? item.visibility : 'hidden',
+                }
+              : item,
+          );
         });
+        await itemsQuery.refetch();
+        setLocalItems(null);
       },
-      updateAvailability: () => {
-        setBaselineItems(items);
-        setLocalItems(items);
-      },
+      isUpdatingItemStatus: setMenuItemActive.isPending,
+      isCategoriesLoading: categoriesQuery.isLoading,
+      isItemsLoading: itemsQuery.isLoading || itemsQuery.isFetching,
+      categoriesError: categoriesQuery.error,
+      itemsError: itemsQuery.error,
     }),
     [
       activeCategoryId,
       activeChannelId,
-      addonStatus,
       categories,
       categoryCounts,
-      changedCount,
       channelGroup,
       channels,
+      dietaryFilter,
       filteredItems,
       items,
       pageConfig,
       searchQuery,
       stats,
-      storeStatus,
+      statusFilter,
+      setMenuItemActive,
+      categoriesQuery.isLoading,
+      categoriesQuery.error,
+      itemsQuery,
     ],
   );
 

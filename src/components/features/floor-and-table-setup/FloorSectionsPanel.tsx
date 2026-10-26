@@ -7,7 +7,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import { Eye, LayoutGrid, Pencil, Plus } from 'lucide-react';
+import { Eye, LayoutGrid, Pencil, Plus, QrCode } from 'lucide-react';
 
 import {
   EditTableDialog,
@@ -28,9 +28,9 @@ import {
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { useCreateTable } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { SectionQrDialog } from '@/components/features/floor-and-table-setup/SectionQrDialog';
+import type { SectionGuestMenuTarget } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import { ApiError } from '@/services/api/types';
-import { useToastStore } from '@/stores/toastStore';
 
 const compactFilterDropdownSx = {
   width: '100%',
@@ -50,6 +50,7 @@ export function FloorSectionsPanel({
   editing,
   branchId,
   floorId,
+  branchName,
   onOpen,
   onEdit,
   onAdd,
@@ -62,27 +63,61 @@ export function FloorSectionsPanel({
   editing: boolean;
   branchId?: number;
   floorId?: number;
+  branchName?: string;
   onOpen: (sectionId: string) => void;
   onEdit: (sectionId: string) => void;
   onAdd: () => void;
   onSave: (section: CatalogSection) => void;
   onCancel: () => void;
 }>) {
+  const [qrSection, setQrSection] = useState<SectionGuestMenuTarget | null>(null);
+  const qrDialog = (
+    <SectionQrDialog
+      open={qrSection != null}
+      section={qrSection}
+      floorId={floorId != null ? String(floorId) : null}
+      outletLabel={branchName?.trim() || 'outlet'}
+      outletId={branchId != null ? String(branchId) : null}
+      branchId={branchId ?? null}
+      onClose={() => setQrSection(null)}
+    />
+  );
+
   if (editing) {
-    return <SectionEditor section={selected} onSave={onSave} onCancel={onCancel} />;
+    return (
+      <>
+        {qrDialog}
+        <SectionEditor section={selected} onSave={onSave} onCancel={onCancel} />
+      </>
+    );
   }
   if (selected) {
     return (
-      <SectionDetail
-        section={selected}
-        tables={tables.filter((item) => item.sectionId === selected.id)}
-        floorTables={tables}
-        branchId={branchId}
-        floorId={floorId}
-      />
+      <>
+        {qrDialog}
+        <SectionDetail
+          section={selected}
+          tables={tables.filter((item) => item.sectionId === selected.id)}
+          floorTables={tables}
+          branchId={branchId}
+          floorId={floorId}
+          onDownloadQr={() => setQrSection({ id: selected.id, name: selected.name })}
+        />
+      </>
     );
   }
-  return <SectionList sections={sections} onOpen={onOpen} onEdit={onEdit} onAdd={onAdd} />;
+  return (
+    <>
+      {qrDialog}
+      <SectionList
+        sections={sections}
+        onOpen={onOpen}
+        onEdit={onEdit}
+        onAdd={onAdd}
+        onDownloadQr={(section) => setQrSection({ id: section.id, name: section.name })}
+      />
+    </>
+  );
 }
 
 function SectionList({
@@ -90,11 +125,13 @@ function SectionList({
   onOpen,
   onEdit,
   onAdd,
+  onDownloadQr,
 }: Readonly<{
   sections: readonly CatalogSection[];
   onOpen: (sectionId: string) => void;
   onEdit: (sectionId: string) => void;
   onAdd: () => void;
+  onDownloadQr: (section: CatalogSection) => void;
 }>) {
   const theme = useTheme();
   const belowDesktop = useMediaQuery(theme.breakpoints.down('md'));
@@ -233,51 +270,58 @@ function SectionList({
               >
                 {section.code || 'No code'}
               </Typography>
-              <Stack
-                direction="row"
-                spacing={0.5}
-                sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0 }}
-              >
-                <ActionButton
-                  variant="icon"
-                  size="small"
-                  ariaLabel={`View ${section.name}`}
-                  onClick={() => onOpen(section.id)}
-                >
-                  <Eye size={15} />
-                </ActionButton>
-                <ActionButton
-                  variant="icon"
-                  size="small"
-                  ariaLabel={`Edit ${section.name}`}
-                  onClick={() => onEdit(section.id)}
-                >
-                  <Pencil size={15} />
-                </ActionButton>
-              </Stack>
-              <Stack
-                direction="row"
-                spacing={1}
-                sx={{ display: { xs: 'flex', md: 'none' }, flexShrink: 0 }}
-              >
+              <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0, alignItems: 'center' }}>
                 <ActionButton
                   variant="outlined"
                   size="small"
-                  startIcon={<Eye size={15} />}
-                  onClick={() => onOpen(section.id)}
-                  sx={{ minHeight: 40, px: 1.5 }}
+                  startIcon={<QrCode size={14} />}
+                  onClick={() => onDownloadQr(section)}
+                  sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
                 >
-                  View
+                  Download QR
                 </ActionButton>
-                <ActionButton
-                  variant="outlined"
-                  size="small"
-                  startIcon={<Pencil size={15} />}
-                  onClick={() => onEdit(section.id)}
-                  sx={{ minHeight: 40, px: 1.5 }}
+                <Stack direction="row" spacing={0.5} sx={{ display: { xs: 'none', md: 'flex' } }}>
+                  <ActionButton
+                    variant="icon"
+                    size="small"
+                    ariaLabel={`View ${section.name}`}
+                    onClick={() => onOpen(section.id)}
+                  >
+                    <Eye size={15} />
+                  </ActionButton>
+                  <ActionButton
+                    variant="icon"
+                    size="small"
+                    ariaLabel={`Edit ${section.name}`}
+                    onClick={() => onEdit(section.id)}
+                  >
+                    <Pencil size={15} />
+                  </ActionButton>
+                </Stack>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ display: { xs: 'flex', md: 'none' }, flexShrink: 0 }}
                 >
-                  Edit
-                </ActionButton>
+                  <ActionButton
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Eye size={15} />}
+                    onClick={() => onOpen(section.id)}
+                    sx={{ minHeight: 40, px: 1.5 }}
+                  >
+                    View
+                  </ActionButton>
+                  <ActionButton
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Pencil size={15} />}
+                    onClick={() => onEdit(section.id)}
+                    sx={{ minHeight: 40, px: 1.5 }}
+                  >
+                    Edit
+                  </ActionButton>
+                </Stack>
               </Stack>
             </Stack>
           </Box>
@@ -293,15 +337,16 @@ function SectionDetail({
   floorTables,
   branchId,
   floorId,
+  onDownloadQr,
 }: Readonly<{
   section: CatalogSection;
   tables: readonly CatalogTable[];
   floorTables: readonly CatalogTable[];
   branchId?: number;
   floorId?: number;
+  onDownloadQr: () => void;
 }>) {
   const [draft, setDraft] = useState<CatalogTable | null>(null);
-  const showToast = useToastStore((state) => state.show);
   const createTable = useCreateTable(branchId);
   const sectionId = numericId(section.id);
   const canCreate = floorId != null && sectionId != null;
@@ -320,23 +365,28 @@ function SectionDetail({
         },
       });
       setDraft(null);
-      showToast(`Table ${next.number.trim()} created successfully.`, 'success');
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        showToast(
-          'That table number is already used in this branch. Choose a different name.',
-          'error',
-        );
-        return;
-      }
-      showToast(error instanceof Error ? error.message : 'Could not create this table.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   }
 
   return (
     <Stack spacing={2}>
       <SetupCard>
-        <Typography sx={{ fontWeight: 800, mb: 2 }}>Section Information</Typography>
+        <Stack
+          direction="row"
+          sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+        >
+          <Typography sx={{ fontWeight: 800 }}>Section Information</Typography>
+          <ActionButton
+            variant="outlined"
+            size="small"
+            startIcon={<QrCode size={14} />}
+            onClick={onDownloadQr}
+          >
+            Download QR
+          </ActionButton>
+        </Stack>
         <Box
           sx={{
             display: 'grid',

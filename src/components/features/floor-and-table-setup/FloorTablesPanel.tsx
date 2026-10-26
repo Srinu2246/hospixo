@@ -34,7 +34,6 @@ import {
   useUpdateTable,
 } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { toCatalogTable } from '@/lib/schemas/floor-and-table-setup/floors';
-import { ApiError } from '@/services/api/types';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useToastStore } from '@/stores/toastStore';
 
@@ -129,7 +128,6 @@ export function FloorTablesPanel({
           },
         });
         setEditing(null);
-        showToast(`Table ${next.number.trim()} created successfully.`, 'success');
         return;
       }
       const original = tables.find((item) => item.id === next.id);
@@ -174,9 +172,8 @@ export function FloorTablesPanel({
         },
       });
       setEditing(null);
-      showToast(`Table ${next.number.trim()} updated successfully.`, 'success');
-    } catch (error) {
-      showToast(tableError(error, 'Could not save this table.'), 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   }
 
@@ -191,9 +188,8 @@ export function FloorTablesPanel({
         tableId,
         body: { reason: 'Archived', version: table.version ?? 0 },
       });
-      showToast(`Table ${table.number} archived successfully.`, 'success');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Could not archive this table.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   }
 
@@ -223,9 +219,8 @@ export function FloorTablesPanel({
           },
         });
       }
-      showToast('Tables updated successfully.', 'success');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Could not update these tables.', 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   }
 
@@ -245,9 +240,8 @@ export function FloorTablesPanel({
         },
       });
       setBulkOpen(false);
-      showToast(`${count} tables created successfully.`, 'success');
-    } catch (error) {
-      showToast(tableError(error, 'Could not create these tables.'), 'error');
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
     }
   }
 
@@ -498,13 +492,6 @@ export function FloorTablesPanel({
       ) : null}
     </Stack>
   );
-}
-
-function tableError(error: unknown, fallback: string): string {
-  if (error instanceof ApiError && error.status === 409) {
-    return 'That table number is already used in this branch. Choose a different name.';
-  }
-  return error instanceof Error ? error.message : fallback;
 }
 
 function BulkGenerateDialog({

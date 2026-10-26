@@ -1,25 +1,23 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@/lib/hooks/api/useQuery';
 
-import { parseTableList } from '@/lib/schemas/floor-and-table-setup/floors';
 import {
-  mergeSectionTablesWithOpenOrders,
-  parseOpenOrders,
-} from '@/lib/schemas/pos/point-of-sale/tables/openOrdersSchema';
+  mapTableAvailabilityToPosTables,
+  parseTableAvailability,
+} from '@/lib/schemas/pos/point-of-sale/tables/tableAvailabilitySchema';
 import { api } from '@/services/api/browserClient';
-import { branchOrdersPath, restaurantSectionTablesPath } from '@/services/api/ApiUrlsV1';
+import { branchTablesAvailabilityPath } from '@/services/api/ApiUrlsV1';
 
-const floorTablesKey = (
+export const floorTablesQueryKey = (
   branchId: number | undefined,
   floorId: number | undefined,
   sectionId: number | undefined,
-) => ['pos', 'point-of-sale', 'tables', 'open-orders', branchId, floorId, sectionId] as const;
+) => ['pos', 'point-of-sale', 'tables', 'availability', branchId, floorId, sectionId] as const;
 
 /**
  * Floor-plan cards for POS Tables / Dine In.
- * Tables: GET .../sections/{section_id}/tables
- * Live status: GET /v1/branches/{branch_id}/orders?status=open&order_type=dine_in
+ * GET /v1/branches/{branch_id}/tables/availability?floor_id&section_id&page&page_size
  */
 export function usePosFloorTables(
   branchId: number | undefined,
@@ -27,7 +25,7 @@ export function usePosFloorTables(
   sectionId: number | undefined,
 ) {
   return useQuery({
-    queryKey: floorTablesKey(branchId, floorId, sectionId),
+    queryKey: floorTablesQueryKey(branchId, floorId, sectionId),
     enabled:
       typeof branchId === 'number' && typeof floorId === 'number' && typeof sectionId === 'number',
     staleTime: 15_000,
@@ -36,32 +34,19 @@ export function usePosFloorTables(
       const resolvedFloorId = floorId as number;
       const resolvedSectionId = sectionId as number;
 
-      const [tablesPayload, ordersPayload] = await Promise.all([
-        api.get(
-          restaurantSectionTablesPath(resolvedBranchId, resolvedFloorId, resolvedSectionId),
-          { page: 1, page_size: 50, status: 'active' },
-          signal,
-        ),
-        api.get(
-          branchOrdersPath(resolvedBranchId),
-          {
-            status: 'open',
-            order_type: 'dine_in',
-            floor_id: resolvedFloorId,
-            section_id: resolvedSectionId,
-            page: 1,
-            page_size: 50,
-          },
-          signal,
-        ),
-      ]);
-
-      return mergeSectionTablesWithOpenOrders(
-        parseTableList(tablesPayload),
-        parseOpenOrders(ordersPayload),
-        resolvedFloorId,
-        resolvedSectionId,
+      const payload = await api.get(
+        branchTablesAvailabilityPath(resolvedBranchId),
+        {
+          branch_id: resolvedBranchId,
+          floor_id: resolvedFloorId,
+          section_id: resolvedSectionId,
+          page: 1,
+          page_size: 50,
+        },
+        signal,
       );
+
+      return mapTableAvailabilityToPosTables(parseTableAvailability(payload));
     },
   });
 }

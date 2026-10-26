@@ -246,6 +246,14 @@ export const colors = {
     branchBorder: '#F59E0B',
   },
 
+  captainFlow: {
+    pageBackground: '#F4F7FE',
+    primary: '#2563EB',
+    navInactive: '#6B7280',
+    kotAction: '#EA580C',
+    kotActionHover: '#C2410C',
+  },
+
   entityList: {
     canvas: '#F8FAFC',
     infoTint: 'rgba(2, 132, 199, 0.08)',

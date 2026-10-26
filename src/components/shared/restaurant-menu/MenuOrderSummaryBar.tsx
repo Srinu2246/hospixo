@@ -4,7 +4,8 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
-import { Minus, Plus, Trash2, Utensils } from 'lucide-react';
+import { ChevronRight, Minus, Plus, Trash2, Utensils } from 'lucide-react';
+import { POS_CAPTAIN_COMPACT_PADDING } from '@/lib/helpers/posCaptainFlow';
 import { colors } from '@/lib/theme/mui/colors';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
@@ -20,6 +21,10 @@ export interface MenuOrderSummaryBarProps {
   onProceedCheckout?: () => void;
   onServe?: () => void;
   serveLabel?: string;
+  /** Disables the serve / Send to KOT control while the API is in flight. */
+  serveLoading?: boolean;
+  /** Captain mobile/tablet sticky footer (Figma) instead of side panel. */
+  layout?: 'panel' | 'compactSticky';
 }
 
 /**
@@ -42,11 +47,66 @@ export function MenuOrderSummaryBar({
   onProceedCheckout,
   onServe,
   serveLabel,
+  serveLoading = false,
+  layout = 'panel',
 }: Readonly<MenuOrderSummaryBarProps>) {
   // Calculations
   const totalItemCount = items.reduce((acc, item) => acc + item.quantity, 0);
   const subtotal = items.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
   const total = Math.max(0, subtotal - discount);
+
+  if (layout === 'compactSticky') {
+    if (!onServe && items.length === 0) return null;
+
+    return (
+      <Box
+        sx={{
+          width: '100%',
+          bgcolor: 'background.paper',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          px: POS_CAPTAIN_COMPACT_PADDING,
+          py: 1.25,
+          minHeight: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1.5,
+          boxSizing: 'border-box',
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: '0.9375rem', color: 'text.primary' }}>
+            {totalItemCount} Item{totalItemCount === 1 ? '' : 's'} Selected
+          </Typography>
+          <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary', mt: 0.25 }}>
+            Subtotal: Rs {subtotal.toLocaleString('en-IN')}
+          </Typography>
+        </Box>
+        {onServe ? (
+          <ActionButton
+            variant="primary"
+            onClick={onServe}
+            disabled={items.length === 0 || serveLoading}
+            loading={serveLoading}
+            endIcon={<ChevronRight size={18} strokeWidth={2.5} />}
+            sx={{
+              flexShrink: 0,
+              minHeight: 44,
+              px: 2,
+              borderRadius: '10px',
+              fontWeight: 700,
+              bgcolor: colors.captainFlow.kotAction,
+              boxShadow: 'none',
+              '&:hover': { bgcolor: colors.captainFlow.kotActionHover },
+            }}
+          >
+            {serveLabel ?? 'Send to KOT'}
+          </ActionButton>
+        ) : null}
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -500,6 +560,8 @@ export function MenuOrderSummaryBar({
             variant="primary"
             size="medium"
             onClick={onServe}
+            disabled={items.length === 0 || serveLoading}
+            loading={serveLoading}
             sx={{
               width: '100%',
               mt: 2,

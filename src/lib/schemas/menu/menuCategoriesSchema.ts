@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { catalogueNameSchema } from '@/lib/schemas/menu/menuCreationSchema';
 import { ApiError } from '@/services/api/types';
 
 export const statusBasicSchema = z.enum(['active', 'inactive']);
@@ -39,12 +40,46 @@ const envelope = <T extends z.ZodType>(data: T) =>
   });
 
 export const menuCategoriesEnvelopeSchema = envelope(pagedMenuCategoriesDataSchema);
+export const menuCategoryDetailEnvelopeSchema = envelope(menuCategoryResponseSchema);
 
 export const menuCategoryResponseListSchema = z.array(menuCategoryResponseSchema);
+
+/** POST /api/v1/restaurant/menu/categories */
+export const createMenuCategoryBodySchema = z
+  .object({
+    name: catalogueNameSchema,
+    description: z.string().trim().optional(),
+    parent_id: z.number().int().optional(),
+    display_order: z.number().int().optional(),
+    /** Omit with X-Branch-Id or for company categories (X-Company-Id only). */
+    scope: catalogueScopeSchema.optional(),
+    /** Required when `scope` is `branch` and the request uses X-Company-Id without X-Branch-Id. */
+    assign_branch_id: z.number().int().positive().optional(),
+  })
+  .superRefine((body, ctx) => {
+    if (body.scope === 'branch' && body.assign_branch_id == null) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'assign_branch_id is required when scope is branch.',
+        path: ['assign_branch_id'],
+      });
+    }
+  });
+
+/** PATCH /api/v1/restaurant/menu/categories/{category_id} */
+export const updateMenuCategoryBodySchema = z.object({
+  name: catalogueNameSchema,
+  description: z.string().trim().optional(),
+  parent_id: z.number().int().optional(),
+  display_order: z.number().int(),
+  status: statusBasicSchema,
+});
 
 export type StatusBasic = z.infer<typeof statusBasicSchema>;
 export type MenuCategoryResponse = z.infer<typeof menuCategoryResponseSchema>;
 export type PagedMenuCategoriesData = z.infer<typeof pagedMenuCategoriesDataSchema>;
+export type CreateMenuCategoryBody = z.infer<typeof createMenuCategoryBodySchema>;
+export type UpdateMenuCategoryBody = z.infer<typeof updateMenuCategoryBodySchema>;
 
 export type MenuCategoryListParams = {
   status?: StatusBasic;
@@ -76,4 +111,17 @@ export function parseMenuCategoryList(payload: unknown): PagedMenuCategoriesData
   }
 
   throw new ApiError('Unexpected menu categories response', 502);
+}
+
+/** POST /api/v1/restaurant/menu/categories — created category in `data`. */
+export function parseMenuCategoryRecord(payload: unknown): MenuCategoryResponse {
+  const parsed = menuCategoryDetailEnvelopeSchema.safeParse(payload);
+  if (parsed.success && parsed.data.success && parsed.data.data) {
+    return parsed.data.data;
+  }
+
+  const direct = menuCategoryResponseSchema.safeParse(payload);
+  if (direct.success) return direct.data;
+
+  throw new ApiError('Unexpected menu category response', 502);
 }

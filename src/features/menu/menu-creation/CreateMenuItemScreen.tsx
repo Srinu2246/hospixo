@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
@@ -25,29 +25,50 @@ import {
 } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { FieldHelperText } from '@/components/shared/form-fields/FieldHelperText';
 import { Input } from '@/components/shared/form-fields/Input';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { Modal } from '@/components/shared/ui/Modal';
 import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
+import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
 import { toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import { useCreateMenuItem } from '@/lib/hooks/menu/menu-creation/useCreateMenuItem';
+import type { MenuCataloguePageScope } from '@/lib/helpers/menuBranchContext';
+import { menuItemTagNameToCode } from '@/lib/helpers/menuItemTagHelpers';
+import { useCreateMenuItemTag, useMenuItemTags } from '@/lib/hooks/menu/useMenuItemTags';
+import { useGstRates } from '@/lib/hooks/menu/useGstRates';
 import { useMenuItem } from '@/lib/hooks/menu/useMenuItems';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { useToastStore } from '@/stores/toastStore';
+import { ApiError } from '@/services/api/types';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { shouldSimulateMenuItemUploadError } from '@/lib/params/menu';
 import type {
-  CreateMenuItemFormValues,
+  CreateMenuItemSubmitValues,
   MenuCatalogItem,
+  ItemOptionFormPayload,
   ModifierItem,
   VariantItem,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 import { useMenuCreation } from '@/features/menu/context';
 import { DietaryIcon, type DietaryType } from './DietaryIcon';
 
-const DEFAULT_PANEER_TIKKA_IMG =
-  'https://images.unsplash.com/photo-1567184109411-b28f2700e1e5?w=600&auto=format&fit=crop&q=80';
+function isPreviewImageSrc(value: string | undefined | null): value is string {
+  const trimmed = value?.trim();
+  if (!trimmed) return false;
+  return (
+    trimmed.startsWith('data:image/') ||
+    trimmed.startsWith('blob:') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/')
+  );
+}
 
 export interface CreateMenuItemScreenProps {
   initialItem?: MenuCatalogItem | null;
@@ -144,6 +165,8 @@ export function CreateMenuItemScreen({
   );
 }
 
+const OPERATIONAL_TAG_COUNT = 2;
+
 function CreateMenuItemForm({
   initialItem = null,
   initialDetail = null,
@@ -153,7 +176,7 @@ function CreateMenuItemForm({
   menuContext,
 }: Readonly<
   CreateMenuItemScreenProps & {
-    initialDetail?: import('@/lib/schemas/menu/menuItemsSchema').MenuItemResponse | null;
+    initialDetail?: MenuItemResponse | null;
     menuContext: ReturnType<typeof useMenuCreation> | null;
   }
 >) {
@@ -181,51 +204,84 @@ function CreateMenuItemForm({
     }
   };
 
-  const handleSaveItem = (values: CreateMenuItemFormValues) => {
-    if (mode === 'edit' && initialItem && menuContext) {
-      menuContext.updateItem(initialItem.id, values);
-    } else if (menuContext) {
-      menuContext.addItem(values);
-    }
+  const handleSaveItem = async (values: CreateMenuItemSubmitValues) => {
+    try {
+      if (mode === 'edit' && initialItem && menuContext) {
+        await menuContext.updateItem(initialItem.id, values);
+        onSaveSuccess?.();
+        return;
+      }
 
-    setToastFeedback({
-      open: true,
-      message:
-        mode === 'edit' ? 'Menu item updated successfully!' : 'Menu item created successfully!',
-      severity: 'success',
-    });
+      if (menuContext) {
+        await menuContext.addItem(values);
+        onSaveSuccess?.();
+        return;
+      }
 
-    if (onSaveSuccess) {
-      onSaveSuccess();
-    } else {
-      setTimeout(() => {
-        handleBackNavigation();
-      }, 500);
+      if (mode === 'create') {
+        throw new ApiError('Open Menu Creation from the sidebar to save new items.', 400);
+      }
+    } catch (error) {
+      setToastFeedback({
+        open: true,
+        message: getErrorMessage(error),
+        severity: 'error',
+      });
     }
   };
 
+  const gstRatesQuery = useGstRates({ active_only: true, page_size: 100 });
+  const itemTagsQuery = useMenuItemTags({ status: 'active', page_size: 100 });
+  const account = useSidebarStore((state) => state.account);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const tagCreateBranchId = useMemo(() => {
+    if (menuContext?.pageConfig.scope !== 'branch') return undefined;
+    const raw = sidebarContext.branchId ?? account?.branch_id;
+    if (raw == null) return undefined;
+    const id = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [account?.branch_id, menuContext?.pageConfig.scope, sidebarContext.branchId]);
+
   const formHook = useCreateMenuItem({
+    mode,
     initialItem,
     initialDetail,
+    defaultCategoryId: mode === 'create' ? (menuContext?.activeCategoryId ?? undefined) : undefined,
+    apiTagDefinitions: itemTagsQuery.data?.items,
     onSave: handleSaveItem,
     onBack: handleBackNavigation,
   });
 
+  const existingRemoteImageUrl = useMemo(() => {
+    if (mode !== 'edit') return undefined;
+    const primary =
+      initialDetail?.images.find((image) => image.is_primary) ?? initialDetail?.images[0];
+    const candidate = primary?.url ?? initialItem?.imageUrl;
+    return isPreviewImageSrc(candidate) ? candidate.trim() : undefined;
+  }, [initialDetail, initialItem?.imageUrl, mode]);
+
+  const primaryPreviewSrc = formHook.images[0] ?? existingRemoteImageUrl;
+  const [failedPreviewSrc, setFailedPreviewSrc] = useState<string | null>(null);
+  const showPrimaryPreview = Boolean(primaryPreviewSrc) && failedPreviewSrc !== primaryPreviewSrc;
+
   const { setUploadError } = formHook;
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('simulateError') === 'upload' || urlParams.get('uploadError') === 'true') {
-        setUploadError({
-          fileName: 'high-res-hero-banner.png',
-          fileSizeMb: 14.2,
-          message: '"high-res-hero-banner.png" (14.2 MB) exceeds the maximum 10MB limit.',
-        });
-      }
+    if (typeof window === 'undefined') return;
+    if (shouldSimulateMenuItemUploadError()) {
+      setUploadError({
+        fileName: 'high-res-hero-banner.png',
+        fileSizeMb: 14.2,
+        message: '"high-res-hero-banner.png" (14.2 MB) exceeds the maximum 10MB limit.',
+      });
     }
   }, [setUploadError]);
 
   // Available categories from context or fallback mocks
+  const gstRateOptions = (gstRatesQuery.data?.items ?? []).map((rate) => ({
+    id: String(rate.id),
+    label: `${rate.total_rate}% — ${rate.name}`,
+  }));
+
   const categoryOptions = (
     menuContext?.categories ?? [
       { id: 'cat_starters', name: 'Starters' },
@@ -277,7 +333,12 @@ function CreateMenuItemForm({
       <ActionButton
         variant="primary"
         onClick={formHook.handleSubmit}
-        loading={formHook.isSubmitting}
+        disabled={!formHook.canSubmit}
+        loading={
+          formHook.isSubmitting ||
+          Boolean(menuContext?.isCreatingItem) ||
+          Boolean(menuContext?.isUpdatingItem)
+        }
         sx={{
           height: 40,
           px: 3,
@@ -424,7 +485,13 @@ function CreateMenuItemForm({
             <Select
               id="item-category-select"
               value={formHook.category}
-              onChange={(e) => formHook.setCategory(e.target.value)}
+              onChange={(e) => {
+                formHook.setCategory(e.target.value);
+                if (formHook.isFieldTouched('category')) {
+                  formHook.validateField('category');
+                }
+              }}
+              onClose={() => formHook.handleFieldBlur('category')}
               displayEmpty
               IconComponent={ChevronDown}
               sx={{
@@ -434,7 +501,7 @@ function CreateMenuItemForm({
                 borderRadius: '10px',
                 bgcolor: 'background.paper',
                 border: '1px solid',
-                borderColor: formHook.errors.category ? 'error.main' : 'divider',
+                borderColor: formHook.fieldError('category') ? 'error.main' : 'divider',
                 fontSize: '0.875rem',
                 fontWeight: 500,
                 color: formHook.category ? 'text.primary' : 'text.secondary',
@@ -443,14 +510,14 @@ function CreateMenuItemForm({
                   border: 'none',
                 },
                 '&:focus-within, &.Mui-focused': {
-                  borderColor: formHook.errors.category ? 'error.main' : 'primary.main',
+                  borderColor: formHook.fieldError('category') ? 'error.main' : 'primary.main',
                   boxShadow: (theme) =>
-                    formHook.errors.category
+                    formHook.fieldError('category')
                       ? '0 0 0 2px rgba(239, 68, 68, 0.2)'
                       : `0 0 0 2px ${theme.palette.mode === 'dark' ? 'rgba(51, 84, 244, 0.35)' : 'rgba(51, 84, 244, 0.15)'}`,
                 },
                 '&:hover': {
-                  borderColor: formHook.errors.category ? 'error.main' : 'text.secondary',
+                  borderColor: formHook.fieldError('category') ? 'error.main' : 'text.secondary',
                 },
                 '& .MuiSelect-select': {
                   py: 0,
@@ -510,11 +577,7 @@ function CreateMenuItemForm({
                 </MenuItem>
               ))}
             </Select>
-            {formHook.errors.category && (
-              <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, display: 'block' }}>
-                {formHook.errors.category}
-              </Typography>
-            )}
+            <FieldHelperText message={formHook.fieldError('category')} reserveSpace />
           </Box>
 
           <Input
@@ -523,18 +586,31 @@ function CreateMenuItemForm({
             required
             placeholder="eg. Paneer Tikka"
             value={formHook.name}
-            onChange={(e) => formHook.setName(e.target.value)}
-            error={Boolean(formHook.errors.name)}
-            helperText={formHook.errors.name}
+            onChange={(e) => {
+              formHook.setName(e.target.value);
+              if (formHook.isFieldTouched('name')) formHook.validateField('name');
+            }}
+            onBlur={() => formHook.handleFieldBlur('name')}
+            error={Boolean(formHook.fieldError('name'))}
+            helperText={formHook.fieldError('name')}
             fullWidth
           />
 
           <Input
             id="item-online-display-name"
             label="Online Display Name"
+            required
             placeholder="eg. Paneer Tikka Masala"
             value={formHook.onlineDisplayName}
-            onChange={(e) => formHook.setOnlineDisplayName(e.target.value)}
+            onChange={(e) => {
+              formHook.setOnlineDisplayName(e.target.value);
+              if (formHook.isFieldTouched('onlineDisplayName')) {
+                formHook.validateField('onlineDisplayName');
+              }
+            }}
+            onBlur={() => formHook.handleFieldBlur('onlineDisplayName')}
+            error={Boolean(formHook.fieldError('onlineDisplayName'))}
+            helperText={formHook.fieldError('onlineDisplayName')}
             fullWidth
           />
 
@@ -545,22 +621,30 @@ function CreateMenuItemForm({
             required
             placeholder="eg. PNT"
             value={formHook.code}
-            onChange={(e) => formHook.setCode(e.target.value)}
-            error={Boolean(formHook.errors.code)}
-            helperText={formHook.errors.code}
+            onChange={(e) => {
+              formHook.setCode(e.target.value);
+              if (formHook.isFieldTouched('code')) formHook.validateField('code');
+            }}
+            onBlur={() => formHook.handleFieldBlur('code')}
+            error={Boolean(formHook.fieldError('code'))}
+            helperText={formHook.fieldError('code')}
             fullWidth
           />
 
           <Input
             id="item-base-price"
-            label="Item Base Price (₹) *"
+            label="Item Base Price (₹)"
             required
             type="number"
             placeholder="0.00"
             value={formHook.itemPrice}
-            onChange={(e) => formHook.setItemPrice(e.target.value)}
-            error={Boolean(formHook.errors.itemPrice)}
-            helperText={formHook.errors.itemPrice}
+            onChange={(e) => {
+              formHook.setItemPrice(e.target.value);
+              if (formHook.isFieldTouched('itemPrice')) formHook.validateField('itemPrice');
+            }}
+            onBlur={() => formHook.handleFieldBlur('itemPrice')}
+            error={Boolean(formHook.fieldError('itemPrice'))}
+            helperText={formHook.fieldError('itemPrice')}
             fullWidth
           />
 
@@ -574,14 +658,78 @@ function CreateMenuItemForm({
           />
 
           {/* Row 3: GST % */}
-          <Input
-            id="item-gst"
-            label="GST %"
-            placeholder="5%"
-            value={formHook.gst}
-            onChange={(e) => formHook.setGst(e.target.value)}
-            fullWidth
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+            <Typography
+              component="label"
+              htmlFor="item-gst-select"
+              sx={{
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: 'text.primary',
+                mb: 0.75,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+              }}
+            >
+              GST rate
+              <Box component="span" sx={{ color: 'error.main', fontWeight: 600 }}>
+                *
+              </Box>
+            </Typography>
+            <Select
+              id="item-gst-select"
+              value={formHook.gst}
+              onChange={(e) => {
+                formHook.setGst(e.target.value);
+                if (formHook.isFieldTouched('gst')) formHook.validateField('gst');
+              }}
+              onClose={() => formHook.handleFieldBlur('gst')}
+              displayEmpty
+              disabled={gstRatesQuery.isLoading}
+              IconComponent={ChevronDown}
+              sx={{
+                width: '100%',
+                height: 44,
+                minHeight: 44,
+                borderRadius: '10px',
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: formHook.fieldError('gst') ? 'error.main' : 'divider',
+                transition: 'all 0.15s ease',
+                '&:focus-within, &.Mui-focused': {
+                  borderColor: formHook.fieldError('gst') ? 'error.main' : 'primary.main',
+                  boxShadow: (theme) =>
+                    formHook.fieldError('gst')
+                      ? '0 0 0 2px rgba(239, 68, 68, 0.2)'
+                      : `0 0 0 2px ${theme.palette.mode === 'dark' ? 'rgba(51, 84, 244, 0.35)' : 'rgba(51, 84, 244, 0.15)'}`,
+                },
+                '&:hover': {
+                  borderColor: formHook.fieldError('gst') ? 'error.main' : 'text.secondary',
+                },
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                '& .MuiSelect-select': {
+                  py: 0,
+                  px: 1.75,
+                  height: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                },
+              }}
+            >
+              <MenuItem value="" disabled>
+                {gstRatesQuery.isLoading ? 'Loading GST rates…' : 'Select GST rate'}
+              </MenuItem>
+              {gstRateOptions.map((rate) => (
+                <MenuItem key={rate.id} value={rate.id}>
+                  {rate.label}
+                </MenuItem>
+              ))}
+            </Select>
+            <FieldHelperText message={formHook.fieldError('gst')} reserveSpace />
+          </Box>
 
           {/* Empty spacer for 3-column layout */}
           <Box sx={{ display: { xs: 'none', md: 'block' } }} />
@@ -660,9 +808,20 @@ function CreateMenuItemForm({
             {/* Order Type */}
             <Box>
               <Typography
-                sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary', mb: 1 }}
+                sx={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: 'text.primary',
+                  mb: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                }}
               >
                 Order Type
+                <Box component="span" sx={{ color: 'error.main', fontWeight: 600 }}>
+                  *
+                </Box>
               </Typography>
               <Stack direction="row" spacing={3} sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
                 {['Delivery', 'Take Away', 'Dine In'].map((type) => {
@@ -690,14 +849,7 @@ function CreateMenuItemForm({
                   );
                 })}
               </Stack>
-              {formHook.errors.orderTypes && (
-                <Typography
-                  variant="caption"
-                  sx={{ color: 'error.main', mt: 0.5, display: 'block' }}
-                >
-                  {formHook.errors.orderTypes}
-                </Typography>
-              )}
+              <FieldHelperText message={formHook.fieldError('orderTypes')} reserveSpace />
             </Box>
 
             {/* Expose This Item In */}
@@ -830,59 +982,71 @@ function CreateMenuItemForm({
                   fontWeight: 600,
                 }}
               >
-                12 tags
+                {formHook.availableTags.length} tags
               </Box>
             </Stack>
 
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
-                gap: 1.5,
-              }}
-            >
-              {formHook.availableTags.map((tag) => {
-                const isSelected = formHook.selectedTags.includes(tag);
-                return (
-                  <Box
-                    key={tag}
-                    onClick={() => formHook.toggleTag(tag)}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.25,
-                      p: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid',
-                      borderColor: isSelected ? 'primary.main' : 'divider',
-                      bgcolor: 'background.paper',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease-in-out',
-                      '&:hover': {
-                        borderColor: 'primary.main',
-                      },
-                    }}
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onChange={() => formHook.toggleTag(tag)}
-                      size="small"
-                      sx={{ p: 0, '&.Mui-checked': { color: 'primary.main' } }}
-                    />
-                    <Typography
+            {itemTagsQuery.isError ? (
+              <AlertMessage
+                variant="error"
+                title="Unable to load tags"
+                message={getErrorMessage(itemTagsQuery.error)}
+              />
+            ) : null}
+
+            {itemTagsQuery.isLoading && formHook.availableTags.length <= OPERATIONAL_TAG_COUNT ? (
+              <SkeletonLoader count={6} height={40} />
+            ) : (
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
+                  gap: 1.5,
+                }}
+              >
+                {formHook.availableTags.map((tag) => {
+                  const isSelected = formHook.selectedTags.includes(tag);
+                  return (
+                    <Box
+                      key={tag}
+                      onClick={() => formHook.toggleTag(tag)}
                       sx={{
-                        fontSize: '0.8125rem',
-                        fontWeight: 600,
-                        color: 'text.primary',
-                        userSelect: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.25,
+                        p: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid',
+                        borderColor: isSelected ? 'primary.main' : 'divider',
+                        bgcolor: 'background.paper',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease-in-out',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                        },
                       }}
                     >
-                      {tag}
-                    </Typography>
-                  </Box>
-                );
-              })}
-            </Box>
+                      <Checkbox
+                        checked={isSelected}
+                        onChange={() => formHook.toggleTag(tag)}
+                        size="small"
+                        sx={{ p: 0, '&.Mui-checked': { color: 'primary.main' } }}
+                      />
+                      <Typography
+                        sx={{
+                          fontSize: '0.8125rem',
+                          fontWeight: 600,
+                          color: 'text.primary',
+                          userSelect: 'none',
+                        }}
+                      >
+                        {tag}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
           </Paper>
         </Box>
       </Box>
@@ -1023,6 +1187,7 @@ function CreateMenuItemForm({
             <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
               {/* Main / Active uploaded image */}
               <Box
+                onClick={!showPrimaryPreview ? () => fileInputRef.current?.click() : undefined}
                 sx={{
                   position: 'relative',
                   width: 84,
@@ -1032,18 +1197,32 @@ function CreateMenuItemForm({
                   border: '1px solid',
                   borderColor: 'divider',
                   flexShrink: 0,
+                  bgcolor: '#F8FAFC',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'text.secondary',
+                  ...(!showPrimaryPreview ? { cursor: 'pointer' } : {}),
                 }}
               >
-                <Box
-                  component="img"
-                  src={formHook.images[0] || initialItem?.imageUrl || DEFAULT_PANEER_TIKKA_IMG}
-                  alt="Item thumbnail"
-                  sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+                {showPrimaryPreview && primaryPreviewSrc ? (
+                  <Box
+                    component="img"
+                    src={primaryPreviewSrc}
+                    alt="Item thumbnail"
+                    onError={() => setFailedPreviewSrc(primaryPreviewSrc)}
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <ImageIcon size={22} />
+                )}
                 {formHook.images.length > 0 && (
                   <IconButton
                     size="small"
-                    onClick={() => formHook.removeImage(0)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      formHook.removeImage(0);
+                    }}
                     sx={{
                       position: 'absolute',
                       top: 2,
@@ -1483,6 +1662,8 @@ function CreateMenuItemForm({
       <CreateTagModal
         open={formHook.isCreateTagOpen}
         onClose={() => formHook.setIsCreateTagOpen(false)}
+        pageScope={menuContext?.pageConfig.scope ?? 'branch'}
+        branchId={tagCreateBranchId}
         onCreateTag={formHook.addCustomTag}
       />
 
@@ -1502,8 +1683,8 @@ interface ItemOptionModalProps {
   type: 'variant' | 'modifier';
   initialItem?: VariantItem | ModifierItem | null;
   onClose: () => void;
-  onAdd: (item: { name: string; price: number }) => void;
-  onUpdate?: (id: string, item: { name: string; price: number }) => void;
+  onAdd: (item: ItemOptionFormPayload) => void;
+  onUpdate?: (id: string, item: ItemOptionFormPayload) => void;
 }
 
 function ItemOptionModal({
@@ -1531,10 +1712,12 @@ function ItemOptionModal({
       return;
     }
 
+    const payload: ItemOptionFormPayload = { name: trimmed, price: priceNum };
+
     if (initialItem && onUpdate) {
-      onUpdate(initialItem.id, { name: trimmed, price: priceNum });
+      onUpdate(initialItem.id, payload);
     } else {
-      onAdd({ name: trimmed, price: priceNum });
+      onAdd(payload);
     }
     setError(null);
     onClose();
@@ -1561,7 +1744,7 @@ function ItemOptionModal({
       subtitle={
         isVariant
           ? 'Define size or portion options for this menu item'
-          : 'Attach add-on options or customizations (e.g. Extra Cheese, Extra Sauce)'
+          : 'Add-on name and price; group rules are applied on the server'
       }
       width={460}
       height="auto"
@@ -1585,7 +1768,7 @@ function ItemOptionModal({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Input
           label={isVariant ? 'Variant Name' : 'Modifier Name'}
-          placeholder={isVariant ? 'e.g. Medium, Half, Large' : 'e.g. Extra Cheese, Extra Mint Dip'}
+          placeholder={isVariant ? 'e.g. Medium, Half, Large' : 'e.g. Extra Raita, Extra Gravy'}
           value={name}
           onChange={(e) => {
             setName(e.target.value);
@@ -1596,7 +1779,7 @@ function ItemOptionModal({
         />
         <Input
           label="Price (₹)"
-          placeholder={isVariant ? 'e.g. 249' : 'e.g. 30'}
+          placeholder={isVariant ? 'e.g. 249' : 'e.g. 40'}
           type="number"
           value={price}
           onChange={(e) => {
@@ -1615,27 +1798,52 @@ function ItemOptionModal({
 interface CreateTagModalProps {
   open: boolean;
   onClose: () => void;
-  onCreateTag: (tag: string) => void;
+  pageScope: MenuCataloguePageScope;
+  branchId?: number;
+  onCreateTag: (tag: { id: number; name: string }) => void;
 }
 
-function CreateTagModal({ open, onClose, onCreateTag }: Readonly<CreateTagModalProps>) {
+function CreateTagModal({
+  open,
+  onClose,
+  pageScope,
+  branchId,
+  onCreateTag,
+}: Readonly<CreateTagModalProps>) {
+  const createTag = useCreateMenuItemTag();
+  const showToast = useToastStore((state) => state.show);
   const [tagName, setTagName] = useState('');
+  const [tagCode, setTagCode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const trimmed = tagName.trim();
     if (!trimmed) {
       setError('Tag name is required');
       return;
     }
-    onCreateTag(trimmed);
-    setTagName('');
-    setError(null);
-    onClose();
+
+    try {
+      const created = await createTag.mutateAsync({
+        name: trimmed,
+        code: tagCode.trim() || menuItemTagNameToCode(trimmed),
+        pageScope,
+        branchId,
+      });
+      onCreateTag({ id: created.id, name: created.name });
+      showToast(`Tag "${created.name}" created successfully`, 'success');
+      setTagName('');
+      setTagCode('');
+      setError(null);
+      onClose();
+    } catch (cause) {
+      setError(getErrorMessage(cause));
+    }
   };
 
   const handleClose = () => {
     setTagName('');
+    setTagCode('');
     setError(null);
     onClose();
   };
@@ -1650,10 +1858,14 @@ function CreateTagModal({ open, onClose, onCreateTag }: Readonly<CreateTagModalP
       height="auto"
       footer={
         <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end', width: '100%' }}>
-          <ActionButton variant="outlined" onClick={handleClose}>
+          <ActionButton variant="outlined" onClick={handleClose} disabled={createTag.isPending}>
             Cancel
           </ActionButton>
-          <ActionButton variant="primary" onClick={handleConfirm}>
+          <ActionButton
+            variant="primary"
+            onClick={() => void handleConfirm()}
+            loading={createTag.isPending}
+          >
             Create Tag
           </ActionButton>
         </Stack>
@@ -1668,10 +1880,19 @@ function CreateTagModal({ open, onClose, onCreateTag }: Readonly<CreateTagModalP
             setTagName(e.target.value);
             if (error) setError(null);
           }}
-          error={Boolean(error)}
-          helperText={error ?? undefined}
           required
           autoFocus
+        />
+        <Input
+          label="Tag Code"
+          placeholder="Auto-generated from name if empty"
+          value={tagCode}
+          onChange={(e) => {
+            setTagCode(e.target.value);
+            if (error) setError(null);
+          }}
+          error={Boolean(error)}
+          helperText={error ?? undefined}
         />
       </Box>
     </Modal>

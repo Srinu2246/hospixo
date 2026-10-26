@@ -1,5 +1,5 @@
-import { AllOrdersPage } from '@/features/pos/point-of-sale/all-orders';
+import { CaptainFlowAllOrdersRoutePage } from '@/features/pos/captain-flow';
 
 export default function CaptainAllOrdersPage() {
-  return <AllOrdersPage />;
+  return <CaptainFlowAllOrdersRoutePage />;
 }

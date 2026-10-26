@@ -1,24 +1,22 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Plus, Upload } from 'lucide-react';
+import { Calendar, Plus, Upload } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Card } from '@/components/shared/ui/Card';
 import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 import { useMenuCreation } from '@/features/menu/context';
-import { MENU_SESSION_OPTIONS } from '@/lib/mocks/menu/useMenuCreation.mocks';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 
 import { CreateCategoryForm } from './CreateCategoryForm';
 import { CreateMenuItemScreen } from './CreateMenuItemScreen';
-import { DeleteMenuItemModal } from './DeleteMenuItemModal';
 import { MenuItemDetailPanel } from './MenuItemDetailPanel';
 import { MenuItemsTable } from './MenuItemsTable';
 import { MenuSidebar } from './MenuSidebar';
@@ -33,6 +31,7 @@ function CategoriesSidebarSkeleton() {
         flexShrink: 0,
         alignSelf: 'stretch',
         height: { md: '100%' },
+        maxHeight: { xs: 240, sm: 280, md: 'none' },
         p: 1.5,
         display: 'flex',
         flexDirection: 'column',
@@ -56,7 +55,9 @@ function MenuItemsListBody({
   itemsError,
   onView,
   onEdit,
-  onDelete,
+  onToggleActive,
+  togglingItemId,
+  statusToggleDisabled,
   onAddCategory,
 }: Readonly<{
   listKey: string;
@@ -68,7 +69,9 @@ function MenuItemsListBody({
   itemsError: Error | null | undefined;
   onView: (item: MenuCatalogItem) => void;
   onEdit: (item: MenuCatalogItem) => void;
-  onDelete: (item: MenuCatalogItem) => void;
+  onToggleActive: (item: MenuCatalogItem, nextActive: boolean) => void;
+  togglingItemId: string | null;
+  statusToggleDisabled: boolean;
   onAddCategory?: () => void;
 }>) {
   if (itemsError) {
@@ -94,7 +97,9 @@ function MenuItemsListBody({
       emptyBecauseNoCategories={categoriesEmpty}
       onView={onView}
       onEdit={onEdit}
-      onDelete={onDelete}
+      onToggleActive={onToggleActive}
+      togglingItemId={togglingItemId}
+      statusToggleDisabled={statusToggleDisabled}
       onAddCategory={canManageCategories ? onAddCategory : undefined}
     />
   );
@@ -107,26 +112,54 @@ function MenuListPane() {
     filteredItems,
     searchQuery,
     setSearchQuery,
-    sessionFilter,
-    setSessionFilter,
     activeCategoryId,
     openCreateCategory,
     openCreateItem,
     openEditItem,
     openViewItem,
-    deleteItem,
-    isDeletingItem,
+    toggleItemStatus,
+    isUpdatingItemStatus,
     items,
     isItemsLoading,
     itemsError,
   } = useMenuCreation();
 
-  const [deleteTargetItem, setDeleteTargetItem] = useState<MenuCatalogItem | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}::${sessionFilter}`;
+  const router = useRouter();
+  const [togglingItemId, setTogglingItemId] = useState<string | null>(null);
+  const [statusToggleError, setStatusToggleError] = useState<string | null>(null);
+  const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}`;
+
+  async function handleToggleItemActive(item: MenuCatalogItem, nextActive: boolean) {
+    const isActive = item.status === 'Available' || item.status === 'Active';
+    if (nextActive === isActive) return;
+    setTogglingItemId(item.id);
+    setStatusToggleError(null);
+    try {
+      await toggleItemStatus(item.id, nextActive);
+    } catch (error) {
+      setStatusToggleError(
+        error instanceof Error ? error.message : 'Unable to update item status.',
+      );
+    } finally {
+      setTogglingItemId(null);
+    }
+  }
 
   return (
-    <>
+    <Stack
+      spacing={2}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        minHeight: 0,
+        width: '100%',
+        display: 'flex',
+        pl: { xs: 1, sm: 2 },
+        pt: { xs: 1, sm: 2 },
+        pr: { xs: 1, sm: 2 },
+        boxSizing: 'border-box',
+      }}
+    >
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1.5}
@@ -159,6 +192,13 @@ function MenuListPane() {
         </Box>
 
         <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap', flexShrink: 0 }}>
+          <ActionButton
+            variant="outlined"
+            startIcon={<Calendar size={16} />}
+            onClick={() => router.push('/branch-manager/menu/sessions')}
+          >
+            Sessions
+          </ActionButton>
           <ActionButton variant="outlined" startIcon={<Upload size={16} />}>
             Upload CSV
           </ActionButton>
@@ -168,73 +208,57 @@ function MenuListPane() {
         </Stack>
       </Stack>
 
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        sx={{ alignItems: { sm: 'center' }, flexShrink: 0 }}
-      >
-        <SearchBar
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search items..."
-          showClear
-          fullWidth
-          width="100%"
-          sx={{ flex: 1, maxWidth: { sm: 420 } }}
-        />
-        <Dropdown
-          options={[...MENU_SESSION_OPTIONS]}
-          value={sessionFilter}
-          onChange={setSessionFilter}
-          minWidth={200}
-          size="medium"
-        />
-      </Stack>
-
-      <MenuItemsListBody
-        listKey={listKey}
-        filteredItems={filteredItems}
-        categoriesEmpty={categories.length === 0}
-        canManageCategories={pageConfig.canManageCategories}
-        isItemsLoading={Boolean(isItemsLoading)}
-        itemsEmpty={items.length === 0}
-        itemsError={itemsError}
-        onView={openViewItem}
-        onEdit={openEditItem}
-        onDelete={setDeleteTargetItem}
-        onAddCategory={openCreateCategory}
+      <SearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search items..."
+        showClear
+        fullWidth
+        sx={{
+          flexShrink: 0,
+          width: '100%',
+          maxWidth: 300,
+        }}
       />
 
-      {deleteError ? (
+      <Box
+        sx={{
+          flex: { md: 1 },
+          minHeight: { xs: 360, md: 0 },
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          minWidth: 0,
+        }}
+      >
+        <MenuItemsListBody
+          listKey={listKey}
+          filteredItems={filteredItems}
+          categoriesEmpty={categories.length === 0}
+          canManageCategories={pageConfig.canManageCategories}
+          isItemsLoading={Boolean(isItemsLoading)}
+          itemsEmpty={items.length === 0}
+          itemsError={itemsError}
+          onView={openViewItem}
+          onEdit={openEditItem}
+          onToggleActive={(item, nextActive) => {
+            void handleToggleItemActive(item, nextActive);
+          }}
+          togglingItemId={togglingItemId}
+          statusToggleDisabled={Boolean(isUpdatingItemStatus)}
+          onAddCategory={openCreateCategory}
+        />
+      </Box>
+
+      {statusToggleError ? (
         <AlertMessage
           variant="error"
-          title="Unable to delete menu item"
-          message={deleteError}
+          title="Unable to update item status"
+          message={statusToggleError}
           sx={{ mt: 1 }}
         />
       ) : null}
-
-      <DeleteMenuItemModal
-        open={Boolean(deleteTargetItem)}
-        loading={Boolean(isDeletingItem)}
-        onClose={() => {
-          if (isDeletingItem) return;
-          setDeleteTargetItem(null);
-          setDeleteError(null);
-        }}
-        onConfirm={async () => {
-          if (!deleteTargetItem) return;
-          setDeleteError(null);
-          try {
-            await deleteItem(deleteTargetItem.id);
-            setDeleteTargetItem(null);
-          } catch (error) {
-            setDeleteError(error instanceof Error ? error.message : 'The delete request failed.');
-          }
-        }}
-        item={deleteTargetItem}
-      />
-    </>
+    </Stack>
   );
 }
 
@@ -246,6 +270,8 @@ function MenuMainPane() {
     openEditItem,
     backToList,
     addCategory,
+    updateCategory,
+    editingCategory,
     deleteItem,
     isDeletingItem,
   } = useMenuCreation();
@@ -282,12 +308,45 @@ function MenuMainPane() {
   if (viewMode === 'create-category') {
     return (
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <CreateCategoryForm onCancel={backToList} onSubmit={addCategory} />
+        <CreateCategoryForm
+          key="create-category"
+          mode="create"
+          onCancel={backToList}
+          onSubmit={addCategory}
+        />
       </Box>
     );
   }
 
-  return <MenuListPane />;
+  if (viewMode === 'edit-category') {
+    return (
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <CreateCategoryForm
+          key={editingCategory?.id ?? 'edit-category'}
+          mode="edit"
+          initialCategory={editingCategory}
+          onCancel={backToList}
+          onSubmit={updateCategory}
+        />
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        width: '100%',
+        overflow: { xs: 'visible', md: 'hidden' },
+      }}
+    >
+      <MenuListPane />
+    </Box>
+  );
 }
 
 /**
@@ -302,28 +361,40 @@ export function MenuContent() {
     <Box
       sx={{
         display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        gap: 2,
+        flexDirection: 'column',
         width: '100%',
         height: '100%',
         minHeight: 0,
-        alignItems: 'stretch',
+        overflow: { xs: 'visible', md: 'hidden' },
       }}
     >
-      {showCategorySkeleton ? <CategoriesSidebarSkeleton /> : <MenuSidebar />}
-
-      <Stack
-        spacing={2}
+      <Box
         sx={{
-          flex: 1,
-          minWidth: 0,
-          minHeight: 0,
-          height: { md: '100%' },
-          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+          width: '100%',
+          flex: { md: 1 },
+          minHeight: { md: 0 },
+          alignItems: 'stretch',
         }}
       >
-        <MenuMainPane />
-      </Stack>
+        {showCategorySkeleton ? <CategoriesSidebarSkeleton /> : <MenuSidebar />}
+
+        <Stack
+          spacing={0}
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: { xs: 0, md: 0 },
+            height: { md: '100%' },
+            overflow: { xs: 'visible', md: 'hidden' },
+            display: 'flex',
+          }}
+        >
+          <MenuMainPane />
+        </Stack>
+      </Box>
     </Box>
   );
 }

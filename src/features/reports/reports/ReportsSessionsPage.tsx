@@ -1,8 +1,11 @@
 'use client';
 
-/** Reports sessions tab — summary KPIs and per-session item tables. */
+/**
+ * Reports sessions tab — summary KPIs and per-session item tables.
+ * Data from GET /v1/branches/{branch_id}/reports/sessions.
+ */
 
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Box, Button, Card, Typography } from '@mui/material';
 import {
   CalendarDays,
@@ -14,13 +17,21 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Loading } from '@/components/shared/ui/Loading';
 import { KpiCard, type KpiCardAccent } from '@/components/shared/ui/KpiCard';
+import { ReportsOverviewDateRange } from '@/features/reports/reports/ReportsOverviewDateRange';
 import {
-  MOCK_REPORTS_SESSION_BLOCKS,
-  MOCK_REPORTS_SESSIONS_SUMMARY,
-  reportsSessionsCopy,
-  type ReportsSessionItemRow,
-} from '@/lib/mocks/reports/reports.mocks';
+  createDefaultReportsDateRange,
+  deriveComparisonRange,
+  formatIsoDate,
+} from '@/lib/helpers/reportsOverview';
+import {
+  toReportsSessionsViewModel,
+  type ReportsSessionsViewModel,
+} from '@/lib/schemas/reports/reports/branchReports';
+import { useReportsSessions } from '@/lib/hooks/reports/reports/useBranchReports';
+import { reportsSessionsCopy, type ReportsSessionItemRow } from '@/lib/mocks/reports/reports.mocks';
 
 const SUMMARY_ICONS: Record<string, LucideIcon> = {
   'best-session': CalendarDays,
@@ -34,6 +45,13 @@ const SESSION_ICONS: Record<string, LucideIcon> = {
   lunch: Sun,
   dinner: Moon,
 };
+
+function sessionIconKey(sessionId: string): string {
+  if (sessionId.includes('breakfast')) return 'breakfast';
+  if (sessionId.includes('lunch')) return 'lunch';
+  if (sessionId.includes('dinner')) return 'dinner';
+  return sessionId;
+}
 
 function SessionItemsTable({
   title,
@@ -69,32 +87,38 @@ function SessionItemsTable({
           </Typography>
         ))}
       </Box>
-      {rows.map((row) => (
-        <Box
-          key={`${title}-${row.rank}`}
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: '32px 1fr auto auto',
-            columnGap: 1.5,
-            alignItems: 'center',
-            px: 1.5,
-            py: 1.25,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary' }}>
-            {row.rank}
-          </Typography>
-          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{row.item}</Typography>
-          <Typography sx={{ fontSize: '0.8125rem', textAlign: 'right' }}>
-            {row.unitsSold}
-          </Typography>
-          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, textAlign: 'right' }}>
-            {row.sales}
-          </Typography>
-        </Box>
-      ))}
+      {rows.length === 0 ? (
+        <Typography sx={{ px: 1.5, py: 2, fontSize: '0.8125rem', color: 'text.secondary' }}>
+          No items for this list.
+        </Typography>
+      ) : (
+        rows.map((row) => (
+          <Box
+            key={`${title}-${row.rank}`}
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: '32px 1fr auto auto',
+              columnGap: 1.5,
+              alignItems: 'center',
+              px: 1.5,
+              py: 1.25,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary' }}>
+              {row.rank}
+            </Typography>
+            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{row.item}</Typography>
+            <Typography sx={{ fontSize: '0.8125rem', textAlign: 'right' }}>
+              {row.unitsSold}
+            </Typography>
+            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, textAlign: 'right' }}>
+              {row.sales}
+            </Typography>
+          </Box>
+        ))
+      )}
     </Box>
   );
 }
@@ -116,7 +140,178 @@ function SectionCard({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
+function SessionsReportBody({ viewModel }: Readonly<{ viewModel: ReportsSessionsViewModel }>) {
+  return (
+    <>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gap: 2,
+        }}
+      >
+        {viewModel.summaryStats.map((stat) => (
+          <KpiCard
+            key={stat.id}
+            label={stat.label}
+            value={stat.value}
+            icon={SUMMARY_ICONS[stat.id] ?? CalendarDays}
+            accent={stat.accent as KpiCardAccent}
+            footerContent={
+              <Box>
+                <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'text.primary' }}>
+                  {stat.amount}
+                </Typography>
+                <Typography sx={{ mt: 0.25, fontSize: '0.75rem', color: 'text.secondary' }}>
+                  {stat.helperText}
+                </Typography>
+              </Box>
+            }
+          />
+        ))}
+      </Box>
+
+      <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+        {viewModel.coverageNote}
+      </Typography>
+
+      {viewModel.sessionBlocks.length === 0 ? (
+        <SectionCard>
+          <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary' }}>
+            No meal session rows for this period.
+          </Typography>
+        </SectionCard>
+      ) : (
+        viewModel.sessionBlocks.map((session) => {
+          const Icon = SESSION_ICONS[sessionIconKey(session.id)] ?? Sun;
+          return (
+            <SectionCard key={session.id}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 2,
+                  mb: 2.5,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '0.5rem',
+                      bgcolor: 'action.hover',
+                      color: 'info.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon size={18} aria-hidden />
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 700 }}>
+                      {session.name}
+                    </Typography>
+                    {session.hours !== '—' ? (
+                      <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                        {session.hours}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 3 }}>
+                  <Typography
+                    sx={{ fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}
+                  >
+                    {viewModel.periodLabel}
+                  </Typography>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography
+                      sx={{ fontSize: '0.6875rem', color: 'text.secondary', fontWeight: 600 }}
+                    >
+                      {reportsSessionsCopy.ordersLabel}
+                    </Typography>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 700 }}>
+                      {session.orders}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography
+                      sx={{ fontSize: '0.6875rem', color: 'text.secondary', fontWeight: 600 }}
+                    >
+                      {reportsSessionsCopy.netSalesLabel}
+                    </Typography>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 700 }}>
+                      {session.netSales}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                  gap: 3,
+                }}
+              >
+                <SessionItemsTable
+                  title={reportsSessionsCopy.topItemsTitle}
+                  rows={session.topItems}
+                />
+                <SessionItemsTable
+                  title={reportsSessionsCopy.lowItemsTitle}
+                  rows={session.lowItems}
+                />
+              </Box>
+            </SectionCard>
+          );
+        })
+      )}
+    </>
+  );
+}
+
 export function ReportsSessionsPage() {
+  const defaultRange = useMemo(() => createDefaultReportsDateRange(), []);
+  const [dateFrom, setDateFrom] = useState(defaultRange.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultRange.dateTo);
+
+  const comparisonRange = useMemo(
+    () => deriveComparisonRange(dateFrom, dateTo),
+    [dateFrom, dateTo],
+  );
+
+  const { data, isLoading, isError, error } = useReportsSessions({
+    dateFrom,
+    dateTo,
+    compareFrom: formatIsoDate(comparisonRange.compareFrom),
+    compareTo: formatIsoDate(comparisonRange.compareTo),
+    limit: 5,
+  });
+
+  const viewModel = useMemo(() => (data ? toReportsSessionsViewModel(data) : undefined), [data]);
+
+  let reportBody: ReactNode;
+  if (isLoading) {
+    reportBody = <Loading message="Loading sessions report…" />;
+  } else if (isError || !viewModel) {
+    reportBody = (
+      <AlertMessage
+        variant="error"
+        title="Unable to load sessions report"
+        message={
+          error instanceof Error ? error.message : 'Try adjusting the date range and refresh.'
+        }
+      />
+    );
+  } else {
+    reportBody = <SessionsReportBody viewModel={viewModel} />;
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
       <Box
@@ -139,19 +334,12 @@ export function ReportsSessionsPage() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
-          <Button
-            type="button"
-            variant="outlined"
-            size="small"
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.8125rem',
-              borderRadius: '0.5rem',
-            }}
-          >
-            {reportsSessionsCopy.dateRangeLabel}
-          </Button>
+          <ReportsOverviewDateRange
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+          />
           <Button
             type="button"
             variant="outlined"
@@ -170,127 +358,7 @@ export function ReportsSessionsPage() {
         </Box>
       </Box>
 
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
-          gap: 2,
-        }}
-      >
-        {MOCK_REPORTS_SESSIONS_SUMMARY.map((stat) => (
-          <KpiCard
-            key={stat.id}
-            label={stat.label}
-            value={stat.value}
-            icon={SUMMARY_ICONS[stat.id] ?? CalendarDays}
-            accent={stat.accent as KpiCardAccent}
-            footerContent={
-              <Box>
-                <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'text.primary' }}>
-                  {stat.amount}
-                </Typography>
-                <Typography sx={{ mt: 0.25, fontSize: '0.75rem', color: 'text.secondary' }}>
-                  {stat.helperText}
-                </Typography>
-              </Box>
-            }
-          />
-        ))}
-      </Box>
-
-      {MOCK_REPORTS_SESSION_BLOCKS.map((session) => {
-        const Icon = SESSION_ICONS[session.id] ?? Sun;
-        return (
-          <SectionCard key={session.id}>
-            <Box
-              sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 2,
-                mb: 2.5,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '0.5rem',
-                    bgcolor: 'action.hover',
-                    color: 'info.main',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Icon size={18} aria-hidden />
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: '1rem', fontWeight: 700 }}>{session.name}</Typography>
-                  <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                    {session.hours}
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 3 }}>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  size="small"
-                  startIcon={<CalendarDays size={14} />}
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
-                    borderRadius: '999px',
-                  }}
-                >
-                  {reportsSessionsCopy.periodLabel}
-                </Button>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography
-                    sx={{ fontSize: '0.6875rem', color: 'text.secondary', fontWeight: 600 }}
-                  >
-                    {reportsSessionsCopy.ordersLabel}
-                  </Typography>
-                  <Typography sx={{ fontSize: '1rem', fontWeight: 700 }}>
-                    {session.orders}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography
-                    sx={{ fontSize: '0.6875rem', color: 'text.secondary', fontWeight: 600 }}
-                  >
-                    {reportsSessionsCopy.netSalesLabel}
-                  </Typography>
-                  <Typography sx={{ fontSize: '1rem', fontWeight: 700 }}>
-                    {session.netSales}
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                gap: 3,
-              }}
-            >
-              <SessionItemsTable
-                title={reportsSessionsCopy.topItemsTitle}
-                rows={session.topItems}
-              />
-              <SessionItemsTable
-                title={reportsSessionsCopy.lowItemsTitle}
-                rows={session.lowItems}
-              />
-            </Box>
-          </SectionCard>
-        );
-      })}
+      {reportBody}
     </Box>
   );
 }

@@ -30,7 +30,7 @@ export type OrdersTableRow = Readonly<{
   grandTotal: string;
   grandTotalMeta?: string;
   created: string;
-  status: 'successful' | 'cancelled';
+  status: 'successful' | 'cancelled' | 'open';
 }>;
 
 export type OrdersTableColumn<T> = Readonly<{
@@ -96,17 +96,23 @@ function OrderTypeChip({
 }
 
 function StatusChip({ status }: Readonly<{ status: OrdersTableRow['status'] }>) {
-  const isSuccess = status === 'successful';
+  const label = status === 'open' ? 'Open' : status === 'cancelled' ? 'Cancelled' : 'Successful';
+  const tone =
+    status === 'open'
+      ? { bgcolor: 'rgba(245, 158, 11, 0.14)', color: 'warning.dark' }
+      : status === 'cancelled'
+        ? { bgcolor: 'rgba(239, 68, 68, 0.12)', color: 'error.dark' }
+        : { bgcolor: 'rgba(34, 197, 94, 0.12)', color: 'success.dark' };
+
   return (
     <Chip
-      label={isSuccess ? 'Successful' : 'Cancelled'}
+      label={label}
       size="small"
       sx={{
         height: 24,
         fontSize: '0.75rem',
         fontWeight: 600,
-        bgcolor: isSuccess ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-        color: isSuccess ? 'success.dark' : 'error.dark',
+        ...tone,
       }}
     />
   );

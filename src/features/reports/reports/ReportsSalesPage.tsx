@@ -2,10 +2,10 @@
 
 /**
  * Reports sales tab — summary KPIs, trend, order-type and session breakdown, daily table.
- * Data from mocks; layout uses shared report components.
+ * Data from GET /v1/branches/{branch_id}/reports/sales.
  */
 
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   Box,
   Button,
@@ -24,24 +24,34 @@ import {
   Download,
   IndianRupee,
   ShoppingBag,
+  Truck,
   UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react';
 
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Loading } from '@/components/shared/ui/Loading';
 import { TrendChart } from '@/components/shared/ui/TrendChart';
 import { MetricCard, type MetricCardAccent } from '@/components/shared/ui/MetricCard';
 import { KpiCard, type KpiCardAccent } from '@/components/shared/ui/KpiCard';
 import { SectionHeader } from '@/components/shared/ui/SectionHeader';
 import { SessionsTable } from '@/components/shared/ui/SessionsTable';
+import { Dropdown } from '@/components/shared/form-fields/Dropdown';
+import { ReportsOverviewDateRange } from '@/features/reports/reports/ReportsOverviewDateRange';
 import {
-  MOCK_REPORTS_SALES_BREAKDOWN,
-  MOCK_REPORTS_SALES_BREAKDOWN_FOOTER,
-  MOCK_REPORTS_SALES_BY_ORDER_TYPE,
-  MOCK_REPORTS_SALES_BY_SESSION,
-  MOCK_REPORTS_SALES_SUMMARY,
-  MOCK_REPORTS_SALES_TREND_CHART,
-  reportsSalesCopy,
-} from '@/lib/mocks/reports/reports.mocks';
+  createDefaultReportsDateRange,
+  deriveComparisonRange,
+  formatInrAmount,
+  formatIsoDate,
+} from '@/lib/helpers/reportsOverview';
+import {
+  summarizeReportsSalesBreakdownFooter,
+  toReportsSalesViewModel,
+  type ReportsSalesViewModel,
+} from '@/lib/schemas/reports/reports/branchReports';
+import { useReportsSales } from '@/lib/hooks/reports/reports/useBranchReports';
+import type { ReportsSalesBreakdownRow } from '@/lib/mocks/reports/reports.mocks';
+import { reportsSalesCopy } from '@/lib/mocks/reports/reports.mocks';
 
 const SUMMARY_ICONS: Record<string, LucideIcon> = {
   'total-sales': IndianRupee,
@@ -52,12 +62,21 @@ const SUMMARY_ICONS: Record<string, LucideIcon> = {
 const ORDER_TYPE_ACCENT: Record<string, MetricCardAccent> = {
   'dine-in': 'info',
   takeaway: 'warning',
+  delivery: 'success',
 };
 
 const ORDER_TYPE_ICON: Record<string, LucideIcon> = {
   'dine-in': UtensilsCrossed,
   takeaway: ShoppingBag,
+  delivery: Truck,
 };
+
+const ORDER_TYPE_FILTER_OPTIONS = [
+  { id: '', label: 'All order types' },
+  { id: 'dine_in', label: 'Dine-in' },
+  { id: 'takeaway', label: 'Takeaway' },
+  { id: 'delivery', label: 'Delivery' },
+] as const;
 
 const breakdownHeaderCellSx = {
   py: 1.5,
@@ -77,8 +96,16 @@ const breakdownBodyCellSx = {
   borderColor: 'divider',
 } as const;
 
-function SalesBreakdownTable() {
-  const footer = MOCK_REPORTS_SALES_BREAKDOWN_FOOTER;
+function SalesBreakdownTable({
+  rows,
+  footer,
+}: Readonly<{
+  rows: readonly ReportsSalesBreakdownRow[];
+  footer?: ReportsSalesBreakdownRow;
+}>) {
+  const footerRow =
+    rows.length > 0 ? (footer ?? summarizeReportsSalesBreakdownFooter(rows)) : undefined;
+
   return (
     <TableContainer sx={{ overflowX: 'auto', borderRadius: '0.5rem' }}>
       <Table size="small" sx={{ minWidth: 640 }}>
@@ -107,7 +134,14 @@ function SalesBreakdownTable() {
           </TableRow>
         </TableHead>
         <TableBody>
-          {MOCK_REPORTS_SALES_BREAKDOWN.map((row) => (
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} sx={{ ...breakdownBodyCellSx, color: 'text.secondary' }}>
+                No daily breakdown rows for this period.
+              </TableCell>
+            </TableRow>
+          ) : null}
+          {rows.map((row) => (
             <TableRow key={row.id} hover>
               <TableCell sx={breakdownBodyCellSx}>{row.date}</TableCell>
               <TableCell align="right" sx={breakdownBodyCellSx}>
@@ -124,24 +158,28 @@ function SalesBreakdownTable() {
               </TableCell>
             </TableRow>
           ))}
-          <TableRow sx={{ bgcolor: 'action.hover' }}>
-            <TableCell sx={{ ...breakdownBodyCellSx, fontWeight: 700 }}>{footer.date}</TableCell>
-            <TableCell align="right" sx={{ ...breakdownBodyCellSx, fontWeight: 700 }}>
-              {footer.dineIn}
-            </TableCell>
-            <TableCell align="right" sx={{ ...breakdownBodyCellSx, fontWeight: 700 }}>
-              {footer.takeaway}
-            </TableCell>
-            <TableCell
-              align="right"
-              sx={{ ...breakdownBodyCellSx, fontWeight: 700, color: 'text.secondary' }}
-            >
-              {footer.delivery}
-            </TableCell>
-            <TableCell align="right" sx={{ ...breakdownBodyCellSx, fontWeight: 700 }}>
-              {footer.total}
-            </TableCell>
-          </TableRow>
+          {footerRow ? (
+            <TableRow sx={{ bgcolor: 'action.hover' }}>
+              <TableCell sx={{ ...breakdownBodyCellSx, fontWeight: 700 }}>
+                {footerRow.date}
+              </TableCell>
+              <TableCell align="right" sx={{ ...breakdownBodyCellSx, fontWeight: 700 }}>
+                {footerRow.dineIn}
+              </TableCell>
+              <TableCell align="right" sx={{ ...breakdownBodyCellSx, fontWeight: 700 }}>
+                {footerRow.takeaway}
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ ...breakdownBodyCellSx, fontWeight: 700, color: 'text.secondary' }}
+              >
+                {footerRow.delivery}
+              </TableCell>
+              <TableCell align="right" sx={{ ...breakdownBodyCellSx, fontWeight: 700 }}>
+                {footerRow.total}
+              </TableCell>
+            </TableRow>
+          ) : null}
         </TableBody>
       </Table>
     </TableContainer>
@@ -179,81 +217,27 @@ function StatGrid({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-export function ReportsSalesPage() {
+function SalesReportBody({ viewModel }: Readonly<{ viewModel: ReportsSalesViewModel }>) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 2,
-        }}
-      >
-        <Box>
-          <Typography
-            variant="h6"
-            sx={{ fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.01em' }}
-          >
-            {reportsSalesCopy.title}
-          </Typography>
-          <Typography
-            sx={{ mt: 0.5, fontSize: '0.8125rem', color: 'text.secondary', maxWidth: 520 }}
-          >
-            {reportsSalesCopy.subtitle}
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
-          <Button
-            type="button"
-            variant="outlined"
-            size="small"
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.8125rem',
-              borderRadius: '0.5rem',
-            }}
-          >
-            {reportsSalesCopy.dateRangeLabel}
-          </Button>
-          <Button
-            type="button"
-            variant="outlined"
-            size="small"
-            startIcon={<Download size={16} />}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.8125rem',
-              borderRadius: '0.5rem',
-              color: 'info.main',
-            }}
-          >
-            {reportsSalesCopy.exportLabel}
-          </Button>
-        </Box>
-      </Box>
-
+    <>
       <SalesSectionCard>
         <StatGrid>
-          {MOCK_REPORTS_SALES_SUMMARY.map((stat) => (
+          {viewModel.summaryStats.map((stat) => (
             <KpiCard
               key={stat.id}
               label={stat.label}
               value={stat.value}
               icon={SUMMARY_ICONS[stat.id] ?? Banknote}
               accent={stat.accent as KpiCardAccent}
-              changePercent={'changePercent' in stat ? stat.changePercent : undefined}
-              changeLabel={'changeLabel' in stat ? stat.changeLabel : undefined}
-              footerText={'footerText' in stat ? stat.footerText : undefined}
+              changePercent={stat.changePercent}
+              changeLabel={stat.changeLabel}
+              footerText={stat.footerText}
               helperText={stat.helperText}
             />
           ))}
         </StatGrid>
         <Typography sx={{ mt: 2, fontSize: '0.75rem', color: 'text.secondary' }}>
-          {reportsSalesCopy.netSalesNote}
+          {viewModel.netSalesNote}
         </Typography>
       </SalesSectionCard>
 
@@ -272,22 +256,22 @@ export function ReportsSalesPage() {
           }}
         >
           <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-            {reportsSalesCopy.periodLabel}
+            {viewModel.periodLabel}
           </Typography>
           <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-            {reportsSalesCopy.compareLabel}
+            {viewModel.compareLabel}
           </Typography>
         </Box>
         <TrendChart
-          title={MOCK_REPORTS_SALES_TREND_CHART.title}
-          xLabels={MOCK_REPORTS_SALES_TREND_CHART.xLabels}
-          primarySeries={MOCK_REPORTS_SALES_TREND_CHART.primarySeries}
-          comparisonSeries={MOCK_REPORTS_SALES_TREND_CHART.comparisonSeries}
-          primaryLegendLabel={MOCK_REPORTS_SALES_TREND_CHART.primaryLegendLabel}
-          comparisonLegendLabel={MOCK_REPORTS_SALES_TREND_CHART.comparisonLegendLabel}
-          highlightedLabel={MOCK_REPORTS_SALES_TREND_CHART.highlightedLabel}
-          yAxisStep={MOCK_REPORTS_SALES_TREND_CHART.yAxisStep}
-          formatYAxisValue={(value) => `₹${value.toLocaleString('en-IN')}`}
+          title={viewModel.trendChart.title}
+          xLabels={viewModel.trendChart.xLabels}
+          primarySeries={viewModel.trendChart.primarySeries}
+          comparisonSeries={viewModel.trendChart.comparisonSeries}
+          primaryLegendLabel={viewModel.trendChart.primaryLegendLabel}
+          comparisonLegendLabel={viewModel.trendChart.comparisonLegendLabel}
+          highlightedLabel={viewModel.trendChart.highlightedLabel}
+          yAxisStep={viewModel.trendChart.yAxisStep}
+          formatYAxisValue={(value) => formatInrAmount(value)}
           ariaLabel="Sales trend by business date"
         />
       </SalesSectionCard>
@@ -304,7 +288,7 @@ export function ReportsSalesPage() {
             gap: 2,
           }}
         >
-          {MOCK_REPORTS_SALES_BY_ORDER_TYPE.map((row) => {
+          {viewModel.orderTypeRows.map((row) => {
             const Icon = ORDER_TYPE_ICON[row.id] ?? UtensilsCrossed;
             const accent = ORDER_TYPE_ACCENT[row.id] ?? 'info';
             return (
@@ -318,14 +302,6 @@ export function ReportsSalesPage() {
                   secondaryValue={`${row.orders.toLocaleString('en-IN')} orders`}
                   accent={accent}
                 />
-                <Typography sx={{ mt: 1, fontSize: '0.8125rem' }}>
-                  <Box component="span" sx={{ color: 'success.main', fontWeight: 600 }}>
-                    ↑ {row.changePercent}%
-                  </Box>
-                  <Box component="span" sx={{ color: 'text.secondary' }}>
-                    {' vs 14–20 Sep 2026'}
-                  </Box>
-                </Typography>
               </Box>
             );
           })}
@@ -338,7 +314,13 @@ export function ReportsSalesPage() {
           subtitle={reportsSalesCopy.sessionSubtitle}
           actionLabel={reportsSalesCopy.sessionAction}
         />
-        <SessionsTable rows={MOCK_REPORTS_SALES_BY_SESSION} />
+        {viewModel.sessionRows.length === 0 ? (
+          <Typography sx={{ fontSize: '0.8125rem', color: 'text.secondary' }}>
+            No meal session sales for this period.
+          </Typography>
+        ) : (
+          <SessionsTable rows={viewModel.sessionRows} />
+        )}
       </SalesSectionCard>
 
       <SalesSectionCard>
@@ -346,7 +328,7 @@ export function ReportsSalesPage() {
           title={reportsSalesCopy.breakdownTitle}
           subtitle={reportsSalesCopy.breakdownSubtitle}
         />
-        <SalesBreakdownTable />
+        <SalesBreakdownTable rows={viewModel.breakdownRows} footer={viewModel.breakdownFooter} />
       </SalesSectionCard>
 
       <SalesSectionCard>
@@ -376,6 +358,106 @@ export function ReportsSalesPage() {
           </Button>
         </Box>
       </SalesSectionCard>
+    </>
+  );
+}
+
+export function ReportsSalesPage() {
+  const defaultRange = useMemo(() => createDefaultReportsDateRange(), []);
+  const [dateFrom, setDateFrom] = useState(defaultRange.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultRange.dateTo);
+  const [orderType, setOrderType] = useState('');
+
+  const comparisonRange = useMemo(
+    () => deriveComparisonRange(dateFrom, dateTo),
+    [dateFrom, dateTo],
+  );
+
+  const { data, isLoading, isError, error } = useReportsSales({
+    dateFrom,
+    dateTo,
+    compareFrom: formatIsoDate(comparisonRange.compareFrom),
+    compareTo: formatIsoDate(comparisonRange.compareTo),
+    orderType: orderType || undefined,
+  });
+
+  const viewModel = useMemo(() => (data ? toReportsSalesViewModel(data) : undefined), [data]);
+
+  let reportBody: ReactNode;
+  if (isLoading) {
+    reportBody = <Loading message="Loading sales report…" />;
+  } else if (isError || !viewModel) {
+    reportBody = (
+      <AlertMessage
+        variant="error"
+        title="Unable to load sales report"
+        message={
+          error instanceof Error ? error.message : 'Try adjusting the date range and refresh.'
+        }
+      />
+    );
+  } else {
+    reportBody = <SalesReportBody viewModel={viewModel} />;
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
+        <Box>
+          <Typography
+            variant="h6"
+            sx={{ fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.01em' }}
+          >
+            {reportsSalesCopy.title}
+          </Typography>
+          <Typography
+            sx={{ mt: 0.5, fontSize: '0.8125rem', color: 'text.secondary', maxWidth: 520 }}
+          >
+            {reportsSalesCopy.subtitle}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
+          <ReportsOverviewDateRange
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+          />
+          <Dropdown
+            placeholder="Order type"
+            value={orderType}
+            onChange={setOrderType}
+            options={ORDER_TYPE_FILTER_OPTIONS}
+            size="small"
+            minWidth={168}
+          />
+          <Button
+            type="button"
+            variant="outlined"
+            size="small"
+            startIcon={<Download size={16} />}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.8125rem',
+              borderRadius: '0.5rem',
+              color: 'info.main',
+            }}
+          >
+            {reportsSalesCopy.exportLabel}
+          </Button>
+        </Box>
+      </Box>
+
+      {reportBody}
     </Box>
   );
 }

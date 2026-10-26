@@ -1,81 +1,138 @@
 'use client';
 
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
+import IconButton from '@mui/material/IconButton';
+import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
-import { Plus } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
-
 import { useMenuCreation } from '@/features/menu/context';
+import type { MenuCategory } from '@/lib/schemas/menu/menuCreationSchema';
 
 interface CategoryNavItemProps {
   label: string;
   count: number;
   selected: boolean;
-  inactive?: boolean;
+  /** Active = true, Inactive = false. */
+  active?: boolean;
+  showStatusToggle?: boolean;
+  showEdit?: boolean;
+  toggleDisabled?: boolean;
   onSelect: () => void;
+  onEdit?: () => void;
+  onToggleActive?: (nextActive: boolean) => void;
 }
 
 function CategoryNavItem({
   label,
   count,
   selected,
-  inactive = false,
+  active = true,
+  showStatusToggle = false,
+  showEdit = false,
+  toggleDisabled = false,
   onSelect,
+  onEdit,
+  onToggleActive,
 }: Readonly<CategoryNavItemProps>) {
   return (
-    <ButtonBase
-      onClick={onSelect}
+    <Box
       sx={{
-        width: '100%',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 1,
-        px: 1.5,
-        py: 1.1,
+        gap: 0.25,
         borderRadius: '8px',
-        textAlign: 'left',
-        color: selected ? 'primary.main' : 'text.primary',
         bgcolor: selected ? alpha(colors.primary.default, 0.1) : 'transparent',
-        opacity: inactive ? 0.65 : 1,
-        transition: 'background-color 0.15s ease, color 0.15s ease',
+        opacity: active ? 1 : 0.65,
+        transition: 'background-color 0.15s ease',
         '&:hover': {
           bgcolor: selected ? alpha(colors.primary.default, 0.15) : 'action.hover',
         },
       }}
     >
-      <Typography
-        variant="body2"
-        noWrap
+      <ButtonBase
+        onClick={onSelect}
         sx={{
-          fontWeight: selected ? 600 : 500,
-          fontSize: '0.875rem',
-          color: 'inherit',
           flex: 1,
           minWidth: 0,
-        }}
-        title={label}
-      >
-        {label}
-        {inactive ? ' (Inactive)' : ''}
-      </Typography>
-      <Box
-        component="span"
-        sx={{
-          fontSize: '0.875rem',
-          fontWeight: selected ? 600 : 500,
-          color: selected ? 'primary.main' : 'text.secondary',
-          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+          px: 1.5,
+          py: 1.1,
+          borderRadius: '8px',
+          textAlign: 'left',
+          color: selected ? 'primary.main' : 'text.primary',
         }}
       >
-        {count}
-      </Box>
-    </ButtonBase>
+        <Typography
+          variant="body2"
+          noWrap
+          sx={{
+            fontWeight: selected ? 600 : 500,
+            fontSize: '0.875rem',
+            color: 'inherit',
+            flex: 1,
+            minWidth: 0,
+          }}
+          title={label}
+        >
+          {label}
+        </Typography>
+        <Box
+          component="span"
+          sx={{
+            fontSize: '0.875rem',
+            fontWeight: selected ? 600 : 500,
+            color: selected ? 'primary.main' : 'text.secondary',
+            flexShrink: 0,
+          }}
+        >
+          {count}
+        </Box>
+      </ButtonBase>
+
+      {showEdit ? (
+        <IconButton
+          size="small"
+          aria-label={`Edit ${label}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit?.();
+          }}
+          sx={{ p: 0.5, color: 'text.secondary' }}
+        >
+          <Pencil size={14} />
+        </IconButton>
+      ) : null}
+
+      {showStatusToggle ? (
+        <Switch
+          size="small"
+          checked={active}
+          disabled={toggleDisabled}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(_event, next) => onToggleActive?.(next)}
+          slotProps={{
+            input: { 'aria-label': `${label} ${active ? 'active' : 'inactive'}` },
+          }}
+          sx={{
+            flexShrink: 0,
+            mr: 0.5,
+            '& .MuiSwitch-switchBase.Mui-checked': {
+              color: 'primary.main',
+            },
+          }}
+        />
+      ) : null}
+    </Box>
   );
 }
 
@@ -88,17 +145,35 @@ export function MenuSidebar() {
     categoryCounts,
     totalItemCount,
     openCreateCategory,
+    openEditCategory,
+    toggleCategoryStatus,
+    isUpdatingCategory,
   } = useMenuCreation();
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  async function handleToggle(category: MenuCategory, nextActive: boolean) {
+    const isActive = category.status === 'Active';
+    if (nextActive === isActive) return;
+    setTogglingId(category.id);
+    try {
+      await toggleCategoryStatus(category.id, nextActive);
+    } catch {
+      // Error toast is shown by the API client (POST/PATCH).
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   return (
     <Card
       component="aside"
       variant="outlined"
       sx={{
-        width: { xs: '100%', md: 240 },
+        width: { xs: '100%', md: 280 },
         flexShrink: 0,
         alignSelf: 'stretch',
         height: { md: '100%' },
+        maxHeight: { xs: 240, sm: 280, md: 'none' },
         overflow: 'auto',
       }}
     >
@@ -147,17 +222,27 @@ export function MenuSidebar() {
             />
           </Box>
 
-          {categories.map((category) => (
-            <Box component="li" key={category.id}>
-              <CategoryNavItem
-                label={category.name}
-                count={categoryCounts[category.id] ?? 0}
-                selected={activeCategoryId === category.id}
-                inactive={category.status === 'Inactive'}
-                onSelect={() => setActiveCategoryId(category.id)}
-              />
-            </Box>
-          ))}
+          {categories.map((category) => {
+            const isActive = category.status === 'Active';
+            return (
+              <Box component="li" key={category.id}>
+                <CategoryNavItem
+                  label={category.name}
+                  count={categoryCounts[category.id] ?? 0}
+                  selected={activeCategoryId === category.id}
+                  active={isActive}
+                  showStatusToggle={pageConfig.canManageCategories}
+                  showEdit={pageConfig.canManageCategories}
+                  toggleDisabled={Boolean(isUpdatingCategory) || togglingId === category.id}
+                  onSelect={() => setActiveCategoryId(category.id)}
+                  onEdit={() => openEditCategory(category)}
+                  onToggleActive={(nextActive) => {
+                    void handleToggle(category, nextActive);
+                  }}
+                />
+              </Box>
+            );
+          })}
         </Box>
 
         {pageConfig.canManageCategories ? (

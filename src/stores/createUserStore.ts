@@ -7,6 +7,11 @@ import {
   type PermissionCategory,
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import {
+  togglePermissionCategory,
+  toggleAllInCategory,
+} from '@/lib/helpers/employees/userRolesHelpers';
+import type { CreateUserDraftHydration } from '@/lib/schemas/employees/user-roles/createUserDraftSchema';
 
 export interface CreateUserState {
   scope: ScopeType;
@@ -33,6 +38,7 @@ export interface CreateUserState {
   togglePermission: (categoryId: string, permissionId: string) => void;
   toggleCategoryAll: (categoryId: string, enableAll: boolean) => void;
   setIsSubmitting: (isSubmitting: boolean) => void;
+  hydrateDraft: (draft: CreateUserDraftHydration) => void;
   reset: (newScope?: ScopeType) => void;
 }
 
@@ -58,7 +64,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
       selectedRoleId: template?.id != null ? template.id : state.selectedRoleId,
       formValues: {
         ...state.formValues,
-        role: template?.roleName || state.formValues.role || 'Branch Manager',
+        role: template?.roleName || state.formValues.role || 'Branch Admin',
       },
     })),
 
@@ -110,29 +116,26 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
 
   togglePermission: (categoryId, permissionId) =>
     set((state) => ({
-      categories: state.categories.map((cat) => {
-        if (cat.id !== categoryId) return cat;
-        return {
-          ...cat,
-          permissions: cat.permissions.map((p) =>
-            p.id === permissionId ? { ...p, enabled: !p.enabled } : p,
-          ),
-        };
-      }),
+      categories: togglePermissionCategory(state.categories, categoryId, permissionId),
     })),
 
   toggleCategoryAll: (categoryId, enableAll) =>
     set((state) => ({
-      categories: state.categories.map((cat) => {
-        if (cat.id !== categoryId) return cat;
-        return {
-          ...cat,
-          permissions: cat.permissions.map((p) => ({ ...p, enabled: enableAll })),
-        };
-      }),
+      categories: toggleAllInCategory(state.categories, categoryId, enableAll),
     })),
 
   setIsSubmitting: (isSubmitting) => set({ isSubmitting }),
+
+  hydrateDraft: (draft) =>
+    set((state) => ({
+      scope: draft.scope,
+      selectedTemplate: draft.selectedTemplate,
+      selectedRoleId: draft.selectedRoleId,
+      formValues: { ...state.formValues, ...draft.formValues, password: '' },
+      categories: draft.categories,
+      errors: {},
+      isSubmitting: false,
+    })),
 
   reset: (newScope) =>
     set((state) => {

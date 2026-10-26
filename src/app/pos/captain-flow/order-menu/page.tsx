@@ -1,5 +1,5 @@
-import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway';
+import { CaptainFlowOrderMenuRoutePage } from '@/features/pos/captain-flow';
 
 export default function CaptainFlowOrderMenuPage() {
-  return <TakeawayPage mode="takeaway" />;
+  return <CaptainFlowOrderMenuRoutePage />;
 }

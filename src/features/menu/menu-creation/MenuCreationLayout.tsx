@@ -14,6 +14,8 @@ export interface MenuCreationLayoutProps {
   scope?: MenuCreationScope;
   initialViewMode?: MenuCreationViewMode;
   initialItemId?: string;
+  /** Category id from `?category=` so selection survives refresh. */
+  initialCategoryId?: string;
 }
 
 /**
@@ -24,6 +26,7 @@ export function MenuCreationLayout({
   scope = 'company',
   initialViewMode = 'list',
   initialItemId,
+  initialCategoryId,
 }: Readonly<MenuCreationLayoutProps>) {
   const pageConfig = getMenuCreationPageConfig(scope);
 
@@ -32,19 +35,21 @@ export function MenuCreationLayout({
       pageConfig={pageConfig}
       initialViewMode={initialViewMode}
       initialItemId={initialItemId}
+      initialCategoryId={initialCategoryId}
     >
       <Box
         sx={{
           width: '100%',
-          height: '100%',
-          maxHeight: '100%',
           flex: 1,
           minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
           boxSizing: 'border-box',
-          overflow: 'hidden',
           bgcolor: 'background.default',
+          // Desktop: fill viewport under navbar and scroll the table internally.
+          height: { xs: 'auto', md: '100%' },
+          maxHeight: { xs: 'none', md: '100%' },
+          overflow: { xs: 'visible', md: 'hidden' },
         }}
       >
         <MenuContent />

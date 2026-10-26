@@ -5,6 +5,7 @@ export type QueryParams = Record<string, string | number | boolean | null | unde
 export class ApiError extends Error {
   status: number;
   code?: string;
+  /** Exact upstream / backend error body when available. */
   details?: unknown;
 
   constructor(message: string, status: number, code?: string, details?: unknown) {

@@ -4,7 +4,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { SectionTabs } from '@/components/shared/ui/SectionTabs';
 import { ReportsOverviewPage } from '@/features/reports/reports/ReportsOverviewPage';
@@ -20,9 +20,18 @@ import {
   type ReportsTabId,
 } from '@/lib/mocks/reports/reports.mocks';
 
+function reportsBasePathFromPathname(pathname: string): string {
+  if (pathname === '/reports' || pathname.endsWith('/reports')) {
+    return pathname;
+  }
+  return '/reports';
+}
+
 export function ReportsPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const reportsBasePath = useMemo(() => reportsBasePathFromPathname(pathname), [pathname]);
 
   const activeTab = useMemo((): ReportsTabId => {
     const tab = searchParams.get('tab');
@@ -41,10 +50,9 @@ export function ReportsPage() {
       }
 
       const query = params.toString();
-      const basePath = '/reports';
-      router.replace(query ? `${basePath}?${query}` : basePath, { scroll: false });
+      router.replace(query ? `${reportsBasePath}?${query}` : reportsBasePath, { scroll: false });
     },
-    [router, searchParams],
+    [router, searchParams, reportsBasePath],
   );
 
   const activeLabel = reportsTabItems.find((item) => item.id === activeTab)?.label ?? 'Overview';

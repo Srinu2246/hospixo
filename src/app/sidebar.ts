@@ -196,13 +196,23 @@ export function resolveSidebarRoute(href: string, context?: SidebarContext, role
   if (!href) return href;
   let resolved = href;
 
-  if (role) {
-    resolved = resolved.replace(/\/branch-manager(\/|$)/g, `/${rolePathSegment(role)}$1`);
-  }
-
   const org = context?.organizationSlug || context?.organizationName;
   const comp = context?.companySlug || context?.companyName;
   const branch = context?.branchSlug || context?.branchName;
+
+  const targetsBranchScope =
+    Boolean(branch) &&
+    (/\/branch-manager(\/|$)/.test(resolved) ||
+      /\/branch(\/|$)/.test(resolved) ||
+      /:branch(\/|$)/.test(resolved));
+
+  if (targetsBranchScope) {
+    resolved = resolved.replace(/\/branch-manager(\/|$)/g, `/${encodeURIComponent(branch!)}$1`);
+    resolved = resolved.replace(/\/branch(\/|$)/g, `/${encodeURIComponent(branch!)}$1`);
+    resolved = resolved.replace(/:branch(\/|$)/g, `${encodeURIComponent(branch!)}$1`);
+  } else if (role) {
+    resolved = resolved.replace(/\/branch-manager(\/|$)/g, `/${rolePathSegment(role)}$1`);
+  }
 
   if (org) {
     resolved = resolved.replace(/\/organization(\/|$)/g, `/${encodeURIComponent(org)}$1`);
@@ -212,12 +222,6 @@ export function resolveSidebarRoute(href: string, context?: SidebarContext, role
   if (comp) {
     resolved = resolved.replace(/\/company(\/|$)/g, `/${encodeURIComponent(comp)}$1`);
     resolved = resolved.replace(/:company(\/|$)/g, `${encodeURIComponent(comp)}$1`);
-  }
-
-  if (branch) {
-    resolved = resolved.replace(/\/branch-manager(\/|$)/g, `/${encodeURIComponent(branch)}$1`);
-    resolved = resolved.replace(/\/branch(\/|$)/g, `/${encodeURIComponent(branch)}$1`);
-    resolved = resolved.replace(/:branch(\/|$)/g, `${encodeURIComponent(branch)}$1`);
   }
 
   return resolved.replace(/\/+/g, '/');
@@ -326,6 +330,14 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 3,
+        name: 'Sessions',
+        href: '/company/menu/sessions',
+        featureFlag: FEATURE_FLAGS.company_menu_sessions_nav,
+        icon: 'calendar_today',
+        permission: PERMISSIONS.MENU_VIEW,
+      },
+      {
+        id: 4,
         name: 'Menu Management',
         href: '/company/menu/menu-management',
         featureFlag: FEATURE_FLAGS.company_menu_management_nav,
@@ -333,7 +345,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 4,
+        id: 5,
         name: 'Menu Availability',
         href: '/company/menu/menu-availability',
         featureFlag: FEATURE_FLAGS.company_menu_availability_nav,
@@ -341,7 +353,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 5,
+        id: 6,
         name: 'Menu Builder',
         href: '/company/menu/menu-builder',
         featureFlag: FEATURE_FLAGS.company_menu_builder_nav,
@@ -349,7 +361,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 6,
+        id: 7,
         name: 'GST Rates',
         href: '/company/menu/gst-rates',
         featureFlag: FEATURE_FLAGS.company_menu_gstRates_nav,
@@ -357,7 +369,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.GST_VIEW,
       },
       {
-        id: 7,
+        id: 8,
         name: 'Prep Stations',
         href: '/company/menu/prep-station',
         featureFlag: FEATURE_FLAGS.company_menu_prepStations_nav,
@@ -365,7 +377,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 8,
+        id: 9,
         name: 'Modifier Groups',
         href: '/company/menu/modifier-groups',
         featureFlag: FEATURE_FLAGS.company_menu_modifierGroups_nav,
@@ -388,22 +400,14 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 2,
-        name: 'Kitchen Display',
-        href: '/company/operations/kitchen-display',
-        featureFlag: FEATURE_FLAGS.company_operations_kitchenDisplay_nav,
-        icon: 'tv',
-        permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
+        name: 'Open Business',
+        href: '/company/operations/open-business',
+        featureFlag: FEATURE_FLAGS.company_operations_openBusiness_nav,
+        icon: 'business',
+        permission: PERMISSIONS.POS_SESSIONS_OPEN,
       },
       {
         id: 3,
-        name: 'Cash Counter',
-        href: '/company/operations/cash-counter',
-        featureFlag: FEATURE_FLAGS.company_operations_cashCounter_nav,
-        icon: 'currency_rupee',
-        permission: PERMISSIONS.PAYMENTS_VIEW,
-      },
-      {
-        id: 4,
         name: 'Inventory',
         href: '/company/operations/inventory',
         featureFlag: FEATURE_FLAGS.company_operations_inventory_nav,
@@ -411,7 +415,7 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.INVENTORY_VIEW,
       },
       {
-        id: 5,
+        id: 4,
         name: 'Customers',
         href: '/company/operations/customers',
         featureFlag: FEATURE_FLAGS.company_operations_customers_nav,
@@ -422,33 +426,10 @@ export const COMPANY_SIDEBAR: SidebarEntry[] = [
   },
   {
     name: 'Reports',
+    href: '/company/reports',
+    featureFlag: FEATURE_FLAGS.company_reports_sales_nav,
+    icon: 'bar_chart',
     permission: PERMISSIONS.REPORTS_VIEW,
-    items: [
-      {
-        id: 1,
-        name: 'Sales',
-        href: '/company/report/sales',
-        featureFlag: FEATURE_FLAGS.company_reports_sales_nav,
-        icon: 'bar_chart',
-        permission: PERMISSIONS.REPORTS_VIEW,
-      },
-      {
-        id: 2,
-        name: 'Revenue',
-        href: '/company/report/revenue',
-        featureFlag: FEATURE_FLAGS.company_reports_revenue_nav,
-        icon: 'trending_up',
-        permission: PERMISSIONS.REPORTS_VIEW,
-      },
-      {
-        id: 3,
-        name: 'Analytics',
-        href: '/company/report/analytics',
-        featureFlag: FEATURE_FLAGS.company_reports_analytics_nav,
-        icon: 'speed',
-        permission: PERMISSIONS.REPORTS_VIEW,
-      },
-    ],
   },
   {
     name: 'Settings',
@@ -691,6 +672,14 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 3,
+        name: 'Sessions',
+        href: '/branch-manager/menu/sessions',
+        featureFlag: FEATURE_FLAGS.branch_menu_sessions_nav,
+        icon: 'calendar_today',
+        permission: PERMISSIONS.MENU_VIEW,
+      },
+      {
+        id: 4,
         name: 'GST Rates',
         href: '/branch-manager/menu/gst-rates',
         featureFlag: FEATURE_FLAGS.branch_menu_gstRates_nav,
@@ -698,7 +687,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.GST_VIEW,
       },
       {
-        id: 4,
+        id: 5,
         name: 'Prep Stations',
         href: '/branch-manager/menu/prep-station',
         featureFlag: FEATURE_FLAGS.branch_menu_prepStations_nav,
@@ -706,7 +695,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 5,
+        id: 6,
         name: 'Modifier Groups',
         href: '/branch-manager/menu/modifier-groups',
         featureFlag: FEATURE_FLAGS.branch_menu_modifierGroups_nav,
@@ -714,7 +703,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 6,
+        id: 7,
         name: 'Menu Availability',
         href: '/branch-manager/menu/menu-availability',
         featureFlag: FEATURE_FLAGS.branch_menu_availability_nav,
@@ -745,27 +734,27 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 3,
-        name: 'Cash Counter',
-        href: '/branch-manager/management/cash-counter',
-        featureFlag: FEATURE_FLAGS.branch_management_cashCounter_nav,
-        icon: 'currency_rupee',
-        permission: PERMISSIONS.PAYMENTS_COLLECT,
+        name: 'Open Business',
+        href: '/branch-manager/management/open-business',
+        featureFlag: FEATURE_FLAGS.branch_management_openBusiness_nav,
+        icon: 'business',
+        permission: PERMISSIONS.POS_SESSIONS_OPEN,
       },
       {
         id: 4,
+        name: 'Cash Counter',
+        href: '/branch-manager/management/cash-counter',
+        featureFlag: FEATURE_FLAGS.branch_management_cashCounter_nav,
+        icon: 'point_of_sale',
+        permission: PERMISSIONS.POS_SESSIONS_OPEN,
+      },
+      {
+        id: 5,
         name: 'Due Payments',
         href: '/branch-manager/management/due-payments',
         featureFlag: FEATURE_FLAGS.branch_management_duePayments_nav,
         icon: 'credit_card',
         permission: PERMISSIONS.PAYMENTS_VIEW,
-      },
-      {
-        id: 5,
-        name: 'Kitchen Display',
-        href: '/branch-manager/management/kitchen-display',
-        featureFlag: FEATURE_FLAGS.branch_management_kitchenDisplay_nav,
-        icon: 'tv',
-        permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
       },
       {
         id: 6,
@@ -811,40 +800,88 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
   },
 ];
 
-export const WAITER_SIDEBAR: SidebarEntry[] = [
+export type WaiterWorkspaceNavId = 'tables' | 'orders' | 'ready' | 'menu';
+
+/** Waiter captain-flow screens — single catalog for sidebar, bottom nav, and post-login routing. */
+export type WaiterWorkspaceNavItem = {
+  id: WaiterWorkspaceNavId;
+  name: string;
+  bottomNavLabel: string;
+  /** Path after role segment, e.g. `/pos/captain-flow/tables`. */
+  captainFlowSuffix: string;
+  icon: string;
+  permission: string;
+  featureFlag: string;
+  isActivePath: (pathname: string) => boolean;
+};
+
+const CAPTAIN_FLOW_PREFIX = '/pos/captain-flow';
+
+/**
+ * Captain / waiter workspace — footer order matches Figma: Tables · Menu · Ready · Orders.
+ * Sidebar and bottom nav both derive from this list (no separate hardcoded tab arrays).
+ */
+export const CAPTAIN_WORKSPACE_NAV: readonly WaiterWorkspaceNavItem[] = [
   {
-    id: 1,
+    id: 'tables',
     name: 'Tables',
-    href: '/branch-manager/pos/captain-flow/tables',
+    bottomNavLabel: 'Tables',
+    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/tables`,
     icon: 'table_restaurant',
     permission: PERMISSIONS.TABLES_VIEW,
     featureFlag: FEATURE_FLAGS.captain_pos_tables_nav,
+    isActivePath: (pathname) =>
+      pathname.includes(`${CAPTAIN_FLOW_PREFIX}/tables`) ||
+      /\/pos\/captain-flow\/?$/.test(pathname.replace(/\/+$/, '')),
   },
   {
-    id: 2,
-    name: 'Orders',
-    href: '/branch-manager/pos/captain-flow/all-orders',
-    icon: 'receipt_long',
-    permission: PERMISSIONS.ORDERS_VIEW,
-    featureFlag: FEATURE_FLAGS.captain_pos_orders_nav,
-  },
-  {
-    id: 3,
+    id: 'menu',
     name: 'Dine-In',
-    href: '/branch-manager/pos/captain-flow/order-menu',
+    bottomNavLabel: 'Menu',
+    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/order-menu`,
     icon: 'restaurant',
     permission: PERMISSIONS.ORDERS_CREATE,
     featureFlag: FEATURE_FLAGS.captain_pos_dineIn_nav,
+    isActivePath: (pathname) =>
+      pathname.includes(`${CAPTAIN_FLOW_PREFIX}/order-menu`) ||
+      pathname.includes(`${CAPTAIN_FLOW_PREFIX}/dine-in`) ||
+      pathname.includes('/takeaway') ||
+      /\/dine-in\/[^/?#]+/.test(pathname),
   },
   {
-    id: 4,
+    id: 'ready',
     name: 'Ready Orders',
-    href: '/branch-manager/pos/captain-flow/ready-list',
+    bottomNavLabel: 'Ready',
+    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/ready-list`,
     icon: 'fact_check',
     permission: PERMISSIONS.ORDERS_VIEW,
     featureFlag: FEATURE_FLAGS.captain_pos_readyOrders_nav,
+    isActivePath: (pathname) => pathname.includes(`${CAPTAIN_FLOW_PREFIX}/ready-list`),
+  },
+  {
+    id: 'orders',
+    name: 'Orders',
+    bottomNavLabel: 'Orders',
+    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/all-orders`,
+    icon: 'receipt_long',
+    permission: PERMISSIONS.ORDERS_VIEW,
+    featureFlag: FEATURE_FLAGS.captain_pos_orders_nav,
+    isActivePath: (pathname) => pathname.includes(`${CAPTAIN_FLOW_PREFIX}/all-orders`),
   },
 ];
+
+function waiterSidebarHref(captainFlowSuffix: string): string {
+  return `/branch-manager${captainFlowSuffix}`;
+}
+
+export const WAITER_SIDEBAR: SidebarEntry[] = CAPTAIN_WORKSPACE_NAV.map((item, index) => ({
+  id: index + 1,
+  name: item.name,
+  href: waiterSidebarHref(item.captainFlowSuffix),
+  icon: item.icon,
+  permission: item.permission,
+  featureFlag: item.featureFlag,
+}));
 
 /** Cashier / counter staff — billing-focused flat nav. */
 export const CASHIER_SIDEBAR: SidebarEntry[] = [
@@ -890,11 +927,11 @@ export const CASHIER_SIDEBAR: SidebarEntry[] = [
   },
   {
     id: 6,
-    name: 'Cash Counter',
-    href: '/branch-manager/pos/point-of-sale/cash-shift',
-    icon: 'currency_rupee',
+    name: 'Open Business',
+    href: '/branch-manager/management/open-business',
+    icon: 'business',
     permission: PERMISSIONS.POS_SESSIONS_OPEN,
-    featureFlag: FEATURE_FLAGS.cashier_pos_cashCounter_nav,
+    featureFlag: FEATURE_FLAGS.cashier_pos_openBusiness_nav,
   },
   {
     id: 7,
@@ -926,14 +963,6 @@ export const CASHIER_SIDEBAR: SidebarEntry[] = [
 export const KITCHEN_SIDEBAR: SidebarEntry[] = [
   {
     id: 1,
-    name: 'Kitchen Display',
-    href: '/branch-manager/management/kitchen-display',
-    icon: 'tv',
-    permission: PERMISSIONS.ORDERS_UPDATE_STATUS,
-    featureFlag: FEATURE_FLAGS.kitchen_kds_display_nav,
-  },
-  {
-    id: 2,
     name: 'Incoming Orders',
     href: '/branch-manager/management/kitchen-display',
     icon: 'fact_check',
@@ -941,7 +970,7 @@ export const KITCHEN_SIDEBAR: SidebarEntry[] = [
     featureFlag: FEATURE_FLAGS.kitchen_kds_incoming_nav,
   },
   {
-    id: 3,
+    id: 2,
     name: 'Preparing',
     href: '/branch-manager/management/kitchen-display',
     icon: 'schedule',
@@ -949,7 +978,7 @@ export const KITCHEN_SIDEBAR: SidebarEntry[] = [
     featureFlag: FEATURE_FLAGS.kitchen_kds_preparing_nav,
   },
   {
-    id: 4,
+    id: 3,
     name: 'Ready Orders',
     href: '/branch-manager/pos/point-of-sale/ready-list',
     icon: 'receipt_long',
@@ -1006,7 +1035,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
       {
         id: 1,
         name: 'All Branches',
-        href: '/organization/branches',
+        href: '/organization/branches/all-branches',
         featureFlag: FEATURE_FLAGS.org_branches_allBranches_nav,
         icon: 'storefront',
         permission: PERMISSIONS.BRANCHES_VIEW,
@@ -1073,6 +1102,14 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
       },
       {
         id: 3,
+        name: 'Sessions',
+        href: '/organization/menu/sessions',
+        featureFlag: FEATURE_FLAGS.org_menu_sessions_nav,
+        icon: 'calendar_today',
+        permission: PERMISSIONS.MENU_VIEW,
+      },
+      {
+        id: 4,
         name: 'Menu Management',
         href: '/organization/menu/menu-management',
         featureFlag: FEATURE_FLAGS.org_menu_management_nav,
@@ -1080,7 +1117,7 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
         permission: PERMISSIONS.MENU_UPDATE,
       },
       {
-        id: 4,
+        id: 5,
         name: 'Menu Builder',
         href: '/organization/menu/menu-builder',
         featureFlag: FEATURE_FLAGS.org_menu_builder_nav,
@@ -1091,49 +1128,10 @@ export const ORGANIZATION_SIDEBAR: SidebarEntry[] = [
   },
   {
     name: 'Reports',
+    href: '/organization/reports',
+    featureFlag: FEATURE_FLAGS.org_reports_sales_nav,
+    icon: 'bar_chart',
     permission: PERMISSIONS.REPORTS_VIEW,
-    items: [
-      {
-        id: 1,
-        name: 'Sales',
-        href: '/organization/reports/sales',
-        featureFlag: FEATURE_FLAGS.org_reports_sales_nav,
-        icon: 'bar_chart',
-        permission: PERMISSIONS.REPORTS_VIEW,
-      },
-      {
-        id: 2,
-        name: 'Revenue',
-        href: '/organization/reports/revenue',
-        featureFlag: FEATURE_FLAGS.org_reports_revenue_nav,
-        icon: 'currency_rupee',
-        permission: PERMISSIONS.REPORTS_VIEW,
-      },
-      {
-        id: 3,
-        name: 'Expenses',
-        href: '/organization/reports/expenses',
-        featureFlag: FEATURE_FLAGS.org_reports_expenses_nav,
-        icon: 'receipt_long',
-        permission: PERMISSIONS.REPORTS_VIEW,
-      },
-      {
-        id: 4,
-        name: '% Taxes',
-        href: '/organization/reports/taxes',
-        featureFlag: FEATURE_FLAGS.org_reports_taxes_nav,
-        icon: 'percent',
-        permission: PERMISSIONS.GST_VIEW,
-      },
-      {
-        id: 5,
-        name: 'Analytics',
-        href: '/organization/reports/analytics',
-        featureFlag: FEATURE_FLAGS.org_reports_analytics_nav,
-        icon: 'speed',
-        permission: PERMISSIONS.REPORTS_VIEW,
-      },
-    ],
   },
   {
     name: 'Settings',
@@ -1193,8 +1191,32 @@ const SIDEBAR_RANK: Record<string, number> = {
   chef: 0,
 };
 
+function normalizeScopeSlug(value: string): string {
+  return decodeURIComponent(value).trim().toLowerCase();
+}
+
+/** `/PH/...` or `/TEST-BRANCH1/dashboard` — match slug to sidebar context from drill-down. */
+function sidebarLevelFromScopedSegment(segment: string, context?: SidebarContext): string | null {
+  if (!context) return null;
+
+  const token = normalizeScopeSlug(segment);
+  const branchSlug = context.branchSlug ?? context.branchName;
+  const companySlug = context.companySlug ?? context.companyName;
+  const orgSlug = context.organizationSlug ?? context.organizationName;
+
+  if (branchSlug && token === normalizeScopeSlug(String(branchSlug))) return 'branch_manager';
+  if (companySlug && token === normalizeScopeSlug(String(companySlug))) return 'company';
+  if (orgSlug && token === normalizeScopeSlug(String(orgSlug))) return 'organization';
+
+  if (token === 'organization') return 'organization';
+  if (token === 'company') return 'company';
+  if (token === 'branch-manager' || token === 'branch') return 'branch_manager';
+
+  return null;
+}
+
 /** Hierarchy level implied by the URL. Shared module routes such as `/pos` return null. */
-export function sidebarLevelFromPath(pathname: string): string | null {
+export function sidebarLevelFromPath(pathname: string, context?: SidebarContext): string | null {
   if (!pathname) return null;
   if (pathname === '/organization' || pathname.startsWith('/organization/')) return 'organization';
   if (pathname === '/company' || pathname.startsWith('/company/')) return 'company';
@@ -1210,6 +1232,13 @@ export function sidebarLevelFromPath(pathname: string): string | null {
   ) {
     return 'branch_manager';
   }
+
+  const scopedRoot = pathname.match(/^\/([^/]+)(?:\/|$)/);
+  if (scopedRoot) {
+    const fromContext = sidebarLevelFromScopedSegment(scopedRoot[1], context);
+    if (fromContext) return fromContext;
+  }
+
   return null;
 }
 
@@ -1217,9 +1246,13 @@ export function sidebarLevelFromPath(pathname: string): string | null {
  * Sidebar catalog for the current page.
  * A higher role can drill into a lower catalog. A lower role never sees a wider one.
  */
-export function resolveSidebarLevel(pathname: string, role?: string): string {
+export function resolveSidebarLevel(
+  pathname: string,
+  role?: string,
+  context?: SidebarContext,
+): string {
   const userKey = normalizeRoleKey(role || '');
-  const pathKey = sidebarLevelFromPath(pathname);
+  const pathKey = sidebarLevelFromPath(pathname, context);
   if (!userKey) return pathKey || '';
   if (!pathKey) return userKey;
 
@@ -1334,7 +1367,7 @@ export function getSidebarNavigation({
   if (!role?.trim()) return [];
 
   const normalized = normalizeRoleKey(role);
-  const level = resolveSidebarLevel(pathname, role);
+  const level = resolveSidebarLevel(pathname, role, context);
   const rawEntries = ROLE_SIDEBAR_REGISTRY[level] || ROLE_SIDEBAR_REGISTRY[normalized];
   if (!rawEntries) return [];
 

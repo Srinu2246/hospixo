@@ -8,7 +8,7 @@ import { UtensilsCrossed } from 'lucide-react';
 
 import { Card } from '@/components/shared/ui/Card';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
-import { StatusChip } from '@/components/shared/ui/StatusChip';
+import { TagsGrid } from '@/components/shared/ui/TagsGrid';
 import type { AvailabilityItem } from '@/lib/schemas/menu/menuAvailabilitySchema';
 
 import { DietaryMarker } from './ChannelSelector';
@@ -89,7 +89,9 @@ export function AvailabilityStatsRow({ stats }: Readonly<AvailabilityStatsRowPro
 
 export interface AvailabilityItemsTableProps {
   items: readonly AvailabilityItem[];
-  onToggleMark: (itemId: string) => void;
+  /** nextActive true = active, false = inactive */
+  onToggleMark: (itemId: string, nextActive: boolean) => void | Promise<void>;
+  toggleDisabled?: boolean;
 }
 
 function visibilityLabel(item: AvailabilityItem): string {
@@ -101,30 +103,48 @@ function visibilityLabel(item: AvailabilityItem): string {
 export function AvailabilityItemsTable({
   items,
   onToggleMark,
+  toggleDisabled = false,
 }: Readonly<AvailabilityItemsTableProps>) {
   const columns: DataGridColumn<AvailabilityItem>[] = [
     {
       field: 'name',
       headerName: 'Name',
-      minWidth: 280,
+      minWidth: 200,
+      width: '100%',
       sortable: true,
       renderCell: ({ row }) => {
         const visibility = visibilityLabel(row);
         return (
           <Stack direction="row" spacing={1.25} sx={{ alignItems: 'flex-start', minWidth: 0 }}>
-            <Box sx={{ mt: 0.35 }}>
+            <Box sx={{ mt: 0.35, flexShrink: 0 }}>
               <DietaryMarker dietary={row.dietary} />
             </Box>
-            <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
               <Stack
                 direction="row"
                 spacing={1}
-                sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}
+                sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 0.75, minWidth: 0 }}
               >
                 <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }} noWrap>
                   {row.name}
                 </Typography>
-                <StatusChip label={row.tag} variantType="info" size="small" />
+                <Box
+                  sx={{ minWidth: 0, maxWidth: '100%' }}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <TagsGrid
+                    tags={row.tags.length > 0 ? row.tags : [row.tag]}
+                    maxVisible={1}
+                    chipSx={{
+                      maxWidth: 88,
+                      '& .MuiChip-label': {
+                        px: 0.75,
+                        fontSize: '0.6875rem',
+                      },
+                    }}
+                  />
+                </Box>
               </Stack>
               <Typography
                 variant="caption"
@@ -144,13 +164,15 @@ export function AvailabilityItemsTable({
     },
     {
       field: 'mark',
-      headerName: 'Mark As',
-      minWidth: 160,
+      headerName: 'Status',
+      width: 168,
+      minWidth: 168,
+      maxWidth: 168,
       align: 'right',
       headerAlign: 'right',
       sortable: true,
       renderCell: ({ row }) => {
-        const isAvailable = row.mark === 'available';
+        const isActive = row.isActive ?? row.mark === 'available';
         return (
           <Stack
             direction="row"
@@ -163,23 +185,25 @@ export function AvailabilityItemsTable({
                 fontWeight: 700,
                 minWidth: 72,
                 textAlign: 'right',
-                color: isAvailable ? 'success.main' : 'error.main',
+                color: isActive ? 'success.main' : 'text.secondary',
               }}
             >
-              {isAvailable ? 'Available' : "86'd"}
+              {isActive ? 'Active' : 'Inactive'}
             </Typography>
             <Switch
-              checked={isAvailable}
-              onChange={() => onToggleMark(row.id)}
-              color="success"
+              checked={isActive}
+              disabled={toggleDisabled}
+              onChange={(_event, next) => {
+                void onToggleMark(row.id, next);
+              }}
+              color="primary"
               slotProps={{
-                input: { 'aria-label': `Mark ${row.name} as available` },
+                input: {
+                  'aria-label': `${row.name} ${isActive ? 'active' : 'inactive'}`,
+                },
               }}
               sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: 'success.main' },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                  bgcolor: 'success.main',
-                },
+                '& .MuiSwitch-switchBase.Mui-checked': { color: 'primary.main' },
               }}
             />
           </Stack>

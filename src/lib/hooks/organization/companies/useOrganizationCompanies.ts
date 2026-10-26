@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import {
   loadOrganizationCompanies,
@@ -8,6 +8,7 @@ import {
 } from '@/lib/helpers/organizationCompanies';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import { api } from '@/services/api/browserClient';
+import type { JsonValue } from '@/types/json';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 export function useOrganizationCompanies(
@@ -28,7 +29,7 @@ export function useOrganizationCompanies(
   return useQuery({
     queryKey: ['organization', 'companies', orgId ?? 'session', role, authScope],
     queryFn: () =>
-      loadOrganizationCompanies(orgId, (path, params) => api.get<unknown>(path, params), {
+      loadOrganizationCompanies(orgId, (path, params) => api.get<JsonValue>(path, params), {
         role,
         authScope,
         scope: 'organization',

@@ -1,18 +1,34 @@
 import { clearSidebarSession } from '@/lib/auth/session';
+import { resolveUpstreamContextHeaders } from '@/lib/helpers/apiContextHeaders';
+import { getErrorMessage, getSuccessMessage } from '@/lib/helpers/getErrorMessage';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import { useToastStore } from '@/stores/toastStore';
 
-import ApiUrlsV1 from './ApiUrlsV1';
+import ApiUrlsV1, { isPublicEndpoint } from './ApiUrlsV1';
+import { isApiServerFetchEnabled } from './fetchMode';
 import { readResponse } from './readResponse';
 import { ApiError, type HttpMethod, type QueryParams } from './types';
+
+export type BrowserWriteOptions = {
+  signal?: AbortSignal;
+  /** When true, skip automatic success/error toasts for POST/PATCH. */
+  silent?: boolean;
+};
 
 type BrowserRequestOptions = {
   params?: QueryParams;
   body?: unknown;
   signal?: AbortSignal;
+  silent?: boolean;
+  toastOnWrite?: boolean;
 };
 
 let redirectingToLogin = false;
 
+/**
+ * Browser only calls same-origin `/api/v1|v2/...` (BFF). Absolute backend URLs are rejected
+ * so `API_BASE_URL` never leaves the server.
+ */
 function toAppPath(endpoint: string, params?: QueryParams): string {
   if (/^https?:\/\//i.test(endpoint) || !/^\/v[12]\//.test(endpoint)) {
     throw new ApiError('Browser client only calls versioned app endpoints', 400);
@@ -32,14 +48,21 @@ function toAppPath(endpoint: string, params?: QueryParams): string {
 }
 
 function isAuthPath(endpoint: string): boolean {
-  return endpoint === ApiUrlsV1.auth.login || endpoint === ApiUrlsV1.auth.logout;
+  return (
+    endpoint === ApiUrlsV1.auth.login ||
+    endpoint === ApiUrlsV1.auth.logout ||
+    endpoint === ApiUrlsV1.invitations.accept ||
+    endpoint === ApiUrlsV1.invitations.reject
+  );
 }
 
 /** Cookies are cleared server-side on 401; clear client session and go to login. */
 function redirectToLoginAfterUnauthorized(): void {
   if (typeof window === 'undefined') return;
   if (redirectingToLogin) return;
-  if (window.location.pathname === '/login') return;
+  if (window.location.pathname === '/login' || window.location.pathname.startsWith('/invite/')) {
+    return;
+  }
 
   redirectingToLogin = true;
   clearSidebarSession();
@@ -49,17 +72,51 @@ function redirectToLoginAfterUnauthorized(): void {
   window.location.assign('/login');
 }
 
+/** Auth session bootstrap may still GET on the client even in server-fetch mode. */
+function isClientGetAllowed(endpoint: string): boolean {
+  return endpoint === ApiUrlsV1.auth.me;
+}
+
+function showToast(message: string, severity: 'success' | 'error') {
+  if (typeof window === 'undefined') return;
+  useToastStore.getState().show(message, severity);
+}
+
+function resolveWriteOptions(
+  options?: AbortSignal | BrowserWriteOptions,
+): Pick<BrowserRequestOptions, 'signal' | 'silent'> {
+  if (!options) return {};
+  if (typeof AbortSignal !== 'undefined' && options instanceof AbortSignal) {
+    return { signal: options };
+  }
+  return options as BrowserWriteOptions;
+}
+
 async function request<T>(
   method: HttpMethod,
   endpoint: string,
   options: BrowserRequestOptions = {},
 ): Promise<T> {
+  if (method === 'GET' && isApiServerFetchEnabled() && !isClientGetAllowed(endpoint)) {
+    throw new ApiError(
+      'Client GET disabled (NEXT_PUBLIC_API_SERVER_FETCH=true). Load this path with serverApi in the page.',
+      503,
+    );
+  }
+
   const headers = new Headers({ Accept: 'application/json' });
-  let body: string | undefined;
+  for (const [key, value] of Object.entries(resolveUpstreamContextHeaders())) {
+    headers.set(key, value);
+  }
+  let body: BodyInit | undefined;
 
   if (options.body !== undefined && method !== 'GET') {
-    headers.set('Content-Type', 'application/json');
-    body = JSON.stringify(options.body);
+    if (options.body instanceof FormData) {
+      body = options.body;
+    } else {
+      headers.set('Content-Type', 'application/json');
+      body = JSON.stringify(options.body);
+    }
   }
 
   const response = await fetch(toAppPath(endpoint, options.params), {
@@ -71,11 +128,26 @@ async function request<T>(
     cache: 'no-store',
   });
 
+  const shouldToastWrite =
+    options.toastOnWrite === true && !options.silent && !isAuthPath(endpoint);
+
   try {
-    return await readResponse<T>(response);
+    const payload = await readResponse<T>(response);
+    if (shouldToastWrite) {
+      showToast(getSuccessMessage(payload, 'Request completed successfully.'), 'success');
+    }
+    return payload;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401 && !isAuthPath(endpoint)) {
+    if (
+      error instanceof ApiError &&
+      error.status === 401 &&
+      !isAuthPath(endpoint) &&
+      !isPublicEndpoint(endpoint)
+    ) {
       redirectToLoginAfterUnauthorized();
+    }
+    if (shouldToastWrite) {
+      showToast(getErrorMessage(error), 'error');
     }
     throw error;
   }
@@ -86,16 +158,36 @@ export const api = {
     return request<T>('GET', endpoint, { params, signal });
   },
 
-  post<T>(endpoint: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-    return request<T>('POST', endpoint, { body, signal });
+  post<T>(
+    endpoint: string,
+    body?: unknown,
+    options?: AbortSignal | BrowserWriteOptions,
+  ): Promise<T> {
+    const write = resolveWriteOptions(options);
+    return request<T>('POST', endpoint, {
+      body,
+      signal: write.signal,
+      silent: write.silent,
+      toastOnWrite: true,
+    });
   },
 
   put<T>(endpoint: string, body?: unknown, signal?: AbortSignal): Promise<T> {
     return request<T>('PUT', endpoint, { body, signal });
   },
 
-  patch<T>(endpoint: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-    return request<T>('PATCH', endpoint, { body, signal });
+  patch<T>(
+    endpoint: string,
+    body?: unknown,
+    options?: AbortSignal | BrowserWriteOptions,
+  ): Promise<T> {
+    const write = resolveWriteOptions(options);
+    return request<T>('PATCH', endpoint, {
+      body,
+      signal: write.signal,
+      silent: write.silent,
+      toastOnWrite: true,
+    });
   },
 
   delete<T>(endpoint: string, signal?: AbortSignal): Promise<T> {

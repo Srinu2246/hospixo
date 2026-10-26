@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import type { PosFloorTable } from '@/lib/mocks/pos/usePosDashboard.mocks';
+import type { PosFloorTable } from '@/lib/schemas/pos/point-of-sale/dashboard/posDashboardSchema';
 import { getTableStatusColor } from '@/lib/helpers';
 
 export interface PosTableCardProps {

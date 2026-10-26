@@ -87,6 +87,7 @@ export function resolveStatusVariant(statusOrLabel?: string | null): StatusChipV
     case 'billing': // Warning: Billing (orange pill)
     case 'waiting driver': // Warning: Waiting Driver
     case 'driver waiting':
+    case 'draft': // Warning: Draft order
       return 'warning';
 
     case 'active':
@@ -162,6 +163,7 @@ const DEFAULT_STATUS_LABELS: Record<string, string> = {
   confirmed: 'Confirmed',
   'checked in': 'Checked In',
   cancelled: 'Cancelled',
+  draft: 'Draft',
 };
 
 function formatStatusFallback(status?: string | null): string {

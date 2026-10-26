@@ -2,6 +2,7 @@ import { createTheme } from '@mui/material/styles';
 
 import { breakpoints } from './breakpoints';
 import { colors, lightPalette, darkPalette } from './colors';
+import { muiButtonOverrides, muiIconButtonOverrides } from './components/button';
 import { shape } from './shape';
 import { spacing } from './spacing';
 import { typography } from './typography';
@@ -72,6 +73,11 @@ export const getTheme = (mode: 'light' | 'dark' = 'light') => {
 
     breakpoints: {
       values: breakpoints,
+    },
+
+    components: {
+      MuiButton: muiButtonOverrides,
+      MuiIconButton: muiIconButtonOverrides,
     },
   });
 };

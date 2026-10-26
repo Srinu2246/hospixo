@@ -393,6 +393,7 @@ export function FloorDetailScreen({
             editing={detail.editing || isNewSection}
             branchId={branchId}
             floorId={numericFloorId}
+            branchName={branchName}
             onOpen={(sectionId) => openSection(sectionId)}
             onEdit={(sectionId) => openSection(sectionId, true)}
             onAdd={() => openSection('new', true)}

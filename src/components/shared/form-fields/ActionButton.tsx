@@ -4,6 +4,7 @@ import type { MouseEvent, ReactNode } from 'react';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { buttonDisabledSx } from '@/lib/theme/mui/components/button';
 import { colors } from '@/lib/theme/mui/colors';
 
 export interface ActionButtonProps {
@@ -45,6 +46,19 @@ export function ActionButton({
 }: Readonly<ActionButtonProps>) {
   const sizeConfig = SIZE_STYLES[size];
   const isIconVariant = variant === 'icon';
+  const isPrimary = variant === 'primary';
+
+  // MUI v9 text/outlined buttons color via CSS vars; contained + primary uses contrastText (white).
+  const muiVariant = isPrimary
+    ? 'contained'
+    : variant === 'outlined' || variant === 'icon'
+      ? 'outlined'
+      : 'text';
+  const muiColor = isPrimary ? 'primary' : 'inherit';
+
+  const disabledStateSx = {
+    '&.Mui-disabled': (theme: Theme) => buttonDisabledSx(theme),
+  };
 
   // Resolve visual variant styling
   const getVariantSx = () => {
@@ -52,9 +66,14 @@ export function ActionButton({
       case 'primary':
         return {
           bgcolor: colors.primary.default,
-          color: colors.white.default,
+          color: '#FFFFFF',
           boxShadow: `0 2px 8px ${colors.sidebar.activeGlow}`,
-          '&:hover': { bgcolor: colors.primary.dark },
+          '&:hover:not(.Mui-disabled)': { bgcolor: colors.primary.dark, color: '#FFFFFF' },
+          ...disabledStateSx,
+          '&:not(.Mui-disabled) .MuiButton-startIcon, &:not(.Mui-disabled) .MuiButton-endIcon, &:not(.Mui-disabled) .MuiCircularProgress-root':
+            {
+              color: '#FFFFFF',
+            },
         };
       case 'secondary':
         return {
@@ -63,10 +82,11 @@ export function ActionButton({
           color: 'text.primary',
           border: '1px solid',
           borderColor: 'divider',
-          '&:hover': {
+          '&:hover:not(.Mui-disabled)': {
             bgcolor: (theme: Theme) =>
               theme.palette.mode === 'dark' ? 'action.hover' : colors.border.light,
           },
+          ...disabledStateSx,
         };
       case 'outlined':
         return {
@@ -75,10 +95,11 @@ export function ActionButton({
           color: 'text.primary',
           border: '1px solid',
           borderColor: 'divider',
-          '&:hover': {
+          '&:hover:not(.Mui-disabled)': {
             bgcolor: 'action.hover',
             borderColor: 'text.secondary',
           },
+          ...disabledStateSx,
         };
       case 'icon':
         return {
@@ -90,17 +111,23 @@ export function ActionButton({
           width: sizeConfig.height,
           height: sizeConfig.height,
           p: 0,
-          '&:hover': {
+          '&:hover:not(.Mui-disabled)': {
             bgcolor: 'action.hover',
             color: 'text.primary',
             borderColor: 'text.secondary',
           },
+          ...disabledStateSx,
         };
       case 'text':
         return {
           bgcolor: 'transparent',
           color: 'primary.main',
-          '&:hover': { bgcolor: 'action.hover' },
+          '&:hover:not(.Mui-disabled)': { bgcolor: 'action.hover' },
+          '&.Mui-disabled': (theme: Theme) => ({
+            opacity: 1,
+            color: theme.palette.text.disabled,
+            bgcolor: 'transparent',
+          }),
         };
     }
   };
@@ -110,9 +137,12 @@ export function ActionButton({
       type={type}
       form={form}
       aria-label={ariaLabel}
+      variant={muiVariant}
+      color={muiColor}
       disabled={disabled || loading}
       onClick={onClick}
       fullWidth={fullWidth}
+      disableElevation={isPrimary}
       startIcon={
         !isIconVariant && (loading ? <CircularProgress size={16} color="inherit" /> : startIcon)
       }
@@ -129,6 +159,18 @@ export function ActionButton({
         transition: 'all 0.15s ease',
         ...getVariantSx(),
         ...sx,
+        // Keep primary label/icons white when enabled (callers may override bgcolor in sx).
+        ...(isPrimary
+          ? {
+              '&:not(.Mui-disabled)': {
+                color: '#FFFFFF',
+              },
+              '&:not(.Mui-disabled) .MuiButton-startIcon, &:not(.Mui-disabled) .MuiButton-endIcon, &:not(.Mui-disabled) .MuiCircularProgress-root':
+                {
+                  color: '#FFFFFF',
+                },
+            }
+          : null),
       }}
     >
       {loading && isIconVariant ? (
