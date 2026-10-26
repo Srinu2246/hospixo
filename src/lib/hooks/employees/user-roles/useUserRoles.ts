@@ -174,6 +174,7 @@ export function useUserRoles(
         ? initialUserList
         : undefined,
     placeholderData: (previous) => previous,
+    staleTime: 60_000,
   });
 
   const rolesQuery = useRoleCatalogQuery(scope);
@@ -596,13 +597,22 @@ export function useCreateStaffUser() {
       categories: PermissionCategory[];
       ids: CreateUserIdHints;
     }) => {
-      const rolesPayload = await api.get<JsonValue>(ApiUrlsV1.roles.list);
-      const roleCatalog = parseRoleCatalog(rolesPayload);
+      let roleCatalog: RoleCatalogItem[] = [];
+      try {
+        const rolesPayload = await api.get<JsonValue>(ApiUrlsV1.roles.list);
+        roleCatalog = parseRoleCatalog(rolesPayload);
+      } catch {
+        roleCatalog = [];
+      }
+
       const roleCode = resolveRoleCode(input.values.role, roleCatalog);
-      const { role, account, user } = useSidebarStore.getState();
+      const { role, account, user, context: storeContext } = useSidebarStore.getState();
+      const isBranchScope =
+        account?.scope === 'branch' || storeContext.branchId != null || input.ids.branchId != null;
       const directoryAuth = {
         role: role || user?.role || account?.roles?.[0] || account?.scope || '',
         authScope: account?.scope ?? '',
+        scope: isBranchScope ? ('branch' as const) : undefined,
       };
       const context = await resolveCreateUserRequestContext(
         { company: input.values.company, branch: input.values.branch },
@@ -615,9 +625,8 @@ export function useCreateStaffUser() {
       const body = toCreateUserBody(input.values, context);
       const createdPayload = await api.post<JsonValue>(ApiUrlsV1.users.create, body);
       const userId = parseUserRecord(createdPayload)?.id ?? readUserId(createdPayload);
-      if (!userId) return;
 
-      if (roleCode) {
+      if (userId && roleCode) {
         const matched = roleCatalog.find(
           (r) => isMatch(r.code, roleCode) || isMatch(r.name, input.values.role),
         );
@@ -626,10 +635,22 @@ export function useCreateStaffUser() {
           branchId: context.branchId,
           scope: matched?.scope,
         };
-        await assignOrReplaceUserRole(userId, roleCode, roleHints);
+        try {
+          await assignOrReplaceUserRole(userId, roleCode, roleHints);
+        } catch (err) {
+          console.warn('assignOrReplaceUserRole failed:', err);
+        }
       }
 
-      await syncUserPermissions(userId, input.categories);
+      if (userId && input.categories.length > 0) {
+        try {
+          await syncUserPermissions(userId, input.categories);
+        } catch (err) {
+          console.warn('syncUserPermissions failed:', err);
+        }
+      }
+
+      return { id: userId, payload: createdPayload };
     },
     onSuccess: async () => {
       await invalidateUserQueries(queryClient);
@@ -698,56 +719,52 @@ export function useRolePermissions(
     branchId?: number | string | null;
   },
 ) {
-  const { context, account } = useSidebarStore.getState();
-  const rawCompanyId = options?.companyId ?? context.companyId ?? account?.company_id;
-  const rawBranchId = options?.branchId ?? context.branchId ?? account?.branch_id;
+  const accountScope = useSidebarStore((state) => state.account?.scope);
+  const requestedScope = (options?.scope ?? accountScope ?? UserRoleScope.Organization)
+    .toString()
+    .toLowerCase();
 
-  const companyId = rawCompanyId != null && rawCompanyId !== '' ? Number(rawCompanyId) : undefined;
-  const branchId = rawBranchId != null && rawBranchId !== '' ? Number(rawBranchId) : undefined;
+  const scopeType: UserRoleScope =
+    requestedScope === 'branch'
+      ? UserRoleScope.Branch
+      : requestedScope === 'company'
+        ? UserRoleScope.Company
+        : UserRoleScope.Organization;
 
-  const requestedScope = options?.scope ?? UserRoleScope.Organization;
-  let scopeType: UserRoleScope = UserRoleScope.Organization;
-  if (requestedScope === UserRoleScope.Company && companyId != null && Number.isFinite(companyId)) {
-    scopeType = UserRoleScope.Company;
-  } else if (
-    requestedScope === UserRoleScope.Branch &&
-    branchId != null &&
-    Number.isFinite(branchId)
-  ) {
-    scopeType = UserRoleScope.Branch;
-  }
+  const numericRoleId = Number(roleId);
+  const isValidRoleId =
+    roleId != null &&
+    roleId !== '' &&
+    roleId !== 'custom-role' &&
+    Number.isFinite(numericRoleId) &&
+    numericRoleId > 0;
 
   return useQuery({
     queryKey: [
       'api',
       'roles',
-      roleId != null && roleId !== '' ? String(roleId) : 'none',
+      isValidRoleId ? String(numericRoleId) : 'none',
       'permissions',
       scopeType,
-      companyId != null ? String(companyId) : 'all',
-      branchId != null ? String(branchId) : 'all',
     ],
     queryFn: async ({ signal }) => {
-      if (roleId == null || roleId === '') return null;
+      if (!isValidRoleId) return null;
       const params: ScopedRolePermissionsParams = {
         scope_type: scopeType,
-        ...(companyId != null && Number.isFinite(companyId) ? { company_id: companyId } : {}),
-        ...(scopeType === UserRoleScope.Branch && branchId != null && Number.isFinite(branchId)
-          ? { branch_id: branchId }
-          : {}),
         page_size: 100,
       };
 
-      return api.get<JsonValue>(rolePermissionsPath(roleId), params, signal);
+      return api.get<JsonValue>(rolePermissionsPath(numericRoleId), params, signal);
     },
-    enabled: roleId != null && roleId !== '',
-    staleTime: 60_000,
+    enabled: isValidRoleId,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
   });
 }
 
 export function useRoleTemplates(scope?: ScopeType) {
   return useQuery({
-    queryKey: ['api', ApiUrlsV1.roles.list, 'templates', scope],
+    queryKey: ['api', ApiUrlsV1.roles.list, 'templates', scope ?? 'all'],
     queryFn: async ({ signal }) => {
       try {
         const rolesPayload = await api.get<JsonValue>(ApiUrlsV1.roles.list, undefined, signal);
@@ -768,7 +785,8 @@ export function useRoleTemplates(scope?: ScopeType) {
         return [];
       }
     },
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
   });
 }
 
@@ -818,15 +836,17 @@ export function useEmployeeDirectory(
   const sessionReady = Boolean(role || hasAccount);
   const hasDirectoryScope = resolvedOrgId != null || resolvedCompanyId != null;
 
+  const normalizedScope: ScopeType =
+    options?.scope ??
+    (authScope === 'branch' ? 'branch' : resolvedCompanyId != null ? 'company' : 'organization');
+
   return useQuery({
     queryKey: [
       'employees',
       'directory',
-      resolvedOrgId ?? 'none',
-      resolvedCompanyId ?? 'none',
-      options?.scope ?? 'default',
-      role,
-      authScope,
+      resolvedOrgId ?? 'all',
+      resolvedCompanyId ?? 'all',
+      normalizedScope,
     ],
     enabled: sessionReady && hasDirectoryScope,
     queryFn: async ({ signal }) => {
@@ -853,7 +873,7 @@ export function useEmployeeDirectory(
             session: sessionHints,
             role: sessionRole,
             authScope: sessionAuthScope,
-            scope: options?.scope,
+            scope: normalizedScope,
           },
           get,
         );
@@ -861,7 +881,8 @@ export function useEmployeeDirectory(
         return enrichDirectoryWithSession([], [], sessionHints);
       }
     },
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
     placeholderData: (previous) => previous,
   });
 }
