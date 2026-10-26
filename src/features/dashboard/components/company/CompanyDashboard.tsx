@@ -6,14 +6,11 @@ import { COMPANY_STAT_CARDS } from '@/lib/mocks/dashboard/dashboard.mocks';
 import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
 import type { DashboardStatItem } from '../../types/dashboard.types';
 import { DashboardStatCard } from '../shared/DashboardStatCard';
-import { QuickHelpCard } from '../shared/QuickHelpCard';
 import { BranchDirectory } from '../organization/OrganizationDashboard';
 import { CompanyOperationsSummary } from './CompanyOperationsSummary';
 import { CustomerInsightsCard } from './CustomerInsightsCard';
-import { LeakageTrackerCard } from './LeakageTrackerCard';
 import { RevenueForecastCard } from './RevenueForecastCard';
 import { SalesByOutletSection } from './SalesByOutletSection';
-import { TodaysExpensesCard } from './TodaysExpensesCard';
 
 /**
  * Branches come from the API. Sales and the other cards have no endpoint yet,
@@ -67,19 +64,6 @@ export function CompanyDashboard({
       >
         <RevenueForecastCard />
         <CustomerInsightsCard />
-      </Box>
-
-      {/* 6. Bottom Row: 3 Columns (Today's Expenses, Leakage Tracker, Quick Help) */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
-          gap: 2.5,
-        }}
-      >
-        <TodaysExpensesCard />
-        <LeakageTrackerCard />
-        <QuickHelpCard />
       </Box>
     </Box>
   );

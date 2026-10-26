@@ -9,7 +9,6 @@ import RestaurantIcon from '@mui/icons-material/Restaurant';
 import TakeoutDiningIcon from '@mui/icons-material/TakeoutDining';
 import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
-import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 
 import ButtonBase from '@mui/material/ButtonBase';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -25,19 +24,16 @@ import { useToastStore } from '@/stores/toastStore';
 import { PeriodOption } from '@/features/dashboard/enums';
 import {
   BRANCH_STAT_CARDS,
-  BRANCH_EXPENSES,
   BRANCH_SALES_SUMMARY,
   BRANCH_SALES_CHART_Y_AXIS,
   BRANCH_SALES_CHART_LEGEND,
   BRANCH_PAYMENT_MODES,
   BRANCH_ONLINE_ORDERS_STATS,
   BRANCH_ONLINE_AGGREGATORS,
-  BRANCH_LEAKAGE_STATS,
   BRANCH_CHANNEL_CARDS,
   MOCK_PERIOD_OPTIONS,
 } from '@/lib/mocks/dashboard/dashboard.mocks';
 import { DashboardStatCard } from '../shared/DashboardStatCard';
-import { QuickHelpCard } from '../shared/QuickHelpCard';
 
 export interface BranchSalesDashboardProps {
   onExportClick?: () => void;
@@ -103,7 +99,6 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
 
   const [chartPeriod, setChartPeriod] = useState<PeriodOption>(PeriodOption.TODAY);
   const [onlinePeriod, setOnlinePeriod] = useState<PeriodOption>(PeriodOption.TODAY);
-  const [expensesPeriod, setExpensesPeriod] = useState<PeriodOption>(PeriodOption.TODAY);
 
   const handleExport = () => {
     if (onExportClick) {
@@ -697,260 +692,6 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
             </Typography>
           </Card>
         ))}
-      </Box>
-
-      {/* 5. Bottom Row: Today's Expenses + Leakage + Quick Help */}
-      {/* Desktop: 3 columns (1fr 1fr 1fr) */}
-      {/* Tablet: 2 columns (Left: Expenses spanning 2 rows, Right: Leakage and Quick Help stacked) */}
-      {/* Mobile: 1 column stacked */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
-          gap: { xs: 2, sm: 2.5 },
-          alignItems: 'start',
-          order: 5,
-        }}
-      >
-        {/* Branch Expenses */}
-        <Card
-          variant="outlined"
-          padding={3}
-          sx={{
-            gridColumn: { xs: '1', sm: '1', md: 'auto' },
-            gridRow: { xs: 'auto', sm: '1 / span 2', md: 'auto' },
-            borderRadius: '16px',
-            borderColor: (theme) =>
-              theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-            bgcolor: (theme) =>
-              theme.palette.mode === 'dark' ? colors.surface.dark : colors.surface.default,
-            boxShadow: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            gap: 2,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography
-              sx={{
-                fontSize: '0.6875rem',
-                fontWeight: 700,
-                letterSpacing: '0.04em',
-                color: colors.text.secondary,
-                textTransform: 'uppercase',
-              }}
-            >
-              TODAY&apos;S EXPENSES
-            </Typography>
-            <BranchPeriodSelector value={expensesPeriod} onChange={setExpensesPeriod} />
-          </Box>
-
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              mt: 0.5,
-            }}
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: 'text.primary' }}>
-                ₹9,580
-              </Typography>
-              <Typography sx={{ fontSize: '0.6875rem', color: colors.text.secondary }}>
-                Expense categories tracked
-              </Typography>
-            </Box>
-            <Typography sx={{ fontSize: '0.75rem', color: '#D97706', fontWeight: 700 }}>
-              ↑ 6.2% vs yesterday
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {BRANCH_EXPENSES.map((item) => (
-              <Box
-                key={item.category}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '0.75rem',
-                }}
-              >
-                <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary }}>
-                  {item.category}
-                </Typography>
-                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.primary' }}>
-                  {item.amount}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-
-          <Box
-            sx={{
-              pt: 1.5,
-              borderTop: '1px solid',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'text.primary' }}>
-              Total Expenses
-            </Typography>
-            <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: 'text.primary' }}>
-              ₹1,30,000
-            </Typography>
-          </Box>
-        </Card>
-
-        {/* Leakage Tracker */}
-        <Card
-          variant="outlined"
-          padding={3}
-          sx={{
-            gridColumn: { xs: '1', sm: '2', md: 'auto' },
-            gridRow: { xs: 'auto', sm: '1', md: 'auto' },
-            borderRadius: '16px',
-            borderColor: (theme) =>
-              theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-            bgcolor: (theme) =>
-              theme.palette.mode === 'dark' ? colors.surface.dark : colors.surface.default,
-            boxShadow: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2.5,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: '#EA580C' }} />
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 700, color: 'text.primary' }}>
-              Leakage
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography
-              sx={{ fontSize: '0.625rem', fontWeight: 700, color: colors.text.secondary }}
-            >
-              KOTS
-            </Typography>
-            <Box
-              sx={{
-                p: 1.25,
-                borderRadius: '8px',
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : '#F9FAFB',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 1.5,
-                textAlign: 'left',
-              }}
-            >
-              <Box>
-                <Typography sx={{ fontSize: '0.625rem', color: colors.text.secondary }}>
-                  Cancelled:{' '}
-                  <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {BRANCH_LEAKAGE_STATS.kots.cancelled}
-                  </Box>
-                </Typography>
-                <Typography sx={{ fontSize: '0.625rem', color: colors.text.secondary, mt: 0.5 }}>
-                  Not used in bills:{' '}
-                  <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {BRANCH_LEAKAGE_STATS.kots.notUsedInBills}
-                  </Box>
-                </Typography>
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: '0.625rem', color: colors.text.secondary }}>
-                  Modified:{' '}
-                  <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {BRANCH_LEAKAGE_STATS.kots.modified}
-                  </Box>
-                </Typography>
-                <Typography sx={{ fontSize: '0.625rem', color: colors.text.secondary, mt: 0.5 }}>
-                  Shifted:{' '}
-                  <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {BRANCH_LEAKAGE_STATS.kots.shifted}
-                  </Box>
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography
-              sx={{ fontSize: '0.625rem', fontWeight: 700, color: colors.text.secondary }}
-            >
-              BILLS
-            </Typography>
-            <Box
-              sx={{
-                p: 1.25,
-                borderRadius: '8px',
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : '#F9FAFB',
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 1.5,
-                textAlign: 'left',
-              }}
-            >
-              <Box>
-                <Box sx={{ mb: 0.75 }}>
-                  <Typography sx={{ fontSize: '0.625rem', color: colors.text.secondary }}>
-                    Modified
-                  </Typography>
-                  <Typography
-                    sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'text.primary' }}
-                  >
-                    {BRANCH_LEAKAGE_STATS.bills.modified}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography sx={{ fontSize: '0.625rem', color: colors.text.secondary }}>
-                    Waived off
-                  </Typography>
-                  <Typography
-                    sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'text.primary' }}
-                  >
-                    {BRANCH_LEAKAGE_STATS.bills.waivedOff}
-                  </Typography>
-                </Box>
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: '0.625rem', color: colors.text.secondary }}>
-                  Re-printed
-                </Typography>
-                <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'text.primary' }}>
-                  {BRANCH_LEAKAGE_STATS.bills.reprinted}
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        </Card>
-
-        {/* Quick Help */}
-        <Box
-          sx={{
-            gridColumn: { xs: '1', sm: '2', md: 'auto' },
-            gridRow: { xs: 'auto', sm: '2', md: 'auto' },
-            height: '100%',
-          }}
-        >
-          <QuickHelpCard
-            idLabel="Outlet ID: 63284"
-            showPocBadge
-            statusText="Online"
-            description="Your dedicated account manager for all operational support and billing queries. Reach out anytime during working hours."
-            availableStartTime="10:00 AM"
-            availableEndTime="07:00 PM"
-          />
-        </Box>
       </Box>
     </Box>
   );
