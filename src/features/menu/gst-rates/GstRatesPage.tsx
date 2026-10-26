@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -14,8 +14,22 @@ import { Plus } from 'lucide-react';
 import { CreateGstRateForm, GstRatesTable } from '@/components/features/menu/gst-rates';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
+import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
+import {
+  getGstRatesDashboardHref,
+  GST_RATES_BREADCRUMB_ACTIVE_SX,
+  GST_RATES_BREADCRUMB_LINK_SX,
+} from '@/lib/helpers/gstRatesNav';
 import { useCreateGstRate, useGstRate, useGstRates } from '@/lib/hooks/menu/useGstRates';
-import type { CreateGstRateBody } from '@/lib/schemas/menu/gstRatesSchema';
+import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
+import {
+  mapApiValidationToGstFormErrors,
+  type CreateGstRateFormFieldErrors,
+} from '@/lib/schemas/menu/gst-rates/createGstRateFormSchema';
+import {
+  GST_RATES_LIST_PAGE_SIZE,
+  type CreateGstRateBody,
+} from '@/lib/schemas/menu/gstRatesSchema';
 import { ApiError } from '@/services/api/types';
 
 type GstRatesMode = 'list' | 'create' | 'view';
@@ -49,18 +63,26 @@ export function GstRatesPage() {
   const pathname = usePathname();
   const router = useRouter();
   const { basePath, mode, rateId } = parseGstRatesPath(pathname);
+  const dashboardHref = getGstRatesDashboardHref(pathname);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedCode, setDebouncedCode] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedCode(searchQuery.trim()), 300);
+    return () => window.clearTimeout(handle);
+  }, [searchQuery]);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<CreateGstRateFormFieldErrors>({});
 
   const numericRateId = rateId && /^\d+$/.test(rateId) ? Number(rateId) : undefined;
 
   const listQuery = useGstRates({
-    code: searchQuery.trim() || undefined,
+    code: debouncedCode || undefined,
     active_only: activeOnly || undefined,
     page: 1,
-    page_size: 50,
+    page_size: GST_RATES_LIST_PAGE_SIZE,
   });
   const detailQuery = useGstRate(mode === 'view' ? numericRateId : undefined);
   const createMutation = useCreateGstRate();
@@ -71,17 +93,15 @@ export function GstRatesPage() {
 
   async function handleSubmit(input: CreateGstRateBody) {
     setCreateError(null);
+    setCreateFieldErrors({});
     try {
       await createMutation.mutateAsync(input);
       router.push(basePath);
     } catch (error) {
-      setCreateError(
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : 'Could not create GST rate.',
-      );
+      if (error instanceof ApiError && error.details != null) {
+        setCreateFieldErrors(mapApiValidationToGstFormErrors(error.details));
+      }
+      setCreateError(getErrorMessage(error, 'Could not create GST rate.'));
     }
   }
 
@@ -99,11 +119,18 @@ export function GstRatesPage() {
           gap: 1.5,
         }}
       >
-        {createError ? <Alert severity="error">{createError}</Alert> : null}
         <CreateGstRateForm
           mode="create"
           submitting={createMutation.isPending}
+          serverFormError={createError}
+          serverFieldErrors={createFieldErrors}
+          dashboardHref={dashboardHref}
+          gstRatesBasePath={basePath}
           onCancel={goToList}
+          onClearServerError={() => {
+            setCreateError(null);
+            setCreateFieldErrors({});
+          }}
           onSubmit={handleSubmit}
         />
       </Box>
@@ -168,6 +195,8 @@ export function GstRatesPage() {
         <CreateGstRateForm
           mode="view"
           rate={detailQuery.data}
+          dashboardHref={dashboardHref}
+          gstRatesBasePath={basePath}
           onCancel={goToList}
           onSubmit={handleSubmit}
         />
@@ -190,6 +219,15 @@ export function GstRatesPage() {
         boxSizing: 'border-box',
       }}
     >
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: dashboardHref },
+          { label: 'GST Rates', active: true },
+        ]}
+        linkSx={GST_RATES_BREADCRUMB_LINK_SX}
+        activeSx={GST_RATES_BREADCRUMB_ACTIVE_SX}
+      />
+
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1.5}

@@ -207,7 +207,7 @@ export const FEATURE_FLAG_DEFAULTS: Record<FeatureFlagName, boolean> = {
   company_menu_management_nav: false,
   company_menu_availability_nav: false,
   company_menu_builder_nav: false,
-  company_menu_gstRates_nav: false,
+  company_menu_gstRates_nav: true,
   company_menu_prepStations_nav: false,
   company_menu_modifierGroups_nav: false,
   company_operations_order_nav: true,
