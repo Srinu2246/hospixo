@@ -800,40 +800,88 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
   },
 ];
 
-export const WAITER_SIDEBAR: SidebarEntry[] = [
+export type WaiterWorkspaceNavId = 'tables' | 'orders' | 'ready' | 'menu';
+
+/** Waiter captain-flow screens — single catalog for sidebar, bottom nav, and post-login routing. */
+export type WaiterWorkspaceNavItem = {
+  id: WaiterWorkspaceNavId;
+  name: string;
+  bottomNavLabel: string;
+  /** Path after role segment, e.g. `/pos/captain-flow/tables`. */
+  captainFlowSuffix: string;
+  icon: string;
+  permission: string;
+  featureFlag: string;
+  isActivePath: (pathname: string) => boolean;
+};
+
+const CAPTAIN_FLOW_PREFIX = '/pos/captain-flow';
+
+/**
+ * Captain / waiter workspace — footer order matches Figma: Tables · Menu · Ready · Orders.
+ * Sidebar and bottom nav both derive from this list (no separate hardcoded tab arrays).
+ */
+export const CAPTAIN_WORKSPACE_NAV: readonly WaiterWorkspaceNavItem[] = [
   {
-    id: 1,
+    id: 'tables',
     name: 'Tables',
-    href: '/branch-manager/pos/captain-flow/tables',
+    bottomNavLabel: 'Tables',
+    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/tables`,
     icon: 'table_restaurant',
     permission: PERMISSIONS.TABLES_VIEW,
     featureFlag: FEATURE_FLAGS.captain_pos_tables_nav,
+    isActivePath: (pathname) =>
+      pathname.includes(`${CAPTAIN_FLOW_PREFIX}/tables`) ||
+      /\/pos\/captain-flow\/?$/.test(pathname.replace(/\/+$/, '')),
   },
   {
-    id: 2,
-    name: 'Orders',
-    href: '/branch-manager/pos/captain-flow/all-orders',
-    icon: 'receipt_long',
-    permission: PERMISSIONS.ORDERS_VIEW,
-    featureFlag: FEATURE_FLAGS.captain_pos_orders_nav,
-  },
-  {
-    id: 3,
+    id: 'menu',
     name: 'Dine-In',
-    href: '/branch-manager/pos/captain-flow/order-menu',
+    bottomNavLabel: 'Menu',
+    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/order-menu`,
     icon: 'restaurant',
     permission: PERMISSIONS.ORDERS_CREATE,
     featureFlag: FEATURE_FLAGS.captain_pos_dineIn_nav,
+    isActivePath: (pathname) =>
+      pathname.includes(`${CAPTAIN_FLOW_PREFIX}/order-menu`) ||
+      pathname.includes(`${CAPTAIN_FLOW_PREFIX}/dine-in`) ||
+      pathname.includes('/takeaway') ||
+      /\/dine-in\/[^/?#]+/.test(pathname),
   },
   {
-    id: 4,
+    id: 'ready',
     name: 'Ready Orders',
-    href: '/branch-manager/pos/captain-flow/ready-list',
+    bottomNavLabel: 'Ready',
+    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/ready-list`,
     icon: 'fact_check',
     permission: PERMISSIONS.ORDERS_VIEW,
     featureFlag: FEATURE_FLAGS.captain_pos_readyOrders_nav,
+    isActivePath: (pathname) => pathname.includes(`${CAPTAIN_FLOW_PREFIX}/ready-list`),
+  },
+  {
+    id: 'orders',
+    name: 'Orders',
+    bottomNavLabel: 'Orders',
+    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/all-orders`,
+    icon: 'receipt_long',
+    permission: PERMISSIONS.ORDERS_VIEW,
+    featureFlag: FEATURE_FLAGS.captain_pos_orders_nav,
+    isActivePath: (pathname) => pathname.includes(`${CAPTAIN_FLOW_PREFIX}/all-orders`),
   },
 ];
+
+function waiterSidebarHref(captainFlowSuffix: string): string {
+  return `/branch-manager${captainFlowSuffix}`;
+}
+
+export const WAITER_SIDEBAR: SidebarEntry[] = CAPTAIN_WORKSPACE_NAV.map((item, index) => ({
+  id: index + 1,
+  name: item.name,
+  href: waiterSidebarHref(item.captainFlowSuffix),
+  icon: item.icon,
+  permission: item.permission,
+  featureFlag: item.featureFlag,
+}));
 
 /** Cashier / counter staff — billing-focused flat nav. */
 export const CASHIER_SIDEBAR: SidebarEntry[] = [

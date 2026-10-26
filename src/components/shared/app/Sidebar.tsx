@@ -73,6 +73,10 @@ export type SidebarProps = {
   defaultOpen?: boolean;
   onToggle?: (isOpen: boolean) => void;
   activePath?: string;
+  /** Mobile captain drawer: show full branch catalog instead of POS/Captain sub-flow only. */
+  forcePrimaryNavigation?: boolean;
+  /** Close mobile overlay after navigating (hamburger drawer). */
+  onRequestClose?: () => void;
 };
 
 // ----------------------------------------------------------------------
@@ -302,6 +306,8 @@ export function Sidebar({
   defaultOpen = true,
   onToggle,
   activePath,
+  forcePrimaryNavigation = false,
+  onRequestClose,
 }: SidebarProps) {
   const router = useRouter();
   const currentPathname = usePathname();
@@ -400,10 +406,17 @@ export function Sidebar({
 
   // Active sub-flow: manual override > matched sub-flow (unless manually dismissed on this route)
   const activeSubFlow = useMemo(() => {
+    if (forcePrimaryNavigation) return null;
     if (activeSubFlowOverride) return activeSubFlowOverride;
     if (dismissedPath && dismissedPath === effectivePathname) return null;
     return matchedSubFlow;
-  }, [activeSubFlowOverride, dismissedPath, effectivePathname, matchedSubFlow]);
+  }, [
+    activeSubFlowOverride,
+    dismissedPath,
+    effectivePathname,
+    forcePrimaryNavigation,
+    matchedSubFlow,
+  ]);
 
   const getMainDashboardHref = (): string => {
     // 1. Look for a top-level Dashboard item in navigationEntries
@@ -594,6 +607,7 @@ export function Sidebar({
         <Link
           key={item.name + item.href}
           href={item.href}
+          onClick={() => onRequestClose?.()}
           style={{ textDecoration: 'none', display: 'block', marginBottom: 4 }}
         >
           {wrappedContent}

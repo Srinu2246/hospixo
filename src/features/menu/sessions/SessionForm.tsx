@@ -2,18 +2,26 @@
 
 import { useState } from 'react';
 import Box from '@mui/material/Box';
-import InputAdornment from '@mui/material/InputAdornment';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
-import TextField from '@mui/material/TextField';
+import FormHelperText from '@mui/material/FormHelperText';
 import Typography from '@mui/material/Typography';
-import { Check, Clock } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { Dropdown } from '@/components/shared/form-fields/Dropdown';
+import { TimePicker } from '@/components/shared/form-fields/TimePicker';
+import {
+  formatSessionNameLabel,
+  mealSessionTimeToFormValue,
+  parseSessionNameForForm,
+} from '@/lib/helpers/mealSessionMapper';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import {
+  SESSION_NAME_OPTIONS,
   sessionFormSchema,
   type SessionFormValues,
+  type SessionName,
   type SessionRecord,
 } from '@/lib/schemas/menu/sessions/sessionSchema';
 import { colors } from '@/lib/theme/mui/colors';
@@ -52,12 +60,20 @@ export function SessionForm({
   const fieldBorder = isDark ? colors.border.dark : '#D1D5DB';
   const labelColor = isDark ? colors.text.darkSecondary : '#374151';
 
-  const [name, setName] = useState(initialSession?.name ?? '');
-  const [startTime, setStartTime] = useState(initialSession?.startTime ?? '06:00 AM');
-  const [endTime, setEndTime] = useState(initialSession?.endTime ?? '10:30 AM');
+  const [name, setName] = useState<SessionName | ''>(() =>
+    parseSessionNameForForm(initialSession?.name),
+  );
+  const [startTime, setStartTime] = useState(
+    mealSessionTimeToFormValue(initialSession?.startTime ?? '06:00'),
+  );
+  const [endTime, setEndTime] = useState(
+    mealSessionTimeToFormValue(initialSession?.endTime ?? '10:30'),
+  );
   const [isActive, setIsActive] = useState(initialSession?.status !== 'inactive');
   const [errors, setErrors] = useState<Partial<Record<keyof SessionFormValues, string>>>({});
-  const sessionDisplayName = initialSession?.name?.trim() || 'Session';
+  const sessionDisplayName = initialSession?.name
+    ? formatSessionNameLabel(initialSession.name)
+    : 'Session';
 
   const fieldSx = {
     '& .MuiOutlinedInput-root': {
@@ -191,7 +207,7 @@ export function SessionForm({
         <Box>
           <Typography
             component="label"
-            htmlFor="session-name-input"
+            htmlFor="session-name-select"
             sx={{
               display: 'block',
               fontSize: '0.875rem',
@@ -202,22 +218,29 @@ export function SessionForm({
           >
             Session name *
           </Typography>
-          <TextField
-            id="session-name-input"
+          <Dropdown<SessionName>
+            options={SESSION_NAME_OPTIONS}
             value={name}
-            onChange={(e) => {
-              setName(e.target.value);
+            onChange={(next) => {
+              setName(next);
               if (errors.name) {
                 setErrors((prev) => ({ ...prev, name: undefined }));
               }
             }}
-            placeholder="e.g. Breakfast, Lunch, Dinner"
-            fullWidth
-            error={Boolean(errors.name)}
-            helperText={errors.name}
+            placeholder="Select session name"
             size="small"
-            sx={fieldSx}
+            minWidth="100%"
+            disabled={submitting}
+            sx={{
+              width: '100%',
+              ...fieldSx,
+            }}
           />
+          {errors.name ? (
+            <FormHelperText error sx={{ mx: 0, mt: 0.75 }}>
+              {errors.name}
+            </FormHelperText>
+          ) : null}
         </Box>
 
         {/* Start Time & End Time */}
@@ -228,87 +251,37 @@ export function SessionForm({
             gap: 2.5,
           }}
         >
-          <Box>
-            <Typography
-              component="label"
-              htmlFor="start-time-input"
-              sx={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: labelColor,
-                mb: 1,
-              }}
-            >
-              Start time *
-            </Typography>
-            <TextField
-              id="start-time-input"
-              value={startTime}
-              onChange={(e) => {
-                setStartTime(e.target.value);
-                if (errors.startTime) {
-                  setErrors((prev) => ({ ...prev, startTime: undefined }));
-                }
-              }}
-              placeholder="e.g. 06:00 AM"
-              fullWidth
-              error={Boolean(errors.startTime)}
-              helperText={errors.startTime}
-              size="small"
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Clock size={18} color={textSecondary} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={fieldSx}
-            />
-          </Box>
+          <TimePicker
+            id="start-time-input"
+            label="Start time"
+            required
+            value={startTime}
+            onChange={(next) => {
+              setStartTime(next);
+              if (errors.startTime) {
+                setErrors((prev) => ({ ...prev, startTime: undefined }));
+              }
+            }}
+            error={Boolean(errors.startTime)}
+            helperText={errors.startTime ?? '24-hour (00–23 : 00–59)'}
+            disabled={submitting}
+          />
 
-          <Box>
-            <Typography
-              component="label"
-              htmlFor="end-time-input"
-              sx={{
-                display: 'block',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: labelColor,
-                mb: 1,
-              }}
-            >
-              End time *
-            </Typography>
-            <TextField
-              id="end-time-input"
-              value={endTime}
-              onChange={(e) => {
-                setEndTime(e.target.value);
-                if (errors.endTime) {
-                  setErrors((prev) => ({ ...prev, endTime: undefined }));
-                }
-              }}
-              placeholder="e.g. 10:30 AM"
-              fullWidth
-              error={Boolean(errors.endTime)}
-              helperText={errors.endTime}
-              size="small"
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Clock size={18} color={textSecondary} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={fieldSx}
-            />
-          </Box>
+          <TimePicker
+            id="end-time-input"
+            label="End time"
+            required
+            value={endTime}
+            onChange={(next) => {
+              setEndTime(next);
+              if (errors.endTime) {
+                setErrors((prev) => ({ ...prev, endTime: undefined }));
+              }
+            }}
+            error={Boolean(errors.endTime)}
+            helperText={errors.endTime ?? '24-hour (00–23 : 00–59)'}
+            disabled={submitting}
+          />
         </Box>
 
         {/* Status Toggle */}

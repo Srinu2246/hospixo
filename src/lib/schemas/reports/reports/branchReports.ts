@@ -989,6 +989,146 @@ export function toReportsOrdersSummaryViewModel(
   };
 }
 
+// --- Orders list ---
+
+const reportsOrderListItemSchema = z.object({
+  order_id: z.number().int(),
+  order_number: z.string(),
+  order_type: z.string(),
+  captain_name: nullableText,
+  total_item_quantity: z.union([z.string(), z.number()]).optional(),
+  gross_sales: z.string(),
+  grand_total: z.string(),
+  tip_amount: nullableText,
+  created_at: z.string(),
+  reporting_status: z.string(),
+});
+
+export const reportsOrdersListDataSchema = z.object({
+  items: z.array(reportsOrderListItemSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  page_size: z.number().int(),
+});
+
+export const reportsOrdersListResponseSchema = z.object({
+  success: z.boolean(),
+  data: reportsOrdersListDataSchema,
+  message: nullableText,
+  request_id: nullableText,
+});
+
+export type ReportsOrdersListData = z.infer<typeof reportsOrdersListDataSchema>;
+
+export function parseReportsOrdersListResponse(payload: unknown): ReportsOrdersListData {
+  const envelope = reportsOrdersListResponseSchema.safeParse(payload);
+  if (envelope.success && envelope.data.success) {
+    return envelope.data.data;
+  }
+
+  const direct = reportsOrdersListDataSchema.safeParse(payload);
+  if (direct.success) {
+    return direct.data;
+  }
+
+  if (payload && typeof payload === 'object' && payload !== null && 'data' in payload) {
+    const nested = reportsOrdersListDataSchema.safeParse((payload as { data: unknown }).data);
+    if (nested.success) {
+      return nested.data;
+    }
+  }
+
+  throw new ApiError('Invalid orders list report response', 502);
+}
+
+function formatOrderListAmount(value: string | null | undefined): string {
+  if (!value?.trim()) return '—';
+  const amount = parseAmount(value);
+  return amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function parseItemQuantity(value: string | number | null | undefined): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value == null) return 0;
+  const parsed = Number.parseFloat(String(value).trim());
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatOrderListQuantity(value: string | number | null | undefined): number {
+  const quantity = parseItemQuantity(value);
+  return Number.isInteger(quantity) ? quantity : quantity;
+}
+
+function formatOrderNumberLabel(orderNumber: string): string {
+  const trimmed = orderNumber.trim();
+  if (!trimmed) return '—';
+  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+}
+
+function mapOrderListStatus(status: string): OrdersTableRow['status'] {
+  const normalized = status.trim().toLowerCase();
+  if (normalized.includes('cancel')) return 'cancelled';
+  if (normalized === 'open' || normalized.includes('open')) return 'open';
+  return 'successful';
+}
+
+function formatGrandTotalMetaFromAmounts(
+  grossSales: string,
+  grandTotal: string,
+  tipAmount: string | null | undefined,
+): string | undefined {
+  const parts: string[] = [];
+  const tip = parseAmount(tipAmount);
+  const gross = parseAmount(grossSales);
+  const grand = parseAmount(grandTotal);
+
+  if (tip > 0) {
+    parts.push(`Tip: ${formatOrderListAmount(tipAmount!)}`);
+  }
+
+  const remainder = grand - gross - tip;
+  if (remainder > 0.009) {
+    parts.push(formatOrderListAmount(String(remainder)));
+  }
+
+  return parts.length > 0 ? parts.join(' | ') : undefined;
+}
+
+export function toReportsOrdersListViewModel(data: ReportsOrdersListData): {
+  rows: readonly OrdersTableRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+} {
+  const rows: OrdersTableRow[] = data.items.map((order) => ({
+    id: String(order.order_id),
+    orderNo: formatOrderNumberLabel(order.order_number),
+    orderType: formatOrderTypeLabel(order.order_type),
+    orderTypeVariant: orderTypeVariant(order.order_type),
+    captain: order.captain_name?.trim() || '—',
+    qty: formatOrderListQuantity(order.total_item_quantity),
+    amount: formatOrderListAmount(order.gross_sales),
+    grandTotal: formatOrderListAmount(order.grand_total),
+    grandTotalMeta: formatGrandTotalMetaFromAmounts(
+      order.gross_sales,
+      order.grand_total,
+      order.tip_amount,
+    ),
+    created: formatCreatedAt(order.created_at),
+    status: mapOrderListStatus(order.reporting_status),
+  }));
+
+  return {
+    rows,
+    total: data.total,
+    page: data.page,
+    pageSize: data.page_size,
+  };
+}
+
 // --- Sessions ---
 
 const sessionHighlightSchema = z.object({
@@ -1444,5 +1584,238 @@ export function toReportsPaymentsViewModel(data: ReportsPaymentsData): ReportsPa
     reconciliationNote,
     attentionItems,
     periodLabel: `Period: ${data.date_from} – ${data.date_to}`,
+  };
+}
+
+// --- Users logs ---
+
+const usersLogsSummarySchema = z.object({
+  total_invoices: z.number(),
+  total_invoices_change_percent: nullableText,
+  gross_sales: z.string(),
+  gross_sales_change_percent: nullableText,
+  staff_worked: z.number(),
+  staff_worked_change_percent: nullableText,
+  total_collected: z.string(),
+  total_collected_change_percent: nullableText,
+  open_shifts: z.number(),
+  closed_shifts: z.number(),
+});
+
+const usersLogsShiftRowSchema = z.object({
+  shift_id: z.number(),
+  user_id: z.number(),
+  opened_by: z.string(),
+  opened_at: z.string(),
+  opening_balance: z.string(),
+  closed_at: nullableText,
+  closed_by: nullableText,
+  total_orders: z.number(),
+  cash_collected: z.string(),
+  upi_collected: z.string(),
+  card_collected: z.string(),
+  total_collected: z.string(),
+  status: z.enum(['open', 'closed']),
+});
+
+export const reportsUsersLogsDataSchema = z.object({
+  summary: usersLogsSummarySchema,
+  items: z.array(usersLogsShiftRowSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  page_size: z.number().int(),
+});
+
+export const reportsUsersLogsResponseSchema = z.object({
+  success: z.boolean(),
+  data: reportsUsersLogsDataSchema,
+  message: nullableText,
+  request_id: nullableText,
+});
+
+export type ReportsUsersLogsData = z.infer<typeof reportsUsersLogsDataSchema>;
+export type ReportsUsersLogsShiftRow = z.infer<typeof usersLogsShiftRowSchema>;
+
+export function parseReportsUsersLogsResponse(payload: unknown): ReportsUsersLogsData {
+  return parseBranchReportResponse(
+    payload,
+    reportsUsersLogsResponseSchema,
+    'Invalid users logs report response',
+  );
+}
+
+export type ReportsUsersLogsBillingOption = Readonly<{
+  value: string;
+  label: string;
+  userId?: number;
+}>;
+
+export type ReportsUsersLogsViewModel = Readonly<{
+  summaryStats: readonly {
+    id: string;
+    label: string;
+    value: string;
+    accent: 'info' | 'warning' | 'success' | 'secondary';
+    changePercent?: number;
+    changeLabel?: string;
+    footerText?: string;
+    closedShifts?: string;
+    openShifts?: string;
+  }[];
+  rows: readonly {
+    id: string;
+    openedBy: string;
+    openedAt: string;
+    openingBalance: string;
+    closedAt: string;
+    closedBy: string;
+    totalOrders: string;
+    cashCollected: string;
+    upiCollected: string;
+    cardCollected: string;
+    totalCollected: string;
+  }[];
+  total: number;
+  page: number;
+  pageSize: number;
+  billingUserOptions: readonly ReportsUsersLogsBillingOption[];
+}>;
+
+function formatReportDateTime(value: string | null | undefined): string {
+  if (!value?.trim()) return '—';
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return value;
+  return new Date(parsed).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+}
+
+function formatLedgerAmount(value: string | null | undefined): string {
+  if (!value?.trim()) return '—';
+  const amount = parseAmount(value);
+  return amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function usersLogsCompareLabel(compareFrom?: string, compareTo?: string): string {
+  if (compareFrom?.trim() && compareTo?.trim()) {
+    return `vs ${compareFrom} – ${compareTo}`;
+  }
+  return 'vs previous period';
+}
+
+export function toReportsUsersLogsViewModel(
+  data: ReportsUsersLogsData,
+  compareFrom?: string,
+  compareTo?: string,
+): ReportsUsersLogsViewModel {
+  const { summary } = data;
+  const compareLabel = usersLogsCompareLabel(compareFrom, compareTo);
+
+  const invoiceChange = parsePercent(summary.total_invoices_change_percent);
+  const grossChange = parsePercent(summary.gross_sales_change_percent);
+  const staffChange = parsePercent(summary.staff_worked_change_percent);
+  const collectedChange = parsePercent(summary.total_collected_change_percent);
+
+  const summaryStats = [
+    {
+      id: 'total-invoices',
+      label: 'Total invoices',
+      value: summary.total_invoices.toLocaleString('en-IN'),
+      changePercent: invoiceChange,
+      changeLabel: invoiceChange != null ? compareLabel : undefined,
+      accent: 'info' as const,
+    },
+    {
+      id: 'net-sales',
+      label: 'Gross sales',
+      value: formatInrAmount(summary.gross_sales),
+      changePercent: grossChange,
+      changeLabel: grossChange != null ? compareLabel : undefined,
+      accent: 'info' as const,
+    },
+    {
+      id: 'staff-worked',
+      label: 'Staff worked',
+      value: summary.staff_worked.toLocaleString('en-IN'),
+      changePercent: staffChange,
+      changeLabel: staffChange != null ? compareLabel : undefined,
+      closedShifts: `${summary.closed_shifts} closed shifts`,
+      openShifts: summary.open_shifts > 0 ? `${summary.open_shifts} still open` : undefined,
+      accent: 'info' as const,
+    },
+    {
+      id: 'total-collected',
+      label: 'Total collected',
+      value: formatInrAmount(summary.total_collected),
+      changePercent: collectedChange,
+      changeLabel: collectedChange != null ? compareLabel : undefined,
+      footerText: 'Collected by tender for shifts in range',
+      accent: 'info' as const,
+    },
+  ];
+
+  const rows = data.items.map((row) => ({
+    id: String(row.shift_id),
+    openedBy: row.opened_by,
+    openedAt: formatReportDateTime(row.opened_at),
+    openingBalance: formatLedgerAmount(row.opening_balance),
+    closedAt: formatReportDateTime(row.closed_at),
+    closedBy: row.closed_by?.trim() ? row.closed_by : '—',
+    totalOrders:
+      row.status === 'open' && row.total_orders === 0
+        ? '—'
+        : row.total_orders.toLocaleString('en-IN'),
+    cashCollected:
+      row.status === 'open' && parseAmount(row.cash_collected) === 0
+        ? '—'
+        : formatLedgerAmount(row.cash_collected),
+    upiCollected:
+      row.status === 'open' && parseAmount(row.upi_collected) === 0
+        ? '—'
+        : formatLedgerAmount(row.upi_collected),
+    cardCollected:
+      row.status === 'open' && parseAmount(row.card_collected) === 0
+        ? '—'
+        : formatLedgerAmount(row.card_collected),
+    totalCollected:
+      row.status === 'open' && parseAmount(row.total_collected) === 0
+        ? '—'
+        : formatLedgerAmount(row.total_collected),
+  }));
+
+  const userMap = new Map<number, string>();
+  for (const row of data.items) {
+    if (!userMap.has(row.user_id)) {
+      userMap.set(row.user_id, row.opened_by);
+    }
+  }
+
+  const billingUserOptions: ReportsUsersLogsBillingOption[] = [
+    { value: 'all', label: 'All Billing User' },
+    ...[...userMap.entries()]
+      .sort((left, right) => left[1].localeCompare(right[1]))
+      .map(([userId, label]) => ({
+        value: String(userId),
+        label,
+        userId,
+      })),
+  ];
+
+  return {
+    summaryStats,
+    rows,
+    total: data.total,
+    page: data.page,
+    pageSize: data.page_size,
+    billingUserOptions,
   };
 }

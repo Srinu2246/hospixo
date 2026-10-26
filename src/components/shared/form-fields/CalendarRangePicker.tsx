@@ -59,7 +59,7 @@ function normalizeRange(start: Date, end: Date): { dateFrom: Date; dateTo: Date 
   return { dateFrom: to, dateTo: from };
 }
 
-function formatRangeLabel(dateFrom: Date, dateTo: Date): string {
+export function formatCalendarRangeLabel(dateFrom: Date, dateTo: Date): string {
   const formatter = new Intl.DateTimeFormat('en-IN', {
     month: 'short',
     day: 'numeric',
@@ -95,7 +95,7 @@ export function CalendarRangePicker({
 
   const open = Boolean(anchorEl);
 
-  const label = useMemo(() => formatRangeLabel(dateFrom, dateTo), [dateFrom, dateTo]);
+  const label = useMemo(() => formatCalendarRangeLabel(dateFrom, dateTo), [dateFrom, dateTo]);
 
   const handleOpen = (event: MouseEvent<HTMLElement>) => {
     if (disabled) return;

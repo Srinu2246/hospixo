@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { Box, Typography } from '@mui/material';
 import FormControl from '@mui/material/FormControl';
 import MenuItem from '@mui/material/MenuItem';
@@ -18,7 +18,7 @@ export interface DropdownOption<T extends string | number = string> {
 
 export interface DropdownProps<T extends string | number = string> {
   options: readonly (DropdownOption<T> | string)[]; // Dropdown items (objects or plain strings)
-  value?: T; // Currently selected value
+  value?: T | ''; // Currently selected value (empty string shows placeholder)
   onChange: (value: T, option?: DropdownOption<T>) => void; // Selection change callback
   placeholder?: string; // Optional placeholder text
   size?: 'small' | 'medium' | 'large'; // Size preset (default: medium)
@@ -58,13 +58,27 @@ export function Dropdown<T extends string | number = string>({
     typeof opt === 'string' ? ({ id: opt as unknown as T, label: opt } as DropdownOption<T>) : opt,
   );
 
+  const resolvedValue =
+    value !== undefined && value !== null && String(value).trim() !== '' ? value : undefined;
+
+  const optionsWithValue =
+    resolvedValue !== undefined && !normalizedOptions.some((option) => option.id === resolvedValue)
+      ? [
+          ...normalizedOptions,
+          {
+            id: resolvedValue,
+            label: String(resolvedValue),
+          } as DropdownOption<T>,
+        ]
+      : normalizedOptions;
+
   const selectedValue =
-    value !== undefined && value !== null
-      ? value
+    resolvedValue !== undefined
+      ? resolvedValue
       : placeholder
         ? ('' as T)
-        : (normalizedOptions[0]?.id ?? ('' as T));
-  const hasEmptyOption = normalizedOptions.some((option) => option.id === ('' as T));
+        : (optionsWithValue[0]?.id ?? ('' as T));
+  const hasEmptyOption = optionsWithValue.some((option) => option.id === ('' as T));
   const sizeConfig = SIZE_STYLES[size];
 
   const renderPlaceholder = () => (
@@ -82,86 +96,112 @@ export function Dropdown<T extends string | number = string>({
 
   const handleChange = (event: SelectChangeEvent<T>) => {
     const nextValue = event.target.value as T;
-    const foundOption = normalizedOptions.find((opt) => opt.id === nextValue);
+    const foundOption = optionsWithValue.find((opt) => opt.id === nextValue);
     onChange(nextValue, foundOption);
   };
 
   const isOutletVariant = variant === 'outlet' || variant === 'header';
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [menuPlacement, setMenuPlacement] = useState<'bottom' | 'top'>('bottom');
+
+  const updateMenuPlacement = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const preferredHeight = Math.min(maxMenuHeight, 320);
+    setMenuPlacement(spaceBelow < preferredHeight && spaceAbove > spaceBelow ? 'top' : 'bottom');
+  }, [maxMenuHeight]);
+
+  const menuPaperSx = {
+    maxHeight: maxMenuHeight,
+    overflowY: 'auto' as const,
+    borderRadius: '10px',
+    bgcolor: 'background.paper',
+    border: '1px solid',
+    borderColor: 'divider',
+    boxShadow: (theme: Theme) =>
+      theme.palette.mode === 'dark'
+        ? '0 10px 25px -5px rgba(0, 0, 0, 0.6)'
+        : '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+    ...(menuPlacement === 'bottom' ? { mt: 0.5 } : { mb: 0.5 }),
+    '&::-webkit-scrollbar': {
+      width: '6px',
+    },
+    '&::-webkit-scrollbar-track': {
+      background: 'transparent',
+    },
+    '&::-webkit-scrollbar-thumb': {
+      background: (theme: Theme) =>
+        theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+      borderRadius: '3px',
+    },
+    '&::-webkit-scrollbar-thumb:hover': {
+      background: (theme: Theme) =>
+        theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+    },
+    '& .MuiMenuItem-root': {
+      fontSize: sizeConfig.fontSize,
+      py: 1,
+      px: 1.5,
+      color: 'text.primary',
+      '&:hover': {
+        bgcolor: 'action.hover',
+      },
+      '&.Mui-selected': {
+        bgcolor: 'action.selected',
+        color: 'primary.main',
+        fontWeight: 600,
+        '&:hover': {
+          bgcolor: 'action.selected',
+        },
+      },
+    },
+  };
 
   return (
     <FormControl
+      ref={anchorRef}
       size="small"
       sx={{
         minWidth: isOutletVariant ? undefined : minWidth,
+        width: isOutletVariant ? undefined : '100%',
         display: 'inline-flex',
       }}
     >
       <Select
         value={selectedValue}
         onChange={handleChange}
+        onOpen={updateMenuPlacement}
         disabled={disabled}
         displayEmpty={
           Boolean(placeholder) || selectedValue === ('' as T) || selectedValue === undefined
         }
         IconComponent={ChevronDown}
         MenuProps={{
+          disablePortal: false,
+          marginThreshold: 8,
+          anchorOrigin: {
+            vertical: menuPlacement === 'bottom' ? 'bottom' : 'top',
+            horizontal: 'left',
+          },
+          transformOrigin: {
+            vertical: menuPlacement === 'bottom' ? 'top' : 'bottom',
+            horizontal: 'left',
+          },
           slotProps: {
             paper: {
-              sx: {
-                mt: 0.5,
-                maxHeight: maxMenuHeight,
-                overflowY: 'auto',
-                borderRadius: '10px',
-                bgcolor: 'background.paper',
-                border: '1px solid',
-                borderColor: 'divider',
-                boxShadow: (theme: Theme) =>
-                  theme.palette.mode === 'dark'
-                    ? '0 10px 25px -5px rgba(0, 0, 0, 0.6)'
-                    : '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                '&::-webkit-scrollbar': {
-                  width: '6px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: (theme: Theme) =>
-                    theme.palette.mode === 'dark'
-                      ? 'rgba(255, 255, 255, 0.2)'
-                      : 'rgba(0, 0, 0, 0.2)',
-                  borderRadius: '3px',
-                },
-                '&::-webkit-scrollbar-thumb:hover': {
-                  background: (theme: Theme) =>
-                    theme.palette.mode === 'dark'
-                      ? 'rgba(255, 255, 255, 0.35)'
-                      : 'rgba(0, 0, 0, 0.35)',
-                },
-                '& .MuiMenuItem-root': {
-                  fontSize: sizeConfig.fontSize,
-                  py: 1,
-                  px: 1.5,
-                  color: 'text.primary',
-                  '&:hover': {
-                    bgcolor: 'action.hover',
-                  },
-                  '&.Mui-selected': {
-                    bgcolor: 'action.selected',
-                    color: 'primary.main',
-                    fontWeight: 600,
-                    '&:hover': {
-                      bgcolor: 'action.selected',
-                    },
-                  },
-                },
-              },
+              sx: menuPaperSx,
+            },
+            list: {
+              sx: { py: 0.5 },
             },
           },
         }}
         renderValue={(val) => {
           const isEmptyValue = val === '' || val === undefined || val === null;
-          const opt = normalizedOptions.find((o) => o.id === val);
+          const opt = optionsWithValue.find((o) => o.id === val);
           const displayLabel =
             opt?.label ?? (isEmptyValue && placeholder ? placeholder : String(val ?? ''));
 
@@ -268,6 +308,7 @@ export function Dropdown<T extends string | number = string>({
           );
         }}
         sx={{
+          width: isOutletVariant ? undefined : '100%',
           height: isOutletVariant ? 'auto' : sizeConfig.height,
           minHeight: isOutletVariant ? 40 : undefined,
           borderRadius: sizeConfig.borderRadius,
@@ -324,7 +365,7 @@ export function Dropdown<T extends string | number = string>({
           </MenuItem>
         ) : null}
 
-        {normalizedOptions.map((opt) => (
+        {optionsWithValue.map((opt) => (
           <MenuItem
             key={String(opt.id)}
             value={opt.id}

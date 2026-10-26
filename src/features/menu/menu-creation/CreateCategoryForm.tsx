@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -11,12 +11,23 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { useMenuCreation } from '@/features/menu/context';
+import { assertCatalogueContextForCategoryCreate } from '@/lib/helpers/menuBranchContext';
+import { resolveCatalogueContextIds } from '@/lib/helpers/apiContextHeaders';
+import { useSidebarStore } from '@/stores/sidebarStore';
+import { zodFieldMessage } from '@/lib/schemas/menu/menuCreationSchema';
 import {
   createCategoryInputSchema,
   type CreateCategoryInput,
   type MenuCategory,
 } from '@/lib/schemas/menu/menuCreationSchema';
 import { ApiError } from '@/services/api/types';
+
+function categoryFormValues(name: string, description: string) {
+  return {
+    name,
+    description: description.trim() || undefined,
+  };
+}
 
 export interface CreateCategoryFormProps {
   mode?: 'create' | 'edit';
@@ -32,13 +43,59 @@ export function CreateCategoryForm({
   onSubmit,
 }: Readonly<CreateCategoryFormProps>) {
   const { pageConfig, isCreatingCategory, isUpdatingCategory } = useMenuCreation();
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const account = useSidebarStore((state) => state.account);
   const isEdit = mode === 'edit';
   const saving = Boolean(isEdit ? isUpdatingCategory : isCreatingCategory);
 
+  const catalogueContextIssue = useMemo((): string | null => {
+    if (isEdit) return null;
+    try {
+      assertCatalogueContextForCategoryCreate(
+        pageConfig.scope,
+        resolveCatalogueContextIds(pageConfig.scope),
+      );
+      return null;
+    } catch (submitError) {
+      return submitError instanceof ApiError
+        ? submitError.message
+        : 'Missing company or branch context for this workspace.';
+    }
+  }, [
+    account?.branch_id,
+    account?.company_id,
+    isEdit,
+    pageConfig.scope,
+    sidebarContext.branchId,
+    sidebarContext.companyId,
+  ]);
+
   // Remount via `key` from parent when the edited category changes — no sync effect needed.
-  const [name, setName] = useState(initialCategory?.name ?? '');
-  const [description, setDescription] = useState(initialCategory?.description ?? '');
-  const [error, setError] = useState<string | null>(null);
+  const initialName = initialCategory?.name ?? '';
+  const initialDescription = initialCategory?.description ?? '';
+  const [name, setName] = useState(initialName);
+  const [description, setDescription] = useState(initialDescription);
+  const [nameTouched, setNameTouched] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const nameInlineError = useMemo(() => {
+    if (!nameTouched) return undefined;
+    return zodFieldMessage(
+      createCategoryInputSchema,
+      categoryFormValues(name, description),
+      'name',
+    );
+  }, [description, name, nameTouched]);
+
+  const parsedInput = createCategoryInputSchema.safeParse({
+    name,
+    description: description.trim() || undefined,
+  });
+  const hasChanges = isEdit
+    ? name.trim() !== initialName.trim() ||
+      (description.trim() || '') !== (initialDescription.trim() || '')
+    : name.trim().length > 0;
+  const canSubmit = parsedInput.success && hasChanges && !saving && catalogueContextIssue == null;
 
   async function handleSubmit() {
     const result = createCategoryInputSchema.safeParse({
@@ -46,18 +103,18 @@ export function CreateCategoryForm({
       description: description.trim() || undefined,
     });
     if (!result.success) {
-      setError(result.error.issues[0]?.message ?? 'Invalid category.');
+      setNameTouched(true);
       return;
     }
-    setError(null);
+    setSubmitError(null);
     try {
       await onSubmit(result.data);
-    } catch (submitError) {
-      setError(
-        submitError instanceof ApiError
-          ? submitError.message
-          : submitError instanceof Error
-            ? submitError.message
+    } catch (requestError) {
+      setSubmitError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : requestError instanceof Error
+            ? requestError.message
             : isEdit
               ? 'Unable to update category.'
               : 'Unable to create category.',
@@ -112,6 +169,11 @@ export function CreateCategoryForm({
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               Categories group menu items in POS and online ordering.
             </Typography>
+            {catalogueContextIssue ? (
+              <Typography variant="body2" color="error.main" sx={{ mt: 1 }}>
+                {catalogueContextIssue}
+              </Typography>
+            ) : null}
           </Box>
 
           <Input
@@ -121,10 +183,13 @@ export function CreateCategoryForm({
             value={name}
             onChange={(event) => {
               setName(event.target.value);
-              if (error) setError(null);
+              if (submitError) setSubmitError(null);
             }}
-            error={Boolean(error)}
-            helperText={error ?? undefined}
+            onBlur={() => {
+              setNameTouched(true);
+            }}
+            error={Boolean(nameInlineError || submitError)}
+            helperText={nameInlineError ?? submitError ?? undefined}
             fullWidth
             disabled={saving}
           />
@@ -148,6 +213,7 @@ export function CreateCategoryForm({
               onClick={() => {
                 void handleSubmit();
               }}
+              disabled={!canSubmit}
               loading={saving}
             >
               {isEdit ? 'Save changes' : 'Save category'}

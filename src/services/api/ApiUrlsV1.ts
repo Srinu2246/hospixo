@@ -4,6 +4,8 @@
  * This file is the only place those paths are defined.
  */
 
+import ApiUrlsV2 from './ApiUrlsV2';
+
 type EndpointResource = {
   list: string;
   create: string;
@@ -30,12 +32,24 @@ const ApiUrlsV1 = {
     logout: '/v1/auth/logout',
     me: '/v1/auth/me',
   },
+  invitations: {
+    accept: '/v1/invitations/accept',
+    reject: '/v1/invitations/reject',
+  },
   pos: {
     pointOfSale: {
-      /** GET/POST /v1/branches/{branch_id}/orders — All Orders list + create */
+      /** GET/POST /v1/branches/{branch_id}/orders — All Orders list + create + detail + items + submit */
       allOrders: {
         list: (branchId: number | string) => branchOrdersPath(branchId),
         create: (branchId: number | string) => branchOrdersPath(branchId),
+        detail: (branchId: number | string, orderId: number | string) =>
+          branchOrderDetailPath(branchId, orderId),
+        /** POST /v1/branches/{branch_id}/orders/{order_id}/items */
+        items: (branchId: number | string, orderId: number | string) =>
+          branchOrderItemsPath(branchId, orderId),
+        /** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
+        submit: (branchId: number | string, orderId: number | string) =>
+          branchOrderSubmitPath(branchId, orderId),
       },
       cashAndShift: {
         ...resource('/v1/pos/point-of-sale/cash-and-shift'),
@@ -92,11 +106,21 @@ const ApiUrlsV1 = {
     gstRates: '/v1/restaurant/gst-rates',
     menuCategories: resource('/v1/restaurant/menu/categories'),
     menuItems: resource('/v1/restaurant/menu/items'),
+    /** POST /v1/restaurant/menu/item-tags */
+    menuItemTags: {
+      list: '/v1/restaurant/menu/item-tags',
+      create: '/v1/restaurant/menu/item-tags',
+    },
     /** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
     branchMenus: {
       /** Prefix for session-bearer matching and nested branch menu paths. */
       root: '/v1/restaurant/branches',
       list: (branchId: number | string) => restaurantBranchMenusPath(branchId),
+    },
+    /** GET/POST /v1/restaurant/menus */
+    menus: {
+      list: '/v1/restaurant/menus',
+      create: '/v1/restaurant/menus',
     },
   },
   public: {
@@ -153,9 +177,32 @@ export function branchOrdersPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/orders`;
 }
 
-/** GET /v1/branches/{branch_id}/meal-sessions */
+/** GET /v1/branches/{branch_id}/orders/{order_id} */
+export function branchOrderDetailPath(branchId: number | string, orderId: number | string): string {
+  return `${branchOrdersPath(branchId)}/${encodeURIComponent(String(orderId))}`;
+}
+
+/** POST /v1/branches/{branch_id}/orders/{order_id}/items */
+export function branchOrderItemsPath(branchId: number | string, orderId: number | string): string {
+  return `${branchOrderDetailPath(branchId, orderId)}/items`;
+}
+
+/** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
+export function branchOrderSubmitPath(branchId: number | string, orderId: number | string): string {
+  return `${branchOrderDetailPath(branchId, orderId)}/submit`;
+}
+
+/** GET/POST /v1/branches/{branch_id}/meal-sessions */
 export function branchMealSessionsPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/meal-sessions`;
+}
+
+/** PATCH /v1/branches/{branch_id}/meal-sessions/{session_id} */
+export function branchMealSessionPath(
+  branchId: number | string,
+  sessionId: number | string,
+): string {
+  return `${branchMealSessionsPath(branchId)}/${encodeURIComponent(String(sessionId))}`;
 }
 
 /** GET /v1/branches/{branch_id}/tables/availability */
@@ -196,6 +243,11 @@ export function branchReportsOrdersSummaryPath(branchId: number | string): strin
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/orders/summary`;
 }
 
+/** GET /v1/branches/{branch_id}/reports/orders */
+export function branchReportsOrdersPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/orders`;
+}
+
 /** GET /v1/branches/{branch_id}/reports/sessions */
 export function branchReportsSessionsPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/sessions`;
@@ -204,6 +256,11 @@ export function branchReportsSessionsPath(branchId: number | string): string {
 /** GET /v1/branches/{branch_id}/reports/payments */
 export function branchReportsPaymentsPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/payments`;
+}
+
+/** GET /v1/branches/{branch_id}/reports/users-logs */
+export function branchReportsUsersLogsPath(branchId: number | string): string {
+  return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/reports/users-logs`;
 }
 
 /** GET /v2/platform/organizations/{organization_id}/companies */
@@ -224,6 +281,53 @@ export function organizationCompanyBranchesPath(
 /** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
 export function restaurantBranchMenusPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branchMenus.root}/${encodeURIComponent(String(branchId))}/menus`;
+}
+
+/** POST /v1/restaurant/branches/{branch_id}/menus/{assignment_id}/activate | .../deactivate */
+export function restaurantBranchMenuAssignmentPath(
+  branchId: number | string,
+  assignmentId: number | string,
+): string {
+  return `${restaurantBranchMenusPath(branchId)}/${encodeURIComponent(String(assignmentId))}`;
+}
+
+export function restaurantBranchMenuActivatePath(
+  branchId: number | string,
+  assignmentId: number | string,
+): string {
+  return `${restaurantBranchMenuAssignmentPath(branchId, assignmentId)}/activate`;
+}
+
+export function restaurantBranchMenuDeactivatePath(
+  branchId: number | string,
+  assignmentId: number | string,
+): string {
+  return `${restaurantBranchMenuAssignmentPath(branchId, assignmentId)}/deactivate`;
+}
+
+/** GET/POST /v1/restaurant/menus */
+export function restaurantMenusPath(): string {
+  return ApiUrlsV1.restaurant.menus.create;
+}
+
+/** GET/PATCH /v1/restaurant/menus/{menu_id} */
+export function restaurantMenuPath(menuId: number | string): string {
+  return `${restaurantMenusPath()}/${encodeURIComponent(String(menuId))}`;
+}
+
+/** POST /v1/restaurant/menus/{menu_id}/activate */
+export function restaurantMenuActivatePath(menuId: number | string): string {
+  return `${restaurantMenuPath(menuId)}/activate`;
+}
+
+/** POST /v1/restaurant/menus/{menu_id}/deactivate */
+export function restaurantMenuDeactivatePath(menuId: number | string): string {
+  return `${restaurantMenuPath(menuId)}/deactivate`;
+}
+
+/** POST /v1/restaurant/menus/{menu_id}/category-assignments */
+export function restaurantMenuCategoryAssignmentsPath(menuId: number | string): string {
+  return `${restaurantMenuPath(menuId)}/category-assignments`;
 }
 
 /** GET/POST /v1/restaurant/gst-rates */
@@ -254,6 +358,11 @@ export function restaurantMenuCategoryActivatePath(categoryId: number | string):
 /** POST /v1/restaurant/menu/categories/{category_id}/deactivate */
 export function restaurantMenuCategoryDeactivatePath(categoryId: number | string): string {
   return `${restaurantMenuCategoryPath(categoryId)}/deactivate`;
+}
+
+/** POST /v1/restaurant/menu/item-tags */
+export function restaurantMenuItemTagsPath(): string {
+  return ApiUrlsV1.restaurant.menuItemTags.create;
 }
 
 /** GET/POST /v1/restaurant/menu/items */
@@ -380,9 +489,15 @@ export function restaurantFloorSectionRestorePath(
   return `${restaurantFloorSectionPath(branchId, floorId, sectionId)}/restore`;
 }
 
-const ENDPOINT_PREFIXES = collectStaticPaths(ApiUrlsV1);
+/** BFF allowlist: v1 catalog + explicit v2 paths (see ApiUrlsV2). */
+const ENDPOINT_PREFIXES = [...collectStaticPaths(ApiUrlsV1), ...collectStaticPaths(ApiUrlsV2)];
 
-const PUBLIC_ENDPOINTS = new Set<string>([ApiUrlsV1.auth.login, ApiUrlsV1.public.restaurantMenu]);
+const PUBLIC_ENDPOINTS = new Set<string>([
+  ApiUrlsV1.auth.login,
+  ApiUrlsV1.invitations.accept,
+  ApiUrlsV1.invitations.reject,
+  ApiUrlsV1.public.restaurantMenu,
+]);
 
 export function isPublicEndpoint(path: string): boolean {
   return PUBLIC_ENDPOINTS.has(path);

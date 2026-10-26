@@ -11,6 +11,7 @@ import {
   togglePermissionCategory,
   toggleAllInCategory,
 } from '@/lib/helpers/employees/userRolesHelpers';
+import type { CreateUserDraftHydration } from '@/lib/schemas/employees/user-roles/createUserDraftSchema';
 
 export interface CreateUserState {
   scope: ScopeType;
@@ -37,6 +38,7 @@ export interface CreateUserState {
   togglePermission: (categoryId: string, permissionId: string) => void;
   toggleCategoryAll: (categoryId: string, enableAll: boolean) => void;
   setIsSubmitting: (isSubmitting: boolean) => void;
+  hydrateDraft: (draft: CreateUserDraftHydration) => void;
   reset: (newScope?: ScopeType) => void;
 }
 
@@ -123,6 +125,17 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
     })),
 
   setIsSubmitting: (isSubmitting) => set({ isSubmitting }),
+
+  hydrateDraft: (draft) =>
+    set((state) => ({
+      scope: draft.scope,
+      selectedTemplate: draft.selectedTemplate,
+      selectedRoleId: draft.selectedRoleId,
+      formValues: { ...state.formValues, ...draft.formValues, password: '' },
+      categories: draft.categories,
+      errors: {},
+      isSubmitting: false,
+    })),
 
   reset: (newScope) =>
     set((state) => {

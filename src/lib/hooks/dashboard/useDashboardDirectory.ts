@@ -10,6 +10,7 @@ import { loadOrganizationBranches } from '@/lib/helpers/organizationBranches';
 import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import { api } from '@/services/api/browserClient';
+import type { JsonValue } from '@/types/json';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 import type { DashboardLevel } from '@/features/dashboard/types/dashboard.types';
@@ -41,11 +42,15 @@ export function useDashboardDirectory(
   const companiesQuery = useQuery({
     queryKey: ['organization', 'companies', organizationId ?? 'session', role, authScope],
     queryFn: () =>
-      loadOrganizationCompanies(organizationId, (path, params) => api.get<unknown>(path, params), {
-        role,
-        authScope,
-        scope: dashboardLevel,
-      }),
+      loadOrganizationCompanies(
+        organizationId,
+        (path, params) => api.get<JsonValue>(path, params),
+        {
+          role,
+          authScope,
+          scope: dashboardLevel,
+        },
+      ),
     enabled: fetchCompanies && organizationId != null,
     staleTime: 30_000,
     refetchOnMount: false,
@@ -57,7 +62,7 @@ export function useDashboardDirectory(
       loadOrganizationBranches(
         organizationId,
         companiesQuery.data ?? [],
-        (path, params) => api.get<unknown>(path, params),
+        (path, params) => api.get<JsonValue>(path, params),
         companyId,
       ),
     enabled: fetchBranches && organizationId != null && companyId != null,

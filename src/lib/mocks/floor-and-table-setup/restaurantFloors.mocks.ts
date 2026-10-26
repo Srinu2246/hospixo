@@ -1,4 +1,5 @@
-import { MOCK_POS_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
+import { getMockOrderSettleDetail, MOCK_POS_ORDERS } from '@/lib/mocks/pos/usePosOrders.mocks';
+import { addBranchOrderItemsBodySchema } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderItemsSchema';
 import type { PosOrderListItem } from '@/lib/schemas/pos/point-of-sale/all-orders/posOrdersSchema';
 import { createBranchOrderBodySchema } from '@/lib/schemas/pos/point-of-sale/tables/createBranchOrderSchema';
 import type { TableAvailabilityRow } from '@/lib/schemas/pos/point-of-sale/tables/tableAvailabilitySchema';
@@ -93,18 +94,51 @@ let nextId = 200;
 
 const FLOOR_PATH = /^\/v1\/branches\/(\d+)\/floors(?:\/(.*))?$/;
 const BRANCH_ORDERS_PATH = /^\/v1\/branches\/(\d+)\/orders$/;
-const BRANCH_MEAL_SESSIONS_PATH = /^\/v1\/branches\/(\d+)\/meal-sessions$/;
+const BRANCH_ORDER_DETAIL_PATH = /^\/v1\/branches\/(\d+)\/orders\/(\d+)$/;
+const BRANCH_ORDER_ITEMS_PATH = /^\/v1\/branches\/(\d+)\/orders\/(\d+)\/items$/;
+const BRANCH_ORDER_SUBMIT_PATH = /^\/v1\/branches\/(\d+)\/orders\/(\d+)\/submit$/;
+const BRANCH_MEAL_SESSIONS_PATH = /^\/v1\/branches\/(\d+)\/meal-sessions(?:\/(\d+))?$/;
 const BRANCH_TABLES_AVAILABILITY_PATH = /^\/v1\/branches\/(\d+)\/tables\/availability$/;
 
 export function resolveRestaurantFloorMock(request: MockRequest): unknown | undefined {
   const mealSessionsMatch = BRANCH_MEAL_SESSIONS_PATH.exec(request.path);
-  if (mealSessionsMatch?.[1] && request.method === 'GET') {
-    return mealSessionsList(Number(mealSessionsMatch[1]));
+  if (mealSessionsMatch?.[1]) {
+    const branchId = Number(mealSessionsMatch[1]);
+    const sessionIdSegment = mealSessionsMatch[2];
+    if (!sessionIdSegment) {
+      if (request.method === 'GET') {
+        return mealSessionsList(branchId);
+      }
+      if (request.method === 'POST') {
+        return createMealSession(branchId, request.body);
+      }
+    } else if (request.method === 'PATCH') {
+      return updateMealSession(branchId, Number(sessionIdSegment), request.body);
+    }
   }
 
   const availabilityMatch = BRANCH_TABLES_AVAILABILITY_PATH.exec(request.path);
   if (availabilityMatch?.[1] && request.method === 'GET') {
     return tablesAvailabilityList(Number(availabilityMatch[1]), request.params);
+  }
+
+  const orderItemsMatch = BRANCH_ORDER_ITEMS_PATH.exec(request.path);
+  if (orderItemsMatch?.[1] && orderItemsMatch[2] && request.method === 'POST') {
+    return addBranchOrderItems(
+      Number(orderItemsMatch[1]),
+      Number(orderItemsMatch[2]),
+      request.body,
+    );
+  }
+
+  const orderSubmitMatch = BRANCH_ORDER_SUBMIT_PATH.exec(request.path);
+  if (orderSubmitMatch?.[1] && orderSubmitMatch[2] && request.method === 'POST') {
+    return submitBranchOrder(Number(orderSubmitMatch[1]), Number(orderSubmitMatch[2]));
+  }
+
+  const orderDetailMatch = BRANCH_ORDER_DETAIL_PATH.exec(request.path);
+  if (orderDetailMatch?.[1] && orderDetailMatch[2] && request.method === 'GET') {
+    return openOrderDetail(Number(orderDetailMatch[1]), Number(orderDetailMatch[2]));
   }
 
   const ordersMatch = BRANCH_ORDERS_PATH.exec(request.path);
@@ -520,51 +554,130 @@ function buildAvailabilityRows(
     });
 }
 
+const mealSessionsStore = new Map<number, Array<Record<string, unknown>>>();
+
+function defaultMealSessions(branchId: number) {
+  const now = new Date().toISOString();
+  return [
+    {
+      id: 2,
+      public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d85',
+      branch_id: branchId,
+      name: 'breakfast',
+      start_time: '08:01:52.581000',
+      end_time: '23:01:52.581000',
+      display_order: 0,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: 3,
+      public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d86',
+      branch_id: branchId,
+      name: 'lunch',
+      start_time: '12:00:00.000000',
+      end_time: '16:00:00.000000',
+      display_order: 1,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: 4,
+      public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d87',
+      branch_id: branchId,
+      name: 'dinner',
+      start_time: '18:00:00.000000',
+      end_time: '23:00:00.000000',
+      display_order: 2,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    },
+  ];
+}
+
+function branchMealSessionsRows(branchId: number) {
+  if (!mealSessionsStore.has(branchId)) {
+    mealSessionsStore.set(branchId, defaultMealSessions(branchId));
+  }
+  return mealSessionsStore.get(branchId) ?? [];
+}
+
 /** GET /v1/branches/{branch_id}/meal-sessions */
 function mealSessionsList(branchId: number) {
-  const now = new Date().toISOString();
   return {
     success: true,
-    data: [
-      {
-        id: 2,
-        public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d85',
-        branch_id: branchId,
-        name: 'breakfast',
-        start_time: '08:01:52.581000',
-        end_time: '23:01:52.581000',
-        display_order: 0,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-      {
-        id: 3,
-        public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d86',
-        branch_id: branchId,
-        name: 'lunch',
-        start_time: '12:00:00.000000',
-        end_time: '16:00:00.000000',
-        display_order: 1,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-      {
-        id: 4,
-        public_id: 'df4f2b62-dbf6-4cf7-a983-e43160066d87',
-        branch_id: branchId,
-        name: 'dinner',
-        start_time: '18:00:00.000000',
-        end_time: '23:00:00.000000',
-        display_order: 2,
-        is_active: true,
-        created_at: now,
-        updated_at: now,
-      },
-    ],
+    data: branchMealSessionsRows(branchId),
     message: 'Meal sessions retrieved',
     request_id: 'mock-meal-sessions',
+  };
+}
+
+/** PATCH /v1/branches/{branch_id}/meal-sessions/{session_id} */
+function updateMealSession(branchId: number, sessionId: number, body: unknown) {
+  const record = isRecord(body) ? body : {};
+  const rows = branchMealSessionsRows(branchId);
+  const index = rows.findIndex((row) => Number(row.id) === sessionId);
+  const existing = index >= 0 ? rows[index] : null;
+  const now = new Date().toISOString();
+  const updated = {
+    ...(existing ?? {
+      id: sessionId,
+      public_id: `mock-meal-session-${sessionId}`,
+      branch_id: branchId,
+      display_order: rows.length,
+      created_at: now,
+    }),
+    id: sessionId,
+    branch_id: branchId,
+    name: typeof record.name === 'string' ? record.name : String(existing?.name ?? 'Session'),
+    start_time:
+      typeof record.start_time === 'string'
+        ? record.start_time
+        : String(existing?.start_time ?? now),
+    end_time:
+      typeof record.end_time === 'string' ? record.end_time : String(existing?.end_time ?? now),
+    is_active: record.is_active !== false,
+    updated_at: now,
+  };
+  if (index >= 0) {
+    rows[index] = updated;
+  } else {
+    rows.push(updated);
+  }
+  return {
+    success: true,
+    data: updated,
+    message: 'Meal session updated',
+    request_id: 'mock-meal-session-update',
+  };
+}
+
+/** POST /v1/branches/{branch_id}/meal-sessions */
+function createMealSession(branchId: number, body: unknown) {
+  const record = isRecord(body) ? body : {};
+  const now = new Date().toISOString();
+  nextId += 1;
+  const created = {
+    id: nextId,
+    public_id: `mock-meal-session-${nextId}`,
+    branch_id: branchId,
+    name: typeof record.name === 'string' ? record.name : 'Session',
+    start_time: typeof record.start_time === 'string' ? record.start_time : now,
+    end_time: typeof record.end_time === 'string' ? record.end_time : now,
+    display_order: branchMealSessionsRows(branchId).length,
+    is_active: record.is_active !== false,
+    created_at: now,
+    updated_at: now,
+  };
+  branchMealSessionsRows(branchId).push(created);
+  return {
+    success: true,
+    data: created,
+    message: 'Meal session created',
+    request_id: 'mock-meal-session-create',
   };
 }
 
@@ -643,6 +756,122 @@ function createBranchOrder(branchId: number, body: unknown) {
     data: order,
     message: 'OK',
     request_id: 'mock-create-branch-order',
+  };
+}
+
+/** POST /v1/branches/{branch_id}/orders/{order_id}/items */
+function addBranchOrderItems(_branchId: number, orderId: number, body: unknown) {
+  const parsed = addBranchOrderItemsBodySchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ApiError('Invalid add order items body', 400);
+  }
+
+  const order =
+    MOCK_OPEN_ORDERS.find((row) => row.id === orderId) ??
+    MOCK_POS_ORDERS.find((row) => row.id === orderId);
+  if (!order) {
+    throw new ApiError('Order not found', 404);
+  }
+
+  return {
+    success: true,
+    data: {
+      id: order.id,
+      public_id: order.public_id,
+      order_number: order.order_number,
+      order_type: order.order_type,
+      branch_id: _branchId,
+      table_id: order.table_id,
+      table_name: order.table_name,
+      floor_id: order.floor_id,
+      section_id: order.section_id,
+      guest_count: order.guest_count,
+      status: order.status,
+      kitchen_badge: order.kitchen_badge,
+      payment_status: order.payment_status,
+      grand_total: order.grand_total,
+      opened_at: order.opened_at,
+      items: parsed.data.items.map((item, index) => ({
+        id: index + 1,
+        branch_menu_item_id: item.branch_menu_item_id,
+        menu_item_id: item.branch_menu_item_id,
+        name: `Item ${item.branch_menu_item_id}`,
+        quantity: item.quantity,
+        unit_price: 0,
+        line_total: 0,
+        notes: null,
+        status: 'ordered',
+      })),
+    },
+    message: 'Items added',
+    request_id: 'mock-branch-order-items',
+  };
+}
+
+/** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
+function submitBranchOrder(_branchId: number, orderId: number) {
+  const order =
+    MOCK_OPEN_ORDERS.find((row) => row.id === orderId) ??
+    MOCK_POS_ORDERS.find((row) => row.id === orderId);
+  if (!order) {
+    throw new ApiError('Order not found', 404);
+  }
+
+  order.kitchen_badge = 'preparing';
+
+  return {
+    success: true,
+    data: order,
+    message: 'Order submitted to kitchen',
+    request_id: 'mock-branch-order-submit',
+  };
+}
+
+/** GET /v1/branches/{branch_id}/orders/{order_id} — order detail with line items. */
+function openOrderDetail(_branchId: number, orderId: number) {
+  const order =
+    MOCK_OPEN_ORDERS.find((row) => row.id === orderId) ??
+    MOCK_POS_ORDERS.find((row) => row.id === orderId);
+
+  if (!order) {
+    throw new ApiError('Order not found', 404);
+  }
+
+  const settle = getMockOrderSettleDetail(String(orderId));
+  const items = settle.items.map((item, index) => ({
+    id: index + 1,
+    menu_item_id: index + 1,
+    name: item.name,
+    quantity: item.quantity,
+    unit_price: item.unitPrice,
+    line_total: item.totalPrice,
+    notes: null,
+    status: 'ordered',
+  }));
+
+  return {
+    success: true,
+    data: {
+      id: order.id,
+      public_id: order.public_id,
+      order_number: order.order_number,
+      order_type: order.order_type,
+      branch_id: _branchId,
+      table_id: order.table_id,
+      table_name: order.table_name,
+      floor_id: order.floor_id,
+      section_id: order.section_id,
+      guest_count: order.guest_count,
+      status: order.status,
+      kitchen_badge: order.kitchen_badge,
+      payment_status: order.payment_status,
+      grand_total: order.grand_total,
+      subtotal: settle.subtotal,
+      opened_at: order.opened_at,
+      items,
+    },
+    message: 'Order retrieved',
+    request_id: 'mock-branch-order-detail',
   };
 }
 

@@ -1,5 +1,5 @@
-import { AllOrdersPage } from '@/features/pos/point-of-sale/all-orders';
+import { PosAllOrdersRoutePage } from '@/features/pos/point-of-sale/all-orders';
 
-export default function PosAllOrdersRoute() {
-  return <AllOrdersPage />;
+export default function PosAllOrdersPage() {
+  return <PosAllOrdersRoutePage />;
 }

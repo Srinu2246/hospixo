@@ -1,6 +1,15 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import {
   AVAILABILITY_CHANNELS,
@@ -16,15 +25,19 @@ import type {
   MenuAvailabilityPageConfig,
 } from '@/lib/schemas/menu/menuAvailabilitySchema';
 import type { MenuItemListParams } from '@/lib/schemas/menu/menuItemsSchema';
+import { showMenuItemWriteSuccessToast } from '@/lib/helpers/menuItemHelpers';
 import {
   createCategoryInputSchema,
   type CreateCategoryInput,
-  type CreateMenuItemFormValues,
+  type CreateMenuItemSubmitValues,
   type MenuCatalogItem,
   type MenuCategory,
   type MenuCreationViewMode,
   type MenuPageConfig,
 } from '@/lib/schemas/menu/menuCreationSchema';
+import { resolveCatalogueContextIds } from '@/lib/helpers/apiContextHeaders';
+import { buildCreateMenuCategoryBody } from '@/lib/helpers/menuBranchContext';
+import { buildTagNameToIdMap } from '@/lib/helpers/createMenuItemFormData';
 import { toCatalogDietary, toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
 import {
   useCreateMenuCategory,
@@ -33,14 +46,14 @@ import {
   useUpdateMenuCategory,
 } from '@/lib/hooks/menu/useMenuCategories';
 import {
+  menuItemQueryKey,
+  useCreateMenuItem,
   useDeactivateMenuItem,
   useMenuItems,
   useSetMenuItemActive,
+  useUpdateMenuItem,
 } from '@/lib/hooks/menu/useMenuItems';
-import type {
-  CreateMenuCategoryBody,
-  UpdateMenuCategoryBody,
-} from '@/lib/schemas/menu/menuCategoriesSchema';
+import type { UpdateMenuCategoryBody } from '@/lib/schemas/menu/menuCategoriesSchema';
 import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import {
   pushMenuCreationList,
@@ -88,7 +101,6 @@ export interface MenuCreationContextValue {
   totalItemCount: number;
   activeCategoryId: string | null;
   searchQuery: string;
-  sessionFilter: string;
   selectedItem: MenuCatalogItem | null;
   isCategoriesLoading?: boolean;
   categoriesError?: Error | null;
@@ -98,7 +110,6 @@ export interface MenuCreationContextValue {
   refetchItems?: () => void;
   setActiveCategoryId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
-  setSessionFilter: (sessionId: string) => void;
   openCreateCategory: () => void;
   openEditCategory: (category: MenuCategory) => void;
   openCreateItem: () => void;
@@ -112,11 +123,16 @@ export interface MenuCreationContextValue {
   updateCategory: (input: CreateCategoryInput) => Promise<void>;
   /** POST .../activate | .../deactivate */
   toggleCategoryStatus: (categoryId: string, nextActive: boolean) => Promise<void>;
-  addItem: (data: CreateMenuItemFormValues) => void;
-  updateItem: (id: string, data: CreateMenuItemFormValues) => void;
+  addItem: (data: CreateMenuItemSubmitValues) => Promise<string | undefined>;
+  updateItem: (id: string, data: CreateMenuItemSubmitValues) => Promise<string | undefined>;
   /** Soft-delete via POST .../items/{id}/deactivate */
   deleteItem: (id: string) => Promise<void>;
+  /** POST .../items/{id}/activate | .../deactivate */
+  toggleItemStatus: (itemId: string, nextActive: boolean) => Promise<void>;
   isDeletingItem?: boolean;
+  isUpdatingItemStatus?: boolean;
+  isCreatingItem?: boolean;
+  isUpdatingItem?: boolean;
   isCreatingCategory?: boolean;
   isUpdatingCategory?: boolean;
 }
@@ -149,21 +165,39 @@ export function MenuCreationProvider({
     () => initialCategoryId ?? null,
   );
   const [searchQuery, setSearchQuery] = useState('');
-  const [sessionFilter, setSessionFilter] = useState('session-wise');
-
   const setActiveCategoryId = (id: string | null) => {
     setActiveCategoryIdState(id);
     replaceMenuCreationCategoryParam(id);
   };
 
+  const account = useSidebarStore((state) => state.account);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const branchIdForList = useMemo(() => {
+    if (pageConfig.scope !== 'branch') return undefined;
+    const raw = sidebarContext.branchId ?? account?.branch_id;
+    if (raw == null) return undefined;
+    const id = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [account?.branch_id, pageConfig.scope, sidebarContext.branchId]);
+
+  const menuListParams = useMemo<MenuItemListParams>(
+    () => ({
+      ...MENU_LIST_PARAMS,
+      ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
+    }),
+    [branchIdForList],
+  );
+
+  const queryClient = useQueryClient();
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
-  const itemsQuery = useMenuItems(MENU_LIST_PARAMS);
-  const deactivateMenuItem = useDeactivateMenuItem();
+  const itemsQuery = useMenuItems(menuListParams);
+  const createMenuItem = useCreateMenuItem({ scope: pageConfig.scope });
+  const updateMenuItem = useUpdateMenuItem({ scope: pageConfig.scope });
+  const deactivateMenuItem = useDeactivateMenuItem({ scope: pageConfig.scope });
+  const setMenuItemActive = useSetMenuItemActive({ scope: pageConfig.scope });
   const createMenuCategory = useCreateMenuCategory();
   const updateMenuCategory = useUpdateMenuCategory();
   const setMenuCategoryActive = useSetMenuCategoryActive();
-  const account = useSidebarStore((state) => state.account);
-  const sidebarContext = useSidebarStore((state) => state.context);
 
   const apiCategories = categoriesQuery.data?.items;
   const apiItems = itemsQuery.data?.items;
@@ -173,6 +207,29 @@ export function MenuCreationProvider({
   const itemsError = itemsQuery.error;
   const refetchCategories = categoriesQuery.refetch;
   const refetchItems = itemsQuery.refetch;
+
+  const afterMenuItemWrite = useCallback(
+    async (options: {
+      message: string | null | undefined;
+      categoryId: string;
+      itemId?: number;
+    }) => {
+      setLocalItems([]);
+      await refetchItems();
+      if (options.itemId != null && Number.isFinite(options.itemId) && options.itemId > 0) {
+        await queryClient.refetchQueries({ queryKey: menuItemQueryKey(options.itemId) });
+      }
+      showMenuItemWriteSuccessToast(options.message);
+      setActiveCategoryId(options.categoryId);
+      setViewMode('list');
+      pushMenuCreationList({
+        scope: pageConfig.scope,
+        cleanPath: true,
+        categoryFilterId: options.categoryId,
+      });
+    },
+    [pageConfig.scope, queryClient, refetchItems],
+  );
 
   const categories: MenuCategory[] = useMemo(() => {
     if (localCategories.length > 0) {
@@ -195,6 +252,8 @@ export function MenuCreationProvider({
     }
     return map;
   }, [categories]);
+
+  const tagNameToId = useMemo(() => buildTagNameToIdMap(apiItems ?? []), [apiItems]);
 
   const items: MenuCatalogItem[] = useMemo(() => {
     if (localItems.length > 0) return localItems;
@@ -295,7 +354,6 @@ export function MenuCreationProvider({
       totalItemCount: items.length,
       activeCategoryId,
       searchQuery,
-      sessionFilter,
       selectedItem,
       isCategoriesLoading,
       categoriesError,
@@ -309,7 +367,6 @@ export function MenuCreationProvider({
       },
       setActiveCategoryId,
       setSearchQuery,
-      setSessionFilter,
       openCreateCategory: () => {
         setEditingCategoryId(null);
         setViewMode('create-category');
@@ -363,8 +420,33 @@ export function MenuCreationProvider({
         setViewMode('list');
         pushMenuCreationList();
       },
+      toggleItemStatus: async (itemId, nextActive) => {
+        const numericId = Number(itemId);
+        if (!Number.isFinite(numericId) || numericId <= 0) {
+          throw new ApiError('Invalid menu item id.', 400);
+        }
+
+        await setMenuItemActive.mutateAsync({
+          itemId: numericId,
+          active: nextActive,
+        });
+
+        const nextStatus = nextActive ? 'Available' : 'Inactive';
+        setLocalItems((prev) => {
+          const source = prev.length > 0 ? prev : items;
+          return source.map((item) =>
+            item.id === itemId ? { ...item, status: nextStatus } : item,
+          );
+        });
+        await refetchItems();
+        setLocalCategories([]);
+        setLocalItems([]);
+      },
       editingCategory,
       isDeletingItem: deactivateMenuItem.isPending,
+      isUpdatingItemStatus: setMenuItemActive.isPending,
+      isCreatingItem: createMenuItem.isPending,
+      isUpdatingItem: updateMenuItem.isPending,
       isCreatingCategory: createMenuCategory.isPending,
       isUpdatingCategory: updateMenuCategory.isPending || setMenuCategoryActive.isPending,
       backToList: () => {
@@ -375,19 +457,14 @@ export function MenuCreationProvider({
       },
       addCategory: async (input) => {
         const parsed = createCategoryInputSchema.parse(input);
-        const scope = pageConfig.scope === 'branch' ? 'branch' : 'company';
-        const branchId = sidebarContext.branchId ?? account?.branch_id ?? undefined;
-
-        if (scope === 'branch' && (branchId == null || branchId <= 0)) {
-          throw new ApiError('Branch is required to create a category for this account.', 400);
-        }
-
-        const body: CreateMenuCategoryBody = {
+        const contextIds = resolveCatalogueContextIds(pageConfig.scope);
+        const body = buildCreateMenuCategoryBody({
           name: parsed.name,
-          ...(parsed.description ? { description: parsed.description } : {}),
-          scope,
-          ...(scope === 'branch' && branchId != null ? { assign_branch_id: branchId } : {}),
-        };
+          description: parsed.description,
+          pageScope: pageConfig.scope,
+          companyId: contextIds.companyId,
+          branchId: contextIds.branchId,
+        });
 
         const created = await createMenuCategory.mutateAsync(body);
         // Drop local overrides so the refreshed API list is the source of truth.
@@ -444,51 +521,59 @@ export function MenuCreationProvider({
         setLocalCategories([]);
         await refetchCategories();
       },
-      addItem: (data: CreateMenuItemFormValues) => {
-        const cat = categories.find((c) => c.id === data.category);
-        const newItem: MenuCatalogItem = {
-          id: `item_${Date.now()}`,
-          name: data.name,
-          categoryId: data.category,
-          categoryName: cat?.name ?? 'Starters',
-          basePrice: data.itemPrice,
-          dietary: data.dietaryType as 'Veg' | 'Non-Veg' | 'Egg',
-          status: 'Available',
-          code: data.code,
-          description: data.description,
-          imageUrl: data.images[0] ?? undefined,
-          orderTypes: data.orderTypes,
-          tags: data.tags,
-        };
-        setLocalItems([newItem, ...items]);
-        setActiveCategoryId(data.category);
-        setViewMode('list');
-        pushMenuCreationList({ categoryFilterId: data.category });
+      addItem: async (data: CreateMenuItemSubmitValues) => {
+        const { imageFile, tagIdsByName, ...values } = data;
+        if (pageConfig.scope === 'branch' && (branchIdForList == null || branchIdForList <= 0)) {
+          throw new ApiError('Branch is required to create a menu item for this account.', 400);
+        }
+
+        const created = await createMenuItem.mutateAsync({
+          values,
+          branchId: branchIdForList,
+          imageFile,
+          tagNameToId,
+          tagIdsByName,
+        });
+
+        await afterMenuItemWrite({
+          message: created.message,
+          categoryId: values.category,
+        });
+
+        return created.message ?? undefined;
       },
-      updateItem: (id: string, data: CreateMenuItemFormValues) => {
-        const cat = categories.find((c) => c.id === data.category);
-        setLocalItems(
-          items.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  name: data.name,
-                  categoryId: data.category,
-                  categoryName: cat?.name ?? item.categoryName,
-                  basePrice: data.itemPrice,
-                  dietary: data.dietaryType as 'Veg' | 'Non-Veg' | 'Egg',
-                  code: data.code,
-                  description: data.description,
-                  imageUrl: data.images[0] ?? item.imageUrl,
-                  orderTypes: data.orderTypes,
-                  tags: data.tags,
-                }
-              : item,
-          ),
-        );
-        setActiveCategoryId(data.category);
-        setViewMode('list');
-        pushMenuCreationList({ categoryFilterId: data.category });
+      updateItem: async (id: string, data: CreateMenuItemSubmitValues) => {
+        const itemId = Number(id);
+        if (!Number.isFinite(itemId) || itemId <= 0) {
+          throw new ApiError('Invalid menu item id.', 400);
+        }
+        if (!data.initialDetail) {
+          throw new ApiError('Menu item details are missing; reload and try again.', 400);
+        }
+        if (pageConfig.scope === 'branch' && (branchIdForList == null || branchIdForList <= 0)) {
+          throw new ApiError('Branch is required to update a menu item for this account.', 400);
+        }
+
+        const { imageFile: _imageFile, imageFiles, initialDetail, tagIdsByName, ...values } = data;
+        void _imageFile;
+
+        const updated = await updateMenuItem.mutateAsync({
+          itemId,
+          values,
+          initialDetail,
+          branchId: branchIdForList,
+          imageFiles,
+          tagNameToId,
+          tagIdsByName,
+        });
+
+        await afterMenuItemWrite({
+          message: updated.message,
+          categoryId: values.category,
+          itemId,
+        });
+
+        return updated.message ?? undefined;
       },
     }),
     [
@@ -499,7 +584,6 @@ export function MenuCreationProvider({
       items,
       pageConfig,
       searchQuery,
-      sessionFilter,
       selectedItem,
       editingCategory,
       viewMode,
@@ -509,7 +593,13 @@ export function MenuCreationProvider({
       itemsError,
       refetchCategories,
       refetchItems,
+      afterMenuItemWrite,
       deactivateMenuItem,
+      setMenuItemActive,
+      createMenuItem,
+      updateMenuItem,
+      branchIdForList,
+      tagNameToId,
       createMenuCategory,
       updateMenuCategory,
       setMenuCategoryActive,
@@ -581,6 +671,8 @@ function toAvailabilityItem(
 ): AvailabilityItem {
   const categoryId = String(item.category_id);
   const isActive = item.status === 'active';
+  const tagNames = item.tags.map((t) => t.name).filter((name) => name.length > 0);
+  const primaryTag = tagNames[0] ?? item.code ?? item.name;
   return {
     id: String(item.id),
     name: item.name,
@@ -594,7 +686,8 @@ function toAvailabilityItem(
       : item.allow_delivery || item.allow_takeaway
         ? 'online'
         : 'dine-in',
-    tag: item.tags[0]?.name ?? item.code ?? item.name,
+    tag: primaryTag,
+    tags: tagNames.length > 0 ? tagNames : [primaryTag],
     isHidden: !isActive,
   };
 }
@@ -627,19 +720,30 @@ export function MenuAvailabilityProvider({
   const [statusFilter, setStatusFilter] = useState<AvailabilityStatusFilter>('all');
   const [localItems, setLocalItems] = useState<AvailabilityItem[] | null>(null);
 
+  const account = useSidebarStore((state) => state.account);
+  const sidebarContext = useSidebarStore((state) => state.context);
+  const branchIdForList = useMemo(() => {
+    if (pageConfig.scope !== 'branch') return undefined;
+    const raw = sidebarContext.branchId ?? account?.branch_id;
+    if (raw == null) return undefined;
+    const id = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [account?.branch_id, pageConfig.scope, sidebarContext.branchId]);
+
   const itemListParams = useMemo<MenuItemListParams>(
     () => ({
       ...MENU_LIST_PARAMS,
+      ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
       ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
       ...(dietaryFilter !== 'all' ? { dietary_type: dietaryFilter } : {}),
     }),
-    [dietaryFilter, statusFilter],
+    [branchIdForList, dietaryFilter, statusFilter],
   );
 
   // Same list APIs as Menu Creation: GET categories + GET menu items (with status / dietary filters).
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
   const itemsQuery = useMenuItems(itemListParams);
-  const setMenuItemActive = useSetMenuItemActive();
+  const setMenuItemActive = useSetMenuItemActive({ scope: pageConfig.scope });
 
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -689,6 +793,7 @@ export function MenuAvailabilityProvider({
       return (
         item.name.toLowerCase().includes(query) ||
         item.tag.toLowerCase().includes(query) ||
+        item.tags.some((tag) => tag.toLowerCase().includes(query)) ||
         item.categoryName.toLowerCase().includes(query)
       );
     });

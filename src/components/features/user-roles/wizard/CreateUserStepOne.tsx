@@ -10,11 +10,18 @@ import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
 
 import {
+  DEFAULT_FALLBACK_ROLES,
   buildCreateUserStepOneSchema,
   parseRoleCatalog,
+  resolveRoleAssignmentRequirements,
   type CreateUserFormValues,
+  type RoleCatalogItem,
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import {
+  resolveCreateUserBranchOptions,
+  resolveEmployeeDirectoryOptions,
+} from '@/lib/helpers/employees/userRolesHelpers';
 import { useEmployeeDirectory, useRoleCatalogQuery } from '@/lib/hooks/employees/user-roles';
 import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 import { useCreateUserStore } from '@/stores/createUserStore';
@@ -49,21 +56,44 @@ export function CreateUserStepOne({
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
   const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
+  const role = useSidebarStore((state) => state.role || state.user?.role || '');
+  const authScope = useSidebarStore((state) => state.account?.scope ?? '');
   const organizationId = contextOrgId ?? accountOrgId;
-  const directoryCompanyId =
-    currentScope === 'branch'
-      ? (accountCompanyId ?? contextCompanyId)
-      : (contextCompanyId ?? accountCompanyId);
 
-  const directory = useEmployeeDirectory(organizationId, directoryCompanyId);
+  const directoryQuery = useMemo(
+    () =>
+      resolveEmployeeDirectoryOptions({
+        wizardScope: currentScope,
+        contextCompanyId,
+        accountCompanyId,
+        role,
+        authScope,
+      }),
+    [currentScope, contextCompanyId, accountCompanyId, role, authScope],
+  );
+  const directoryCompanyId = directoryQuery.companyId;
 
-  const rolesQuery = useRoleCatalogQuery();
-  const roleCatalog = useMemo(() => parseRoleCatalog(rolesQuery.data), [rolesQuery.data]);
+  const directory = useEmployeeDirectory(organizationId, directoryCompanyId, {
+    scope: directoryQuery.directoryScope,
+  });
+  const lockCompanyField = directoryQuery.lockCompanyField;
+
+  const rolesQuery = useRoleCatalogQuery(currentScope);
+  const roleCatalog = useMemo((): RoleCatalogItem[] => {
+    const data = rolesQuery.data;
+    if (Array.isArray(data)) return data;
+    return data ? parseRoleCatalog(data) : [];
+  }, [rolesQuery.data]);
 
   const roleOptions = useMemo(() => {
-    const list = roleCatalog.filter((r) => !r.scope || r.scope === currentScope).map((r) => r.name);
-    return list.length > 0 ? list : ['Captain', 'Cashier', 'Kitchen Staff'];
-  }, [roleCatalog, currentScope]);
+    if (roleCatalog.length === 0) return [...DEFAULT_FALLBACK_ROLES];
+    return roleCatalog.map((role) => role.name);
+  }, [roleCatalog]);
+
+  const assignment = useMemo(
+    () => resolveRoleAssignmentRequirements(formValues.role, roleCatalog, currentScope),
+    [formValues.role, roleCatalog, currentScope],
+  );
 
   const companyOptions = useMemo(() => {
     const fromDir = (directory.data?.companies ?? []).map((c) => c.name).filter(Boolean);
@@ -145,20 +175,22 @@ export function CreateUserStepOne({
   const lockedCompanyLabel = resolvedCompanyLabel;
 
   const branchOptions = useMemo(() => {
-    const branches = directory.data?.branches ?? [];
     const activeCompany =
       currentScope === 'company' ? resolvedCompanyLabel || formValues.company : formValues.company;
-    const filtered =
-      currentScope === 'organization' && activeCompany
-        ? branches.filter((branch) => branch.companyName === activeCompany)
-        : currentScope === 'company' && directoryCompanyId != null
-          ? branches.filter((branch) => String(branch.companyId) === String(directoryCompanyId))
-          : branches;
-    return filtered.map((branch) => branch.name);
+    return resolveCreateUserBranchOptions({
+      branches: directory.data?.branches ?? [],
+      companies: directory.data?.companies ?? [],
+      currentScope,
+      activeCompanyLabel: activeCompany,
+      directoryCompanyId,
+      selectedBranchName: formValues.branch,
+    });
   }, [
     currentScope,
     directory.data?.branches,
+    directory.data?.companies,
     directoryCompanyId,
+    formValues.branch,
     formValues.company,
     resolvedCompanyLabel,
   ]);
@@ -177,12 +209,65 @@ export function CreateUserStepOne({
   });
 
   useEffect(() => {
-    if (resolvedCompanyLabel && !formValues.company) {
+    if (
+      lockCompanyField &&
+      resolvedCompanyLabel &&
+      resolvedCompanyLabel !== '—' &&
+      formValues.company !== resolvedCompanyLabel
+    ) {
       setValue('company', resolvedCompanyLabel, { shouldValidate: false });
+      updateFormField('company', resolvedCompanyLabel);
     }
-  }, [resolvedCompanyLabel, formValues.company, setValue]);
+  }, [lockCompanyField, resolvedCompanyLabel, formValues.company, setValue, updateFormField]);
+
+  useEffect(() => {
+    if (assignment.showCompany || lockCompanyField) return;
+    if (!formValues.company?.trim()) return;
+    setValue('company', '', { shouldValidate: false });
+    updateFormField('company', '');
+  }, [assignment.showCompany, lockCompanyField, formValues.company, setValue, updateFormField]);
+
+  useEffect(() => {
+    if (assignment.showBranch) return;
+    if (!formValues.branch?.trim()) return;
+    setValue('branch', '', { shouldValidate: false });
+    updateFormField('branch', '');
+  }, [assignment.showBranch, formValues.branch, setValue, updateFormField]);
+
+  useEffect(() => {
+    if (!assignment.showBranch) return;
+    const branch = formValues.branch?.trim();
+    if (branch && branchOptions.includes(branch)) {
+      setValue('branch', branch, { shouldValidate: false });
+      return;
+    }
+    if (!branch && assignment.requireBranch && branchOptions.length > 0) {
+      const defaultBranch = branchOptions[0];
+      setValue('branch', defaultBranch, { shouldValidate: false });
+      updateFormField('branch', defaultBranch);
+    }
+  }, [
+    assignment.requireBranch,
+    assignment.showBranch,
+    branchOptions,
+    formValues.branch,
+    setValue,
+    updateFormField,
+  ]);
+
+  useEffect(() => {
+    if (formValues.role || roleOptions.length === 0) return;
+    const defaultRole = roleOptions[0];
+    if (!defaultRole) return;
+    setValue('role', defaultRole, { shouldValidate: false });
+    updateFormField('role', defaultRole);
+  }, [formValues.role, roleOptions, setValue, updateFormField]);
 
   const handleFieldChange = (field: keyof CreateUserFormValues, value: string | boolean) => {
+    if (field === 'company' && typeof value === 'string') {
+      setValue('branch', '', { shouldValidate: false });
+      updateFormField('branch', '');
+    }
     setValue(field, value as string, { shouldValidate: true, shouldDirty: true });
     updateFormField(field, value);
     if (field === 'role' && typeof value === 'string') {
@@ -201,11 +286,23 @@ export function CreateUserStepOne({
   };
 
   const handleFormSubmit = (data: CreateUserFormValues) => {
-    const defaultBranch = currentScope === 'branch' ? lockedBranchLabel : branchOptions[0] || '';
-    const defaultRole = roleOptions[0] || 'Captain';
-    const effectiveCompany = data.company || lockedCompanyLabel;
-    const effectiveBranch = data.branch || defaultBranch;
+    const submitAssignment = resolveRoleAssignmentRequirements(
+      data.role,
+      roleCatalog,
+      currentScope,
+    );
+    const defaultRole = roleOptions[0] || DEFAULT_FALLBACK_ROLES[0];
     const effectiveRole = data.role || defaultRole;
+    const effectiveCompany = submitAssignment.requireCompany
+      ? data.company || (currentScope === 'company' ? lockedCompanyLabel : '')
+      : currentScope === 'company'
+        ? lockedCompanyLabel
+        : '';
+    const effectiveBranch = submitAssignment.requireBranch
+      ? data.branch || (currentScope === 'branch' ? lockedBranchLabel : branchOptions[0] || '')
+      : currentScope === 'branch'
+        ? lockedBranchLabel
+        : '';
 
     const matched = roleCatalog.find(
       (r) =>
@@ -279,10 +376,12 @@ export function CreateUserStepOne({
           <CreateUserAssignmentSection
             control={control}
             currentScope={currentScope}
+            assignment={assignment}
             companyOptions={companyOptions}
             branchOptions={branchOptions}
             roleOptions={roleOptions}
             lockedCompanyLabel={lockedCompanyLabel}
+            lockCompanyField={lockCompanyField}
             lockedBranchLabel={lockedBranchLabel}
             isBranchLoading={isBranchLoading}
             onFieldChange={handleFieldChange}

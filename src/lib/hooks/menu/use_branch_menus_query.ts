@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { parseBranchMenuAssignmentList } from '@/lib/schemas/menu/menus/menuListSchema';
+import { parseBranchMenuAssignmentList } from '@/lib/schemas/menu/menus/menusSchema';
 import { api } from '@/services/api/browserClient';
 import { restaurantBranchMenusPath } from '@/services/api/ApiUrlsV1';
 

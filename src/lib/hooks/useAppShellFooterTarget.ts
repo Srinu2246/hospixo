@@ -1,15 +1,22 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useLayoutEffect, useState } from 'react';
+
+const FOOTER_ID = 'app-shell-footer';
 
 /**
- * Reads the AppShell footer mount node without setState-in-effect.
- * The footer is present for the life of the shell after first client paint.
+ * Returns the AppShell sticky footer mount node after layout (sibling of `<main>`).
  */
 export function useAppShellFooterTarget(): HTMLElement | null {
-  return useSyncExternalStore(
-    () => () => {},
-    () => document.getElementById('app-shell-footer'),
-    () => null,
-  );
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    const read = () => document.getElementById(FOOTER_ID);
+    const frame = requestAnimationFrame(() => {
+      setTarget(read());
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return target;
 }

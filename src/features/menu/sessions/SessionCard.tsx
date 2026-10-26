@@ -9,6 +9,7 @@ import { alpha } from '@mui/material/styles';
 import { Pencil, Trash2 } from 'lucide-react';
 
 import { StatusChip } from '@/components/shared/ui/StatusChip';
+import { formatSessionNameLabel } from '@/lib/helpers/mealSessionMapper';
 import type { SessionRecord } from '@/lib/schemas/menu/sessions/sessionSchema';
 import { colors } from '@/lib/theme/mui/colors';
 import { useThemeStore } from '@/stores/themeStore';
@@ -64,7 +65,7 @@ export function SessionCard({ session, onEdit, onDelete }: Readonly<SessionCardP
             letterSpacing: '-0.01em',
           }}
         >
-          {session.name}
+          {formatSessionNameLabel(session.name)}
         </Typography>
 
         <StatusChip

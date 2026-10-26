@@ -5,6 +5,7 @@ import {
   type SidebarContext,
   type SidebarUserProfile,
 } from '@/app/sidebar';
+import { waiterWorkspaceHomePath } from '@/lib/helpers/waiterWorkspaceNav';
 
 const STORAGE_KEY = 'hospixo.sidebar.session';
 
@@ -40,8 +41,8 @@ export function homePathForRole(role: string): string {
   const key = normalizeRoleKey(role);
   const segment = rolePathSegment(role);
 
-  // Captain / waiter → Tables (first WAITER_SIDEBAR item)
-  if (key === 'waiter') return `/${segment}/pos/captain-flow/tables`;
+  // Captain / waiter → first entry in CAPTAIN_WORKSPACE_NAV (Tables)
+  if (key === 'waiter') return waiterWorkspaceHomePath(segment);
   // Kitchen staff → Kitchen Display (first KITCHEN_SIDEBAR item)
   if (key === 'kitchen') return `/${segment}/management/kitchen-display`;
   // Chef → full-screen KDS (same screen, no sidebar)

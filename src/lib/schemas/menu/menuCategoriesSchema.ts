@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { catalogueNameSchema } from '@/lib/schemas/menu/menuCreationSchema';
 import { ApiError } from '@/services/api/types';
 
 export const statusBasicSchema = z.enum(['active', 'inactive']);
@@ -44,20 +45,30 @@ export const menuCategoryDetailEnvelopeSchema = envelope(menuCategoryResponseSch
 export const menuCategoryResponseListSchema = z.array(menuCategoryResponseSchema);
 
 /** POST /api/v1/restaurant/menu/categories */
-export const createMenuCategoryBodySchema = z.object({
-  name: z.string().trim().min(1),
-  description: z.string().trim().optional(),
-  parent_id: z.number().int().optional(),
-  display_order: z.number().int().optional(),
-  /** `branch` for branch admin; otherwise `company`. */
-  scope: catalogueScopeSchema,
-  /** Required when `scope` is `branch`. */
-  assign_branch_id: z.number().int().positive().optional(),
-});
+export const createMenuCategoryBodySchema = z
+  .object({
+    name: catalogueNameSchema,
+    description: z.string().trim().optional(),
+    parent_id: z.number().int().optional(),
+    display_order: z.number().int().optional(),
+    /** Omit with X-Branch-Id or for company categories (X-Company-Id only). */
+    scope: catalogueScopeSchema.optional(),
+    /** Required when `scope` is `branch` and the request uses X-Company-Id without X-Branch-Id. */
+    assign_branch_id: z.number().int().positive().optional(),
+  })
+  .superRefine((body, ctx) => {
+    if (body.scope === 'branch' && body.assign_branch_id == null) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'assign_branch_id is required when scope is branch.',
+        path: ['assign_branch_id'],
+      });
+    }
+  });
 
 /** PATCH /api/v1/restaurant/menu/categories/{category_id} */
 export const updateMenuCategoryBodySchema = z.object({
-  name: z.string().trim().min(1),
+  name: catalogueNameSchema,
   description: z.string().trim().optional(),
   parent_id: z.number().int().optional(),
   display_order: z.number().int(),

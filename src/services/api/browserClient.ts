@@ -1,4 +1,5 @@
 import { clearSidebarSession } from '@/lib/auth/session';
+import { resolveUpstreamContextHeaders } from '@/lib/helpers/apiContextHeaders';
 import { getErrorMessage, getSuccessMessage } from '@/lib/helpers/getErrorMessage';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -47,14 +48,21 @@ function toAppPath(endpoint: string, params?: QueryParams): string {
 }
 
 function isAuthPath(endpoint: string): boolean {
-  return endpoint === ApiUrlsV1.auth.login || endpoint === ApiUrlsV1.auth.logout;
+  return (
+    endpoint === ApiUrlsV1.auth.login ||
+    endpoint === ApiUrlsV1.auth.logout ||
+    endpoint === ApiUrlsV1.invitations.accept ||
+    endpoint === ApiUrlsV1.invitations.reject
+  );
 }
 
 /** Cookies are cleared server-side on 401; clear client session and go to login. */
 function redirectToLoginAfterUnauthorized(): void {
   if (typeof window === 'undefined') return;
   if (redirectingToLogin) return;
-  if (window.location.pathname === '/login') return;
+  if (window.location.pathname === '/login' || window.location.pathname.startsWith('/invite/')) {
+    return;
+  }
 
   redirectingToLogin = true;
   clearSidebarSession();
@@ -97,11 +105,18 @@ async function request<T>(
   }
 
   const headers = new Headers({ Accept: 'application/json' });
-  let body: string | undefined;
+  for (const [key, value] of Object.entries(resolveUpstreamContextHeaders())) {
+    headers.set(key, value);
+  }
+  let body: BodyInit | undefined;
 
   if (options.body !== undefined && method !== 'GET') {
-    headers.set('Content-Type', 'application/json');
-    body = JSON.stringify(options.body);
+    if (options.body instanceof FormData) {
+      body = options.body;
+    } else {
+      headers.set('Content-Type', 'application/json');
+      body = JSON.stringify(options.body);
+    }
   }
 
   const response = await fetch(toAppPath(endpoint, options.params), {

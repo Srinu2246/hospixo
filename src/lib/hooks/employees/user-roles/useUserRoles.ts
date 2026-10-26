@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useQuery } from '@/lib/hooks/api/useQuery';
+import type { JsonObject, JsonValue } from '@/types/json';
 
 import {
   enrichDirectoryWithSession,
@@ -75,7 +76,7 @@ export interface UseUserRolesReturn {
   roleCatalog: RoleCatalogItem[];
   isLoading: boolean;
   isError: boolean;
-  error: unknown;
+  error: Error | null;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   selectedRole: string;
@@ -136,14 +137,14 @@ export function useUserRoles(
       compact({
         page,
         page_size: pageSize,
-        search: searchQuery.trim() || undefined,
-        role: selectedRole || undefined,
-        branch: selectedBranch || undefined,
-        status: selectedStatus || undefined,
+        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(selectedRole ? { role: selectedRole } : {}),
+        ...(selectedBranch ? { branch: selectedBranch } : {}),
+        ...(selectedStatus ? { status: selectedStatus } : {}),
         scope,
         scope_type: scope,
-        company_id: resolvedCompanyId,
-        branch_id: scope === 'branch' ? resolvedBranchId : undefined,
+        ...(resolvedCompanyId != null ? { company_id: resolvedCompanyId } : {}),
+        ...(scope === 'branch' && resolvedBranchId != null ? { branch_id: resolvedBranchId } : {}),
       }),
     [
       page,
@@ -161,7 +162,7 @@ export function useUserRoles(
   const usersQuery = useQuery({
     queryKey: [...usersQueryRoot, listParams, scope, resolvedCompanyId, resolvedBranchId],
     queryFn: async ({ signal }) =>
-      parseUserList(await api.get<unknown>(ApiUrlsV1.users.list, listParams, signal)),
+      parseUserList(await api.get<JsonValue>(ApiUrlsV1.users.list, listParams, signal)),
     enabled: scope !== 'branch' || Boolean(resolvedBranchId),
     initialData:
       initialUserList &&
@@ -229,7 +230,7 @@ export function useUserRoles(
 
   const createMutation = useMutation({
     mutationFn: async (values: UserRoleFormValues) => {
-      const createdPayload = await api.post<unknown>(
+      const createdPayload = await api.post<JsonValue>(
         ApiUrlsV1.users.create,
         toCreateUserBody(values),
       );
@@ -339,41 +340,40 @@ async function syncUserPermissions(
 ): Promise<void> {
   let userRoleId: string | null = null;
   try {
-    const assignments = await api.get<unknown>(userAssignmentsPath(userId));
+    const assignments = await api.get<JsonValue>(userAssignmentsPath(userId));
     userRoleId = readPrimaryUserRoleId(assignments);
   } catch {
     userRoleId = null;
   }
 
+  // Role assignment already applies template permissions; skip if we cannot target the assignment row.
+  if (!userRoleId) return;
+
   const payload = await resolveAssignmentPermissionsPayload(
     userId,
-    userRoleId ?? '0',
+    userRoleId,
     categories,
     (path) => api.get(path),
   );
 
-  let synced = false;
-  if (userRoleId) {
-    try {
-      await api.put(userRolePermissionsPath(userId, userRoleId), payload);
-      synced = true;
-    } catch {
-      // fallback
-    }
+  // No deltas vs inherited role permissions — avoid PUT that re-delegates the full role catalog.
+  if (payload.assignment_adjustments.length === 0) return;
+
+  try {
+    await api.put(userRolePermissionsPath(userId, userRoleId), payload);
+    return;
+  } catch {
+    // fallback
   }
 
-  if (!synced) {
-    await api
-      .put(`${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`, payload)
-      .catch(() => null);
-  }
+  await api.put(
+    `${ApiUrlsV1.users.list}/${encodeURIComponent(String(userId))}/permissions`,
+    payload,
+  );
 }
 
-function useResolvedRoleCatalog(data: unknown): RoleCatalogItem[] {
-  return useMemo(() => {
-    if (Array.isArray(data)) return data;
-    return data ? parseRoleCatalog(data) : [];
-  }, [data]);
+function useResolvedRoleCatalog(data: JsonValue | undefined): RoleCatalogItem[] {
+  return useMemo(() => (data == null ? [] : parseRoleCatalog(data)), [data]);
 }
 
 async function invalidateUserQueries(
@@ -414,14 +414,14 @@ export function useStaffProfile(
     queryKey: ['api', ApiUrlsV1.users.list, userId],
     enabled,
     queryFn: async ({ signal }) =>
-      api.get<unknown>(ApiUrlsV1.users.detail(userId!), undefined, signal),
+      api.get<JsonValue>(ApiUrlsV1.users.detail(userId!), undefined, signal),
   });
 
   const assignmentsQuery = useQuery({
     queryKey: ['api', ApiUrlsV1.users.list, userId, 'assignments'],
     enabled,
     queryFn: async ({ signal }) =>
-      api.get<unknown>(userAssignmentsPath(userId!), undefined, signal).catch(() => null),
+      api.get<JsonValue>(userAssignmentsPath(userId!), undefined, signal).catch(() => null),
   });
 
   const rolesQuery = useRoleCatalogQuery();
@@ -446,12 +446,12 @@ export function useStaffProfile(
   }, [userItem, rawUserQuery.data, roleCatalog]);
 
   const assignmentRoleId = useMemo(
-    () => readPrimaryUserRoleId(assignmentsQuery.data),
+    () => readPrimaryUserRoleId(assignmentsQuery.data ?? null),
     [assignmentsQuery.data],
   );
 
   const assignmentRoleTemplateId = useMemo(
-    () => readPrimaryRoleTemplateId(assignmentsQuery.data),
+    () => readPrimaryRoleTemplateId(assignmentsQuery.data ?? null),
     [assignmentsQuery.data],
   );
 
@@ -496,7 +496,7 @@ export function useStaffProfile(
   });
 
   const categories = useMemo(
-    () => parseRolePermissionsToCategories(rolePermissionsQuery.data),
+    () => parseRolePermissionsToCategories(rolePermissionsQuery.data ?? null),
     [rolePermissionsQuery.data],
   );
 
@@ -596,18 +596,24 @@ export function useCreateStaffUser() {
       categories: PermissionCategory[];
       ids: CreateUserIdHints;
     }) => {
-      const rolesPayload = await api.get<unknown>(ApiUrlsV1.roles.list);
+      const rolesPayload = await api.get<JsonValue>(ApiUrlsV1.roles.list);
       const roleCatalog = parseRoleCatalog(rolesPayload);
       const roleCode = resolveRoleCode(input.values.role, roleCatalog);
+      const { role, account, user } = useSidebarStore.getState();
+      const directoryAuth = {
+        role: role || user?.role || account?.roles?.[0] || account?.scope || '',
+        authScope: account?.scope ?? '',
+      };
       const context = await resolveCreateUserRequestContext(
         { company: input.values.company, branch: input.values.branch },
         input.ids,
-        (path, params) => api.get<unknown>(path, params),
+        (path, params) => api.get<JsonValue>(path, params),
         roleCatalog,
         roleCode,
+        directoryAuth,
       );
       const body = toCreateUserBody(input.values, context);
-      const createdPayload = await api.post<unknown>(ApiUrlsV1.users.create, body);
+      const createdPayload = await api.post<JsonValue>(ApiUrlsV1.users.create, body);
       const userId = parseUserRecord(createdPayload)?.id ?? readUserId(createdPayload);
       if (!userId) return;
 
@@ -635,7 +641,15 @@ export function useCreateStaffUser() {
 // Custom role template mutation
 // ---------------------------------------------------------------------------
 
-export function useCreateCustomRole() {
+function enabledPermissionCodes(categories: readonly PermissionCategory[]): string[] {
+  return categories.flatMap((category) =>
+    category.permissions
+      .filter((permission) => permission.enabled)
+      .map((permission) => permission.code?.trim() || permission.id),
+  );
+}
+
+export function useCreateCustomRole(scope: ScopeType = 'organization') {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -643,22 +657,17 @@ export function useCreateCustomRole() {
       values: CustomTemplateFormValues;
       categories: PermissionCategory[];
     }) => {
-      const created = await api.post<unknown>(
+      const permissionCodes = enabledPermissionCodes(input.categories);
+      await api.post<JsonValue>(
         ApiUrlsV1.roles.create,
-        toCreateRoleBody(input.values.templateName, input.values.description),
+        toCreateRoleBody({
+          code: input.values.code,
+          displayName: input.values.templateName,
+          description: input.values.description,
+          scope,
+          permissionCodes,
+        }),
       );
-      const roleId =
-        typeof created === 'object' && created && 'id' in created
-          ? String((created as { id: string | number }).id)
-          : null;
-      const enabledPermissionIds = input.categories.flatMap((category) =>
-        category.permissions
-          .filter((permission) => permission.enabled)
-          .map((permission) => permission.id),
-      );
-      if (roleId && enabledPermissionIds.length > 0) {
-        await api.put(rolePermissionsPath(roleId), { permission_ids: enabledPermissionIds });
-      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.roles.list] });
@@ -675,7 +684,7 @@ export function useRoleCatalogQuery(scope?: ScopeType) {
   return useQuery({
     queryKey: ['api', ApiUrlsV1.roles.list, scope ?? 'all'],
     queryFn: async ({ signal }) =>
-      parseRoleCatalog(await api.get<unknown>(ApiUrlsV1.roles.list, undefined, signal)),
+      parseRoleCatalog(await api.get<JsonValue>(ApiUrlsV1.roles.list, undefined, signal)),
     staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
   });
@@ -729,7 +738,7 @@ export function useRolePermissions(
         page_size: 100,
       };
 
-      return api.get<unknown>(rolePermissionsPath(roleId), params, signal);
+      return api.get<JsonValue>(rolePermissionsPath(roleId), params, signal);
     },
     enabled: roleId != null && roleId !== '',
     staleTime: 60_000,
@@ -741,7 +750,7 @@ export function useRoleTemplates(scope?: ScopeType) {
     queryKey: ['api', ApiUrlsV1.roles.list, 'templates', scope],
     queryFn: async ({ signal }) => {
       try {
-        const rolesPayload = await api.get<unknown>(ApiUrlsV1.roles.list, undefined, signal);
+        const rolesPayload = await api.get<JsonValue>(ApiUrlsV1.roles.list, undefined, signal);
         const parsed = parseRoleTemplates(rolesPayload);
         if (parsed.length > 0) return parsed;
       } catch {
@@ -749,7 +758,7 @@ export function useRoleTemplates(scope?: ScopeType) {
       }
 
       try {
-        const templatesPayload = await api.get<unknown>(
+        const templatesPayload = await api.get<JsonValue>(
           ApiUrlsV1.roles.templates,
           undefined,
           signal,
@@ -769,7 +778,7 @@ export function useGroupedPermissions(enabled = true) {
     enabled,
     queryFn: async ({ signal }) => {
       try {
-        const payload = await api.get<unknown>(ApiUrlsV1.permissions.grouped, undefined, signal);
+        const payload = await api.get<JsonValue>(ApiUrlsV1.permissions.grouped, undefined, signal);
         const parsed = parseGroupedPermissions(payload);
         if (parsed.length > 0) return parsed;
       } catch {
@@ -787,31 +796,47 @@ export function useGroupedPermissions(enabled = true) {
 // Company / branch directory for create-user forms
 // ---------------------------------------------------------------------------
 
-export function useEmployeeDirectory(organizationId?: number, companyId?: number) {
+export function useEmployeeDirectory(
+  organizationId?: number,
+  companyId?: number,
+  options?: { scope?: ScopeType },
+) {
   const storeOrgId = useSidebarStore(
     (state) => state.context.organizationId ?? state.account?.org_id ?? undefined,
   );
   const storeCompanyId = useSidebarStore(
     (state) => state.context.companyId ?? state.account?.company_id ?? undefined,
   );
-  const role = useSidebarStore((state) => state.role);
+  const role = useSidebarStore((state) => state.role || state.user?.role || '');
+  const authScope = useSidebarStore((state) => state.account?.scope ?? '');
   const hasAccount = useSidebarStore((state) => Boolean(state.account));
 
   const resolvedOrgId = organizationId ?? storeOrgId ?? undefined;
-  const resolvedCompanyId = companyId ?? storeCompanyId ?? undefined;
+  const resolvedCompanyId =
+    options?.scope === 'organization' ? companyId : (companyId ?? storeCompanyId ?? undefined);
 
   const sessionReady = Boolean(role || hasAccount);
   const hasDirectoryScope = resolvedOrgId != null || resolvedCompanyId != null;
 
   return useQuery({
-    queryKey: ['employees', 'directory', resolvedOrgId ?? 'none', resolvedCompanyId ?? 'none'],
+    queryKey: [
+      'employees',
+      'directory',
+      resolvedOrgId ?? 'none',
+      resolvedCompanyId ?? 'none',
+      options?.scope ?? 'default',
+      role,
+      authScope,
+    ],
     enabled: sessionReady && hasDirectoryScope,
     queryFn: async ({ signal }) => {
       const { context, account } = useSidebarStore.getState();
+      const sessionRole = role || account?.roles?.[0] || account?.scope || '';
+      const sessionAuthScope = authScope || account?.scope || '';
       const get = (
         path: string,
         params?: Record<string, string | number | boolean | null | undefined>,
-      ) => api.get<unknown>(path, params, signal);
+      ) => api.get<JsonValue>(path, params, signal);
 
       const sessionHints = {
         companyId: resolvedCompanyId ?? undefined,
@@ -826,6 +851,9 @@ export function useEmployeeDirectory(organizationId?: number, companyId?: number
             organizationId: resolvedOrgId ?? undefined,
             companyId: resolvedCompanyId ?? undefined,
             session: sessionHints,
+            role: sessionRole,
+            authScope: sessionAuthScope,
+            scope: options?.scope,
           },
           get,
         );
@@ -838,7 +866,7 @@ export function useEmployeeDirectory(organizationId?: number, companyId?: number
   });
 }
 
-function compact(record: Record<string, unknown>): Record<string, string | number> {
+function compact(record: JsonObject): Record<string, string | number> {
   return Object.fromEntries(
     Object.entries(record).filter(
       (entry): entry is [string, string | number] =>

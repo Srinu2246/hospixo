@@ -22,6 +22,17 @@ export interface PosOrderItem {
   kitchenStatusLabel: string;
   amount: number;
   amountFormatted: string;
+  /** Relative time label for captain mobile cards. */
+  elapsedLabel?: string;
+}
+
+function formatElapsedLabel(openedAt: string): string | undefined {
+  const at = Date.parse(openedAt);
+  if (Number.isNaN(at)) return undefined;
+  const minutes = Math.max(1, Math.round((Date.now() - at) / 60_000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  return `${hours}h ago`;
 }
 
 const ORDER_TYPE_UI: Record<PosOrderType, PosOrderItem['type']> = {
@@ -81,6 +92,7 @@ export function toPosOrderItem(item: PosOrderListItem): PosOrderItem {
     kitchenStatusLabel: kitchen.label,
     amount: item.grand_total,
     amountFormatted: formatInr(item.grand_total),
+    elapsedLabel: formatElapsedLabel(item.opened_at),
   };
 }
 

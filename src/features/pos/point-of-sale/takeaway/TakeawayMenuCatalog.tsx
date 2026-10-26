@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import { LayoutGrid, LayoutList } from 'lucide-react';
 
-import { FilterBar, type FilterBarItem } from '@/components/shared/form-fields/FilterBar';
+import { Dropdown, type DropdownOption } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
@@ -19,9 +19,12 @@ export interface TakeawayMenuCatalogProps {
   onSearchChange: (value: string) => void;
   viewMode: 'list' | 'grid';
   onViewModeChange: (mode: 'list' | 'grid') => void;
-  categoryFilterItems: FilterBarItem<string>[];
-  activeCategory: string;
-  onCategoryChange: (category: string) => void;
+  menuOptions: DropdownOption<string>[];
+  selectedMenuId: string;
+  onMenuChange: (menuId: string) => void;
+  categoryOptions: DropdownOption<string>[];
+  selectedCategoryId: string;
+  onCategoryChange: (categoryId: string) => void;
   isLoading: boolean;
   isError: boolean;
   errorMessage: string;
@@ -35,6 +38,8 @@ export interface TakeawayMenuCatalogProps {
     quantity: number,
     unitPrice: number,
   ) => void;
+  /** Captain mobile/tablet: Figma chips + list (no desktop panel chrome). */
+  captainCompact?: boolean;
 }
 
 function MenuSectionItems({
@@ -44,6 +49,7 @@ function MenuSectionItems({
   onAddDefault,
   onDecrementDefault,
   onAddCustomized,
+  captainCompact = false,
 }: Readonly<{
   items: PosMenuItem[];
   viewMode: 'list' | 'grid';
@@ -51,6 +57,7 @@ function MenuSectionItems({
   onAddDefault: (item: PosMenuItem) => void;
   onDecrementDefault: (item: PosMenuItem) => void;
   onAddCustomized: TakeawayMenuCatalogProps['onAddCustomized'];
+  captainCompact?: boolean;
 }>) {
   if (viewMode === 'list') {
     return (
@@ -60,6 +67,7 @@ function MenuSectionItems({
             key={item.id}
             item={item}
             viewMode="list"
+            captainCompact={captainCompact}
             quantityInCart={getItemCartQuantity(item.id)}
             onAddDefault={() => onAddDefault(item)}
             onDecrementDefault={() => onDecrementDefault(item)}
@@ -165,13 +173,64 @@ function MenuCatalogBody({
   );
 }
 
+function MenuCategoryDropdowns({
+  menuOptions,
+  selectedMenuId,
+  onMenuChange,
+  categoryOptions,
+  selectedCategoryId,
+  onCategoryChange,
+}: Readonly<{
+  menuOptions: DropdownOption<string>[];
+  selectedMenuId: string;
+  onMenuChange: (menuId: string) => void;
+  categoryOptions: DropdownOption<string>[];
+  selectedCategoryId: string;
+  onCategoryChange: (categoryId: string) => void;
+}>) {
+  // Dropdown FormControl is width 100% of its parent — pin each in a fixed box so they stay one row.
+  return (
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{ width: '100%', flexWrap: 'nowrap', alignItems: 'center' }}
+    >
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Dropdown
+          options={menuOptions}
+          value={selectedMenuId}
+          onChange={onMenuChange}
+          placeholder="Menu"
+          size="medium"
+          minWidth={0}
+          disabled={menuOptions.length === 0}
+        />
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Dropdown
+          options={categoryOptions}
+          value={selectedCategoryId}
+          onChange={onCategoryChange}
+          placeholder="Category"
+          size="medium"
+          minWidth={0}
+          disabled={menuOptions.length === 0}
+        />
+      </Box>
+    </Stack>
+  );
+}
+
 export function TakeawayMenuCatalog({
   searchQuery,
   onSearchChange,
   viewMode,
   onViewModeChange,
-  categoryFilterItems,
-  activeCategory,
+  menuOptions,
+  selectedMenuId,
+  onMenuChange,
+  categoryOptions,
+  selectedCategoryId,
   onCategoryChange,
   isLoading,
   isError,
@@ -181,7 +240,79 @@ export function TakeawayMenuCatalog({
   onAddDefault,
   onDecrementDefault,
   onAddCustomized,
+  captainCompact = false,
 }: Readonly<TakeawayMenuCatalogProps>) {
+  if (captainCompact) {
+    const flatItems = groupedSections.flatMap(([, sectionItems]) => sectionItems);
+
+    return (
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          bgcolor: 'transparent',
+        }}
+      >
+        <Box sx={{ flexShrink: 0, mb: 1.25 }}>
+          <MenuCategoryDropdowns
+            menuOptions={menuOptions}
+            selectedMenuId={selectedMenuId}
+            onMenuChange={onMenuChange}
+            categoryOptions={categoryOptions}
+            selectedCategoryId={selectedCategoryId}
+            onCategoryChange={onCategoryChange}
+          />
+        </Box>
+        <Box sx={{ flexShrink: 0, mb: 1.5 }}>
+          <SearchBar
+            value={searchQuery}
+            onChange={onSearchChange}
+            onClear={() => onSearchChange('')}
+            placeholder="Search food items, drinks, code..."
+            fullWidth
+            showClear
+            sx={{ height: 44, borderRadius: '12px' }}
+          />
+        </Box>
+        {isError ? (
+          <AlertMessage
+            variant="error"
+            title="Unable to load menu"
+            message={errorMessage}
+            sx={{ mb: 1.5 }}
+          />
+        ) : null}
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            pr: 0.25,
+            pb: 1,
+          }}
+        >
+          {isLoading ? (
+            <SkeletonLoader count={5} height={88} />
+          ) : (
+            <MenuSectionItems
+              items={flatItems}
+              viewMode="list"
+              captainCompact
+              getItemCartQuantity={getItemCartQuantity}
+              onAddDefault={onAddDefault}
+              onDecrementDefault={onDecrementDefault}
+              onAddCustomized={onAddCustomized}
+            />
+          )}
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box
       sx={{
@@ -275,11 +406,13 @@ export function TakeawayMenuCatalog({
       </Box>
 
       <Box sx={{ mb: 2.5, flexShrink: 0 }}>
-        <FilterBar<string>
-          items={categoryFilterItems}
-          value={activeCategory}
-          onChange={onCategoryChange}
-          size="small"
+        <MenuCategoryDropdowns
+          menuOptions={menuOptions}
+          selectedMenuId={selectedMenuId}
+          onMenuChange={onMenuChange}
+          categoryOptions={categoryOptions}
+          selectedCategoryId={selectedCategoryId}
+          onCategoryChange={onCategoryChange}
         />
       </Box>
 

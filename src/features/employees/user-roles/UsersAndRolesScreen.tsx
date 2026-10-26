@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
@@ -19,6 +19,7 @@ import {
   isUserEditDisabled,
   resolveScopeFromPathname,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import { resolveEmployeeDirectoryOptions } from '@/lib/helpers/employees/userRolesHelpers';
 import { useEmployeeDirectory, useUserRoles } from '@/lib/hooks/employees/user-roles';
 import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
@@ -59,12 +60,24 @@ export function UsersAndRolesScreen({
   const accountCompanyId = useSidebarStore((state) => state.account?.company_id ?? undefined);
   const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
+  const role = useSidebarStore((state) => state.role || state.user?.role || '');
+  const authScope = useSidebarStore((state) => state.account?.scope ?? '');
 
   const organizationId = contextOrgId ?? accountOrgId;
-  const storeCompanyId = contextCompanyId ?? accountCompanyId;
-  const directoryCompanyId =
-    resolvedScope === 'organization' ? undefined : (storeCompanyId ?? undefined);
-  const directory = useEmployeeDirectory(organizationId, directoryCompanyId);
+  const directoryQuery = useMemo(
+    () =>
+      resolveEmployeeDirectoryOptions({
+        wizardScope: resolvedScope,
+        contextCompanyId,
+        accountCompanyId,
+        role,
+        authScope,
+      }),
+    [resolvedScope, contextCompanyId, accountCompanyId, role, authScope],
+  );
+  const directory = useEmployeeDirectory(organizationId, directoryQuery.companyId, {
+    scope: directoryQuery.directoryScope,
+  });
 
   const activeBranchId = contextBranchId ?? accountBranchId;
 
@@ -97,7 +110,7 @@ export function UsersAndRolesScreen({
     pageSize: 8,
     scope: resolvedScope,
     companyName,
-    companyId: directoryCompanyId,
+    companyId: directoryQuery.companyId,
     branchId: activeBranchId,
     initialUserList,
   });

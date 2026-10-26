@@ -14,14 +14,19 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
+import type { MenuCataloguePageScope } from '@/lib/helpers/menuBranchContext';
 import {
   branchMenusQueryKey,
+  restaurantMenusQueryKey,
   useActiveBranchId,
   useBranchMenus,
-} from '@/lib/hooks/menu/menus/useBranchMenus';
-import { MENU_STATUS_FILTER_OPTIONS, type MenuStatusFilter } from '@/lib/mocks/menu/useMenus.mocks';
-import type { MenuAssignment } from '@/lib/schemas/menu/menus/menuListSchema';
-import type { MenuSessionFormValues } from '@/lib/schemas/menu/menus/menuSessionFormSchema';
+  useCreateRestaurantMenu,
+  useRestaurantMenus,
+  useSetRestaurantMenuActive,
+} from '@/lib/hooks/menu/menus/menusHooks';
+import { MENU_STATUS_FILTER_OPTIONS, type MenuStatusFilter } from '@/lib/mocks/menu/menu.mocks';
+import type { MenuAssignment, MenuSessionFormValues } from '@/lib/schemas/menu/menus/menusSchema';
 import { useToastStore } from '@/stores/toastStore';
 
 import { CreateMenuSessionForm } from './CreateMenuSessionForm';
@@ -62,9 +67,17 @@ function parseMenusPath(pathname: string): {
   return { basePath, mode: 'list' };
 }
 
+function resolveMenusPageScope(pathname: string): MenuCataloguePageScope {
+  if (pathname.includes('/company/')) return 'company';
+  if (pathname.includes('/branch-manager/') || pathname.startsWith('branch/')) return 'branch';
+  if (pathname.includes('/organization/')) return 'organization';
+  return 'branch';
+}
+
 /**
  * Menus list / create / edit
- * List: GET /v1/restaurant/branches/{branch_id}/menus
+ * Branch list: GET /v1/restaurant/branches/{branch_id}/menus
+ * Company list: GET /v1/restaurant/menus
  */
 export function MenusPage() {
   const pathname = usePathname();
@@ -73,6 +86,9 @@ export function MenusPage() {
   const showToast = useToastStore((state) => state.show);
   const branchId = useActiveBranchId();
   const { basePath, mode, menuId } = parseMenusPath(pathname);
+  const pageScope = resolveMenusPageScope(pathname);
+  const createMenuMutation = useCreateRestaurantMenu();
+  const setMenuActiveMutation = useSetRestaurantMenuActive();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<MenuStatusFilter>('all');
@@ -87,7 +103,10 @@ export function MenusPage() {
     [statusFilter],
   );
 
-  const menusQuery = useBranchMenus(listParams, branchId);
+  const isBranchScope = pageScope === 'branch';
+  const branchMenusQuery = useBranchMenus(listParams, branchId);
+  const companyMenusQuery = useRestaurantMenus(listParams);
+  const menusQuery = isBranchScope ? branchMenusQuery : companyMenusQuery;
   const menus = useMemo(() => menusQuery.data ?? [], [menusQuery.data]);
 
   const activeMenu = useMemo(
@@ -116,69 +135,52 @@ export function MenusPage() {
   }
 
   function patchMenusCache(updater: (rows: MenuAssignment[]) => MenuAssignment[]) {
-    queryClient.setQueryData<MenuAssignment[]>(
-      branchMenusQueryKey(branchId, listParams),
-      (current) => updater(current ?? []),
-    );
+    const queryKey = isBranchScope
+      ? branchMenusQueryKey(branchId, listParams)
+      : restaurantMenusQueryKey(listParams);
+    queryClient.setQueryData<MenuAssignment[]>(queryKey, (current) => updater(current ?? []));
   }
 
-  function toggleStatus(target: MenuAssignment) {
-    const nextStatus = target.status.toLowerCase() === 'active' ? 'inactive' : 'active';
-    const now = new Date().toISOString();
-    patchMenusCache((prev) =>
-      prev.map((row) =>
-        row.id === target.id
-          ? {
-              ...row,
-              status: nextStatus,
-              updated_at: now,
-              menu: { ...row.menu, status: nextStatus, updated_at: now },
-            }
-          : row,
-      ),
-    );
+  async function toggleStatus(target: MenuAssignment) {
+    const isActive = target.status.toLowerCase() === 'active';
+
+    try {
+      const updated = await setMenuActiveMutation.mutateAsync({
+        pageScope,
+        active: !isActive,
+        ...(isBranchScope
+          ? { branchId, assignmentId: target.id }
+          : { menuId: target.menu_id ?? target.id }),
+      });
+      patchMenusCache((prev) =>
+        prev.map((row) =>
+          row.id === target.id || row.menu_id === updated.menu_id ? updated : row,
+        ),
+      );
+      showToast(
+        `${updated.menu.name} ${!isActive ? 'activated' : 'deactivated'} successfully`,
+        'success',
+      );
+    } catch (error) {
+      showToast(getErrorMessage(error), 'error');
+    }
   }
 
-  function handleCreate(values: MenuSessionFormValues) {
+  async function handleCreate(values: MenuSessionFormValues) {
     setSubmitting(true);
-    const nextId = Math.max(0, ...menus.map((row) => row.id)) + 1;
-    const nextMenuId = Math.max(0, ...menus.map((row) => row.menu_id)) + 1;
-    const now = new Date().toISOString();
-    const sample = menus[0];
-    patchMenusCache((prev) => [
-      {
-        id: nextId,
-        organization_id: sample?.organization_id,
-        company_id: sample?.company_id,
-        branch_id: sample?.branch_id ?? branchId,
-        menu_id: nextMenuId,
-        display_order: 0,
-        is_default: false,
-        status: 'active',
-        menu: {
-          id: nextMenuId,
-          organization_id: sample?.organization_id,
-          company_id: sample?.company_id,
-          catalogue_scope: 'branch',
-          branch_id: sample?.branch_id ?? branchId,
-          name: values.name,
-          code: values.code.toUpperCase(),
-          description: values.description || null,
-          menu_type: values.menuType.toLowerCase(),
-          display_order: 0,
-          status: 'active',
-          branch_assignment_id: null,
-          created_at: now,
-          updated_at: now,
-        },
-        created_at: now,
-        updated_at: now,
-      },
-      ...prev,
-    ]);
-    setSubmitting(false);
-    showToast(`Created “${values.name}” session`, 'success');
-    goToList();
+    try {
+      await createMenuMutation.mutateAsync({
+        values,
+        pageScope,
+        branchId: pageScope === 'branch' ? branchId : undefined,
+      });
+      showToast(`Created “${values.name}” menu`, 'success');
+      goToList();
+    } catch (error) {
+      showToast(getErrorMessage(error), 'error');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleSave(values: MenuSessionFormValues) {
@@ -297,7 +299,7 @@ export function MenusPage() {
           initialValues={{
             name: activeMenu.menu.name,
             code: activeMenu.menu.code ?? '',
-            menuType: (activeMenu.menu.menu_type || 'all').toUpperCase(),
+            menuType: activeMenu.menu.menu_type || 'all',
             description: activeMenu.menu.description ?? '',
           }}
           submitting={submitting}
@@ -364,9 +366,14 @@ export function MenusPage() {
       </Stack>
 
       <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={1.5}
-        sx={{ flexShrink: 0, alignItems: { md: 'center' } }}
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={{ xs: 1.5, sm: 2 }}
+        sx={{
+          flexShrink: 0,
+          alignItems: { sm: 'center' },
+          width: '100%',
+          pr: { xs: 0, sm: 0.5 },
+        }}
       >
         <SearchBar
           value={search}
@@ -375,7 +382,12 @@ export function MenusPage() {
           showClear
           fullWidth
           width="100%"
-          sx={{ flex: 1, minWidth: 0 }}
+          sx={{
+            flex: { sm: 1 },
+            minWidth: { sm: 220, md: 280 },
+            maxWidth: { sm: '100%', md: 480 },
+          }}
+          inputSx={{ pl: 0.25 }}
         />
         <Dropdown
           options={[...MENU_STATUS_FILTER_OPTIONS]}
@@ -383,7 +395,11 @@ export function MenusPage() {
           onChange={(value) => setStatusFilter(value)}
           prefix="Status:"
           size="medium"
-          minWidth={140}
+          minWidth={160}
+          sx={{
+            width: { xs: '100%', sm: 'auto' },
+            flexShrink: 0,
+          }}
         />
       </Stack>
 

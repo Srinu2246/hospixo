@@ -225,11 +225,23 @@ describe('userRolesSchema validation rules', () => {
   });
 });
 
-import { isMatch, resolveRoleId, readPrimaryUserRoleId } from './userRolesSchema';
+import {
+  isMatch,
+  resolveRoleId,
+  readPrimaryUserRoleId,
+  resolveRoleAssignmentRequirements,
+  roleRequiresCompanyId,
+  type RoleCatalogItem,
+} from './userRolesSchema';
 import {
   autoEnableRolePermissions,
   resolveAssignmentPermissionsPayload,
+  resolveCreateUserBranchOptions,
 } from '@/lib/helpers/employees/userRolesHelpers';
+import {
+  trySerializeCreateUserDraft,
+  toCreateUserDraftHydration,
+} from '@/lib/schemas/employees/user-roles/createUserDraftSchema';
 import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 test('userRolesSchema - isMatch compares case-insensitively and handles null/undefined', () => {
@@ -322,4 +334,143 @@ test('userRolesHelpers - resolveAssignmentPermissionsPayload generates grants an
     { permission_code: 'PERM_1', effect: 'grant' },
     { permission_code: 'PERM_2', effect: 'revoke' },
   ]);
+});
+
+test('userRolesHelpers - resolveAssignmentPermissionsPayload skips grants without inherited baseline', async () => {
+  const categories: PermissionCategory[] = [
+    {
+      id: 'cat-1',
+      title: 'Category 1',
+      permissions: [
+        {
+          id: 'restaurant.tables.view',
+          code: 'restaurant.tables.view',
+          name: 'View',
+          description: '',
+          enabled: true,
+        },
+      ],
+    },
+  ];
+
+  const payload = await resolveAssignmentPermissionsPayload(
+    'user-1',
+    'role-1',
+    categories,
+    async () => ({}),
+  );
+
+  assert.deepEqual(payload.permission_codes, []);
+  assert.deepEqual(payload.assignment_adjustments, []);
+});
+
+test('userRolesSchema - roleRequiresCompanyId correctly identifies organization vs tenant roles', () => {
+  const catalog: RoleCatalogItem[] = [
+    { id: '1', name: 'Super Admin', code: 'super_admin', scope: 'organization' },
+    { id: '2', name: 'Org Admin', code: 'org_admin', scope: 'organization' },
+    { id: '3', name: 'Company Admin', code: 'company_admin', scope: 'company' },
+    { id: '4', name: 'Captain', code: 'captain', scope: 'branch' },
+  ];
+
+  assert.equal(roleRequiresCompanyId('super_admin', catalog), false);
+  assert.equal(roleRequiresCompanyId('org_admin', catalog), false);
+  assert.equal(roleRequiresCompanyId('company_admin', catalog), true);
+  assert.equal(roleRequiresCompanyId('captain', catalog), true);
+});
+
+test('userRolesSchema - resolveRoleAssignmentRequirements configures company and branch requirements', () => {
+  const catalog: RoleCatalogItem[] = [
+    { id: '1', name: 'Org Manager', code: 'org_manager', scope: 'organization' },
+    { id: '2', name: 'Company Admin', code: 'company_admin', scope: 'company' },
+    { id: '3', name: 'Captain', code: 'captain', scope: 'branch' },
+  ];
+
+  const orgRole = resolveRoleAssignmentRequirements('Org Manager', catalog, 'organization');
+  assert.equal(orgRole.showCompany, false);
+  assert.equal(orgRole.showBranch, false);
+  assert.equal(orgRole.requireCompany, false);
+  assert.equal(orgRole.requireBranch, false);
+
+  const compRole = resolveRoleAssignmentRequirements('Company Admin', catalog, 'organization');
+  assert.equal(compRole.showCompany, true);
+  assert.equal(compRole.showBranch, false);
+  assert.equal(compRole.requireCompany, true);
+  assert.equal(compRole.requireBranch, false);
+
+  const branchRole = resolveRoleAssignmentRequirements('Captain', catalog, 'organization');
+  assert.equal(branchRole.showCompany, true);
+  assert.equal(branchRole.showBranch, true);
+  assert.equal(branchRole.requireCompany, true);
+  assert.equal(branchRole.requireBranch, true);
+});
+
+test('userRolesHelpers - resolveCreateUserBranchOptions filters branches by active company', () => {
+  const branches = [
+    {
+      id: 1,
+      name: 'Downtown Branch',
+      companyId: 10,
+      companyName: 'Acme Corp',
+      code: 'DT',
+      city: 'Downtown',
+      status: 'active' as const,
+      isDefault: true,
+    },
+    {
+      id: 2,
+      name: 'Uptown Branch',
+      companyId: 20,
+      companyName: 'Beta LLC',
+      code: 'UT',
+      city: 'Uptown',
+      status: 'active' as const,
+      isDefault: false,
+    },
+  ];
+  const companies = [
+    { id: 10, name: 'Acme Corp', status: 'active' as const, branchCount: 1, userCount: 0 },
+    { id: 20, name: 'Beta LLC', status: 'active' as const, branchCount: 1, userCount: 0 },
+  ];
+
+  const result = resolveCreateUserBranchOptions({
+    branches,
+    companies,
+    currentScope: 'organization',
+    activeCompanyLabel: 'Acme Corp',
+  });
+
+  assert.deepEqual(result, ['Downtown Branch']);
+});
+
+test('createUserDraftSchema - trySerializeCreateUserDraft never persists passwords', () => {
+  const draft = trySerializeCreateUserDraft(
+    {
+      scope: 'organization',
+      selectedTemplate: null,
+      selectedRoleId: 'role-1',
+      formValues: {
+        firstName: 'John',
+        lastName: 'Doe',
+        countryCode: '+91',
+        phoneNumber: '9876543210',
+        email: 'john@example.com',
+        username: 'john.doe',
+        password: 'SecretPassword@123',
+        company: 'Acme Corp',
+        branch: 'Main Branch',
+        role: 'Captain',
+        sendInviteImmediately: true,
+        personalMessage: 'Welcome!',
+      },
+      categories: [],
+    },
+    'user-form',
+  );
+
+  assert.ok(draft);
+  assert.equal(draft?.formValues.password, '');
+
+  const hydrated = toCreateUserDraftHydration(draft!);
+  assert.equal(hydrated.formValues.password, '');
+  assert.equal(hydrated.formValues.firstName, 'John');
 });

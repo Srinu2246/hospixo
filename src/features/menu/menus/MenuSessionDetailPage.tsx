@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -14,14 +15,20 @@ import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { Card } from '@/components/shared/ui/Card';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
+import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
+import {
+  useAssignMenuCategory,
+  useMenuCategoryAssignments,
+} from '@/lib/hooks/menu/menus/menusHooks';
 import { useMenuCategories } from '@/lib/hooks/menu/useMenuCategories';
 import { useMenuItems } from '@/lib/hooks/menu/useMenuItems';
 import {
   menuSessionScheduleLabel,
   type MenuSessionAssignedItem,
 } from '@/lib/mocks/menu/useMenuSessionDetail.mocks';
-import type { MenuAssignment } from '@/lib/schemas/menu/menus/menuListSchema';
+import type { MenuAssignment } from '@/lib/schemas/menu/menus/menusSchema';
 import type { DietaryTypeApi, MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import { colors } from '@/lib/theme/mui/colors';
 import { useToastStore } from '@/stores/toastStore';
@@ -75,7 +82,9 @@ export function MenuSessionDetailPage({
   const categoriesQuery = useMenuCategories({ status: 'active', page: 1, page_size: 100 });
   const itemsQuery = useMenuItems({ status: 'active', page: 1, page_size: 100 });
 
-  const [assignedIds, setAssignedIds] = useState<number[]>([]);
+  const menuId = menu.menu_id ?? menu.id;
+  const assignCategoryMutation = useAssignMenuCategory();
+  const assignmentsQuery = useMenuCategoryAssignments(menuId, { page: 1, page_size: 100 });
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -91,13 +100,28 @@ export function MenuSessionDetailPage({
   );
   const menuItems = useMemo(() => itemsQuery.data?.items ?? [], [itemsQuery.data?.items]);
 
+  const categoryAssignments = useMemo(
+    () => assignmentsQuery.data?.items ?? [],
+    [assignmentsQuery.data?.items],
+  );
+
+  const assignedCategoryIds = useMemo(
+    () => categoryAssignments.map((row) => row.category_id),
+    [categoryAssignments],
+  );
+
   const categoryNameById = useMemo(() => {
     const map = new Map<number, string>();
     for (const category of categories) {
       map.set(category.id, category.name);
     }
+    for (const assignment of categoryAssignments) {
+      if (assignment.category?.name) {
+        map.set(assignment.category_id, assignment.category.name);
+      }
+    }
     return map;
-  }, [categories]);
+  }, [categories, categoryAssignments]);
 
   const catalogItems = useMemo<MenuSessionAssignedItem[]>(() => {
     return menuItems.map((item) => {
@@ -115,18 +139,11 @@ export function MenuSessionDetailPage({
     });
   }, [categoryNameById, menuItems]);
 
-  const catalogById = useMemo(() => {
-    const map = new Map<number, MenuSessionAssignedItem>();
-    for (const item of catalogItems) map.set(item.id, item);
-    return map;
-  }, [catalogItems]);
+  const assignedCategorySet = useMemo(() => new Set(assignedCategoryIds), [assignedCategoryIds]);
 
   const assignedItems = useMemo(
-    () =>
-      assignedIds
-        .map((id) => catalogById.get(id))
-        .filter((item): item is MenuSessionAssignedItem => Boolean(item)),
-    [assignedIds, catalogById],
+    () => catalogItems.filter((item) => assignedCategorySet.has(item.categoryId)),
+    [assignedCategorySet, catalogItems],
   );
 
   const categoryChips = useMemo(() => {
@@ -137,14 +154,14 @@ export function MenuSessionDetailPage({
 
     const chips = [
       { id: 'all' as const, label: 'All', count: assignedItems.length },
-      ...categories.map((category) => ({
-        id: category.id as number | 'all',
-        label: category.name,
-        count: counts.get(category.id) ?? 0,
+      ...assignedCategoryIds.map((categoryId) => ({
+        id: categoryId as number | 'all',
+        label: categoryNameById.get(categoryId) ?? `Category #${categoryId}`,
+        count: counts.get(categoryId) ?? 0,
       })),
     ];
     return chips;
-  }, [assignedItems, categories]);
+  }, [assignedCategoryIds, assignedItems, categoryNameById]);
 
   const filteredAssigned = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -158,33 +175,53 @@ export function MenuSessionDetailPage({
   }, [assignedItems, categoryFilter, search]);
 
   const modalCategories = useMemo(() => {
-    const available = catalogItems.filter((item) => !assignedIds.includes(item.id));
     const counts = new Map<number, number>();
-    for (const item of available) {
+    for (const item of catalogItems) {
+      if (assignedCategorySet.has(item.categoryId)) continue;
       counts.set(item.categoryId, (counts.get(item.categoryId) ?? 0) + 1);
     }
-    return categories.map((category) => ({
-      id: category.id,
-      label: category.name,
-      count: counts.get(category.id) ?? 0,
-    }));
-  }, [assignedIds, catalogItems, categories]);
+    return categories
+      .filter((category) => !assignedCategorySet.has(category.id))
+      .map((category) => ({
+        id: category.id,
+        label: category.name,
+        count: counts.get(category.id) ?? 0,
+      }));
+  }, [assignedCategorySet, catalogItems, categories]);
 
-  function removeItem(itemId: number) {
-    setAssignedIds((prev) => prev.filter((id) => id !== itemId));
-    showToast('Menu item removed from session', 'success');
+  function handleRemoveItem() {
+    showToast('Unassign category API is not wired yet', 'info');
   }
 
-  function handleAssign(itemIds: number[]) {
-    setAssignedIds((prev) => {
-      const next = new Set(prev);
-      for (const id of itemIds) next.add(id);
-      return [...next];
-    });
-    showToast(
-      `Assigned ${itemIds.length} item${itemIds.length === 1 ? '' : 's'} to ${sessionName}`,
-      'success',
-    );
+  async function handleAssignCategories(categoryIds: number[]) {
+    if (!Number.isFinite(menuId) || menuId <= 0) {
+      showToast('Invalid menu session', 'error');
+      return;
+    }
+
+    const newCategoryIds = categoryIds.filter((id) => !assignedCategorySet.has(id));
+    if (newCategoryIds.length === 0) return;
+
+    try {
+      let displayOrder = assignedCategoryIds.length;
+      for (const categoryId of newCategoryIds) {
+        await assignCategoryMutation.mutateAsync({
+          menuId,
+          categoryId,
+          displayOrder,
+        });
+        displayOrder += 1;
+      }
+      const itemCount = catalogItems.filter((item) =>
+        newCategoryIds.includes(item.categoryId),
+      ).length;
+      showToast(
+        `Assigned ${newCategoryIds.length} ${newCategoryIds.length === 1 ? 'category' : 'categories'} (${itemCount} item${itemCount === 1 ? '' : 's'}) to ${sessionName}`,
+        'success',
+      );
+    } catch (error) {
+      showToast(getErrorMessage(error), 'error');
+    }
   }
 
   const columns: DataGridColumn<MenuSessionAssignedItem>[] = [
@@ -270,7 +307,7 @@ export function MenuSessionDetailPage({
           <IconButton
             size="small"
             aria-label={`Remove ${row.name}`}
-            onClick={() => removeItem(row.id)}
+            onClick={handleRemoveItem}
             sx={{ color: 'error.main' }}
           >
             <Trash2 size={16} />
@@ -406,6 +443,14 @@ export function MenuSessionDetailPage({
             height: '100%',
           }}
         >
+          {assignmentsQuery.isError ? (
+            <AlertMessage
+              variant="error"
+              title="Unable to load category assignments"
+              message={getErrorMessage(assignmentsQuery.error)}
+            />
+          ) : null}
+
           <FilterChips
             items={categoryChips}
             value={categoryFilter}
@@ -416,7 +461,19 @@ export function MenuSessionDetailPage({
             ariaLabel="Assigned item categories"
           />
 
-          {assignedItems.length === 0 ? (
+          {assignmentsQuery.isLoading ? (
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 280,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <CircularProgress size={28} />
+            </Box>
+          ) : assignedItems.length === 0 ? (
             <Box
               sx={{
                 flex: 1,
@@ -488,9 +545,12 @@ export function MenuSessionDetailPage({
         sessionName={sessionName}
         categories={modalCategories}
         catalogItems={catalogItems}
-        assignedIds={assignedIds}
+        assignedIds={catalogItems
+          .filter((item) => assignedCategorySet.has(item.categoryId))
+          .map((item) => item.id)}
         onClose={() => setAssignOpen(false)}
-        onAssign={handleAssign}
+        onAssign={handleAssignCategories}
+        assigning={assignCategoryMutation.isPending}
       />
     </Box>
   );
