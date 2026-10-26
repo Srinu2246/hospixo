@@ -47,6 +47,10 @@ export interface MenuItemsTableProps {
   statusToggleDisabled?: boolean;
   onAddCategory?: () => void;
   emptyBecauseNoCategories?: boolean;
+  page?: number;
+  pageSize?: number;
+  totalRows?: number;
+  onPageChange?: (page: number) => void;
 }
 
 export function MenuItemsTable({
@@ -58,8 +62,14 @@ export function MenuItemsTable({
   statusToggleDisabled = false,
   onAddCategory,
   emptyBecauseNoCategories = false,
+  page: pageProp,
+  pageSize = PAGE_SIZE,
+  totalRows,
+  onPageChange,
 }: Readonly<MenuItemsTableProps>) {
-  const [page, setPage] = useState(1);
+  const [internalPage, setInternalPage] = useState(1);
+  const page = pageProp ?? internalPage;
+  const handlePageChange = onPageChange ?? setInternalPage;
   const theme = useTheme();
   const compactTable = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
   const tableHeight = compactTable ? 400 : '100%';
@@ -278,8 +288,9 @@ export function MenuItemsTable({
         onRowClick={(row) => onView(row)}
         pagination
         page={page}
-        pageSize={PAGE_SIZE}
-        onPageChange={setPage}
+        pageSize={pageSize}
+        totalRows={totalRows}
+        onPageChange={handlePageChange}
         paginationEntityName="items"
         stickyHeader
         height={tableHeight}

@@ -43,6 +43,10 @@ export function MenuAvailabilityContent() {
     setDietaryFilter,
     statusFilter,
     setStatusFilter,
+    listPage,
+    listPageSize,
+    listTotal,
+    setListPage,
     toggleItemMark,
     isUpdatingItemStatus,
   } = useMenuAvailability();
@@ -234,6 +238,10 @@ export function MenuAvailabilityContent() {
               onToggleMark={(itemId, nextActive) => {
                 void toggleItemMark(itemId, nextActive);
               }}
+              page={listPage}
+              pageSize={listPageSize}
+              totalRows={listTotal}
+              onPageChange={setListPage}
             />
           </Box>
         </Stack>

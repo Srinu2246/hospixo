@@ -88,7 +88,7 @@ export function usePosOrder({
   // Dine-in / POS ordering: only branch-scoped menus (not company catalogue).
   const branchMenus = useMemo(
     () =>
-      (branchMenusQuery.data ?? []).filter(
+      (branchMenusQuery.data?.items ?? []).filter(
         (assignment) => assignment.menu.catalogue_scope === 'branch',
       ),
     [branchMenusQuery.data],

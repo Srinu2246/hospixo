@@ -134,13 +134,33 @@ export function CreateMenuSessionForm({
   }, [code, description, initialEditSnapshot, isEdit, name]);
 
   const canSubmit = useMemo(() => {
+    const values: MenuSessionFormValues = {
+      name,
+      code,
+      menu: isEdit ? menu || initialValues?.menu || 'breakfast' : menu,
+      menuType: isEdit ? (menuType || initialValues?.menuType || 'all').toLowerCase() : menuType,
+      description,
+    };
+    const payload = isEdit
+      ? { name: values.name, code: values.code, description: values.description }
+      : values;
     const isValid = isEdit
-      ? editMenuSessionFormSchema.safeParse(validationPayload()).success
-      : menuSessionFormSchema.safeParse(sessionFormValues()).success;
+      ? editMenuSessionFormSchema.safeParse(payload).success
+      : menuSessionFormSchema.safeParse(values).success;
     if (!isValid) return false;
     if (isEdit) return hasEditChanges;
     return true;
-  }, [code, description, hasEditChanges, isEdit, menu, menuType, name]);
+  }, [
+    code,
+    description,
+    hasEditChanges,
+    initialValues?.menu,
+    initialValues?.menuType,
+    isEdit,
+    menu,
+    menuType,
+    name,
+  ]);
 
   function applySchemaErrors(result: {
     success: false;

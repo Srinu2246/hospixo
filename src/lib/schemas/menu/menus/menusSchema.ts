@@ -59,6 +59,7 @@ export const pagedMenusDataSchema = z.object({
 });
 
 export type MenuAssignment = z.infer<typeof menuAssignmentSchema>;
+export type PagedMenusData = z.infer<typeof pagedMenusDataSchema>;
 
 const menuAssignmentDetailEnvelopeSchema = apiEnvelope(menuAssignmentSchema);
 
@@ -75,21 +76,41 @@ export function parseMenuAssignmentRecord(payload: unknown): MenuAssignment {
   throw new ApiError('Unexpected menu assignment response', 502);
 }
 
-/** Parses branch menus list `{ success, data: { items, … } }`. */
-export function parseMenuAssignments(payload: unknown): MenuAssignment[] {
+/** Parses branch menus list `{ success, data: { items, total, page, page_size } }`. */
+export function parsePagedMenuAssignments(payload: unknown): PagedMenusData {
   const paged = pagedMenusDataSchema.safeParse(payload);
-  if (paged.success) return paged.data.items;
+  if (paged.success) return paged.data;
 
   const wrappedPaged = apiEnvelope(pagedMenusDataSchema).safeParse(payload);
-  if (wrappedPaged.success && wrappedPaged.data.data) return wrappedPaged.data.data.items;
+  if (wrappedPaged.success && wrappedPaged.data.data) return wrappedPaged.data.data;
 
   const asArray = menuAssignmentListSchema.safeParse(payload);
-  if (asArray.success) return asArray.data;
+  if (asArray.success) {
+    return {
+      items: asArray.data,
+      total: asArray.data.length,
+      page: 1,
+      page_size: asArray.data.length || 15,
+    };
+  }
 
   const wrappedArray = apiEnvelope(menuAssignmentListSchema).safeParse(payload);
-  if (wrappedArray.success && wrappedArray.data.data) return wrappedArray.data.data;
+  if (wrappedArray.success && wrappedArray.data.data) {
+    const items = wrappedArray.data.data;
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      page_size: items.length || 15,
+    };
+  }
 
   throw new ApiError('Unexpected menus response', 502);
+}
+
+/** Parses branch menus list `{ success, data: { items, … } }`. */
+export function parseMenuAssignments(payload: unknown): MenuAssignment[] {
+  return parsePagedMenuAssignments(payload).items;
 }
 
 // ——— Flat branch menu assignments (section QR / legacy branch menus API) ———

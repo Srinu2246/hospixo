@@ -42,6 +42,7 @@ function listParams(params?: MenuItemListParams) {
     ...(params?.status ? { status: params.status } : {}),
     ...(params?.category_id != null ? { category_id: params.category_id } : {}),
     ...(params?.dietary_type ? { dietary_type: params.dietary_type } : {}),
+    ...(params?.search?.trim() ? { search: params.search.trim() } : {}),
     ...(params?.branch_id != null ? { branch_id: params.branch_id } : {}),
   };
 }
@@ -71,7 +72,7 @@ export type UpdateMenuItemVariables = Readonly<{
 
 /**
  * List menu items.
- * GET /v1/restaurant/menu/items?status&category_id&dietary_type&page&page_size
+ * GET /v1/restaurant/menu/items?status&category_id&dietary_type&search&page&page_size
  */
 export function useMenuItems(params?: MenuItemListParams) {
   return useQuery({

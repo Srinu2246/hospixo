@@ -12,6 +12,10 @@ export interface GstRatesTableProps {
   rates: readonly GstRate[];
   onCreate: () => void;
   onView: (rate: GstRate) => void;
+  page?: number;
+  pageSize?: number;
+  totalRows?: number;
+  onPageChange?: (page: number) => void;
 }
 
 function formatPercent(value: number): string {
@@ -27,7 +31,15 @@ function formatEffectiveDate(value: string): string {
   return `${day}/${month}/${year}`;
 }
 
-export function GstRatesTable({ rates, onCreate, onView }: Readonly<GstRatesTableProps>) {
+export function GstRatesTable({
+  rates,
+  onCreate,
+  onView,
+  page = 1,
+  pageSize = 10,
+  totalRows,
+  onPageChange,
+}: Readonly<GstRatesTableProps>) {
   const columns: DataGridColumn<GstRate>[] = [
     {
       field: 'code',
@@ -136,6 +148,12 @@ export function GstRatesTable({ rates, onCreate, onView }: Readonly<GstRatesTabl
         columns={columns}
         rows={rates}
         getRowId={(row) => row.id}
+        pagination
+        page={page}
+        pageSize={pageSize}
+        totalRows={totalRows}
+        onPageChange={onPageChange}
+        paginationEntityName="rates"
         stickyHeader
         height="100%"
         rowHeight={64}
