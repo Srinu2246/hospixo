@@ -101,6 +101,7 @@ const ApiUrlsV1 = {
   },
   restaurant: {
     branches: '/v1/branches',
+    branchMenuAssignments: '/v1/restaurant/branches',
     preparationStations: '/v1/restaurant/preparation-stations',
     gstRates: '/v1/restaurant/gst-rates',
     menuCategories: resource('/v1/restaurant/menu/categories'),
@@ -121,6 +122,9 @@ const ApiUrlsV1 = {
       list: '/v1/restaurant/menus',
       create: '/v1/restaurant/menus',
     },
+  },
+  public: {
+    restaurantMenu: '/v1/public/restaurant/menu',
   },
   kitchen: {
     kitchenBoard: resource('/v1/kitchen-display'),
@@ -492,6 +496,7 @@ const PUBLIC_ENDPOINTS = new Set<string>([
   ApiUrlsV1.auth.login,
   ApiUrlsV1.invitations.accept,
   ApiUrlsV1.invitations.reject,
+  ApiUrlsV1.public.restaurantMenu,
 ]);
 
 export function isPublicEndpoint(path: string): boolean {

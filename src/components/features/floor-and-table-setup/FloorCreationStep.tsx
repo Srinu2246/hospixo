@@ -7,8 +7,8 @@ import { Input } from '@/components/shared/form-fields/Input';
 import {
   LabeledDropdown,
   SetupCard,
-  StatusRow,
 } from '@/components/features/floor-and-table-setup/SetupFields';
+import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import type {
   FloorDetails,
@@ -41,7 +41,12 @@ export function FloorCreationStep({
           mb: 2.5,
         }}
       >
-        Floor Creation
+        <Box component="span" sx={{ display: { xs: 'inline', md: 'none' } }}>
+          Floor Details
+        </Box>
+        <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>
+          Floor Creation
+        </Box>
       </Typography>
       <Box
         sx={{
@@ -86,7 +91,7 @@ export function FloorCreationStep({
         />
       </Box>
       <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        <StatusRow
+        <LabeledSwitch
           title="Floor Status"
           hint="Toggle active visibility on checkout POS channels"
           checked={details.active}

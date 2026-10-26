@@ -23,7 +23,7 @@ export const loginUserSchema = z.object({
 export type LoginUser = z.infer<typeof loginUserSchema>;
 
 export const loginResultSchema = z.object({
-  success: z.boolean(),
+  success: z.boolean().optional().default(true),
   message: z.string().optional(),
   data: z
     .object({
@@ -41,29 +41,50 @@ export const logoutRequestSchema = z.object({
 });
 
 export const currentUserResponseSchema = z.object({
-  success: z.boolean(),
+  success: z.boolean().optional().default(true),
   message: z.string().optional(),
   data: z.unknown().nullable().optional(),
 });
 
 export function readLoginUser(payload: unknown): LoginUser | null {
   for (const record of collectUserRecords(payload)) {
-    const roles = readRoles(record.roles ?? record.role);
+    const roles = readRoles(record.roles ?? record.role ?? record.role_name ?? record.role_code);
     const scope = typeof record.scope === 'string' ? record.scope : '';
-    const firstName = readText(record.first_name) ?? readText(record.firstName);
-    const id = readNumber(record.id);
-    if (id == null || !firstName || (roles.length === 0 && !scope)) continue;
+    const fullName = readText(record.name) ?? readText(record.full_name);
+    const firstName =
+      readText(record.first_name) ??
+      readText(record.firstName) ??
+      fullName?.split(' ')[0] ??
+      readText(record.username) ??
+      readText(record.email)?.split('@')[0];
+    const id = readNumber(record.id) ?? readNumber(record.user_id) ?? readNumber(record.userId);
+    if (id == null || !firstName) continue;
+
+    const resolvedScope =
+      scope ||
+      (roles[0]
+        ? roles[0]
+        : record.branch_id != null || record.branchId != null
+          ? 'branch'
+          : record.company_id != null || record.companyId != null
+            ? 'company'
+            : 'organization');
+    const resolvedRoles = roles.length > 0 ? roles : [resolvedScope];
 
     const account = loginUserSchema.safeParse({
       id,
       first_name: firstName,
-      last_name: readText(record.last_name) ?? readText(record.lastName) ?? null,
+      last_name:
+        readText(record.last_name) ??
+        readText(record.lastName) ??
+        (fullName ? fullName.split(' ').slice(1).join(' ') || null : null),
       email: readText(record.email) ?? null,
-      scope: scope || roles[0],
-      roles: roles.length > 0 ? roles : [scope],
-      company_id: readNumber(record.company_id),
-      branch_id: readNumber(record.branch_id),
-      org_id: readNumber(record.org_id),
+      scope: resolvedScope,
+      roles: resolvedRoles,
+      company_id: readNumber(record.company_id) ?? readNumber(record.companyId),
+      branch_id: readNumber(record.branch_id) ?? readNumber(record.branchId),
+      org_id:
+        readNumber(record.org_id) ?? readNumber(record.orgId) ?? readNumber(record.organization_id),
       must_change_password: record.must_change_password === true,
     });
     if (account.success) return account.data;
@@ -89,9 +110,13 @@ function collectUserRecords(payload: unknown): Record<string, unknown>[] {
 
   const records = [payload];
   if (isRecord(payload.user)) records.unshift(payload.user);
+  if (isRecord(payload.profile)) records.unshift(payload.profile);
+  if (isRecord(payload.employee)) records.unshift(payload.employee);
   if (isRecord(payload.data)) {
     records.unshift(payload.data);
     if (isRecord(payload.data.user)) records.unshift(payload.data.user);
+    if (isRecord(payload.data.profile)) records.unshift(payload.data.profile);
+    if (isRecord(payload.data.employee)) records.unshift(payload.data.employee);
   }
 
   return records;
@@ -104,7 +129,13 @@ function readRoles(value: unknown): string[] {
   return value.flatMap((item) => {
     if (typeof item === 'string' && item) return [item];
     if (!isRecord(item)) return [];
-    const name = readText(item.name) ?? readText(item.key) ?? readText(item.role);
+    const name =
+      readText(item.name) ??
+      readText(item.key) ??
+      readText(item.role) ??
+      readText(item.code) ??
+      readText(item.role_name) ??
+      readText(item.role_code);
     return name ? [name] : [];
   });
 }

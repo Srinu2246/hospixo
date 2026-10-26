@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import { Loading } from '@/components/shared/ui/Loading';
@@ -28,8 +28,12 @@ import {
   useRoleCatalogQuery,
   useRolePermissions,
 } from '@/lib/hooks/employees/user-roles';
-import { resolveEmployeeDirectoryOptions } from '@/lib/helpers/employees/userRolesHelpers';
+import {
+  isFallbackEntityName,
+  resolveEmployeeDirectoryOptions,
+} from '@/lib/helpers/employees/userRolesHelpers';
 import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
+import { useResolvedBranchName } from '@/lib/hooks/useResolvedBranchName';
 
 import {
   RoleTemplateSelection,
@@ -59,9 +63,8 @@ export function CreateUserMultiformFlow({
 }: Readonly<CreateUserMultiformFlowProps>) {
   const router = useRouter();
   const pathname = usePathname() || '';
-  const effectiveCompanyName = useResolvedCompanyName(companyName);
-
   const resolvedScope = resolveScopeFromPathname(pathname, scope);
+  const effectiveCompanyName = useResolvedCompanyName(companyName, { scope: resolvedScope });
 
   const [toastFeedback, setToastFeedback] = useState<{
     open: boolean;
@@ -96,6 +99,8 @@ export function CreateUserMultiformFlow({
     reset,
   } = useCreateUserStore();
 
+  const effectiveBranchName = useResolvedBranchName(formValues.branch, { scope: resolvedScope });
+
   const getStepFromPathname = (): CreateUserStep | undefined => {
     if (pathname.endsWith('/template')) return 'template';
     if (pathname.endsWith('/create')) return 'user-form';
@@ -105,7 +110,8 @@ export function CreateUserMultiformFlow({
     return initialStep;
   };
 
-  const currentStep = getStepFromPathname() || storeStep || 'template';
+  const currentStep =
+    storeStep === 'success' ? 'success' : getStepFromPathname() || storeStep || 'template';
 
   const createStaffUser = useCreateStaffUser();
   const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
@@ -129,9 +135,9 @@ export function CreateUserMultiformFlow({
     [baseRoute, resolvedScope],
   );
 
-  useEffect(() => {
+  if (useCreateUserStore.getState().scope !== resolvedScope) {
     setScope(resolvedScope);
-  }, [resolvedScope, setScope]);
+  }
 
   const { isDraftReady } = useCreateUserFormDraft(formDraftStorageKey, {
     enabled: currentStep !== 'success',
@@ -157,15 +163,79 @@ export function CreateUserMultiformFlow({
   });
 
   const resolvedBranchId = useMemo(() => {
-    if (contextBranchId != null) return contextBranchId;
-    if (accountBranchId != null) return accountBranchId;
-    if (!formValues.branch?.trim()) return undefined;
-    const branchName = formValues.branch.trim().toLowerCase();
-    const matched = directory.data?.branches?.find(
-      (b) => b.name?.trim().toLowerCase() === branchName || String(b.id) === branchName,
-    );
-    return matched?.id != null ? Number(matched.id) : undefined;
-  }, [contextBranchId, accountBranchId, formValues.branch, directory.data?.branches]);
+    const branchCandidate =
+      (formValues.branch && !isFallbackEntityName(formValues.branch)
+        ? formValues.branch
+        : undefined) ??
+      (effectiveBranchName && !isFallbackEntityName(effectiveBranchName)
+        ? effectiveBranchName
+        : undefined);
+    if (branchCandidate?.trim()) {
+      const branchName = branchCandidate.trim().toLowerCase();
+      const matched = directory.data?.branches?.find(
+        (b) => b.name?.trim().toLowerCase() === branchName || String(b.id) === branchName,
+      );
+      if (matched?.id != null) return Number(matched.id);
+    }
+    if (contextBranchId != null) return Number(contextBranchId);
+    if (accountBranchId != null) return Number(accountBranchId);
+    if (directory.data?.branches?.[0]?.id != null) {
+      return Number(directory.data.branches[0].id);
+    }
+    return undefined;
+  }, [contextBranchId, accountBranchId, effectiveBranchName, formValues.branch, directory.data]);
+
+  const resolvedCompanyId = useMemo(() => {
+    // 1. If resolvedBranchId is known, the branch's companyId is the absolute authority
+    if (resolvedBranchId != null) {
+      const branchObj = directory.data?.branches?.find(
+        (b) => Number(b.id) === Number(resolvedBranchId),
+      );
+      if (branchObj?.companyId != null) return Number(branchObj.companyId);
+    }
+
+    // 2. If formValues.branch is specified, look up that branch's companyId
+    if (formValues.branch?.trim() && !isFallbackEntityName(formValues.branch)) {
+      const branchName = formValues.branch.trim().toLowerCase();
+      const matched = directory.data?.branches?.find(
+        (b) => b.name?.trim().toLowerCase() === branchName || String(b.id) === branchName,
+      );
+      if (matched?.companyId != null) return Number(matched.companyId);
+    }
+
+    // 3. Match formValues.company or effectiveCompanyName against directory companies
+    const companyCandidate =
+      (formValues.company && !isFallbackEntityName(formValues.company)
+        ? formValues.company
+        : undefined) ??
+      (effectiveCompanyName && !isFallbackEntityName(effectiveCompanyName)
+        ? effectiveCompanyName
+        : undefined);
+    if (companyCandidate?.trim()) {
+      const trimmed = companyCandidate.trim().toLowerCase();
+      const matched = directory.data?.companies?.find(
+        (c) => c.name?.trim().toLowerCase() === trimmed || String(c.id) === trimmed,
+      );
+      if (matched?.id != null) return Number(matched.id);
+    }
+
+    // 4. In company scope, fall back to context / account company ID
+    if (contextCompanyId != null) return Number(contextCompanyId);
+    if (accountCompanyId != null) return Number(accountCompanyId);
+
+    // 5. Fallback to first company in directory if available
+    const firstCompanyId = directory.data?.companies?.[0]?.id;
+    if (firstCompanyId != null) return Number(firstCompanyId);
+    return undefined;
+  }, [
+    resolvedBranchId,
+    formValues.branch,
+    formValues.company,
+    effectiveCompanyName,
+    directory.data,
+    contextCompanyId,
+    accountCompanyId,
+  ]);
 
   const rolesCatalogQuery = useRoleCatalogQuery(resolvedScope);
   const roleCatalog = useMemo(() => {
@@ -186,21 +256,30 @@ export function CreateUserMultiformFlow({
   }, [roleCatalog, activeRoleName, selectedRoleId]);
 
   const resolvedRoleId = useMemo(() => {
+    const roleCandidate = formValues.role || selectedTemplate?.roleName;
+    if (roleCandidate?.trim()) {
+      const trimmed = roleCandidate.trim().toLowerCase();
+      const matched = roleCatalog.find(
+        (r) =>
+          r.name.toLowerCase() === trimmed ||
+          r.code?.toLowerCase() === trimmed ||
+          (selectedRoleId != null && String(r.id) === String(selectedRoleId)),
+      );
+      if (matched?.id != null) return matched.id;
+      const byName = resolveRoleId(roleCandidate.trim(), roleCatalog);
+      if (byName != null) return byName;
+    }
     if (selectedRoleId != null && selectedRoleId !== '') {
       return selectedRoleId;
     }
     if (currentRoleCatalogItem?.id != null) {
       return currentRoleCatalogItem.id;
     }
-    const resolved = resolveRoleId(activeRoleName, roleCatalog);
-    if (resolved != null) {
-      return resolved;
-    }
     if (selectedTemplate?.id && !isNaN(Number(selectedTemplate.id))) {
       return selectedTemplate.id;
     }
     return undefined;
-  }, [selectedRoleId, currentRoleCatalogItem, activeRoleName, roleCatalog, selectedTemplate]);
+  }, [formValues.role, selectedTemplate, roleCatalog, selectedRoleId, currentRoleCatalogItem]);
 
   const resolvedRoleDescription = useMemo(() => {
     return (
@@ -212,16 +291,42 @@ export function CreateUserMultiformFlow({
 
   const rolePermissionsQuery = useRolePermissions(resolvedRoleId, {
     scope: resolvedScope,
-    companyId: contextCompanyId ?? accountCompanyId,
-    branchId: resolvedBranchId ?? contextBranchId ?? accountBranchId,
+    companyId: resolvedScope === 'company' ? (contextCompanyId ?? accountCompanyId) : undefined,
+    branchId:
+      resolvedScope === 'branch'
+        ? (resolvedBranchId ?? contextBranchId ?? accountBranchId)
+        : undefined,
   });
 
-  useEffect(() => {
-    if (resolvedRoleId == null || !rolePermissionsQuery.data) return;
-    setCategories(parseRolePermissionsToCategories(rolePermissionsQuery.data));
-  }, [resolvedRoleId, rolePermissionsQuery.data, setCategories]);
+  const permissionsData = rolePermissionsQuery.data;
+  const rolePermissionsCategories = useMemo(() => {
+    if (!permissionsData) return [];
+    return parseRolePermissionsToCategories(permissionsData);
+  }, [permissionsData]);
 
-  const effectiveCategories = categories;
+  const effectiveCategories = useMemo(() => {
+    if (rolePermissionsCategories.length > 0) {
+      if (categories.length > 0) {
+        const userToggles = new Map<string, boolean>();
+        categories.forEach((cat) => {
+          cat.permissions.forEach((perm) => {
+            userToggles.set(perm.id, perm.enabled);
+            if (perm.code) userToggles.set(perm.code, perm.enabled);
+          });
+        });
+        return rolePermissionsCategories.map((cat) => ({
+          ...cat,
+          permissions: cat.permissions.map((perm) => {
+            const toggle =
+              userToggles.get(perm.id) ?? (perm.code ? userToggles.get(perm.code) : undefined);
+            return toggle !== undefined ? { ...perm, enabled: toggle } : perm;
+          }),
+        }));
+      }
+      return rolePermissionsCategories;
+    }
+    return [];
+  }, [rolePermissionsCategories, categories]);
 
   const footerTarget = useAppShellFooterTarget();
 
@@ -256,13 +361,22 @@ export function CreateUserMultiformFlow({
     try {
       const activeCategories = effectiveCategories;
       const ids = {
-        organizationId: organizationId != null ? Number(organizationId) : undefined,
+        organizationId:
+          organizationId != null
+            ? Number(organizationId)
+            : contextOrgId != null
+              ? Number(contextOrgId)
+              : accountOrgId != null
+                ? Number(accountOrgId)
+                : 1,
         companyId:
-          contextCompanyId != null
-            ? Number(contextCompanyId)
-            : accountCompanyId != null
-              ? Number(accountCompanyId)
-              : undefined,
+          resolvedCompanyId != null
+            ? Number(resolvedCompanyId)
+            : contextCompanyId != null
+              ? Number(contextCompanyId)
+              : accountCompanyId != null
+                ? Number(accountCompanyId)
+                : undefined,
         branchId:
           resolvedBranchId != null
             ? Number(resolvedBranchId)
@@ -281,9 +395,13 @@ export function CreateUserMultiformFlow({
 
       clearCreateUserFormDraft(formDraftStorageKey);
       onUserCreated?.(formValues);
+      setStep('success');
       navigateToStep('success');
-    } catch {
-      // Error toast is shown by the API client (POST/PATCH).
+    } catch (err) {
+      console.error('Failed to create user:', err);
+      const msg =
+        err instanceof Error ? err.message : 'Failed to create user. Please check required fields.';
+      showToast(msg, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -372,19 +490,33 @@ export function CreateUserMultiformFlow({
               />
             )}
 
-            {currentStep === 'permissions' && isDraftReady && (
-              <ConfigurePermissionsStepTwo
-                categories={effectiveCategories}
-                onTogglePermission={togglePermission}
-                onToggleCategoryAll={toggleCategoryAll}
-                roleName={activeRoleName}
-                roleDescription={selectedTemplate?.description || resolvedRoleDescription}
-                onRoleNameChange={(name) => updateFormField('role', name)}
-                onRoleDescriptionChange={(desc) =>
-                  setRoleAndDescription(activeRoleName, desc, resolvedRoleId)
-                }
-              />
-            )}
+            {currentStep === 'permissions' &&
+              isDraftReady &&
+              (rolePermissionsQuery.isLoading && effectiveCategories.length === 0 ? (
+                <Loading />
+              ) : (
+                <ConfigurePermissionsStepTwo
+                  categories={effectiveCategories}
+                  onTogglePermission={(categoryId, permissionId) => {
+                    if (categories.length === 0 && effectiveCategories.length > 0) {
+                      setCategories(effectiveCategories);
+                    }
+                    togglePermission(categoryId, permissionId);
+                  }}
+                  onToggleCategoryAll={(categoryId, enableAll) => {
+                    if (categories.length === 0 && effectiveCategories.length > 0) {
+                      setCategories(effectiveCategories);
+                    }
+                    toggleCategoryAll(categoryId, enableAll);
+                  }}
+                  roleName={activeRoleName}
+                  roleDescription={selectedTemplate?.description || resolvedRoleDescription}
+                  onRoleNameChange={(name) => updateFormField('role', name)}
+                  onRoleDescriptionChange={(desc) =>
+                    setRoleAndDescription(activeRoleName, desc, resolvedRoleId)
+                  }
+                />
+              ))}
 
             {currentStep === 'review' && isDraftReady && (
               <ReviewAndSaveStepThree

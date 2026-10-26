@@ -1,6 +1,5 @@
 import ApiUrlsV1, { organizationCompanyBranchesPath } from '@/services/api/ApiUrlsV1';
 import {
-  loadCompanyById,
   loadOrganizationCompanies,
   shouldLoadOrganizationCompanyList,
 } from '@/lib/helpers/organizationCompanies';
@@ -25,8 +24,9 @@ export async function loadOrganizationBranches(
   get: GetJson,
   companyId?: number,
 ): Promise<BranchListItem[]> {
-  if (companyId != null && organizationId != null) {
-    return dedupeBranches(await loadCompanyBranches(organizationId, companyId, get));
+  if (companyId != null) {
+    const branches = await loadCompanyBranches(organizationId, companyId, get);
+    if (branches.length > 0) return dedupeBranches(branches);
   }
 
   if (organizationId != null && companyId == null && companies.length > 0) {
@@ -66,9 +66,6 @@ export async function loadBranchDirectory(
   let companies: CompanyListItem[] = [];
   if (listAllowed && organizationId != null) {
     companies = await loadOrganizationCompanies(organizationId, get, listContext).catch(() => []);
-  } else if (companyId != null && scope !== 'branch') {
-    const detail = await loadCompanyById(companyId, get).catch(() => null);
-    if (detail) companies = [detail];
   }
   const branches = await loadOrganizationBranches(organizationId, companies, get, companyId);
   const namesById = new Map(companies.map((company) => [String(company.id), company.name]));
@@ -83,7 +80,7 @@ export async function loadBranchDirectory(
 }
 
 async function loadCompanyBranches(
-  organizationId: number,
+  organizationId: number | undefined,
   companyId: number | string,
   get: GetJson,
 ): Promise<BranchListItem[]> {
@@ -97,14 +94,16 @@ async function loadCompanyBranches(
     if (!isMissingEndpoint(error)) throw error;
   }
 
-  try {
-    const items = parseBranchList(
-      await get(organizationCompanyBranchesPath(organizationId, companyId)),
-      companyId,
-    );
-    if (items.length > 0) return items;
-  } catch (error) {
-    if (!isMissingEndpoint(error)) throw error;
+  if (organizationId != null) {
+    try {
+      const items = parseBranchList(
+        await get(organizationCompanyBranchesPath(organizationId, companyId)),
+        companyId,
+      );
+      if (items.length > 0) return items;
+    } catch (error) {
+      if (!isMissingEndpoint(error)) throw error;
+    }
   }
 
   return [];

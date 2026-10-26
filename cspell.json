@@ -40,6 +40,8 @@
     "locatorjs",
     "lifecycles",
     "Hospixo",
+    "bgcolor",
+    "qrcode",
     "mult",
     "drilldown",
     "attendence",

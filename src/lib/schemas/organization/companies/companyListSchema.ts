@@ -44,6 +44,10 @@ function unwrapCompanies(payload: unknown): Record<string, unknown>[] {
     }
   }
 
+  if ('id' in unwrapped || 'name' in unwrapped || 'company_id' in unwrapped) {
+    return [unwrapped];
+  }
+
   return [];
 }
 

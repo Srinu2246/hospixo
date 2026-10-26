@@ -1,67 +1,71 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 
-import { loadCompanyById } from '@/lib/helpers/organizationCompanies';
 import { useEmployeeDirectory } from '@/lib/hooks/employees/user-roles';
 import { useSidebarStore } from '@/stores/sidebarStore';
-import { isRecord } from '@/lib/schemas/employees/user-roles/userRolesSchema';
-import { api } from '@/services/api/browserClient';
+import {
+  isRecord,
+  resolveScopeFromPathname,
+  type ScopeType,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import { isFallbackEntityName } from '@/lib/helpers/employees/userRolesHelpers';
 import type { JsonObject } from '@/types/json';
 
 /** Resolves the active company display name from session, /me, or directory lookup. */
-export function useResolvedCompanyName(explicitName?: string): string | undefined {
+export function useResolvedCompanyName(
+  explicitName?: string,
+  options?: { scope?: ScopeType },
+): string | undefined {
+  const pathname = usePathname() || '';
   const contextCompanyName = useSidebarStore((state) => state.context.companyName);
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
+  const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const account = useSidebarStore((state) => state.account);
   const organizationId = useSidebarStore(
     (state) => state.context.organizationId ?? state.account?.org_id ?? undefined,
   );
-  const setContext = useSidebarStore((state) => state.setContext);
+
+  const resolvedScope = resolveScopeFromPathname(pathname, options?.scope);
+  const isBranchScope =
+    resolvedScope === 'branch' || account?.scope === 'branch' || contextBranchId != null;
 
   const companyId = contextCompanyId ?? account?.company_id ?? undefined;
   const directory = useEmployeeDirectory(organizationId, companyId, {
-    scope: companyId != null ? 'company' : undefined,
+    scope: isBranchScope ? 'branch' : companyId != null ? 'company' : 'organization',
   });
 
   const fromDirectory = useMemo(() => {
     const companies = directory.data?.companies ?? [];
+    if (companies.length === 0) return undefined;
+
     if (companyId != null) {
-      return companies.find((company) => String(company.id) === String(companyId))?.name?.trim();
+      const byId = companies.find((company) => String(company.id) === String(companyId));
+      if (byId?.name && !isFallbackEntityName(byId.name)) {
+        return byId.name.trim();
+      }
     }
-    return companies[0]?.name?.trim();
+
+    const firstReal = companies.find((c) => !isFallbackEntityName(c.name));
+    return firstReal?.name?.trim();
   }, [directory.data?.companies, companyId]);
 
   const accountRecord = account as (typeof account & { company_name?: string }) | null;
-  const fromAccount =
+  const fromAccountRaw =
     accountRecord?.company_name?.trim() ||
     readNestedEntityName(toJsonObject(accountRecord), 'company');
+  const fromAccount =
+    fromAccountRaw && !isFallbackEntityName(fromAccountRaw) ? fromAccountRaw.trim() : undefined;
 
-  const resolved =
-    explicitName?.trim() || contextCompanyName?.trim() || fromAccount || fromDirectory || undefined;
+  const validExplicit =
+    explicitName?.trim() && !isFallbackEntityName(explicitName) ? explicitName.trim() : undefined;
+  const validContext =
+    contextCompanyName?.trim() && !isFallbackEntityName(contextCompanyName)
+      ? contextCompanyName.trim()
+      : undefined;
 
-  useEffect(() => {
-    if (!resolved || contextCompanyName === resolved) return;
-    setContext({ companyName: resolved });
-  }, [resolved, contextCompanyName, setContext]);
-
-  useEffect(() => {
-    if (resolved || companyId == null) return;
-
-    let cancelled = false;
-    void loadCompanyById(companyId, (path, params) => api.get(path, params))
-      .then((detail) => {
-        if (cancelled || !detail?.name?.trim()) return;
-        setContext({ companyId, companyName: detail.name.trim() });
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [resolved, companyId, setContext]);
-
-  return resolved;
+  return validExplicit || fromDirectory || validContext || fromAccount || undefined;
 }
 
 function toJsonObject(value: object | null | undefined): JsonObject | undefined {
