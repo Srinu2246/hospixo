@@ -71,14 +71,21 @@ export function CreateUserAssignmentSection({
       <Controller
         name="role"
         control={control}
-        render={({ field }) => (
-          <Dropdown
-            options={roleOptions}
-            value={field.value}
-            onChange={(val) => onFieldChange('role', val)}
-            placeholder="Select role"
-            sx={{ width: '100%' }}
-          />
+        render={({ field, fieldState }) => (
+          <>
+            <Dropdown
+              options={roleOptions}
+              value={field.value}
+              onChange={(val) => onFieldChange('role', val)}
+              placeholder="Select role"
+              sx={{ width: '100%' }}
+            />
+            {fieldState.error?.message && (
+              <Typography sx={{ fontSize: '0.75rem', color: 'error.main', mt: 0.5 }}>
+                {fieldState.error.message}
+              </Typography>
+            )}
+          </>
         )}
       />
     </Box>
@@ -106,16 +113,23 @@ export function CreateUserAssignmentSection({
             <Controller
               name="company"
               control={control}
-              render={({ field }) => (
-                <Dropdown
-                  options={companyOptions}
-                  value={field.value?.trim() ? field.value : ''}
-                  onChange={(val) => onFieldChange('company', val)}
-                  placeholder={
-                    companyOptions.length === 0 ? 'No companies available' : 'Select company'
-                  }
-                  sx={{ width: '100%' }}
-                />
+              render={({ field, fieldState }) => (
+                <>
+                  <Dropdown
+                    options={companyOptions}
+                    value={field.value?.trim() ? field.value : ''}
+                    onChange={(val) => onFieldChange('company', val)}
+                    placeholder={
+                      companyOptions.length === 0 ? 'No companies available' : 'Select company'
+                    }
+                    sx={{ width: '100%' }}
+                  />
+                  {fieldState.error?.message && (
+                    <Typography sx={{ fontSize: '0.75rem', color: 'error.main', mt: 0.5 }}>
+                      {fieldState.error.message}
+                    </Typography>
+                  )}
+                </>
               )}
             />
           ) : (
@@ -216,16 +230,23 @@ export function CreateUserAssignmentSection({
             <Controller
               name="branch"
               control={control}
-              render={({ field }) => (
-                <Dropdown
-                  options={branchOptions}
-                  value={field.value?.trim() ? field.value : ''}
-                  onChange={(val) => onFieldChange('branch', val)}
-                  placeholder={
-                    branchOptions.length === 0 ? 'No branches available' : 'Select branch'
-                  }
-                  sx={{ width: '100%' }}
-                />
+              render={({ field, fieldState }) => (
+                <>
+                  <Dropdown
+                    options={branchOptions}
+                    value={field.value?.trim() ? field.value : ''}
+                    onChange={(val) => onFieldChange('branch', val)}
+                    placeholder={
+                      branchOptions.length === 0 ? 'No branches available' : 'Select branch'
+                    }
+                    sx={{ width: '100%' }}
+                  />
+                  {fieldState.error?.message && (
+                    <Typography sx={{ fontSize: '0.75rem', color: 'error.main', mt: 0.5 }}>
+                      {fieldState.error.message}
+                    </Typography>
+                  )}
+                </>
               )}
             />
           )}

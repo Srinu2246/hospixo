@@ -10,7 +10,7 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Modal } from '@/components/shared/ui/Modal';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
-import { StatusRow } from '@/components/features/floor-and-table-setup/SetupFields';
+import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { filterByName, sectionStats } from '@/lib/helpers/floorAndTableSetup';
 import type {
@@ -304,7 +304,7 @@ function SectionForm({
         rows={3}
         onChange={(event) => setDraft({ ...draft, description: event.target.value })}
       />
-      <StatusRow
+      <LabeledSwitch
         title="Section Status"
         hint="Toggle active visibility on checkout POS channels"
         checked={draft.active}

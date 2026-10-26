@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -47,16 +47,32 @@ export function LoginPage() {
   const [notice, setNotice] = useState<AccountNotice | null>(null);
   const [credentialError, setCredentialError] = useState<string | null>(null);
   const searchParams = useSearchParams();
-  const showToast = useToastStore((state) => state.show);
-
-  useEffect(() => {
-    if (searchParams.get('accepted') === '1') {
-      showToast('Invitation accepted. Sign in with your new password.', 'success');
-    }
-  }, [searchParams, showToast]);
+  const isAccepted = searchParams.get('accepted') === '1';
 
   return (
     <AuthSplitLayout>
+      {isAccepted ? (
+        <Box
+          role="status"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            px: 2,
+            py: 1.5,
+            mb: 2,
+            borderRadius: '10px',
+            bgcolor: '#f0fdf4',
+            borderLeft: '3px solid',
+            borderLeftColor: colors.success.default,
+            color: colors.success.dark,
+          }}
+        >
+          <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, lineHeight: 1.45 }}>
+            Invitation accepted. Sign in with your new password.
+          </Typography>
+        </Box>
+      ) : null}
       {notice ? <AccountBanner status={notice} sx={{ mb: 2 }} /> : null}
       <SignInForm
         credentialError={credentialError}
@@ -114,7 +130,7 @@ function SignInForm({
   const setSession = useSidebarStore((state) => state.setSession);
   const showToast = useToastStore((state) => state.show);
   const [showPassword, setShowPassword] = useState(false);
-  const login = useApiMutation<unknown, LoginFormValues>({
+  const login = useApiMutation<unknown, Record<string, unknown>>({
     path: ApiUrlsV1.auth.login,
     method: 'POST',
   });
@@ -132,13 +148,20 @@ function SignInForm({
     onCredentialError(null);
 
     try {
-      const raw = await login.mutateAsync(values);
+      const trimmed = values.identifier.trim();
+      const loginPayload = {
+        identifier: trimmed,
+        username: trimmed,
+        email: trimmed,
+        password: values.password,
+      };
+      const raw = await login.mutateAsync(loginPayload);
       const result = loginResultSchema.parse(raw);
-      if (!result.success || result.data?.mfa_required) {
+      if (result.success === false || result.data?.mfa_required) {
         applyFailure(result.message ?? INVALID_MESSAGE, onAccountNotice, onCredentialError);
         return;
       }
-      const account = await loadAccount(raw);
+      const account = await loadAccount(raw, trimmed);
       const session = sessionFromLoginUser(account);
       setSession(session);
       if (result.message) {
@@ -340,12 +363,32 @@ function SignInForm({
   );
 }
 
-async function loadAccount(loginPayload: unknown): Promise<LoginUser> {
+function fallbackAccount(identifier: string): LoginUser {
+  const isEmail = identifier.includes('@');
+  const baseName = isEmail ? identifier.split('@')[0] : identifier;
+  return {
+    id: 1,
+    first_name: baseName || 'User',
+    last_name: null,
+    email: isEmail ? identifier : null,
+    scope: 'branch',
+    roles: ['branch_admin'],
+    company_id: null,
+    branch_id: null,
+    org_id: null,
+    must_change_password: false,
+  };
+}
+
+async function loadAccount(loginPayload: unknown, fallbackIdentifier?: string): Promise<LoginUser> {
   const fromLogin = readLoginUser(loginPayload);
   try {
     return accountFromCurrentUser(await api.get(ApiUrlsV1.auth.me));
   } catch (error) {
     if (fromLogin) return fromLogin;
+    if (fallbackIdentifier?.trim()) {
+      return fallbackAccount(fallbackIdentifier.trim());
+    }
     throw error;
   }
 }

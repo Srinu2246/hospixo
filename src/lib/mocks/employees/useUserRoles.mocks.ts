@@ -386,6 +386,43 @@ const DEFAULT_BRANCH_PERMISSION_CODES = [
   'branches.manage',
 ];
 
+const ROLE_PERMISSIONS_BY_ID: Record<string, string[]> = {
+  // Branch roles
+  '9': ['dashboard.view', 'branches.view', 'users.view', 'reports.view'], // Branch Admin
+  '10': ['dashboard.view', 'reports.view', 'inventory.view'], // Restaurant Manager
+  '11': ['dashboard.view', 'reports.view'], // Waiter / Steward
+  '12': ['dashboard.view', 'reports.view'], // Cashier
+  '13': ['dashboard.view'], // Kitchen Staff
+  '14': ['dashboard.view', 'branches.view', 'reports.view'], // Hotel Manager
+  '15': ['dashboard.view', 'reports.view'], // Receptionist
+  // Company roles
+  '4': [
+    'dashboard.view',
+    'dashboard.analytics',
+    'company.view',
+    'company.manage',
+    'branches.view',
+    'users.view',
+  ], // Company Admin
+  '5': ['dashboard.view', 'company.view', 'reports.view', 'reports.export'], // Finance Admin
+  '6': ['dashboard.view', 'users.view', 'users.create', 'users.edit'], // HR Admin
+  '7': ['dashboard.view', 'company.view', 'reports.view', 'reports.export'], // Accountant
+  '8': ['dashboard.view', 'inventory.view', 'inventory.items'], // Inventory Manager
+  // Organization roles
+  '1': [
+    'dashboard.view',
+    'dashboard.analytics',
+    'company.view',
+    'company.manage',
+    'users.view',
+    'users.create',
+    'roles.view',
+    'reports.view',
+  ],
+  '2': ['dashboard.view', 'company.view', 'users.view', 'reports.view'],
+  '3': ['dashboard.view', 'users.view'],
+};
+
 export function getDefaultPermissionCodes(isCompanyScope: boolean): string[] {
   return isCompanyScope ? DEFAULT_COMPANY_PERMISSION_CODES : DEFAULT_BRANCH_PERMISSION_CODES;
 }
@@ -684,7 +721,8 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
   const rolePermissionsMatch = request.path.match(/^\/v1\/roles\/([^/?]+)\/permissions(?:\?.*)?$/);
   if (rolePermissionsMatch) {
     if (request.method === 'GET') {
-      const roleIdNum = Number(rolePermissionsMatch[1]) || 12;
+      const roleIdStr = String(rolePermissionsMatch[1]);
+      const roleIdNum = Number(roleIdStr) || 12;
       const requestedScope = String(request.params?.scope_type ?? 'branch');
       const isCompanyScope =
         requestedScope === 'company' ||
@@ -694,7 +732,10 @@ export function resolveUserRolesMock(request: MockRequest): unknown | undefined 
         roleIdNum === 7 ||
         roleIdNum === 8;
 
-      const permissionCodes = getDefaultPermissionCodes(isCompanyScope);
+      const permissionCodes =
+        ROLE_PERMISSIONS_BY_ID[roleIdStr] ??
+        ROLE_PERMISSIONS_BY_ID[String(roleIdNum)] ??
+        (isCompanyScope ? ['company.view', 'reports.view'] : ['dashboard.view', 'reports.view']);
 
       return {
         success: true,

@@ -9,6 +9,7 @@ import {
   phoneSchema,
   personNameSchema,
   emailSchema,
+  parseRolePermissionsToCategories,
 } from './userRolesSchema';
 
 describe('userRolesSchema validation rules', () => {
@@ -237,6 +238,7 @@ import {
   autoEnableRolePermissions,
   resolveAssignmentPermissionsPayload,
   resolveCreateUserBranchOptions,
+  resolveCreateUserRequestContext,
 } from '@/lib/helpers/employees/userRolesHelpers';
 import {
   trySerializeCreateUserDraft,
@@ -473,4 +475,68 @@ test('createUserDraftSchema - trySerializeCreateUserDraft never persists passwor
   const hydrated = toCreateUserDraftHydration(draft!);
   assert.equal(hydrated.formValues.password, '');
   assert.equal(hydrated.formValues.firstName, 'John');
+});
+
+test('parseRolePermissionsToCategories - parses only role-specific permissions and filters denied ones', () => {
+  const payload = {
+    role_id: 12,
+    role_name: 'Cashier',
+    permission_codes: ['reports.view', 'reports.export'],
+  };
+
+  const categories = parseRolePermissionsToCategories(payload);
+  assert.equal(categories.length, 1);
+  assert.equal(categories[0]?.title, 'Reports');
+  assert.equal(categories[0]?.permissions.length, 2);
+  assert.deepEqual(
+    categories[0]?.permissions.map((p) => p.code),
+    ['reports.view', 'reports.export'],
+  );
+  assert.ok(categories[0]?.permissions.every((p) => p.enabled));
+
+  // When permissions array contains explicit is_granted / granted flags
+  const withGranted = {
+    role_id: 12,
+    permissions: [
+      { code: 'dashboard.view', name: 'View Dashboard', is_granted: true },
+      { code: 'users.delete', name: 'Delete Users', is_granted: false },
+    ],
+  };
+
+  const filtered = parseRolePermissionsToCategories(withGranted);
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0]?.permissions.length, 1);
+  assert.equal(filtered[0]?.permissions[0]?.code, 'dashboard.view');
+});
+
+test('resolveCreateUserRequestContext - aligns companyId with branch parent company', async () => {
+  const get = async (path: string) => {
+    if (path.includes('branches')) {
+      return [
+        {
+          id: 52,
+          name: 'City Outlet',
+          companyId: 102,
+          companyName: 'Taj hotel',
+          code: 'OUT',
+          city: 'Hyderabad',
+          status: 'active',
+          isDefault: true,
+        },
+      ];
+    }
+    return [];
+  };
+
+  const context = await resolveCreateUserRequestContext(
+    { branch: 'City Outlet', company: 'Taj hotel' },
+    { branchId: 52, companyId: 94, organizationId: 1 },
+    get as unknown as Parameters<typeof resolveCreateUserRequestContext>[2],
+    [{ id: 1, name: 'Branch Admin', code: 'branch_admin', scope: 'branch' }],
+    'branch_admin',
+  );
+
+  // Even though stale companyId: 94 was passed in ids, it aligns with the branch parent company 102!
+  assert.equal(context.branchId, 52);
+  assert.equal(context.companyId, 102);
 });
