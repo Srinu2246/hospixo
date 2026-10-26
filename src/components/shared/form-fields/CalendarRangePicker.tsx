@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import IconButton from '@mui/material/IconButton';
@@ -18,8 +18,6 @@ export interface CalendarRangePickerProps {
   size?: 'small' | 'medium' | 'large';
   minWidth?: number | string;
   disabled?: boolean;
-  /** Opens the calendar popover once when the control mounts. */
-  defaultOpen?: boolean;
   sx?: SxProps<Theme>;
 }
 
@@ -88,10 +86,8 @@ export function CalendarRangePicker({
   size = 'medium',
   minWidth = 240,
   disabled = false,
-  defaultOpen = false,
   sx,
 }: Readonly<CalendarRangePickerProps>) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [viewDate, setViewDate] = useState(() => startOfDay(dateFrom));
   const [draftFrom, setDraftFrom] = useState<Date | null>(() => startOfDay(dateFrom));
@@ -100,16 +96,6 @@ export function CalendarRangePicker({
   const open = Boolean(anchorEl);
 
   const label = useMemo(() => formatCalendarRangeLabel(dateFrom, dateTo), [dateFrom, dateTo]);
-
-  useEffect(() => {
-    if (!defaultOpen || disabled) return;
-    const trigger = triggerRef.current;
-    if (!trigger) return;
-    setAnchorEl(trigger);
-    setViewDate(startOfDay(dateFrom));
-    setDraftFrom(startOfDay(dateFrom));
-    setDraftTo(startOfDay(dateTo));
-  }, [defaultOpen, disabled, dateFrom, dateTo]);
 
   const handleOpen = (event: MouseEvent<HTMLElement>) => {
     if (disabled) return;
@@ -158,7 +144,6 @@ export function CalendarRangePicker({
   return (
     <>
       <ButtonBase
-        ref={triggerRef}
         component="button"
         type="button"
         onClick={handleOpen}
