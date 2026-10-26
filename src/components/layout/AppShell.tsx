@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { Sidebar } from '@/components/shared/app/Sidebar';
 import { TopNavbar } from '@/components/shared/app/TopNavbar';
+import { BranchWorkspaceBottomNav } from '@/components/shared/app/BranchWorkspaceBottomNav';
 import { WorkspaceBottomNav } from '@/components/shared/app/WorkspaceBottomNav';
 import { Toast } from '@/components/shared/ui/Toast';
 import { isSidebarlessRole } from '@/app/sidebar';
@@ -257,7 +258,10 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
                     [screen.tablet]: POS_CAPTAIN_COMPACT_PADDING,
                     [screen.desktop]: 3,
                   }
-                : { [screen.mobile]: 2, [screen.desktop]: 3 },
+                : {
+                    [screen.mobile]: '15px 16px 10px',
+                    [screen.desktop]: 3,
+                  },
               pb: captainPath
                 ? {
                     [screen.mobile]:
@@ -297,16 +301,20 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
           />
         </Box>
 
-        <Box
-          sx={{
-            display: captainPath ? { [screen.mobile]: 'block', [screen.desktop]: 'none' } : 'none',
-            flexShrink: 0,
-            zIndex: 40,
-            position: 'relative',
-          }}
-        >
-          <WorkspaceBottomNav />
-        </Box>
+        {captainPath ? (
+          <Box
+            sx={{
+              display: { [screen.mobile]: 'block', [screen.desktop]: 'none' },
+              flexShrink: 0,
+              zIndex: 40,
+              position: 'relative',
+            }}
+          >
+            <WorkspaceBottomNav />
+          </Box>
+        ) : (
+          <BranchWorkspaceBottomNav role={role} context={context} user={user} />
+        )}
       </Box>
       {toast}
     </Box>

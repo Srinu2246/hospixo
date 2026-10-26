@@ -30,21 +30,10 @@ export const posTableItemSchema = z.object({
 
 export type PosTableItem = z.infer<typeof posTableItemSchema>;
 
-export interface PosFloorTab {
-  id: string;
-  label: string;
-}
-
 export interface PosStatusFilter {
   id: string;
   label: string;
 }
-
-/** Fallback floor tabs when the floors API has not loaded yet. */
-export const POS_FLOOR_TABS: PosFloorTab[] = [
-  { id: '59', label: 'Ground Floor' },
-  { id: '66', label: 'First Floor' },
-];
 
 export const POS_STATUS_FILTERS: PosStatusFilter[] = [
   { id: 'all', label: 'All' },

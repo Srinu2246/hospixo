@@ -223,6 +223,17 @@ export type FloorDetailRoute = {
 const DETAIL_ROUTE =
   /\/floors\/([^/]+)(?:\/(overview|floor|sections|tables|history))?(?:\/([^/]+))?(?:\/(edit))?$/;
 
+const LEGACY_FLOOR_SETUP = /\/floor-table-setup\/([^/]+)$/;
+
+const WIZARD_STEP_SEGMENTS = new Set(['floor', 'section', 'table', 'review', 'success', 'create']);
+
+function parseLegacyTab(value: string | null | undefined): FloorDetailTab {
+  if (value === 'floor' || value === 'sections' || value === 'tables' || value === 'history') {
+    return value;
+  }
+  return 'overview';
+}
+
 export function parseFloorRoute(pathname: string): { base: string; step: FloorRouteStep } {
   const normalized = pathname.replace(/\/$/, '') || '/';
   const detailAt = normalized.indexOf('/floors/');
@@ -235,18 +246,34 @@ export function parseFloorRoute(pathname: string): { base: string; step: FloorRo
   };
 }
 
-export function parseFloorDetailRoute(pathname: string): FloorDetailRoute | null {
-  const match = DETAIL_ROUTE.exec(pathname.replace(/\/$/, ''));
-  if (!match?.[1]) return null;
-  const tab = match[2];
+export function parseFloorDetailRoute(
+  pathname: string,
+  searchTab?: string | null,
+): FloorDetailRoute | null {
+  const normalized = pathname.replace(/\/$/, '');
+  const match = DETAIL_ROUTE.exec(normalized);
+  if (match?.[1]) {
+    const tab = match[2];
+    return {
+      floorId: decodeURIComponent(match[1]),
+      tab:
+        tab === 'floor' || tab === 'sections' || tab === 'tables' || tab === 'history'
+          ? tab
+          : 'overview',
+      sectionId: match[3] ? decodeURIComponent(match[3]) : null,
+      editing: match[4] === 'edit',
+    };
+  }
+
+  const legacy = LEGACY_FLOOR_SETUP.exec(normalized);
+  if (!legacy?.[1]) return null;
+  const floorId = decodeURIComponent(legacy[1]);
+  if (WIZARD_STEP_SEGMENTS.has(floorId)) return null;
   return {
-    floorId: decodeURIComponent(match[1]),
-    tab:
-      tab === 'floor' || tab === 'sections' || tab === 'tables' || tab === 'history'
-        ? tab
-        : 'overview',
-    sectionId: match[3] ? decodeURIComponent(match[3]) : null,
-    editing: match[4] === 'edit',
+    floorId,
+    tab: parseLegacyTab(searchTab),
+    sectionId: null,
+    editing: false,
   };
 }
 
