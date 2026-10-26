@@ -7,8 +7,13 @@ import {
   usernameSchema,
 } from '@/lib/schemas/commonFieldsSchema';
 import type { JsonObject, JsonValue } from '@/types/json';
+import {
+  userListSummarySchema,
+  type UserListSummary,
+} from '@/lib/schemas/users/userListFilterSchema';
 
 export { phoneSchema, passwordSchema, personNameSchema, emailSchema, usernameSchema };
+export * from '@/lib/schemas/users/userListFilterSchema';
 
 // ============================================================================
 // 1. Primitive Domain Types & Enums
@@ -264,6 +269,7 @@ export type CreateUserRequestContext = {
 export type ParsedUserList = {
   items: UserRoleItem[];
   total: number;
+  summary?: UserListSummary;
 };
 
 export type UserRoleListResponse = ParsedUserList;
@@ -274,7 +280,29 @@ export function parseUserList(payload: JsonValue): ParsedUserList {
     const coerced = coerceUserItem(mapUserRow(row));
     return coerced ? [coerced] : [];
   });
-  return { items, total: readTotal(payload, items.length) };
+  const summary = readSummary(payload);
+  return {
+    items,
+    total: readTotal(payload, items.length),
+    ...(summary ? { summary } : {}),
+  };
+}
+
+function readSummary(payload: JsonValue): UserListSummary | undefined {
+  if (!isRecord(payload)) return undefined;
+  const rawSummary =
+    payload.summary ??
+    payload.counts ??
+    payload.totals ??
+    (isRecord(payload.data)
+      ? ((payload.data as JsonObject).summary ?? (payload.data as JsonObject).counts)
+      : undefined);
+
+  if (isRecord(rawSummary)) {
+    const parsed = userListSummarySchema.safeParse(rawSummary);
+    if (parsed.success) return parsed.data;
+  }
+  return undefined;
 }
 
 /** Fill missing role labels using GET /v1/roles catalog rows. */

@@ -471,15 +471,106 @@ function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
       const found = allUsers.find((user) => user.id === itemId) ?? mockUsersDataset[0];
       return formatMockUserDetail(found);
     }
-    let items = mockUsersDataset;
+    let items = [...mockUsersDataset];
     const search = request.params?.search;
     if (typeof search === 'string' && search.trim()) {
       const q = search.toLowerCase();
       items = items.filter(
-        (user) => user.name.toLowerCase().includes(q) || user.email.toLowerCase().includes(q),
+        (user) =>
+          user.name.toLowerCase().includes(q) ||
+          user.email.toLowerCase().includes(q) ||
+          (user.phone && user.phone.includes(q)),
       );
     }
-    return items;
+    const status = request.params?.status;
+    if (
+      typeof status === 'string' &&
+      status.trim() &&
+      status !== 'all' &&
+      status !== 'All Statuses'
+    ) {
+      items = items.filter((user) => user.status.toLowerCase() === status.toLowerCase());
+    }
+    const role = request.params?.role;
+    if (typeof role === 'string' && role.trim() && role !== 'all' && role !== 'All Roles') {
+      const rLower = role.toLowerCase();
+      items = items.filter(
+        (user) =>
+          user.role.toLowerCase() === rLower ||
+          user.roleCode?.toLowerCase() === rLower ||
+          user.role.toLowerCase().replace(/[^a-z0-9]+/g, '_') === rLower,
+      );
+    }
+    const companyId = request.params?.company_id;
+    if (companyId != null && String(companyId).trim()) {
+      items = items.filter((user) => String(user.companyId ?? 94) === String(companyId));
+    }
+    const branchId = request.params?.branch_id;
+    if (branchId != null && String(branchId).trim()) {
+      items = items.filter((user) => String(user.branchId ?? 1) === String(branchId));
+    }
+    const branchName = request.params?.branch;
+    if (typeof branchName === 'string' && branchName.trim()) {
+      items = items.filter((user) => user.branch.toLowerCase() === branchName.toLowerCase());
+    }
+
+    // Sort users
+    const sortBy = String(request.params?.sort_by ?? 'created_at');
+    const sortOrder = String(request.params?.sort_order ?? 'desc').toLowerCase();
+    items.sort((a, b) => {
+      let valA: string | number = '';
+      let valB: string | number = '';
+      if (sortBy === 'name') {
+        valA = a.name.toLowerCase();
+        valB = b.name.toLowerCase();
+      } else if (sortBy === 'email') {
+        valA = a.email.toLowerCase();
+        valB = b.email.toLowerCase();
+      } else if (sortBy === 'role') {
+        valA = a.role.toLowerCase();
+        valB = b.role.toLowerCase();
+      } else if (sortBy === 'status') {
+        valA = a.status.toLowerCase();
+        valB = b.status.toLowerCase();
+      } else if (sortBy === 'branch') {
+        valA = a.branch.toLowerCase();
+        valB = b.branch.toLowerCase();
+      } else if (sortBy === 'company') {
+        valA = (a.company ?? '').toLowerCase();
+        valB = (b.company ?? '').toLowerCase();
+      } else if (sortBy === 'id') {
+        valA = a.id;
+        valB = b.id;
+      } else {
+        valA = a.createdAt ?? '';
+        valB = b.createdAt ?? '';
+      }
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    const total = items.length;
+    const page = Math.max(1, Number(request.params?.page) || 1);
+    const pageSize = Math.max(1, Math.min(100, Number(request.params?.page_size) || 20));
+    const startIndex = (page - 1) * pageSize;
+    const pagedItems = items.slice(startIndex, startIndex + pageSize);
+
+    const summary = {
+      total_users: mockUsersDataset.length,
+      active_now: mockUsersDataset.filter((u) => u.status === 'active').length,
+      pending_invites: mockUsersDataset.filter((u) => u.status === 'invited').length,
+      user_roles: new Set(mockUsersDataset.map((u) => u.role)).size,
+    };
+
+    return {
+      items: pagedItems,
+      total,
+      page,
+      page_size: pageSize,
+      total_pages: Math.ceil(total / pageSize) || 1,
+      summary,
+    };
   }
 
   if (request.method === 'POST') {

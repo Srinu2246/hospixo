@@ -20,6 +20,9 @@ export interface UserRoleDataGridProps {
   totalRows: number;
   scope?: ScopeType;
   companyName?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  onSortChange?: (field: string, direction: 'asc' | 'desc') => void;
   onPageChange: (newPage: number) => void;
   onOpenActionMenu: (e: React.MouseEvent<HTMLButtonElement>, user: UserRoleItem) => void;
 }
@@ -32,6 +35,9 @@ export function UserRoleDataGrid({
   totalRows,
   scope,
   companyName,
+  sortBy,
+  sortOrder,
+  onSortChange,
   onPageChange,
   onOpenActionMenu,
 }: Readonly<UserRoleDataGridProps>) {
@@ -127,22 +133,7 @@ export function UserRoleDataGrid({
         field: 'status',
         headerName: 'STATUS',
         minWidth: 130,
-        render: (row) => (
-          <StatusChip
-            label={row.status}
-            status={row.status}
-            showDot
-            sx={{
-              height: 24,
-              fontWeight: 600,
-              fontSize: '0.8125rem',
-              borderRadius: '6px',
-              bgcolor: 'transparent',
-              textTransform: 'lowercase',
-              '& .MuiChip-label': { px: 0.5 },
-            }}
-          />
-        ),
+        render: (row) => <StatusChip status={row.status} />,
       },
       {
         field: 'actions',
@@ -202,6 +193,9 @@ export function UserRoleDataGrid({
         page={page}
         pageSize={pageSize}
         totalRows={totalRows}
+        sortBy={sortBy}
+        sortDirection={sortOrder}
+        onSortChange={onSortChange}
         onPageChange={onPageChange}
         paginationEntityName="users"
         emptyTitle="No users found"
