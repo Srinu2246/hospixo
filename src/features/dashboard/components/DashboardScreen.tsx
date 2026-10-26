@@ -143,21 +143,15 @@ export function DashboardScreen({
         };
       case 'company':
         return {
-          title: 'All Outlet Statistics',
+          title: 'All Branches Statistics',
           entityLabel: 'Outlets',
-          options:
-            branches.length > 0
-              ? ['All Outlets', ...branches.map((branch) => branch.name)]
-              : ['All Outlets'],
+          options: [],
         };
       case 'branch':
         return {
           title: 'Sales Statistics',
           entityLabel: 'Branch',
-          options:
-            branches.length > 0
-              ? ['All Outlets', ...branches.map((branch) => branch.name)]
-              : ['All Outlets'],
+          options: [],
         };
     }
   }, [currentLevel, directory.data]);

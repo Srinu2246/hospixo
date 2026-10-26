@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Card } from '@/components/shared/ui/Card';
@@ -26,8 +25,15 @@ export function RevenueForecastCard() {
       }}
     >
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 1,
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
           <Typography
             sx={{
               fontSize: '0.6875rem',
@@ -57,15 +63,21 @@ export function RevenueForecastCard() {
 
         {/* High Confidence Badge */}
         <Box
+          component="span"
           sx={{
-            px: 1.25,
-            py: 0.35,
+            px: { xs: 0.75, md: 0.875, lg: 1.25 },
+            py: { xs: 0.25, md: 0.3, lg: 0.35 },
             borderRadius: '9999px',
             bgcolor: (theme) =>
               theme.palette.mode === 'dark' ? 'rgba(27, 89, 248, 0.15)' : '#EFF4FE',
             color: colors.primary.default,
-            fontSize: '0.6875rem',
+            fontSize: { xs: '0.5625rem', md: '0.5625rem', lg: '0.6875rem' },
             fontWeight: 700,
+            lineHeight: 1.25,
+            letterSpacing: { xs: '-0.01em', md: '-0.01em', lg: 'normal' },
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            alignSelf: 'flex-start',
           }}
         >
           High Confidence

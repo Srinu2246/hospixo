@@ -3,8 +3,6 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 
-import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
-import { StatusChip } from '@/components/shared/ui/StatusChip';
 import {
   COMPANY_PERFORMANCE_ROWS,
   ORG_STAT_CARDS,
@@ -116,53 +114,5 @@ export function OrganizationDashboard({
         />
       </Box>
     </Box>
-  );
-}
-
-export function BranchDirectory({
-  branches = [],
-  isLoading = false,
-}: Readonly<{ branches?: BranchListItem[]; isLoading?: boolean }>) {
-  const columns: readonly DataGridColumn<BranchListItem>[] = [
-    { field: 'name', headerName: 'Branch', minWidth: 220 },
-    {
-      field: 'city',
-      headerName: 'City',
-      minWidth: 140,
-      renderCell: ({ row }) => row.city || '—',
-    },
-    {
-      field: 'code',
-      headerName: 'Code',
-      minWidth: 120,
-      renderCell: ({ row }) => row.code || '—',
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      minWidth: 120,
-      sortable: false,
-      renderCell: ({ row }) => (
-        <StatusChip
-          status={row.status}
-          label={row.status === 'active' ? 'Active' : 'Inactive'}
-          variantType={row.status === 'active' ? 'success' : 'default'}
-        />
-      ),
-    },
-  ];
-
-  return (
-    <DataGrid
-      columns={columns}
-      rows={branches}
-      getRowId={(row) => String(row.id)}
-      loading={isLoading}
-      emptyTitle="No branches found"
-      emptySubtitle="The branches API did not return any outlets."
-      ariaLabel="Branches"
-      pagination
-      paginationEntityName="branches"
-    />
   );
 }
