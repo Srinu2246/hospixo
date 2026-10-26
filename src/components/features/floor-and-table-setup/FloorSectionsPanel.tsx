@@ -22,6 +22,8 @@ import type {
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { useCreateTable } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { SectionQrDialog } from '@/components/features/floor-and-table-setup/SectionQrDialog';
+import type { SectionGuestMenuTarget } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
 import { screen } from '@/lib/theme/mui/breakpoints';
 
 export function FloorSectionsPanel({
@@ -31,6 +33,7 @@ export function FloorSectionsPanel({
   editing,
   branchId,
   floorId,
+  branchName,
   onOpen,
   onEdit,
   onAdd,
@@ -43,27 +46,61 @@ export function FloorSectionsPanel({
   editing: boolean;
   branchId?: number;
   floorId?: number;
+  branchName?: string;
   onOpen: (sectionId: string) => void;
   onEdit: (sectionId: string) => void;
   onAdd: () => void;
   onSave: (section: CatalogSection) => void;
   onCancel: () => void;
 }>) {
+  const [qrSection, setQrSection] = useState<SectionGuestMenuTarget | null>(null);
+  const qrDialog = (
+    <SectionQrDialog
+      open={qrSection != null}
+      section={qrSection}
+      floorId={floorId != null ? String(floorId) : null}
+      outletLabel={branchName?.trim() || 'outlet'}
+      outletId={branchId != null ? String(branchId) : null}
+      branchId={branchId ?? null}
+      onClose={() => setQrSection(null)}
+    />
+  );
+
   if (editing) {
-    return <SectionEditor section={selected} onSave={onSave} onCancel={onCancel} />;
+    return (
+      <>
+        {qrDialog}
+        <SectionEditor section={selected} onSave={onSave} onCancel={onCancel} />
+      </>
+    );
   }
   if (selected) {
     return (
-      <SectionDetail
-        section={selected}
-        tables={tables.filter((item) => item.sectionId === selected.id)}
-        floorTables={tables}
-        branchId={branchId}
-        floorId={floorId}
-      />
+      <>
+        {qrDialog}
+        <SectionDetail
+          section={selected}
+          tables={tables.filter((item) => item.sectionId === selected.id)}
+          floorTables={tables}
+          branchId={branchId}
+          floorId={floorId}
+          onDownloadQr={() => setQrSection({ id: selected.id, name: selected.name })}
+        />
+      </>
     );
   }
-  return <SectionList sections={sections} onOpen={onOpen} onEdit={onEdit} onAdd={onAdd} />;
+  return (
+    <>
+      {qrDialog}
+      <SectionList
+        sections={sections}
+        onOpen={onOpen}
+        onEdit={onEdit}
+        onAdd={onAdd}
+        onDownloadQr={(section) => setQrSection({ id: section.id, name: section.name })}
+      />
+    </>
+  );
 }
 
 function SectionList({
@@ -71,11 +108,13 @@ function SectionList({
   onOpen,
   onEdit,
   onAdd,
+  onDownloadQr,
 }: Readonly<{
   sections: readonly CatalogSection[];
   onOpen: (sectionId: string) => void;
   onEdit: (sectionId: string) => void;
   onAdd: () => void;
+  onDownloadQr: (section: CatalogSection) => void;
 }>) {
   return (
     <Stack spacing={2}>
@@ -149,7 +188,12 @@ function SectionList({
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
             >
-              <ActionButton variant="outlined" size="small" startIcon={<QrCode size={14} />}>
+              <ActionButton
+                variant="outlined"
+                size="small"
+                startIcon={<QrCode size={14} />}
+                onClick={() => onDownloadQr(section)}
+              >
                 Download QR
               </ActionButton>
               <Stack direction="row" spacing={0.5}>
@@ -184,12 +228,14 @@ function SectionDetail({
   floorTables,
   branchId,
   floorId,
+  onDownloadQr,
 }: Readonly<{
   section: CatalogSection;
   tables: readonly CatalogTable[];
   floorTables: readonly CatalogTable[];
   branchId?: number;
   floorId?: number;
+  onDownloadQr: () => void;
 }>) {
   const [draft, setDraft] = useState<CatalogTable | null>(null);
   const createTable = useCreateTable(branchId);
@@ -218,7 +264,20 @@ function SectionDetail({
   return (
     <Stack spacing={2}>
       <SetupCard>
-        <Typography sx={{ fontWeight: 800, mb: 2 }}>Section Information</Typography>
+        <Stack
+          direction="row"
+          sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+        >
+          <Typography sx={{ fontWeight: 800 }}>Section Information</Typography>
+          <ActionButton
+            variant="outlined"
+            size="small"
+            startIcon={<QrCode size={14} />}
+            onClick={onDownloadQr}
+          >
+            Download QR
+          </ActionButton>
+        </Stack>
         <Box
           sx={{
             display: 'grid',

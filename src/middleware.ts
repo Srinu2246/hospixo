@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { normalizeRoleKey } from '@/app/sidebar';
-import { isPublicAuthPath } from '@/lib/auth/publicAuthRoutes';
+import { isPublicWithoutSessionPath } from '@/lib/auth/publicAuthRoutes';
 import { homePathForRole, parseSidebarSession } from '@/lib/auth/session';
 
 const SESSION_COOKIE = 'session';
@@ -25,10 +25,8 @@ export function middleware(request: NextRequest) {
 
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
   const isLogin = pathname === '/login' || pathname.startsWith('/login/');
-  const isPublicAuth = isPublicAuthPath(pathname);
-
   if (!hasSession) {
-    if (isPublicAuth) return NextResponse.next();
+    if (isPublicWithoutSessionPath(pathname)) return NextResponse.next();
 
     const url = request.nextUrl.clone();
     url.pathname = '/login';
