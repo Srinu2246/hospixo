@@ -7,7 +7,7 @@ import { Check } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import { floorTypeLabel, reservationsOnline, totalSeats } from '@/lib/helpers/floorAndTableSetup';
+import { reservationsOnline, totalSeats } from '@/lib/helpers/floorAndTableSetup';
 import type { SavedFloor } from '@/features/management/floor-and-table-setup/types/floorSetup';
 
 export function SuccessStep({
@@ -24,7 +24,6 @@ export function SuccessStep({
   const seatCount = totalSeats(floor.tables);
   const rows = [
     { label: 'Floor Name', value: floor.details.name },
-    { label: 'Floor Type', value: floorTypeLabel(floor.details.type) },
     {
       label: 'Seating Summary',
       value: `${floor.tables.length} ${floor.tables.length === 1 ? 'Table' : 'Tables'} - ${seatCount} ${seatCount === 1 ? 'Seat' : 'Seats'}`,

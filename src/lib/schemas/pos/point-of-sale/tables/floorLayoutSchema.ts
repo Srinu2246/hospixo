@@ -21,7 +21,6 @@ export const posFloorLayoutItemSchema = z.object({
   id: z.number(),
   name: z.string(),
   code: nullableText,
-  floor_type: nullableText,
   is_active: z.boolean().optional(),
   status: posFloorStatusSchema.optional(),
   table_count: z.number().optional(),

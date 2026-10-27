@@ -3,6 +3,7 @@ import { createTheme } from '@mui/material/styles';
 import { breakpoints } from './breakpoints';
 import { colors, lightPalette, darkPalette } from './colors';
 import { muiButtonOverrides, muiIconButtonOverrides } from './components/button';
+import { APP_FONT_FAMILY, APP_FONT_SIZE_SCALE } from './font';
 import { shape } from './shape';
 import { spacing } from './spacing';
 import { typography } from './typography';
@@ -76,6 +77,20 @@ export const getTheme = (mode: 'light' | 'dark' = 'light') => {
     },
 
     components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          html: {
+            fontFamily: APP_FONT_FAMILY,
+            fontSize: APP_FONT_SIZE_SCALE,
+          },
+          body: {
+            fontFamily: APP_FONT_FAMILY,
+            WebkitFontSmoothing: 'antialiased',
+            MozOsxFontSmoothing: 'grayscale',
+          },
+          'input, textarea, select, button': { fontFamily: 'inherit' },
+        },
+      },
       MuiButton: muiButtonOverrides,
       MuiIconButton: muiIconButtonOverrides,
     },

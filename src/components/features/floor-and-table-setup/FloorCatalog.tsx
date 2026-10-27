@@ -18,6 +18,7 @@ import {
   type FloorStatusFilter,
   type FloorSummary,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
+import { tableSeatSummary } from '@/lib/helpers/floorAndTableSetup';
 import { screen } from '@/lib/theme/mui/breakpoints';
 
 const sortOptions = [
@@ -154,9 +155,9 @@ export function FloorCatalog({
           </Box>
           <Box
             sx={{
-              flex: '1.2 1 0',
+              flex: '1.4 1 0',
               minWidth: 0,
-              maxWidth: 230,
+              maxWidth: 320,
               '& > .MuiFormControl-root': { width: '100%', minWidth: 0 },
             }}
           >
@@ -167,7 +168,15 @@ export function FloorCatalog({
               onChange={setSort}
               size="large"
               minWidth={0}
-              sx={dropdownSx}
+              sx={{
+                ...dropdownSx,
+                fontSize: '0.8125rem',
+                '& .MuiSelect-select': {
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  fontSize: '0.8125rem',
+                },
+              }}
             />
           </Box>
           <Box
@@ -281,8 +290,8 @@ function FloorCard({
           variantType={floor.active ? 'success' : 'default'}
         />
       </Stack>
-      <Typography sx={{ color: 'text.secondary', mt: 1, fontSize: '0.875rem' }}>
-        {floor.code || 'No code'}
+      <Typography sx={{ color: 'text.secondary', mt: 1.5, fontSize: '0.9375rem', fontWeight: 600 }}>
+        {tableSeatSummary(floor.tableCount ?? 0, floor.seatCount ?? 0)}
       </Typography>
       <Stack
         direction="row"

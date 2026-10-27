@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -10,10 +12,11 @@ import { useTheme } from '@mui/material/styles';
 import { Eye, LayoutGrid, Pencil, Plus, QrCode } from 'lucide-react';
 
 import {
-  EditTableDialog,
+  isPersistedId,
   nextTableNames,
   numericId,
 } from '@/components/features/floor-and-table-setup/EditTableDialog';
+import { TableGenerateDialog } from '@/components/shared/ui/TableGenerateDialog';
 import { SetupCard } from '@/components/features/floor-and-table-setup/SetupFields';
 import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
@@ -27,9 +30,15 @@ import {
   type CatalogTable,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { useCreateTable } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
+import {
+  canSubmitSetupForm,
+  sectionFormSchema,
+  type SectionFormValues,
+} from '@/lib/schemas/floor-and-table-setup/floorSetupFormSchema';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { SectionQrDialog } from '@/components/features/floor-and-table-setup/SectionQrDialog';
 import type { SectionGuestMenuTarget } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
+import { tableSeatSummary } from '@/lib/helpers/floorAndTableSetup';
 import { screen } from '@/lib/theme/mui/breakpoints';
 
 const compactFilterDropdownSx = {
@@ -87,7 +96,12 @@ export function FloorSectionsPanel({
     return (
       <>
         {qrDialog}
-        <SectionEditor section={selected} onSave={onSave} onCancel={onCancel} />
+        <SectionEditor
+          key={selected?.id ?? 'new'}
+          section={selected}
+          onSave={onSave}
+          onCancel={onCancel}
+        />
       </>
     );
   }
@@ -249,8 +263,10 @@ function SectionList({
                 variantType={section.active ? 'success' : 'default'}
               />
             </Stack>
-            <Typography sx={{ color: 'text.secondary', mt: 1, fontSize: '0.875rem' }}>
-              {section.tableCount} Tables · {section.seatCount} Seats
+            <Typography
+              sx={{ color: 'text.secondary', mt: 1.5, fontSize: '0.9375rem', fontWeight: 600 }}
+            >
+              {tableSeatSummary(section.tableCount, section.seatCount)}
             </Typography>
             <Stack
               direction="row"
@@ -346,25 +362,25 @@ function SectionDetail({
   floorId?: number;
   onDownloadQr: () => void;
 }>) {
-  const [draft, setDraft] = useState<CatalogTable | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const createTable = useCreateTable(branchId);
   const sectionId = numericId(section.id);
   const canCreate = floorId != null && sectionId != null;
 
-  async function saveTable(next: CatalogTable) {
+  async function saveTable(name: string, seats: number) {
     if (floorId == null || sectionId == null) return;
     try {
       await createTable.mutateAsync({
         floorId,
         sectionId,
         body: {
-          name: next.number.trim(),
-          description: next.description ?? '',
-          capacity: next.seats,
-          sort_order: next.sortOrder ?? floorTables.length,
+          name: name.trim(),
+          description: '',
+          capacity: seats,
+          sort_order: floorTables.length,
         },
       });
-      setDraft(null);
+      setCreateOpen(false);
     } catch {
       // Error toast is shown by the API client (POST/PATCH).
     }
@@ -441,18 +457,7 @@ function SectionDetail({
           <ActionButton
             startIcon={<Plus size={16} />}
             disabled={!canCreate || createTable.isPending}
-            onClick={() =>
-              setDraft({
-                id: `t-${Date.now()}`,
-                number: nextTableNames(floorTables, 1)[0] ?? 'T001',
-                seats: 4,
-                active: true,
-                reservations: true,
-                sectionId: section.id,
-                area: section.name,
-                shape: 'Square',
-              })
-            }
+            onClick={() => setCreateOpen(true)}
             sx={{ width: { [screen.mobile]: '100%', [screen.desktop]: 'auto' } }}
           >
             Add Table
@@ -498,14 +503,14 @@ function SectionDetail({
         )}
       </Box>
 
-      <EditTableDialog
-        table={draft}
-        sections={[section]}
+      <TableGenerateDialog
+        open={createOpen}
+        mode="create"
+        start={nextTableNames(floorTables, 1)[0] ?? 'T001'}
         saving={createTable.isPending}
-        lockSection
-        onClose={() => setDraft(null)}
-        onSave={(next) => {
-          void saveTable(next);
+        onClose={() => setCreateOpen(false)}
+        onGenerate={(input) => {
+          void saveTable(input.start, input.seats);
         }}
       />
     </Stack>
@@ -521,21 +526,34 @@ function SectionEditor({
   onSave: (section: CatalogSection) => void;
   onCancel: () => void;
 }>) {
-  const [draft, setDraft] = useState<CatalogSection>(
-    () =>
-      section ?? {
-        id: 'section-draft',
-        name: '',
-        code: '',
-        description: '',
-        active: true,
-        tableCount: 0,
-        seatCount: 0,
-        activeTableCount: 0,
-        inactiveTableCount: 0,
-      },
-  );
+  const mode = section && isPersistedId(section.id) ? 'edit' : 'add';
+  const base: CatalogSection = section ?? {
+    id: 'section-draft',
+    name: '',
+    code: '',
+    description: '',
+    active: true,
+    tableCount: 0,
+    seatCount: 0,
+    activeTableCount: 0,
+    inactiveTableCount: 0,
+  };
+  const { control, handleSubmit, trigger, formState } = useForm<SectionFormValues>({
+    resolver: zodResolver(sectionFormSchema),
+    defaultValues: {
+      name: base.name,
+      code: base.code,
+      description: base.description,
+      active: base.active,
+    },
+    mode: 'onChange',
+  });
+  const canSave = canSubmitSetupForm(mode, formState);
   const footerTarget = useAppShellFooterTarget();
+
+  useEffect(() => {
+    void trigger();
+  }, [trigger]);
 
   const footer = (
     <Stack
@@ -561,7 +579,17 @@ function SectionEditor({
         Cancel
       </ActionButton>
       <ActionButton
-        onClick={() => onSave(draft)}
+        disabled={!canSave}
+        onClick={handleSubmit((values) => {
+          if (!canSave) return;
+          onSave({
+            ...base,
+            name: values.name.trim(),
+            code: values.code.trim(),
+            description: values.description.trim(),
+            active: values.active,
+          });
+        })}
         sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
       >
         Save Changes
@@ -580,35 +608,65 @@ function SectionEditor({
             gap: 2,
           }}
         >
-          <Input
-            id="edit-section-name"
-            label="Section Name"
-            value={draft.name}
-            onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+          <Controller
+            name="name"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Input
+                id="edit-section-name"
+                label="Section Name"
+                required
+                value={field.value}
+                error={fieldState.isTouched && Boolean(fieldState.error)}
+                helperText={fieldState.isTouched ? fieldState.error?.message : undefined}
+                onBlur={field.onBlur}
+                onChange={field.onChange}
+              />
+            )}
           />
-          <Input
-            id="edit-section-code"
-            label="Section Code"
-            value={draft.code}
-            onChange={(event) => setDraft({ ...draft, code: event.target.value })}
+          <Controller
+            name="code"
+            control={control}
+            render={({ field }) => (
+              <Input
+                id="edit-section-code"
+                label="Section Code"
+                value={field.value}
+                onBlur={field.onBlur}
+                onChange={field.onChange}
+              />
+            )}
           />
         </Box>
         <Box sx={{ mt: 2 }}>
-          <Input
-            id="edit-section-description"
-            label="Description"
-            value={draft.description}
-            multiline
-            rows={3}
-            onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+          <Controller
+            name="description"
+            control={control}
+            render={({ field }) => (
+              <Input
+                id="edit-section-description"
+                label="Description"
+                value={field.value}
+                multiline
+                rows={3}
+                onBlur={field.onBlur}
+                onChange={field.onChange}
+              />
+            )}
           />
         </Box>
         <Box sx={{ mt: 2.5 }}>
-          <LabeledSwitch
-            title="Floor Status"
-            hint="Toggle active visibility on checkout POS channels"
-            checked={draft.active}
-            onChange={(active) => setDraft({ ...draft, active })}
+          <Controller
+            name="active"
+            control={control}
+            render={({ field }) => (
+              <LabeledSwitch
+                title="Floor Status"
+                hint="Toggle active visibility on checkout POS channels"
+                checked={field.value}
+                onChange={field.onChange}
+              />
+            )}
           />
         </Box>
       </SetupCard>

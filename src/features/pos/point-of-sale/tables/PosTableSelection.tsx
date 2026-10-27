@@ -244,16 +244,17 @@ export function PosTableSelection({
   const routeTableId = isDineIn ? (initialTableId ?? getTableIdFromPathname(pathname)) : null;
   const isTableListView = !routeTableId && !manualActiveTable;
 
-  useEffect(() => {
-    const { floor, section } = readTableLocationFromSearchParams(searchParams);
-    if (floor && floor !== activeFloor) {
-      setActiveFloor(floor);
+  const urlLocation = readTableLocationFromSearchParams(searchParams);
+  const [seenLocation, setSeenLocation] = useState(urlLocation);
+  if (seenLocation.floor !== urlLocation.floor || seenLocation.section !== urlLocation.section) {
+    setSeenLocation(urlLocation);
+    if (urlLocation.floor && urlLocation.floor !== activeFloor) {
+      setActiveFloor(urlLocation.floor);
     }
-    if (section && section !== activeSection) {
-      setActiveSection(section);
+    if (urlLocation.section && urlLocation.section !== activeSection) {
+      setActiveSection(urlLocation.section);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync URL → state when navigating back/forward
-  }, [searchParams]);
+  }
 
   useEffect(() => {
     if (!isTableListView) return;

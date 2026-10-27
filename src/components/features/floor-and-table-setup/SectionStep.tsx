@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -12,12 +14,18 @@ import { Modal } from '@/components/shared/ui/Modal';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import { filterByName, sectionStats } from '@/lib/helpers/floorAndTableSetup';
+import { filterByName, sectionStats, tableSeatSummary } from '@/lib/helpers/floorAndTableSetup';
 import type {
   SectionDraft,
   SectionInput,
   TableDraft,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
+import {
+  canSubmitSetupForm,
+  sectionFormSchema,
+  type SectionFormValues,
+  type SetupFormMode,
+} from '@/lib/schemas/floor-and-table-setup/floorSetupFormSchema';
 
 const emptySection: SectionInput = {
   name: '',
@@ -122,8 +130,15 @@ export function SectionStep({
                       variantType={section.active ? 'success' : 'danger'}
                     />
                   </Stack>
-                  <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem', mt: 1 }}>
-                    {stats.tables} Tables · {stats.seats} Seats
+                  <Typography
+                    sx={{
+                      color: 'text.secondary',
+                      fontSize: '0.9375rem',
+                      fontWeight: 600,
+                      mt: 1.5,
+                    }}
+                  >
+                    {tableSeatSummary(stats.tables, stats.seats)}
                   </Typography>
                   <Stack
                     direction="row"
@@ -162,9 +177,10 @@ export function SectionStep({
 
       <SectionDialog
         open={editor !== null}
+        mode={editor && editor !== 'new' ? 'edit' : 'add'}
         initial={editor && editor !== 'new' ? editor : emptySection}
         title={editor && editor !== 'new' ? 'Edit section' : 'Create New Section'}
-        submitLabel={editor && editor !== 'new' ? 'Save' : 'Create Section'}
+        submitLabel="Save Section"
         onClose={() => setEditor(null)}
         onSubmit={(input) => {
           if (editor && editor !== 'new') onUpdate(editor.id, input);
@@ -213,6 +229,7 @@ function EmptySections({ onCreate }: Readonly<{ onCreate: () => void }>) {
 
 function SectionDialog({
   open,
+  mode,
   initial,
   title,
   submitLabel,
@@ -220,6 +237,7 @@ function SectionDialog({
   onSubmit,
 }: Readonly<{
   open: boolean;
+  mode: SetupFormMode;
   initial: SectionInput;
   title: string;
   submitLabel: string;
@@ -230,6 +248,7 @@ function SectionDialog({
     <Modal open={open} onClose={onClose} title={title} width={720} height="auto">
       {open ? (
         <SectionForm
+          mode={mode}
           initial={initial}
           submitLabel={submitLabel}
           onClose={onClose}
@@ -241,31 +260,42 @@ function SectionDialog({
 }
 
 function SectionForm({
+  mode,
   initial,
   submitLabel,
   onClose,
   onSubmit,
 }: Readonly<{
+  mode: SetupFormMode;
   initial: SectionInput;
   submitLabel: string;
   onClose: () => void;
   onSubmit: (input: SectionInput) => void;
 }>) {
-  const [draft, setDraft] = useState(initial);
-  const [error, setError] = useState<string | null>(null);
+  const { control, handleSubmit, trigger, formState } = useForm<SectionFormValues>({
+    resolver: zodResolver(sectionFormSchema),
+    defaultValues: {
+      name: initial.name,
+      code: initial.code,
+      description: initial.description,
+      active: initial.active,
+    },
+    mode: 'onChange',
+  });
+  const canSave = canSubmitSetupForm(mode, formState);
+
+  useEffect(() => {
+    void trigger();
+  }, [trigger]);
 
   return (
     <Stack
       component="form"
       spacing={2.5}
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!draft.name.trim()) {
-          setError('Enter a section name.');
-          return;
-        }
-        onSubmit(draft);
-      }}
+      onSubmit={handleSubmit((values) => {
+        if (!canSave) return;
+        onSubmit(values);
+      })}
     >
       <Box
         sx={{
@@ -274,41 +304,68 @@ function SectionForm({
           gap: 2,
         }}
       >
-        <Input
-          id="section-name"
-          label="Section Name"
-          placeholder="e.g. Main Dining"
-          value={draft.name}
-          error={Boolean(error)}
-          helperText={error ?? undefined}
-          onChange={(event) => {
-            setDraft({ ...draft, name: event.target.value });
-            setError(null);
-          }}
+        <Controller
+          name="name"
+          control={control}
+          render={({ field, fieldState }) => (
+            <Input
+              id="section-name"
+              label="Section Name"
+              required
+              placeholder="e.g. Main Dining"
+              value={field.value}
+              error={fieldState.isTouched && Boolean(fieldState.error)}
+              helperText={
+                fieldState.isTouched ? (fieldState.error?.message ?? undefined) : undefined
+              }
+              onBlur={field.onBlur}
+              onChange={field.onChange}
+            />
+          )}
         />
-        <Input
-          id="section-code"
-          label="Section Code"
-          placeholder="e.g. MD-001"
-          helperText="Auto-generated code for POS routing"
-          value={draft.code}
-          onChange={(event) => setDraft({ ...draft, code: event.target.value })}
+        <Controller
+          name="code"
+          control={control}
+          render={({ field }) => (
+            <Input
+              id="section-code"
+              label="Section Code"
+              placeholder="e.g. MD-001"
+              helperText="Auto-generated code for POS routing"
+              value={field.value}
+              onBlur={field.onBlur}
+              onChange={field.onChange}
+            />
+          )}
         />
       </Box>
-      <Input
-        id="section-description"
-        label="Description"
-        placeholder="Describe this dining section zone..."
-        value={draft.description}
-        multiline
-        rows={3}
-        onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+      <Controller
+        name="description"
+        control={control}
+        render={({ field }) => (
+          <Input
+            id="section-description"
+            label="Description"
+            placeholder="Describe this dining section zone..."
+            value={field.value}
+            multiline
+            rows={3}
+            onBlur={field.onBlur}
+            onChange={field.onChange}
+          />
+        )}
       />
-      <LabeledSwitch
-        title="Section Status"
-        hint="Toggle active visibility on checkout POS channels"
-        checked={draft.active}
-        onChange={(active) => setDraft({ ...draft, active })}
+      <Controller
+        name="active"
+        control={control}
+        render={({ field }) => (
+          <LabeledSwitch
+            title="Section Status"
+            hint="Toggle active visibility on checkout POS channels"
+            checked={field.value}
+            onChange={field.onChange}
+          />
+        )}
       />
       <Stack
         direction={{ [screen.mobile]: 'column-reverse', [screen.tablet]: 'row' }}
@@ -325,6 +382,7 @@ function SectionForm({
         </ActionButton>
         <ActionButton
           type="submit"
+          disabled={!canSave}
           sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
         >
           {submitLabel}

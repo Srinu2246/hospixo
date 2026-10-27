@@ -1,36 +1,65 @@
 'use client';
 
+import { useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
 import { Input } from '@/components/shared/form-fields/Input';
-import {
-  LabeledDropdown,
-  SetupCard,
-} from '@/components/features/floor-and-table-setup/SetupFields';
+import { SetupCard } from '@/components/features/floor-and-table-setup/SetupFields';
 import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import type {
-  FloorDetails,
-  FloorType,
-} from '@/features/management/floor-and-table-setup/types/floorSetup';
-
-const floorTypes: { id: FloorType; label: string }[] = [
-  { id: 'indoor', label: 'Indoor Dining' },
-  { id: 'outdoor', label: 'Outdoor' },
-  { id: 'vip', label: 'VIP' },
-  { id: 'banquet', label: 'Banquet' },
-];
+import type { FloorDetails } from '@/features/management/floor-and-table-setup/types/floorSetup';
+import {
+  canSubmitSetupForm,
+  floorFormSchema,
+  type FloorFormValues,
+} from '@/lib/schemas/floor-and-table-setup/floorSetupFormSchema';
 
 export function FloorCreationStep({
   details,
   nameError,
   onChange,
+  onCanSaveChange,
 }: Readonly<{
   details: FloorDetails;
   nameError: string | null;
   onChange: (details: FloorDetails) => void;
+  onCanSaveChange: (canSave: boolean) => void;
 }>) {
+  const { control, getValues, trigger, formState } = useForm<FloorFormValues>({
+    resolver: zodResolver(floorFormSchema),
+    defaultValues: {
+      name: details.name,
+      code: details.code,
+      description: details.description,
+      active: details.active,
+    },
+    mode: 'onChange',
+  });
+
+  const canSave = canSubmitSetupForm('add', formState);
+
+  useEffect(() => {
+    void trigger();
+  }, [trigger]);
+
+  useEffect(() => {
+    onCanSaveChange(canSave);
+    return () => onCanSaveChange(false);
+  }, [canSave, onCanSaveChange]);
+
+  function publish() {
+    const values = getValues();
+    onChange({
+      name: values.name,
+      code: values.code,
+      description: values.description,
+      active: values.active,
+    });
+  }
+
   return (
     <SetupCard>
       <Typography
@@ -55,47 +84,85 @@ export function FloorCreationStep({
           gap: 2.5,
         }}
       >
-        <Input
-          id="floor-name"
-          label="Floor Name"
-          placeholder="Ground Floor"
-          value={details.name}
-          error={Boolean(nameError)}
-          helperText={nameError ?? undefined}
-          onChange={(event) => onChange({ ...details, name: event.target.value })}
+        <Controller
+          name="name"
+          control={control}
+          render={({ field, fieldState }) => {
+            const message = fieldState.error?.message ?? nameError ?? undefined;
+            const showError = Boolean(fieldState.isTouched ? fieldState.error : nameError);
+            return (
+              <Input
+                id="floor-name"
+                label="Floor Name"
+                required
+                placeholder="Ground Floor"
+                value={field.value}
+                error={showError}
+                helperText={showError ? message : undefined}
+                onBlur={field.onBlur}
+                onChange={(event) => {
+                  field.onChange(event);
+                  publish();
+                }}
+              />
+            );
+          }}
         />
-        <Input
-          id="floor-code"
-          label="Floor Code"
-          placeholder="GF-001"
-          helperText="Assigned code for orders routing"
-          value={details.code}
-          onChange={(event) => onChange({ ...details, code: event.target.value })}
-        />
-        <LabeledDropdown
-          label="Floor Type"
-          options={floorTypes}
-          value={details.type || 'indoor'}
-          onChange={(type) => onChange({ ...details, type })}
+        <Controller
+          name="code"
+          control={control}
+          render={({ field }) => (
+            <Input
+              id="floor-code"
+              label="Floor Code"
+              placeholder="GF-001"
+              helperText="Assigned code for orders routing"
+              value={field.value}
+              onBlur={field.onBlur}
+              onChange={(event) => {
+                field.onChange(event);
+                publish();
+              }}
+            />
+          )}
         />
       </Box>
       <Box sx={{ mt: 2.5 }}>
-        <Input
-          id="floor-description"
-          label="Description"
-          placeholder="Enter floor description"
-          value={details.description}
-          multiline
-          rows={4}
-          onChange={(event) => onChange({ ...details, description: event.target.value })}
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
+            <Input
+              id="floor-description"
+              label="Description"
+              placeholder="Enter floor description"
+              value={field.value}
+              multiline
+              rows={4}
+              onBlur={field.onBlur}
+              onChange={(event) => {
+                field.onChange(event);
+                publish();
+              }}
+            />
+          )}
         />
       </Box>
       <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        <LabeledSwitch
-          title="Floor Status"
-          hint="Toggle active visibility on checkout POS channels"
-          checked={details.active}
-          onChange={(active) => onChange({ ...details, active })}
+        <Controller
+          name="active"
+          control={control}
+          render={({ field }) => (
+            <LabeledSwitch
+              title="Floor Status"
+              hint="Toggle active visibility on checkout POS channels"
+              checked={field.value}
+              onChange={(active) => {
+                field.onChange(active);
+                publish();
+              }}
+            />
+          )}
         />
       </Box>
     </SetupCard>

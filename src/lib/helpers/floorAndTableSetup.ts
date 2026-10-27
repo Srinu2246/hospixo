@@ -1,10 +1,10 @@
 import type {
   FloorDetailTab,
   FloorDetails,
-  FloorType,
   SavedFloor,
   SectionDraft,
   SectionInput,
+  TableBulkEditInput,
   TableDraft,
   TableGenerateInput,
   WizardStep,
@@ -42,7 +42,6 @@ export function emptyFloor(): FloorDetails {
   return {
     name: '',
     code: '',
-    type: 'indoor',
     description: '',
     active: true,
   };
@@ -58,14 +57,6 @@ export function withFloorCode(details: FloorDetails): FloorDetails {
   };
 }
 
-export function floorTypeLabel(type: FloorType | ''): string {
-  if (type === 'outdoor') return 'Outdoor';
-  if (type === 'vip') return 'VIP';
-  if (type === 'banquet') return 'Banquet';
-  if (type === 'indoor') return 'Indoor Dining';
-  return 'Not set';
-}
-
 export function filterByName<T extends { name: string }>(items: readonly T[], query: string): T[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return [...items];
@@ -78,6 +69,12 @@ export function sectionStats(sectionId: string, tables: readonly TableDraft[]) {
     tables: owned.length,
     seats: owned.reduce((total, table) => total + table.seats, 0),
   };
+}
+
+export function tableSeatSummary(tables: number, seats: number): string {
+  const tableLabel = tables === 1 ? 'Table' : 'Tables';
+  const seatLabel = seats === 1 ? 'Seat' : 'Seats';
+  return `${tables} ${tableLabel} · ${seats} ${seatLabel}`;
 }
 
 export function buildSection(input: SectionInput, serial: number): SectionDraft {
@@ -187,8 +184,35 @@ export function toggleTableActive(tables: readonly TableDraft[], id: string): Ta
   return tables.map((table) => (table.id === id ? { ...table, active: !table.active } : table));
 }
 
-export function toggleAllTables(tables: readonly TableDraft[]): TableDraft[] {
-  return tables.map((table) => ({ ...table, active: !table.active }));
+export function applyBulkTableEdit(
+  tables: readonly TableDraft[],
+  input: TableBulkEditInput,
+): TableDraft[] {
+  return tables.map((table) =>
+    tableNumberInRange(table.number, input.start, input.end)
+      ? {
+          ...table,
+          seats: input.seats,
+          active: input.active,
+          reservations: input.reservations,
+        }
+      : table,
+  );
+}
+
+export function tableNumberInRange(number: string, start: string, end: string): boolean {
+  const item = parseTableNumber(number);
+  const from = parseTableNumber(start);
+  const to = parseTableNumber(end);
+  if (item.prefix.toLowerCase() !== from.prefix.toLowerCase()) return false;
+  const low = Math.min(from.serial, to.serial);
+  const high = Math.max(from.serial, to.serial);
+  return item.serial >= low && item.serial <= high;
+}
+
+export function defaultTableRangeEnd(start: string): string {
+  const parsed = parseTableNumber(start.trim() || 'T001');
+  return formatTableNumber(parsed.prefix, parsed.serial + 9);
 }
 
 export function totalSeats(tables: readonly TableDraft[]): number {
@@ -228,7 +252,7 @@ const LEGACY_FLOOR_SETUP = /\/floor-table-setup\/([^/]+)$/;
 const WIZARD_STEP_SEGMENTS = new Set(['floor', 'section', 'table', 'review', 'success', 'create']);
 
 function parseLegacyTab(value: string | null | undefined): FloorDetailTab {
-  if (value === 'floor' || value === 'sections' || value === 'tables' || value === 'history') {
+  if (value === 'floor' || value === 'sections' || value === 'tables') {
     return value;
   }
   return 'overview';
@@ -256,10 +280,7 @@ export function parseFloorDetailRoute(
     const tab = match[2];
     return {
       floorId: decodeURIComponent(match[1]),
-      tab:
-        tab === 'floor' || tab === 'sections' || tab === 'tables' || tab === 'history'
-          ? tab
-          : 'overview',
+      tab: tab === 'floor' || tab === 'sections' || tab === 'tables' ? tab : 'overview',
       sectionId: match[3] ? decodeURIComponent(match[3]) : null,
       editing: match[4] === 'edit',
     };
@@ -398,16 +419,6 @@ function parseDraft(raw: string): FloorSetupDraft {
   }
 }
 
-function isFloorType(value: unknown): value is FloorType | '' {
-  return (
-    value === 'indoor' ||
-    value === 'outdoor' ||
-    value === 'vip' ||
-    value === 'banquet' ||
-    value === ''
-  );
-}
-
 function isFloorDetails(value: unknown): value is FloorDetails {
   if (!value || typeof value !== 'object') return false;
   const record = value as Record<string, unknown>;
@@ -415,8 +426,7 @@ function isFloorDetails(value: unknown): value is FloorDetails {
     typeof record.name === 'string' &&
     typeof record.code === 'string' &&
     typeof record.description === 'string' &&
-    typeof record.active === 'boolean' &&
-    isFloorType(record.type)
+    typeof record.active === 'boolean'
   );
 }
 

@@ -306,15 +306,16 @@ function listFloors(branchId: number, params: QueryParams | undefined): FloorRec
 }
 
 type FloorListItem = FloorRecord & {
-  floor_type: string;
   is_active: boolean;
   table_count: number;
+  seat_count: number;
   sections: Array<{
     id: number;
     name: string;
     code: string;
     is_active: boolean;
     table_count: number;
+    seat_count: number;
   }>;
 };
 
@@ -333,16 +334,20 @@ function listFloorsWithSections(
 
     return {
       ...item,
-      floor_type: 'indoor',
       is_active: item.status === 'active',
       table_count: floorTables.length,
-      sections: floorSections.map((section) => ({
-        id: section.id,
-        name: section.name,
-        code: section.code,
-        is_active: section.status === 'active',
-        table_count: floorTables.filter((table) => table.section_id === section.id).length,
-      })),
+      seat_count: floorTables.reduce((total, table) => total + table.capacity, 0),
+      sections: floorSections.map((section) => {
+        const sectionTables = floorTables.filter((table) => table.section_id === section.id);
+        return {
+          id: section.id,
+          name: section.name,
+          code: section.code,
+          is_active: section.status === 'active',
+          table_count: sectionTables.length,
+          seat_count: sectionTables.reduce((total, table) => total + table.capacity, 0),
+        };
+      }),
     };
   });
 }
