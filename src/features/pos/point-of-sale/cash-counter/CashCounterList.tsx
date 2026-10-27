@@ -1,185 +1,174 @@
 'use client';
 
-import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { Plus } from 'lucide-react';
+import { Plus, SquarePen } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import { Card } from '@/components/shared/ui/Card';
-import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
-import type { CashCounter } from '@/lib/schemas/pos/point-of-sale/cash-counter/cashCounterSchema';
-import { colors } from '@/lib/theme/mui/colors';
+import {
+  cashCounterTypeLabel,
+  type CashCounter,
+} from '@/lib/schemas/pos/point-of-sale/cash-counter/cashCounterSchema';
+import { screen } from '@/lib/theme/mui/breakpoints';
 
 export interface CashCounterListProps {
   rows: readonly CashCounter[];
+  branchName: string;
   onCreate: () => void;
-  onRowClick: (row: CashCounter) => void;
+  onOpen: (row: CashCounter) => void;
+  onRequestStatusChange: (row: CashCounter) => void;
 }
 
 /**
- * Cash Counter list — title, create action, and DataGrid of counter records.
+ * Counters list — title, create action, and one card per counter.
  */
-export function CashCounterList({ rows, onCreate, onRowClick }: Readonly<CashCounterListProps>) {
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const paginatedRows = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return rows.slice(start, start + pageSize);
-  }, [rows, page]);
-
-  const columns: DataGridColumn<CashCounter>[] = useMemo(
-    () => [
-      {
-        field: 'id',
-        headerName: 'id',
-        width: 100,
-        minWidth: 80,
-        renderCell: ({ row }) => (
-          <Typography sx={{ fontWeight: 600, fontSize: '0.9375rem' }}>{row.id}</Typography>
-        ),
-      },
-      {
-        field: 'branch_id',
-        headerName: 'branch_id',
-        width: 160,
-        minWidth: 120,
-        renderCell: ({ row }) => (
-          <Typography sx={{ fontWeight: 500, fontSize: '0.9375rem' }}>{row.branch_id}</Typography>
-        ),
-      },
-      {
-        field: 'name',
-        headerName: 'name',
-        width: 200,
-        minWidth: 140,
-        renderCell: ({ row }) => (
-          <Typography sx={{ fontWeight: 600, fontSize: '0.9375rem' }}>{row.name}</Typography>
-        ),
-      },
-      {
-        field: 'status',
-        headerName: 'status',
-        width: 140,
-        minWidth: 110,
-        renderCell: ({ row }) => (
-          <StatusChip
-            status={row.status}
-            label={row.status === 'active' ? 'Active' : 'Inactive'}
-            showDot
-            size="small"
-          />
-        ),
-      },
-      {
-        field: 'open_shift_id',
-        headerName: 'open_shift_id',
-        width: 160,
-        minWidth: 120,
-        renderCell: ({ row }) => (
-          <Typography sx={{ fontWeight: 500, fontSize: '0.9375rem' }}>
-            {row.open_shift_id ?? '—'}
-          </Typography>
-        ),
-      },
-    ],
-    [],
-  );
-
+export function CashCounterList({
+  rows,
+  branchName,
+  onCreate,
+  onOpen,
+  onRequestStatusChange,
+}: Readonly<CashCounterListProps>) {
   return (
-    <Box
-      sx={{
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2.5,
-        boxSizing: 'border-box',
-      }}
-    >
+    <Stack spacing={2.5} sx={{ width: '100%' }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
-        sx={{
-          alignItems: { xs: 'flex-start', sm: 'flex-start' },
-          justifyContent: 'space-between',
-        }}
+        sx={{ alignItems: { sm: 'flex-start' }, justifyContent: 'space-between' }}
       >
         <Box>
           <Typography
-            variant="h4"
             component="h1"
-            sx={{
-              fontWeight: 700,
-              fontSize: { xs: '1.5rem', sm: '1.875rem' },
-              color: 'text.primary',
-              lineHeight: 1.2,
-              letterSpacing: '-0.02em',
-            }}
+            sx={{ fontWeight: 800, fontSize: { xs: '1.5rem', sm: '1.75rem' }, lineHeight: 1.2 }}
           >
-            Cash Counters
+            Counters
           </Typography>
-          <Typography
-            variant="body2"
-            sx={{ mt: 0.75, color: 'text.secondary', fontSize: '0.9375rem' }}
-          >
-            View cash counter information for the current branch.
+          <Typography sx={{ mt: 0.75, color: 'text.secondary', fontSize: '0.9375rem' }}>
+            Manage billing counters and their devices across your branches.
           </Typography>
         </Box>
-
-        <ActionButton
-          variant="primary"
-          startIcon={<Plus size={18} />}
-          onClick={onCreate}
-          sx={{
-            flexShrink: 0,
-            borderRadius: '8px',
-            bgcolor: colors.primary.default,
-            px: 2.5,
-            fontWeight: 600,
-            boxShadow: 'none',
-            '&:hover': { bgcolor: colors.primary.dark },
-          }}
-        >
-          Create Cash Counter
+        <ActionButton startIcon={<Plus size={16} />} onClick={onCreate} sx={{ flexShrink: 0 }}>
+          Create Counter
         </ActionButton>
       </Stack>
 
-      <Card
-        title="Cash Counter Records"
-        subtitle="Cash registers for the current branch."
-        padding={0}
-        headerPadding={2.5}
-        sx={{ borderRadius: '12px' }}
-        footerPadding={2}
-        footerDivider
-      >
-        <DataGrid
-          columns={columns}
-          rows={paginatedRows}
-          totalRows={rows.length}
-          pagination
-          page={page}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          paginationEntityName="counters"
-          getRowId={(row) => String(row.id)}
-          onRowClick={onRowClick}
-          emptyTitle="No cash counters"
-          emptySubtitle="Create a cash counter for this branch to get started."
-          stickyHeader
-          height={420}
-          rowHeight={56}
+      {rows.length === 0 ? (
+        <Typography sx={{ color: 'text.secondary', py: 6, textAlign: 'center' }}>
+          No counters for this branch yet.
+        </Typography>
+      ) : (
+        <Box
           sx={{
-            border: 'none',
-            borderRadius: 0,
-            boxShadow: 'none',
-            bgcolor: 'background.paper',
+            display: 'grid',
+            gridTemplateColumns: {
+              [screen.mobile]: '1fr',
+              [screen.tablet]: '1fr 1fr',
+              [screen.desktop]: '1fr 1fr 1fr',
+            },
+            gap: 2,
           }}
-        />
-      </Card>
-    </Box>
+        >
+          {rows.map((row) => {
+            const outlet = row.branch_name || branchName || '—';
+            const active = row.status === 'active';
+            return (
+              <Box
+                key={row.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${row.name}`}
+                onClick={() => onOpen(row)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onOpen(row);
+                  }
+                }}
+                sx={{
+                  p: 2,
+                  borderRadius: '16px',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                  cursor: 'pointer',
+                  '&:hover': { borderColor: 'primary.light' },
+                }}
+              >
+                <Stack
+                  direction="row"
+                  sx={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 700, color: 'primary.main' }}>
+                      {row.name}
+                    </Typography>
+                    <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', mt: 0.25 }}>
+                      {row.code || 'No code'}
+                    </Typography>
+                  </Box>
+                  <StatusChip
+                    label={active ? 'Active' : 'Inactive'}
+                    variantType={active ? 'success' : 'default'}
+                    size="small"
+                  />
+                </Stack>
+
+                <Stack spacing={1.25} sx={{ mt: 2 }}>
+                  <DetailRow label="Branch" value={outlet} />
+                  <DetailRow label="Type" value={cashCounterTypeLabel(row.counter_type)} />
+                  <DetailRow label="POS device" value={row.pos_device || '—'} accent />
+                </Stack>
+
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: 'flex-end',
+                    mt: 2,
+                    pt: 1.25,
+                    borderTop: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <ActionButton
+                    variant="text"
+                    size="small"
+                    startIcon={<SquarePen size={15} />}
+                    onClick={() => onRequestStatusChange(row)}
+                  >
+                    {active ? 'Deactivate' : 'Activate'}
+                  </ActionButton>
+                </Stack>
+              </Box>
+            );
+          })}
+        </Box>
+      )}
+    </Stack>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  accent = false,
+}: Readonly<{ label: string; value: string; accent?: boolean }>) {
+  return (
+    <Stack direction="row" spacing={2} sx={{ justifyContent: 'space-between', gap: 1 }}>
+      <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>{label}</Typography>
+      <Typography
+        sx={{
+          fontWeight: 700,
+          fontSize: '0.875rem',
+          textAlign: 'right',
+          color: accent ? 'primary.main' : 'text.primary',
+        }}
+      >
+        {value}
+      </Typography>
+    </Stack>
   );
 }
