@@ -58,7 +58,15 @@ export function CreateNewShiftPage({
   const pathname = usePathname();
   const mode = useThemeStore((state) => state.mode);
   const branchId = useSidebarStore((state) => state.context.branchId);
+  const profileName = useSidebarStore((state) => state.user.name);
+  const account = useSidebarStore((state) => state.account);
   const countersQuery = useCashCounters(branchId);
+  const operatorName = useMemo(() => {
+    const fromAccount = [account?.first_name, account?.last_name]
+      .filter((part): part is string => Boolean(part?.trim()))
+      .join(' ');
+    return fromAccount || profileName || 'Current user';
+  }, [account, profileName]);
 
   const [shiftNumber] = useState(randomShiftNumber);
   const [dateTime] = useState(() => formatShiftDateTime(new Date()));
@@ -201,6 +209,14 @@ export function CreateNewShiftPage({
             <Input label="Date & Time" value={dateTime} disabled={true} fullWidth />
           </Box>
         </Stack>
+
+        <Input
+          label="Operator"
+          value={operatorName}
+          disabled
+          fullWidth
+          helperText="Current admin user is pre-selected"
+        />
 
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           <Typography
