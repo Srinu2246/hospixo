@@ -72,7 +72,7 @@ export function InvitationSuccessStep({
             lineHeight: 1.2,
           }}
         >
-          Invitation Sent Successfully
+          User Created Successfully
         </Typography>
         <Typography
           variant="body1"
@@ -83,14 +83,18 @@ export function InvitationSuccessStep({
             lineHeight: 1.5,
           }}
         >
-          An invitation email has been sent to{' '}
+          <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }}>
+            {fullName}
+          </Box>{' '}
+          was added with email{' '}
           <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }}>
             {email}
           </Box>
+          .
         </Typography>
       </Box>
 
-      {/* 3. Invitation Summary Card (Established 24px Padding) */}
+      {/* 3. User summary card */}
       <Card
         variant="outlined"
         padding={3}
@@ -121,7 +125,7 @@ export function InvitationSuccessStep({
             mb: 1.5,
           }}
         >
-          INVITATION SUMMARY
+          USER SUMMARY
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
@@ -159,16 +163,16 @@ export function InvitationSuccessStep({
             </Typography>
           </Box>
 
-          {/* Status Row: Yellow/Amber Dot with Crisp Bold Invited Label */}
+          {/* Status Row */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
               Status
             </Typography>
             <StatusChip
-              status="invited"
-              label="Invited"
+              status="active"
+              label="Active"
               showDot
-              dotColor={colors.warning.default}
+              dotColor={colors.success.default}
               textColor="text.primary"
               bgColor="transparent"
               sx={{
@@ -275,8 +279,8 @@ export function InvitationSuccessStep({
             fontWeight: 500,
           }}
         >
-          The user will receive an email with instructions to set up their account password and log
-          in for the first time.
+          The new team member can sign in when their account is ready. You can review or update
+          their role and permissions from Users & Roles at any time.
         </Typography>
       </Box>
     </Box>

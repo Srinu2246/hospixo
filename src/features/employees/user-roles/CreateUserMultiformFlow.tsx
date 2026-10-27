@@ -291,7 +291,7 @@ export function CreateUserMultiformFlow({
 
   const rolePermissionsQuery = useRolePermissions(resolvedRoleId, {
     scope: resolvedScope,
-    companyId: resolvedScope === 'company' ? (contextCompanyId ?? accountCompanyId) : undefined,
+    companyId: resolvedCompanyId ?? contextCompanyId ?? accountCompanyId,
     branchId:
       resolvedScope === 'branch'
         ? (resolvedBranchId ?? contextBranchId ?? accountBranchId)

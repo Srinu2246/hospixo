@@ -84,7 +84,11 @@ export function EditStaffProfileScreen({
   const resolvedCompanyName = useResolvedCompanyName(companyName, { scope: resolvedScope });
   const resolvedBranchName = useResolvedBranchName(rawUser?.branch, { scope: resolvedScope });
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
-  const assignedCompany = userItem?.company || rawUser?.company || resolvedCompanyName || '—';
+  const assignedCompany =
+    (userItem?.company && !isFallbackEntityName(userItem.company) ? userItem.company : undefined) ||
+    (rawUser?.company && !isFallbackEntityName(rawUser.company) ? rawUser.company : undefined) ||
+    resolvedCompanyName ||
+    '—';
   const assignedBranch =
     userItem?.branch ||
     rawUser?.branch ||
@@ -191,10 +195,6 @@ export function EditStaffProfileScreen({
     showToast(`Password reset link sent to ${userProfile?.email ?? 'user'}`, 'info');
   };
 
-  const handleResendInvitation = () => {
-    showToast(`Invitation email resent to ${userProfile?.email ?? 'user'}`, 'success');
-  };
-
   const handleConfirmDeactivation = async () => {
     setIsDeactivating(true);
     try {
@@ -292,7 +292,6 @@ export function EditStaffProfileScreen({
               assignedBranch={assignedBranch}
               onCountryCodeChange={(code) => setValue('countryCode', code)}
               onSendResetPassword={handleSendResetPassword}
-              onResendInvitation={handleResendInvitation}
             />
 
             <StaffProfileAccountStatusCard
