@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Controller, type Control, type FieldErrors } from 'react-hook-form';
+import { Controller, useWatch, type Control, type FieldErrors } from 'react-hook-form';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
@@ -82,6 +82,9 @@ export function StaffProfileBasicInfoSection({
   onCountryCodeChange,
   onSendResetPassword,
 }: Readonly<StaffProfileBasicInfoSectionProps>) {
+  const emailValue = useWatch({ control, name: 'email' });
+  const showEmailField = !isReadOnly || !isPlaceholderEmail(emailValue);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pb: 2 }}>
       <Box>
@@ -144,19 +147,15 @@ export function StaffProfileBasicInfoSection({
           )}
         />
 
-        <Controller
-          name="email"
-          control={control}
-          render={({ field }) => {
-            if (isReadOnly && isPlaceholderEmail(field.value)) {
-              return null;
-            }
-
-            return (
+        {showEmailField ? (
+          <Controller
+            name="email"
+            control={control}
+            render={({ field }) => (
               <Input
                 label="EMAIL ADDRESS"
                 type="email"
-                placeholder="Optional — name@company.com"
+                placeholder="name@company.com"
                 value={field.value}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -166,9 +165,9 @@ export function StaffProfileBasicInfoSection({
                 reserveHelperSpace={false}
                 fullWidth
               />
-            );
-          }}
-        />
+            )}
+          />
+        ) : null}
 
         <Controller
           name="phoneNumber"
