@@ -166,6 +166,7 @@ export type MenuItemListParams = {
   status?: z.infer<typeof statusBasicSchema>;
   category_id?: number;
   dietary_type?: DietaryTypeApi;
+  search?: string;
   page?: number;
   page_size?: number;
   /** Branch manager list filter — when set, only items for this branch are returned. */

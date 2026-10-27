@@ -4,10 +4,12 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useQuery } from '@/lib/hooks/api/useQuery';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import type { JsonObject, JsonValue } from '@/types/json';
 
 import {
   enrichDirectoryWithSession,
+  enrichUserListCompanyNames,
   isMatch,
   loadEmployeeDirectory,
   resolveAssignmentPermissionsPayload,
@@ -113,6 +115,8 @@ export function useUserRoles(
     initialUserList,
     companyId,
     branchId,
+    companyName,
+    companies: directoryCompanies,
   } = options;
 
   const storeCompanyId = useSidebarStore(
@@ -127,6 +131,7 @@ export function useUserRoles(
 
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQueryState] = useState('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 1500);
   const [selectedRole, setSelectedRoleState] = useState('');
   const [selectedBranch, setSelectedBranchState] = useState('');
   const [selectedStatus, setSelectedStatusState] = useState('');
@@ -137,7 +142,7 @@ export function useUserRoles(
       compact({
         page,
         page_size: pageSize,
-        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(debouncedSearchQuery.trim() ? { search: debouncedSearchQuery.trim() } : {}),
         ...(selectedRole ? { role: selectedRole } : {}),
         ...(selectedBranch ? { branch: selectedBranch } : {}),
         ...(selectedStatus ? { status: selectedStatus } : {}),
@@ -149,7 +154,7 @@ export function useUserRoles(
     [
       page,
       pageSize,
-      searchQuery,
+      debouncedSearchQuery,
       selectedRole,
       selectedBranch,
       selectedStatus,
@@ -157,6 +162,19 @@ export function useUserRoles(
       resolvedCompanyId,
       resolvedBranchId,
     ],
+  );
+
+  const statsParams = useMemo(
+    () =>
+      compact({
+        page: 1,
+        page_size: 100,
+        scope,
+        scope_type: scope,
+        ...(resolvedCompanyId != null ? { company_id: resolvedCompanyId } : {}),
+        ...(scope === 'branch' && resolvedBranchId != null ? { branch_id: resolvedBranchId } : {}),
+      }),
+    [scope, resolvedCompanyId, resolvedBranchId],
   );
 
   const usersQuery = useQuery({
@@ -177,6 +195,14 @@ export function useUserRoles(
     staleTime: 60_000,
   });
 
+  const statsQuery = useQuery({
+    queryKey: [...usersQueryRoot, 'stats', statsParams, scope, resolvedCompanyId, resolvedBranchId],
+    queryFn: async ({ signal }) =>
+      parseUserList(await api.get<JsonValue>(ApiUrlsV1.users.list, statsParams, signal)),
+    enabled: scope !== 'branch' || Boolean(resolvedBranchId),
+    staleTime: 60_000,
+  });
+
   const rolesQuery = useRoleCatalogQuery(scope);
   const roleCatalog = useResolvedRoleCatalog(rolesQuery.data);
 
@@ -186,23 +212,27 @@ export function useUserRoles(
   );
 
   const users = useMemo(
-    () => enrichUserListRoles(usersQuery.data?.items ?? [], roleCatalog),
-    [roleCatalog, usersQuery.data?.items],
+    () =>
+      enrichUserListCompanyNames(enrichUserListRoles(usersQuery.data?.items ?? [], roleCatalog), {
+        companyName,
+        companies: directoryCompanies,
+      }),
+    [roleCatalog, usersQuery.data?.items, companyName, directoryCompanies],
   );
   const paginatedUsers = users;
   const totalRows = usersQuery.data?.total ?? users.length;
 
   const stats: UserRoleStatsData = useMemo(() => {
-    const list = Array.isArray(users) ? users : [];
+    const list = enrichUserListRoles(statsQuery.data?.items ?? [], roleCatalog);
     const activeNow = list.filter((user) => user.status === 'active').length;
     const pendingInvites = list.filter((user) => user.status === 'invited').length;
     return {
-      totalUsers: totalRows,
+      totalUsers: statsQuery.data?.total ?? list.length,
       activeNow,
       pendingInvites,
       userRoles: new Set(list.map((user) => user.role).filter(Boolean)).size,
     };
-  }, [users, totalRows]);
+  }, [roleCatalog, statsQuery.data?.items, statsQuery.data?.total]);
 
   const invalidateUsers = async () => {
     await queryClient.invalidateQueries({ queryKey: [...usersQueryRoot] });
@@ -711,6 +741,14 @@ export function useRoleCatalogQuery(scope?: ScopeType) {
   });
 }
 
+function normalizeScopedPermissionId(
+  value: number | string | null | undefined,
+): number | undefined {
+  if (value == null || value === '') return undefined;
+  const id = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(id) && id > 0 ? id : undefined;
+}
+
 export function useRolePermissions(
   roleId: string | number | undefined | null,
   options?: {
@@ -719,7 +757,17 @@ export function useRolePermissions(
     branchId?: number | string | null;
   },
 ) {
+  const contextCompanyId = useSidebarStore(
+    (state) => state.context.companyId ?? state.account?.company_id,
+  );
+  const contextBranchId = useSidebarStore(
+    (state) => state.context.branchId ?? state.account?.branch_id,
+  );
   const accountScope = useSidebarStore((state) => state.account?.scope);
+
+  const companyId = normalizeScopedPermissionId(options?.companyId ?? contextCompanyId);
+  const branchId = normalizeScopedPermissionId(options?.branchId ?? contextBranchId);
+
   const requestedScope = (options?.scope ?? accountScope ?? UserRoleScope.Organization)
     .toString()
     .toLowerCase();
@@ -746,12 +794,19 @@ export function useRolePermissions(
       isValidRoleId ? String(numericRoleId) : 'none',
       'permissions',
       scopeType,
+      companyId != null ? String(companyId) : 'all',
+      branchId != null ? String(branchId) : 'all',
     ],
     queryFn: async ({ signal }) => {
       if (!isValidRoleId) return null;
       const params: ScopedRolePermissionsParams = {
         scope_type: scopeType,
         page_size: 100,
+        ...(companyId != null &&
+        (scopeType === UserRoleScope.Company || scopeType === UserRoleScope.Branch)
+          ? { company_id: companyId }
+          : {}),
+        ...(branchId != null && scopeType === UserRoleScope.Branch ? { branch_id: branchId } : {}),
       };
 
       return api.get<JsonValue>(rolePermissionsPath(numericRoleId), params, signal);

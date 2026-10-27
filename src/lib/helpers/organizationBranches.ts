@@ -86,7 +86,11 @@ async function loadCompanyBranches(
 ): Promise<BranchListItem[]> {
   try {
     const items = parseBranchList(
-      await get(ApiUrlsV1.restaurant.branches, { company_id: companyId }),
+      await get(ApiUrlsV1.restaurant.branches, {
+        company_id: companyId,
+        page: 1,
+        page_size: 100,
+      }),
       companyId,
     );
     if (items.length > 0) return items;
@@ -127,7 +131,10 @@ async function loadTenantBranches(
 
   for (const params of attempts) {
     try {
-      const items = parseBranchList(await get(ApiUrlsV1.restaurant.branches, params), companyId);
+      const items = parseBranchList(
+        await get(ApiUrlsV1.restaurant.branches, { ...params, page: 1, page_size: 100 }),
+        companyId,
+      );
       if (items.length > 0) return items;
     } catch (error) {
       if (!isMissingEndpoint(error)) throw error;

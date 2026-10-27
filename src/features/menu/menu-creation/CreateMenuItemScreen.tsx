@@ -29,8 +29,8 @@ import { FieldHelperText } from '@/components/shared/form-fields/FieldHelperText
 import { Input } from '@/components/shared/form-fields/Input';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
+import { Loading } from '@/components/shared/ui/Loading';
 import { Modal } from '@/components/shared/ui/Modal';
-import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
 import { Toast, type ToastSeverity } from '@/components/shared/ui/Toast';
 import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
 import { toMenuCatalogItem } from '@/lib/helpers/menuItemHelpers';
@@ -123,7 +123,7 @@ export function CreateMenuItemScreen({
   if (mode === 'edit' && detailQuery.isLoading && !detailQuery.data) {
     return (
       <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', py: 2 }}>
-        <SkeletonLoader count={8} height={56} />
+        <Loading fullPage={false} />
       </Box>
     );
   }
@@ -995,7 +995,7 @@ function CreateMenuItemForm({
             ) : null}
 
             {itemTagsQuery.isLoading && formHook.availableTags.length <= OPERATIONAL_TAG_COUNT ? (
-              <SkeletonLoader count={6} height={40} />
+              <Loading fullPage={false} sx={{ minHeight: 120, py: 2 }} />
             ) : (
               <Box
                 sx={{

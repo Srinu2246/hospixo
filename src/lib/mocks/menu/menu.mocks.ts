@@ -276,7 +276,19 @@ export function resolveMenuCategoryAssignmentsMock(request: MockRequest): unknow
   if (menuId == null) return undefined;
 
   if (request.method === 'GET') {
-    const items = assignmentsByMenuId.get(menuId) ?? [];
+    const search =
+      typeof request.params?.search === 'string' ? request.params.search.trim().toLowerCase() : '';
+    const categoryId = Number(request.params?.category_id);
+    let items = assignmentsByMenuId.get(menuId) ?? [];
+    if (Number.isFinite(categoryId) && categoryId > 0) {
+      items = items.filter((row) => row.category_id === categoryId);
+    }
+    if (search) {
+      items = items.filter((row) => {
+        const haystack = [row.category?.name, String(row.category_id)].join(' ').toLowerCase();
+        return haystack.includes(search);
+      });
+    }
     const page = Number(request.params?.page ?? 1) || 1;
     const pageSize = Number(request.params?.page_size ?? 15) || 15;
     const start = (page - 1) * pageSize;
@@ -356,17 +368,26 @@ export function resolveBranchMenusMock(request: MockRequest): unknown | undefine
 
   const status =
     typeof request.params?.status === 'string' ? request.params.status.toLowerCase() : '';
-  const items =
-    status && status !== 'all'
-      ? MOCK_MENUS.filter((row) => row.status.toLowerCase() === status)
-      : MOCK_MENUS;
+  const search =
+    typeof request.params?.search === 'string' ? request.params.search.trim().toLowerCase() : '';
+  const filtered = MOCK_MENUS.filter((row) => {
+    if (status && status !== 'all' && row.status.toLowerCase() !== status) return false;
+    if (!search) return true;
+    const { name, code, menu_type: menuType } = row.menu;
+    return (
+      name.toLowerCase().includes(search) ||
+      (code ?? '').toLowerCase().includes(search) ||
+      (menuType ?? '').toLowerCase().includes(search)
+    );
+  });
 
   const page = Number(request.params?.page ?? 1) || 1;
   const pageSize = Number(request.params?.page_size ?? 15) || 15;
+  const start = (page - 1) * pageSize;
 
   return branchMenusOk({
-    items,
-    total: items.length,
+    items: filtered.slice(start, start + pageSize),
+    total: filtered.length,
     page,
     page_size: pageSize,
   });

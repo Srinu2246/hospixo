@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
@@ -61,7 +61,6 @@ export function InviteAcceptPage({ token }: Readonly<InviteAcceptPageProps>) {
   const [tokenChecked, setTokenChecked] = useState(() => Boolean(token.trim()));
   const {
     control,
-    watch,
     setValue,
     formState: { errors },
     setError,
@@ -78,9 +77,9 @@ export function InviteAcceptPage({ token }: Readonly<InviteAcceptPageProps>) {
   });
 
   const linkError = tokenChecked ? inviteLinkError(resolvedToken) : null;
-  const firstName = watch('firstName');
-  const lastName = watch('lastName') ?? '';
-  const password = watch('password');
+  const firstName = useWatch({ control, name: 'firstName' }) ?? '';
+  const lastName = useWatch({ control, name: 'lastName' }) ?? '';
+  const password = useWatch({ control, name: 'password' }) ?? '';
   const parsedForm = acceptInvitationFormSchema.safeParse({
     token: resolvedToken,
     firstName,
@@ -95,19 +94,22 @@ export function InviteAcceptPage({ token }: Readonly<InviteAcceptPageProps>) {
   const fieldsLocked = Boolean(linkError) || acceptInvitation.isPending;
 
   useEffect(() => {
-    if (token.trim()) {
-      setResolvedToken(token);
-      setValue('token', token);
-      setTokenChecked(true);
-      return;
-    }
+    const frame = requestAnimationFrame(() => {
+      if (token.trim()) {
+        setResolvedToken(token);
+        setValue('token', token);
+        setTokenChecked(true);
+        return;
+      }
 
-    const fromLocation = readInviteTokenFromSearch(window.location.search);
-    if (fromLocation) {
-      setResolvedToken(fromLocation);
-      setValue('token', fromLocation);
-    }
-    setTokenChecked(true);
+      const fromLocation = readInviteTokenFromSearch(window.location.search);
+      if (fromLocation) {
+        setResolvedToken(fromLocation);
+        setValue('token', fromLocation);
+      }
+      setTokenChecked(true);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [setValue, token]);
 
   useEffect(() => {

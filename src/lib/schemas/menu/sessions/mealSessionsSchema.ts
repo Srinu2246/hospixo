@@ -21,21 +21,64 @@ export const mealSessionSchema = z.object({
 
 export type MealSession = z.infer<typeof mealSessionSchema>;
 
+export const pagedMealSessionsDataSchema = z.object({
+  items: z.array(mealSessionSchema),
+  total: z.coerce.number().int().default(0),
+  page: z.coerce.number().int().default(1),
+  page_size: z.coerce.number().int().default(15),
+});
+
+export type PagedMealSessionsData = z.infer<typeof pagedMealSessionsDataSchema>;
+
+export type MealSessionListParams = {
+  search?: string;
+  status?: string;
+  page?: number;
+  page_size?: number;
+};
+
 export const mealSessionsEnvelopeSchema = z.object({
   success: z.boolean(),
-  data: z.array(mealSessionSchema).nullable().optional(),
+  data: z.unknown().optional(),
   message: nullableText,
   request_id: nullableText,
 });
 
-export function parseMealSessions(payload: unknown): MealSession[] {
+function sortMealSessions(rows: MealSession[]): MealSession[] {
+  return [...rows].sort((left, right) => (left.display_order ?? 0) - (right.display_order ?? 0));
+}
+
+function emptyPagedMealSessions(): PagedMealSessionsData {
+  return { items: [], total: 0, page: 1, page_size: 15 };
+}
+
+export function parseMealSessions(payload: unknown): PagedMealSessionsData {
   const parsed = mealSessionsEnvelopeSchema.safeParse(payload);
-  if (!parsed.success || !parsed.data.success || !parsed.data.data) {
+  if (!parsed.success || !parsed.data.success) {
     throw new ApiError('Unexpected meal sessions response', 502);
   }
-  return [...parsed.data.data].sort(
-    (left, right) => (left.display_order ?? 0) - (right.display_order ?? 0),
-  );
+
+  const data = parsed.data.data;
+  if (data == null) return emptyPagedMealSessions();
+
+  const paged = pagedMealSessionsDataSchema.safeParse(data);
+  if (paged.success) {
+    const items = sortMealSessions(paged.data.items);
+    return { ...paged.data, items };
+  }
+
+  const asArray = z.array(mealSessionSchema).safeParse(data);
+  if (asArray.success) {
+    const items = sortMealSessions(asArray.data);
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      page_size: items.length || 15,
+    };
+  }
+
+  throw new ApiError('Unexpected meal sessions response', 502);
 }
 
 const mealSessionDetailEnvelopeSchema = z.object({

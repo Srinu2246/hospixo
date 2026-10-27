@@ -275,7 +275,10 @@ export function GstRatesPage() {
       >
         <SearchBar
           value={searchQuery}
-          onChange={setSearchQuery}
+          onChange={(value: string) => {
+            setSearchQuery(value);
+            setPage(1);
+          }}
           placeholder="Filter by GST code (e.g. GST_)"
           showClear
           fullWidth
@@ -286,7 +289,10 @@ export function GstRatesPage() {
           control={
             <Checkbox
               checked={activeOnly}
-              onChange={(event) => setActiveOnly(event.target.checked)}
+              onChange={(event) => {
+                setActiveOnly(event.target.checked);
+                setPage(1);
+              }}
               size="small"
             />
           }
@@ -333,6 +339,10 @@ export function GstRatesPage() {
         ) : (
           <GstRatesTable
             rates={listQuery.data?.items ?? []}
+            page={page}
+            pageSize={pageSize}
+            totalRows={listQuery.data?.total ?? 0}
+            onPageChange={setPage}
             onCreate={() => router.push(`${basePath}/create`)}
             onView={(rate) => router.push(`${basePath}/${rate.id}`)}
           />

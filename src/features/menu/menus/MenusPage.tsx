@@ -14,7 +14,9 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { TablePagination } from '@/components/shared/ui/TablePagination';
 import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import type { MenuCataloguePageScope } from '@/lib/helpers/menuBranchContext';
 import {
   branchMenusQueryKey,
@@ -26,7 +28,11 @@ import {
   useSetRestaurantMenuActive,
 } from '@/lib/hooks/menu/menus/menusHooks';
 import { MENU_STATUS_FILTER_OPTIONS, type MenuStatusFilter } from '@/lib/mocks/menu/menu.mocks';
-import type { MenuAssignment, MenuSessionFormValues } from '@/lib/schemas/menu/menus/menusSchema';
+import type {
+  MenuAssignment,
+  MenuSessionFormValues,
+  PagedMenusData,
+} from '@/lib/schemas/menu/menus/menusSchema';
 import { useToastStore } from '@/stores/toastStore';
 
 import { CreateMenuSessionForm } from './CreateMenuSessionForm';
@@ -91,23 +97,35 @@ export function MenusPage() {
   const setMenuActiveMutation = useSetRestaurantMenuActive();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 1500);
   const [statusFilter, setStatusFilter] = useState<MenuStatusFilter>('all');
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
   const [submitting, setSubmitting] = useState(false);
 
+  const isListMode = mode === 'list';
   const listParams = useMemo(
     () => ({
       status: statusFilter === 'all' ? undefined : statusFilter,
-      page: 1,
-      page_size: 50,
+      search: isListMode && debouncedSearch.trim() ? debouncedSearch.trim() : undefined,
+      page: isListMode ? page : 1,
+      page_size: isListMode ? pageSize : 50,
     }),
-    [statusFilter],
+    [debouncedSearch, isListMode, page, pageSize, statusFilter],
   );
 
   const isBranchScope = pageScope === 'branch';
+  const menuCountParams = useMemo(() => ({ page: 1, page_size: 1 }), []);
   const branchMenusQuery = useBranchMenus(listParams, branchId);
   const companyMenusQuery = useRestaurantMenus(listParams);
+  const branchMenuCountQuery = useBranchMenus(menuCountParams, branchId);
+  const companyMenuCountQuery = useRestaurantMenus(menuCountParams);
   const menusQuery = isBranchScope ? branchMenusQuery : companyMenusQuery;
-  const menus = useMemo(() => menusQuery.data ?? [], [menusQuery.data]);
+  const menus = useMemo(() => menusQuery.data?.items ?? [], [menusQuery.data?.items]);
+  const menusTotal = menusQuery.data?.total ?? 0;
+  const menusCatalogTotal = isBranchScope
+    ? (branchMenuCountQuery.data?.total ?? 0)
+    : (companyMenuCountQuery.data?.total ?? 0);
 
   const activeMenu = useMemo(
     () =>
@@ -117,18 +135,7 @@ export function MenusPage() {
     [mode, menuId, menus],
   );
 
-  const visibleMenus = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return menus;
-    return menus.filter((row) => {
-      const { name, code, menu_type: menuType } = row.menu;
-      return (
-        name.toLowerCase().includes(query) ||
-        (code ?? '').toLowerCase().includes(query) ||
-        (menuType ?? '').toLowerCase().includes(query)
-      );
-    });
-  }, [menus, search]);
+  const visibleMenus = menus;
 
   function goToList() {
     router.push(basePath);
@@ -138,7 +145,15 @@ export function MenusPage() {
     const queryKey = isBranchScope
       ? branchMenusQueryKey(branchId, listParams)
       : restaurantMenusQueryKey(listParams);
-    queryClient.setQueryData<MenuAssignment[]>(queryKey, (current) => updater(current ?? []));
+    queryClient.setQueryData<PagedMenusData>(queryKey, (current) => {
+      const items = updater(current?.items ?? []);
+      return {
+        items,
+        total: current?.total ?? items.length,
+        page: current?.page ?? 1,
+        page_size: current?.page_size ?? pageSize,
+      };
+    });
   }
 
   async function toggleStatus(target: MenuAssignment) {
@@ -377,7 +392,10 @@ export function MenusPage() {
       >
         <SearchBar
           value={search}
-          onChange={setSearch}
+          onChange={(value: string) => {
+            setSearch(value);
+            setPage(1);
+          }}
           placeholder="Search sessions..."
           showClear
           fullWidth
@@ -392,7 +410,10 @@ export function MenusPage() {
         <Dropdown
           options={[...MENU_STATUS_FILTER_OPTIONS]}
           value={statusFilter}
-          onChange={(value) => setStatusFilter(value)}
+          onChange={(value) => {
+            setStatusFilter(value as MenuStatusFilter);
+            setPage(1);
+          }}
           prefix="Status:"
           size="medium"
           minWidth={160}
@@ -465,6 +486,15 @@ export function MenusPage() {
           </Box>
         )}
       </Box>
+
+      {isListMode && menusTotal > 0 ? (
+        <TablePagination
+          page={page}
+          pageCount={Math.max(1, Math.ceil(menusTotal / pageSize))}
+          onPageChange={setPage}
+          summary={`Showing ${visibleMenus.length} of ${menusCatalogTotal} menus`}
+        />
+      ) : null}
     </Box>
   );
 }

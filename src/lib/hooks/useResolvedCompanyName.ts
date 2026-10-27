@@ -3,7 +3,9 @@
 import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 
+import { loadCompanyById } from '@/lib/helpers/organizationCompanies';
 import { useEmployeeDirectory } from '@/lib/hooks/employees/user-roles';
+import { useQuery } from '@/lib/hooks/api/useQuery';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import {
   isRecord,
@@ -11,9 +13,10 @@ import {
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { isFallbackEntityName } from '@/lib/helpers/employees/userRolesHelpers';
+import { api } from '@/services/api/browserClient';
 import type { JsonObject } from '@/types/json';
 
-/** Resolves the active company display name from session, /me, or directory lookup. */
+/** Resolves the active company display name from session, directory, or company detail (no useEffect). */
 export function useResolvedCompanyName(
   explicitName?: string,
   options?: { scope?: ScopeType },
@@ -35,6 +38,22 @@ export function useResolvedCompanyName(
   const directory = useEmployeeDirectory(organizationId, companyId, {
     scope: isBranchScope ? 'branch' : companyId != null ? 'company' : 'organization',
   });
+
+  const activeBranchId = contextBranchId ?? account?.branch_id ?? undefined;
+
+  const fromBranchDirectory = useMemo(() => {
+    if (!isBranchScope) return undefined;
+    const branches = directory.data?.branches ?? [];
+    if (branches.length === 0) return undefined;
+
+    const matched =
+      (activeBranchId != null
+        ? branches.find((branch) => String(branch.id) === String(activeBranchId))
+        : undefined) ?? branches[0];
+
+    const name = matched?.companyName?.trim();
+    return name && !isFallbackEntityName(name) ? name : undefined;
+  }, [isBranchScope, directory.data?.branches, activeBranchId]);
 
   const fromDirectory = useMemo(() => {
     const companies = directory.data?.companies ?? [];
@@ -65,7 +84,33 @@ export function useResolvedCompanyName(
       ? contextCompanyName.trim()
       : undefined;
 
-  return validExplicit || fromDirectory || validContext || fromAccount || undefined;
+  const resolvedWithoutDetail =
+    validExplicit ||
+    fromBranchDirectory ||
+    fromDirectory ||
+    validContext ||
+    fromAccount ||
+    undefined;
+
+  const needsCompanyDetail = !resolvedWithoutDetail && companyId != null && !isBranchScope;
+
+  const companyDetailQuery = useQuery({
+    queryKey: ['organization', 'company', 'detail', companyId ?? 'none'],
+    enabled: needsCompanyDetail,
+    queryFn: async ({ signal }) => {
+      if (companyId == null) return null;
+      return loadCompanyById(companyId, (path, params) => api.get(path, params, signal));
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  });
+
+  const fromCompanyDetail = useMemo(() => {
+    const name = companyDetailQuery.data?.name?.trim();
+    return name && !isFallbackEntityName(name) ? name : undefined;
+  }, [companyDetailQuery.data?.name]);
+
+  return resolvedWithoutDetail || fromCompanyDetail;
 }
 
 function toJsonObject(value: object | null | undefined): JsonObject | undefined {

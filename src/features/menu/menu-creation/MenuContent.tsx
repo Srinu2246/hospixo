@@ -11,7 +11,7 @@ import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Card } from '@/components/shared/ui/Card';
-import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
+import { Loading } from '@/components/shared/ui/Loading';
 import { useMenuCreation } from '@/features/menu/context';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 
@@ -21,7 +21,7 @@ import { MenuItemDetailPanel } from './MenuItemDetailPanel';
 import { MenuItemsTable } from './MenuItemsTable';
 import { MenuSidebar } from './MenuSidebar';
 
-function CategoriesSidebarSkeleton() {
+function CategoriesSidebarLoading() {
   return (
     <Card
       component="aside"
@@ -35,12 +35,9 @@ function CategoriesSidebarSkeleton() {
         p: 1.5,
         display: 'flex',
         flexDirection: 'column',
-        gap: 1.25,
       }}
     >
-      <SkeletonLoader variant="text" width={70} height={18} />
-      <SkeletonLoader count={5} height={36} sx={{ flex: 1 }} />
-      <SkeletonLoader height={36} />
+      <Loading fullPage={false} size={28} sx={{ minHeight: 200, p: 1 }} />
     </Card>
   );
 }
@@ -59,6 +56,10 @@ function MenuItemsListBody({
   togglingItemId,
   statusToggleDisabled,
   onAddCategory,
+  page,
+  pageSize,
+  totalRows,
+  onPageChange,
 }: Readonly<{
   listKey: string;
   filteredItems: readonly MenuCatalogItem[];
@@ -73,6 +74,10 @@ function MenuItemsListBody({
   togglingItemId: string | null;
   statusToggleDisabled: boolean;
   onAddCategory?: () => void;
+  page: number;
+  pageSize: number;
+  totalRows: number;
+  onPageChange: (page: number) => void;
 }>) {
   if (itemsError) {
     return (
@@ -87,7 +92,7 @@ function MenuItemsListBody({
   }
 
   if (isItemsLoading && itemsEmpty) {
-    return <SkeletonLoader count={6} height={52} sx={{ py: 1 }} />;
+    return <Loading fullPage={false} sx={{ minHeight: 200, py: 1 }} />;
   }
 
   return (
@@ -101,6 +106,10 @@ function MenuItemsListBody({
       togglingItemId={togglingItemId}
       statusToggleDisabled={statusToggleDisabled}
       onAddCategory={canManageCategories ? onAddCategory : undefined}
+      page={page}
+      pageSize={pageSize}
+      totalRows={totalRows}
+      onPageChange={onPageChange}
     />
   );
 }
@@ -122,6 +131,10 @@ function MenuListPane() {
     items,
     isItemsLoading,
     itemsError,
+    listPage,
+    listPageSize,
+    listTotal,
+    setListPage,
   } = useMenuCreation();
 
   const router = useRouter();
@@ -247,6 +260,10 @@ function MenuListPane() {
           togglingItemId={togglingItemId}
           statusToggleDisabled={Boolean(isUpdatingItemStatus)}
           onAddCategory={openCreateCategory}
+          page={listPage}
+          pageSize={listPageSize}
+          totalRows={listTotal}
+          onPageChange={setListPage}
         />
       </Box>
 
@@ -355,7 +372,7 @@ function MenuMainPane() {
  */
 export function MenuContent() {
   const { categories, isCategoriesLoading } = useMenuCreation();
-  const showCategorySkeleton = Boolean(isCategoriesLoading) && categories.length === 0;
+  const showCategoryLoading = Boolean(isCategoriesLoading) && categories.length === 0;
 
   return (
     <Box
@@ -379,7 +396,7 @@ export function MenuContent() {
           alignItems: 'stretch',
         }}
       >
-        {showCategorySkeleton ? <CategoriesSidebarSkeleton /> : <MenuSidebar />}
+        {showCategoryLoading ? <CategoriesSidebarLoading /> : <MenuSidebar />}
 
         <Stack
           spacing={0}
