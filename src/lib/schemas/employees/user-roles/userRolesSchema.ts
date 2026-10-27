@@ -4,11 +4,19 @@ import {
   passwordSchema,
   personNameSchema,
   emailSchema,
+  optionalEmailSchema,
   usernameSchema,
 } from '@/lib/schemas/commonFieldsSchema';
 import type { JsonObject, JsonValue } from '@/types/json';
 
-export { phoneSchema, passwordSchema, personNameSchema, emailSchema, usernameSchema };
+export {
+  phoneSchema,
+  passwordSchema,
+  personNameSchema,
+  emailSchema,
+  optionalEmailSchema,
+  usernameSchema,
+};
 
 // ============================================================================
 // 1. Primitive Domain Types & Enums
@@ -1277,7 +1285,7 @@ const createUserMultiformFieldsSchema = z.object({
   lastName: personNameSchema,
   countryCode: z.string().optional(),
   phoneNumber: phoneSchema,
-  email: emailSchema,
+  email: optionalEmailSchema,
   username: usernameSchema,
   password: passwordSchema,
   company: z.string(),

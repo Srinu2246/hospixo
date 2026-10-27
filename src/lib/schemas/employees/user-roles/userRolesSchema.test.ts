@@ -9,6 +9,7 @@ import {
   phoneSchema,
   personNameSchema,
   emailSchema,
+  optionalEmailSchema,
   parseRolePermissionsToCategories,
   serializeUserListFilterParams,
   userListSortBySchema,
@@ -173,6 +174,17 @@ describe('userRolesSchema validation rules', () => {
     it('rejects usernames under 3 or over 30 characters', () => {
       assert.equal(usernameSchema.safeParse('ab').success, false);
       assert.equal(usernameSchema.safeParse('a'.repeat(35)).success, false);
+    });
+  });
+
+  describe('optionalEmailSchema (create user)', () => {
+    it('accepts empty email', () => {
+      assert.equal(optionalEmailSchema.safeParse('').success, true);
+      assert.equal(optionalEmailSchema.safeParse('   ').success, true);
+    });
+
+    it('rejects invalid non-empty email', () => {
+      assert.equal(optionalEmailSchema.safeParse('not-an-email').success, false);
     });
   });
 
