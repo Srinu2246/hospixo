@@ -70,6 +70,8 @@ export function GstRatesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedCode = useDebouncedValue(searchQuery.trim(), 300);
   const [activeOnly, setActiveOnly] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = GST_RATES_LIST_PAGE_SIZE;
   const [createError, setCreateError] = useState<string | null>(null);
   const [createFieldErrors, setCreateFieldErrors] = useState<CreateGstRateFormFieldErrors>({});
 
@@ -78,8 +80,8 @@ export function GstRatesPage() {
   const listQuery = useGstRates({
     code: debouncedCode ? debouncedCode : undefined,
     active_only: activeOnly || undefined,
-    page: 1,
-    page_size: GST_RATES_LIST_PAGE_SIZE,
+    page,
+    page_size: pageSize,
   });
   const detailQuery = useGstRate(mode === 'view' ? numericRateId : undefined);
   const createMutation = useCreateGstRate();

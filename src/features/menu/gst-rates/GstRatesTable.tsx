@@ -11,6 +11,10 @@ import type { GstRate } from '@/lib/schemas/menu/gstRatesSchema';
 
 export interface GstRatesTableProps {
   rates: readonly GstRate[];
+  page: number;
+  pageSize: number;
+  totalRows: number;
+  onPageChange: (page: number) => void;
   onCreate: () => void;
   onView: (rate: GstRate) => void;
 }
@@ -29,7 +33,15 @@ function formatEffectiveDate(value: string): string {
 }
 
 /** GST rates list table (shared DataGrid). */
-export function GstRatesTable({ rates, onCreate, onView }: Readonly<GstRatesTableProps>) {
+export function GstRatesTable({
+  rates,
+  page,
+  pageSize,
+  totalRows,
+  onPageChange,
+  onCreate,
+  onView,
+}: Readonly<GstRatesTableProps>) {
   const columns = useMemo((): DataGridColumn<GstRate>[] => {
     return [
       {
@@ -140,6 +152,12 @@ export function GstRatesTable({ rates, onCreate, onView }: Readonly<GstRatesTabl
         columns={columns}
         rows={rates}
         getRowId={(row) => row.id}
+        pagination
+        page={page}
+        pageSize={pageSize}
+        totalRows={totalRows}
+        onPageChange={onPageChange}
+        paginationEntityName="GST rates"
         stickyHeader
         height="100%"
         rowHeight={64}
