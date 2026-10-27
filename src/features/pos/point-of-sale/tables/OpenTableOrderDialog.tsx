@@ -62,8 +62,11 @@ export function OpenTableOrderDialog({
       Math.max(1, table.guests ?? table.capacity ?? 2),
       guestOptions[guestOptions.length - 1] ?? 2,
     );
-    setGuestCount(preferred);
-    setMealSessionId(defaultMealSessionId || 'none');
+    const frame = requestAnimationFrame(() => {
+      setGuestCount(preferred);
+      setMealSessionId(defaultMealSessionId || 'none');
+    });
+    return () => cancelAnimationFrame(frame);
   }, [open, table, guestOptions, defaultMealSessionId]);
 
   const sessionOptionsWithNone = useMemo<DropdownOption<string>[]>(

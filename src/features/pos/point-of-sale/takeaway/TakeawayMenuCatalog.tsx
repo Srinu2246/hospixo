@@ -9,7 +9,7 @@ import { LayoutGrid, LayoutList } from 'lucide-react';
 import { Dropdown, type DropdownOption } from '@/components/shared/form-fields/Dropdown';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
-import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
+import { Loading } from '@/components/shared/ui/Loading';
 import { MenuItemCard } from '@/components/shared/restaurant-menu/MenuItemCard';
 import { colors } from '@/lib/theme/mui/colors';
 import type { CartCustomization, PosMenuItem } from '@/lib/mocks/pos/usePosMenu.mocks';
@@ -129,7 +129,7 @@ function MenuCatalogBody({
   onAddCustomized: TakeawayMenuCatalogProps['onAddCustomized'];
 }>) {
   if (isLoading) {
-    return <SkeletonLoader count={6} height={72} sx={{ py: 1 }} />;
+    return <Loading fullPage={false} sx={{ minHeight: 200, py: 1 }} />;
   }
 
   if (groupedSections.length === 0) {
@@ -296,7 +296,7 @@ export function TakeawayMenuCatalog({
           }}
         >
           {isLoading ? (
-            <SkeletonLoader count={5} height={88} />
+            <Loading fullPage={false} sx={{ minHeight: 200 }} />
           ) : (
             <MenuSectionItems
               items={flatItems}

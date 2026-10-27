@@ -47,11 +47,10 @@ export function UsersAndRolesScreen({
   companyName: propsCompanyName,
   initialUserList,
 }: Readonly<UsersAndRolesScreenProps> = {}) {
-  const companyName = useResolvedCompanyName(propsCompanyName);
   const router = useRouter();
   const pathname = usePathname() || '';
-
   const resolvedScope = resolveScopeFromPathname(pathname, scope);
+  const companyName = useResolvedCompanyName(propsCompanyName, { scope: resolvedScope });
 
   const setSelectedUserId = useUserRolesUiStore((state) => state.setSelectedUserId);
   const contextOrgId = useSidebarStore((state) => state.context.organizationId);

@@ -6,7 +6,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { CalendarDays } from 'lucide-react';
 
-import { StatusRow } from '@/components/features/floor-and-table-setup/SetupFields';
+import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
@@ -145,7 +145,7 @@ function EditTableForm({
           <CalendarDays size={16} />
         </Box>
         <Box sx={{ flex: 1 }}>
-          <StatusRow
+          <LabeledSwitch
             title="Reservations"
             hint="Set permissions for accepting and managing reservations"
             checked={draft.reservations}

@@ -56,12 +56,17 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
 
   setStep: (step) => set({ step }),
 
-  setSelectedRoleId: (selectedRoleId) => set({ selectedRoleId }),
+  setSelectedRoleId: (selectedRoleId) =>
+    set((state) => ({
+      selectedRoleId,
+      categories: state.selectedRoleId === selectedRoleId ? state.categories : [],
+    })),
 
   setSelectedTemplate: (template) =>
     set((state) => ({
       selectedTemplate: template,
       selectedRoleId: template?.id != null ? template.id : state.selectedRoleId,
+      categories: [],
       formValues: {
         ...state.formValues,
         role: template?.roleName || state.formValues.role || 'Branch Admin',
@@ -89,6 +94,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
             icon: 'restaurant',
             roleName: role,
           },
+      categories: roleId !== undefined && state.selectedRoleId !== roleId ? [] : state.categories,
     })),
 
   setFormValues: (values) =>
@@ -131,7 +137,11 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
       scope: draft.scope,
       selectedTemplate: draft.selectedTemplate,
       selectedRoleId: draft.selectedRoleId,
-      formValues: { ...state.formValues, ...draft.formValues, password: '' },
+      formValues: {
+        ...state.formValues,
+        ...draft.formValues,
+        password: state.formValues.password || '',
+      },
       categories: draft.categories,
       errors: {},
       isSubmitting: false,
@@ -147,8 +157,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
         selectedRoleId: null,
         formValues: {
           ...DEFAULT_CREATE_USER_FORM_VALUES,
-          branch:
-            scopeToUse === 'branch' ? 'Downtown Branch' : DEFAULT_CREATE_USER_FORM_VALUES.branch,
+          branch: DEFAULT_CREATE_USER_FORM_VALUES.branch,
           role: scopeToUse === 'branch' ? 'Captain' : DEFAULT_CREATE_USER_FORM_VALUES.role,
         },
         categories: [],

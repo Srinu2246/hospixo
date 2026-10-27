@@ -36,7 +36,6 @@ import type { CartItem } from '@/lib/mocks/pos/usePosMenu.mocks';
 import {
   DINE_IN_STATUS_FILTERS,
   DINE_IN_TABLE_STATUSES,
-  POS_FLOOR_TABS,
   POS_STATUS_FILTERS,
   type PosTableItem,
   type PosTableStatus,
@@ -101,7 +100,7 @@ export function PosTableSelection({
   const createOrderMutation = useCreateBranchOrder(branchId);
 
   const [tableOverrides, setTableOverrides] = useState<Record<string, Partial<PosTableItem>>>({});
-  const [activeFloor, setActiveFloor] = useState(POS_FLOOR_TABS[0]?.id ?? '');
+  const [activeFloor, setActiveFloor] = useState('');
   const [activeSection, setActiveSection] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -113,28 +112,42 @@ export function PosTableSelection({
 
   const mealSessionOptions = useMemo(
     () =>
-      (mealSessionsQuery.data ?? []).map((session) => ({
+      (mealSessionsQuery.data?.items ?? []).map((session) => ({
         id: String(session.id),
         label: session.name,
       })),
-    [mealSessionsQuery.data],
+    [mealSessionsQuery.data?.items],
   );
 
   const defaultMealSessionId = useMemo(() => {
-    const sessions = mealSessionsQuery.data ?? [];
+    const sessions = mealSessionsQuery.data?.items ?? [];
     const active = sessions.find((session) => session.is_active) ?? sessions[0];
     return active ? String(active.id) : '';
-  }, [mealSessionsQuery.data]);
+  }, [mealSessionsQuery.data?.items]);
 
   const floorTabs = useMemo(
     () =>
-      floors.length > 0
-        ? floors.map((floor) => ({ id: String(floor.id), label: floor.name }))
-        : POS_FLOOR_TABS,
+      floors.length > 0 ? floors.map((floor) => ({ id: String(floor.id), label: floor.name })) : [],
     [floors],
   );
 
-  const numericFloorId = /^\d+$/.test(activeFloor) ? Number(activeFloor) : undefined;
+  const activeFloorResolved = useMemo(() => {
+    if (
+      activeFloor &&
+      (floors.length === 0 || floors.some((floor) => String(floor.id) === activeFloor))
+    ) {
+      return activeFloor;
+    }
+    return floors.length > 0 ? String(floors[0].id) : '';
+  }, [activeFloor, floors]);
+
+  const numericFloorId = useMemo(() => {
+    if (!/^\d+$/.test(activeFloorResolved)) return undefined;
+    const id = Number(activeFloorResolved);
+    if (floors.length > 0 && !floors.some((floor) => floor.id === id)) return undefined;
+    return id;
+  }, [activeFloorResolved, floors]);
+
   const sectionsQuery = useFloorSections(branchId, numericFloorId);
 
   const sectionOptions = useMemo(
@@ -145,7 +158,16 @@ export function PosTableSelection({
     [sectionsQuery.data],
   );
 
-  const numericSectionId = /^\d+$/.test(activeSection) ? Number(activeSection) : undefined;
+  const activeSectionResolved = useMemo(() => {
+    if (activeSection && sectionOptions.some((option) => option.id === activeSection)) {
+      return activeSection;
+    }
+    return sectionOptions[0]?.id ?? '';
+  }, [activeSection, sectionOptions]);
+
+  const numericSectionId = /^\d+$/.test(activeSectionResolved)
+    ? Number(activeSectionResolved)
+    : undefined;
   const floorTablesQuery = usePosFloorTables(branchId, numericFloorId, numericSectionId);
   const isSingleSection = sectionOptions.length === 1;
   const canFetchFloorTables =
@@ -157,22 +179,6 @@ export function PosTableSelection({
     sectionsQuery.isLoading ||
     (canFetchFloorTables && (floorTablesQuery.isPending || floorTablesQuery.isFetching));
 
-  const resolvedFloor =
-    floorTabs.length === 0 || floorTabs.some((tab) => tab.id === activeFloor)
-      ? activeFloor
-      : floorTabs[0].id;
-  if (resolvedFloor !== activeFloor) {
-    setActiveFloor(resolvedFloor);
-  }
-
-  const resolvedSection =
-    sectionOptions.length === 0 || sectionOptions.some((option) => option.id === activeSection)
-      ? activeSection
-      : sectionOptions[0].id;
-  if (resolvedSection !== activeSection) {
-    setActiveSection(resolvedSection);
-  }
-
   const tables = useMemo(() => {
     const baseTables = floorTablesQuery.isSuccess ? (floorTablesQuery.data ?? []) : [];
     return baseTables.map((table) => {
@@ -181,13 +187,12 @@ export function PosTableSelection({
     });
   }, [floorTablesQuery.isSuccess, floorTablesQuery.data, tableOverrides]);
 
-  const resolvedSelectedId =
-    selectedTableId && tables.some((table) => table.id === selectedTableId)
-      ? selectedTableId
-      : (tables[0]?.id ?? '');
-  if (resolvedSelectedId !== selectedTableId) {
-    setSelectedTableId(resolvedSelectedId);
-  }
+  const selectedTableIdResolved = useMemo(() => {
+    if (selectedTableId && tables.some((table) => table.id === selectedTableId)) {
+      return selectedTableId;
+    }
+    return tables[0]?.id ?? '';
+  }, [selectedTableId, tables]);
 
   const dineInBasePath = useMemo(() => {
     if (!pathname) return '/pos/point-of-sale/dine-in';
@@ -225,17 +230,24 @@ export function PosTableSelection({
         return {
           id: routeTableId,
           name: routeTableId,
-          floorId: activeFloor,
-          sectionId: activeSection,
+          floorId: activeFloorResolved,
+          sectionId: activeSectionResolved,
           status: 'occupied' as const,
           orderId: queryOrderId,
         };
       }
     }
     return manualActiveTable;
-  }, [routeTableId, tables, manualActiveTable, queryOrderId, activeFloor, activeSection]);
+  }, [
+    routeTableId,
+    tables,
+    manualActiveTable,
+    queryOrderId,
+    activeFloorResolved,
+    activeSectionResolved,
+  ]);
 
-  const selectedTableMatch = tables.find((t) => t.id === selectedTableId);
+  const selectedTableMatch = tables.find((t) => t.id === selectedTableIdResolved);
   const selectedTable: PosTableItem | undefined =
     !selectedTableMatch || (isDineIn && !isDineInActiveStatus(selectedTableMatch.status))
       ? undefined
@@ -377,14 +389,17 @@ export function PosTableSelection({
     return tables.filter(
       (table) =>
         isDineInActiveStatus(table.status) &&
-        matchesFloorAndSection(table, activeFloor, activeSection, hasSections),
+        matchesFloorAndSection(table, activeFloorResolved, activeSectionResolved, hasSections),
     );
-  }, [isDineIn, tables, activeFloor, activeSection, hasSections]);
+  }, [isDineIn, tables, activeFloorResolved, activeSectionResolved, hasSections]);
 
   const filteredTables = useMemo(() => {
     const source = isDineIn ? dineInEligibleTables : tables;
     return source.filter((table) => {
-      if (!isDineIn && !matchesFloorAndSection(table, activeFloor, activeSection, hasSections)) {
+      if (
+        !isDineIn &&
+        !matchesFloorAndSection(table, activeFloorResolved, activeSectionResolved, hasSections)
+      ) {
         return false;
       }
 
@@ -406,8 +421,8 @@ export function PosTableSelection({
     isDineIn,
     dineInEligibleTables,
     tables,
-    activeFloor,
-    activeSection,
+    activeFloorResolved,
+    activeSectionResolved,
     hasSections,
     statusFilter,
     searchQuery,
@@ -436,7 +451,8 @@ export function PosTableSelection({
     }
   }
 
-  const footerTable = selectedTable ?? tables.find((table) => table.id === selectedTableId) ?? null;
+  const footerTable =
+    selectedTable ?? tables.find((table) => table.id === selectedTableIdResolved) ?? null;
 
   const captainSelectionFooter =
     captainCompact && footerTable && footerTarget
@@ -526,10 +542,10 @@ export function PosTableSelection({
                   : 'Select a table to start ordering'
             }
             floorOptions={floorTabs}
-            floorValue={activeFloor}
+            floorValue={activeFloorResolved}
             onFloorChange={setActiveFloor}
             sectionOptions={sectionOptions}
-            sectionValue={activeSection}
+            sectionValue={activeSectionResolved}
             onSectionChange={setActiveSection}
             sectionDisabled={sectionsQuery.isLoading || isSingleSection}
           />
@@ -577,7 +593,7 @@ export function PosTableSelection({
 
             <FilterBar
               items={floorTabs}
-              value={activeFloor}
+              value={activeFloorResolved}
               onChange={setActiveFloor}
               variant="segmented"
               size="medium"
@@ -586,7 +602,7 @@ export function PosTableSelection({
             {sectionOptions.length > 0 ? (
               <Dropdown
                 size="medium"
-                value={activeSection}
+                value={activeSectionResolved}
                 onChange={setActiveSection}
                 options={sectionOptions}
                 disabled={sectionsQuery.isLoading || isSingleSection}
@@ -634,7 +650,7 @@ export function PosTableSelection({
           />
         ) : null}
 
-        {sectionsQuery.isError ? (
+        {sectionsQuery.isError && numericFloorId != null ? (
           <AlertMessage
             variant="error"
             title="Unable to load sections"
@@ -796,7 +812,7 @@ export function PosTableSelection({
                 key={table.id}
                 table={table}
                 compact={captainCompact}
-                isSelected={selectedTableId === table.id}
+                isSelected={selectedTableIdResolved === table.id}
                 onClick={handleTableClick}
               />
             ))}

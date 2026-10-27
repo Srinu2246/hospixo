@@ -18,19 +18,38 @@ export interface TabsProps {
   value: string; // Currently active tab value
   onChange: (value: string) => void; // Active tab selection callback
   fullWidth?: boolean; // Distribute tabs across full width (default: true)
+  scrollable?: boolean; // Single horizontal row with overflow scroll (mobile wizard/detail)
+  showIndicator?: boolean; // Active tab underline (default true)
   sx?: SxProps<Theme>; // Outer container style overrides
 }
 
 // Global Tabs component with icon and active underline indicator
-export function Tabs({ tabs, value, onChange, fullWidth = true, sx }: Readonly<TabsProps>) {
+export function Tabs({
+  tabs,
+  value,
+  onChange,
+  fullWidth = true,
+  scrollable = false,
+  showIndicator = true,
+  sx,
+}: Readonly<TabsProps>) {
   return (
     <Box
       sx={{
         display: 'flex',
-        alignItems: 'center',
-        borderBottom: '1px solid',
+        alignItems: 'stretch',
+        borderBottom: showIndicator ? '1px solid' : 'none',
         borderColor: 'divider',
         width: '100%',
+        ...(scrollable
+          ? {
+              flexWrap: 'nowrap',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }
+          : {}),
         ...((sx as object) || {}),
       }}
     >
@@ -43,14 +62,16 @@ export function Tabs({ tabs, value, onChange, fullWidth = true, sx }: Readonly<T
             onClick={() => !tab.disabled && onChange(tab.value)}
             disabled={tab.disabled}
             sx={{
-              flex: fullWidth ? 1 : 'none',
+              flex: scrollable ? '0 0 auto' : fullWidth ? 1 : 'none',
               py: 1.5,
-              px: 2,
+              px: scrollable ? 1.5 : 2,
+              minHeight: scrollable ? 44 : undefined,
               position: 'relative',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 1,
+              whiteSpace: scrollable ? 'nowrap' : undefined,
               transition: 'all 0.15s ease',
               cursor: tab.disabled ? 'not-allowed' : 'pointer',
               opacity: tab.disabled ? 0.5 : 1,
@@ -84,7 +105,7 @@ export function Tabs({ tabs, value, onChange, fullWidth = true, sx }: Readonly<T
             </Typography>
 
             {/* Bottom Active Indicator Bar */}
-            {isActive ? (
+            {isActive && showIndicator ? (
               <Box
                 sx={{
                   position: 'absolute',

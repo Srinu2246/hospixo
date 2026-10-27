@@ -83,6 +83,7 @@ export type UpdateMenuCategoryBody = z.infer<typeof updateMenuCategoryBodySchema
 
 export type MenuCategoryListParams = {
   status?: StatusBasic;
+  search?: string;
   page?: number;
   page_size?: number;
 };

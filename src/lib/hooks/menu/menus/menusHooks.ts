@@ -11,7 +11,7 @@ import type { MenuCataloguePageScope } from '@/lib/helpers/menuBranchContext';
 import {
   assignMenuCategoryBodySchema,
   parseMenuAssignmentRecord,
-  parseMenuAssignments,
+  parsePagedMenuAssignments,
   parseMenuCategoryAssignmentList,
   parseMenuCategoryAssignmentRecord,
   parseRestaurantMenuList,
@@ -19,6 +19,7 @@ import {
   type MenuAssignment,
   type MenuCategoryAssignment,
   type MenuSessionFormValues,
+  type PagedMenusData,
 } from '@/lib/schemas/menu/menus/menusSchema';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import ApiUrlsV1, {
@@ -36,6 +37,7 @@ import { ApiError } from '@/services/api/types';
 
 export type BranchMenusListParams = {
   status?: string;
+  search?: string;
   page?: number;
   page_size?: number;
 };
@@ -63,10 +65,11 @@ export function useBranchMenus(params?: BranchMenusListParams, branchId?: number
           page: params?.page ?? 1,
           page_size: params?.page_size ?? 15,
           ...(params?.status && params.status !== 'all' ? { status: params.status } : {}),
+          ...(params?.search?.trim() ? { search: params.search.trim() } : {}),
         },
         signal,
       );
-      return parseMenuAssignments(payload);
+      return parsePagedMenuAssignments(payload);
     },
   });
 }
@@ -76,6 +79,7 @@ export function useBranchMenus(params?: BranchMenusListParams, branchId?: number
 export type RestaurantMenusListParams = {
   status?: string;
   menu_type?: string;
+  search?: string;
   page?: number;
   page_size?: number;
 };
@@ -89,6 +93,7 @@ function restaurantMenusListQueryParams(params?: RestaurantMenusListParams) {
     page_size: params?.page_size ?? 50,
     ...(params?.status && params.status !== 'all' ? { status: params.status } : {}),
     ...(params?.menu_type?.trim() ? { menu_type: params.menu_type.trim() } : {}),
+    ...(params?.search?.trim() ? { search: params.search.trim() } : {}),
   };
 }
 
@@ -106,7 +111,13 @@ export function useRestaurantMenus(params?: RestaurantMenusListParams) {
       );
       const paged = parseRestaurantMenuList(payload);
       const rows: MenuAssignment[] = paged.items.map(restaurantMenuRecordToAssignment);
-      return rows;
+      const result: PagedMenusData = {
+        items: rows,
+        total: paged.total,
+        page: paged.page,
+        page_size: paged.page_size,
+      };
+      return result;
     },
   });
 }
@@ -222,6 +233,8 @@ export function useAssignMenuCategory() {
 }
 
 export type MenuCategoryAssignmentsListParams = {
+  search?: string;
+  category_id?: number;
   page?: number;
   page_size?: number;
 };
@@ -235,6 +248,8 @@ function menuCategoryAssignmentsListQueryParams(params?: MenuCategoryAssignments
   return {
     page: params?.page ?? 1,
     page_size: params?.page_size ?? 100,
+    ...(params?.search?.trim() ? { search: params.search.trim() } : {}),
+    ...(params?.category_id != null ? { category_id: params.category_id } : {}),
   };
 }
 

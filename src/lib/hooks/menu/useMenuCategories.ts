@@ -27,12 +27,13 @@ function listParams(params?: MenuCategoryListParams) {
     page: params?.page ?? 1,
     page_size: params?.page_size ?? 100,
     ...(params?.status ? { status: params.status } : {}),
+    ...(params?.search?.trim() ? { search: params.search.trim() } : {}),
   };
 }
 
 /**
  * List menu categories.
- * GET /v1/restaurant/menu/categories?status&page&page_size
+ * GET /v1/restaurant/menu/categories?status&search&page&page_size
  */
 export function useMenuCategories(params?: MenuCategoryListParams) {
   return useQuery({

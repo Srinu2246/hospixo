@@ -19,11 +19,13 @@ import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { Loading } from '@/components/shared/ui/Loading';
+import { TablePagination } from '@/components/shared/ui/TablePagination';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { buildPosAddItemsPath, buildPosSettleOrderPath } from '@/lib/helpers/posOrderHelpers';
 import { POS_CAPTAIN_LIST_BOTTOM_GAP } from '@/lib/helpers/posCaptainFlow';
 import { type OrderType, type PosOrderItem } from '@/lib/helpers/posAllOrdersHelpers';
 import { usePosOrders } from '@/lib/hooks/pos/point-of-sale/all-orders/usePosOrders';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { colors } from '@/lib/theme/mui/colors';
 
 const ORDER_FILTER_ITEMS: readonly FilterBarItem<OrderType>[] = [
@@ -48,54 +50,37 @@ export function AllOrdersPage() {
 
   const [activeFilter, setActiveFilter] = useState<OrderType>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 1500);
   const [page, setPage] = useState(1);
   const pageSize = 6;
 
   const ordersQuery = usePosOrders({
-    page: 1,
-    pageSize: 50,
+    page,
+    pageSize,
     status: 'open',
     orderType: activeFilter,
+    search: debouncedSearchQuery.trim() || undefined,
+  });
+  const summaryQuery = usePosOrders({
+    page: 1,
+    pageSize: 100,
+    status: 'open',
   });
   const orders = useMemo(() => ordersQuery.data?.rows ?? [], [ordersQuery.data?.rows]);
+  const totalRows = ordersQuery.data?.total ?? 0;
+  const summaryOrders = useMemo(() => summaryQuery.data?.rows ?? [], [summaryQuery.data?.rows]);
+  const runningOrdersTotal = summaryQuery.data?.total ?? summaryOrders.length;
 
-  // Filter orders by search query (type filter is applied via the orders API).
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
-        const matchesOrder = order.orderNumber.toLowerCase().includes(query);
-        const matchesRef = order.reference.toLowerCase().includes(query);
-        const matchesType = order.typeLabel.toLowerCase().includes(query);
-        const matchesStatus = order.kitchenStatusLabel.toLowerCase().includes(query);
-        const matchesAmount = String(order.amount).includes(query);
-        if (!matchesOrder && !matchesRef && !matchesType && !matchesStatus && !matchesAmount) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [orders, searchQuery]);
-
-  // Paginated subset
-  const paginatedRows = useMemo(() => {
-    const startIndex = (page - 1) * pageSize;
-    return filteredOrders.slice(startIndex, startIndex + pageSize);
-  }, [filteredOrders, page, pageSize]);
-
-  // Summary counts
   const awaitingKitchenCount = useMemo(() => {
-    return filteredOrders.filter(
+    return summaryOrders.filter(
       (o) => o.kitchenStatus === 'kot sent' || o.kitchenStatus === 'preparing',
     ).length;
-  }, [filteredOrders]);
+  }, [summaryOrders]);
 
   const readyToSettleCount = useMemo(() => {
-    return filteredOrders.filter(
-      (o) => o.kitchenStatus === 'ready' || o.kitchenStatus === 'billing',
-    ).length;
-  }, [filteredOrders]);
+    return summaryOrders.filter((o) => o.kitchenStatus === 'ready' || o.kitchenStatus === 'billing')
+      .length;
+  }, [summaryOrders]);
 
   // Action handlers
   const handleAddItems = useCallback(
@@ -318,7 +303,10 @@ export function AllOrdersPage() {
               setSearchQuery(val);
               setPage(1);
             }}
-            onClear={() => setSearchQuery('')}
+            onClear={() => {
+              setSearchQuery('');
+              setPage(1);
+            }}
             placeholder="Order #, Table #, or Bill No..."
             fullWidth
             showClear
@@ -339,12 +327,12 @@ export function AllOrdersPage() {
             pb: `${POS_CAPTAIN_LIST_BOTTOM_GAP}px`,
           }}
         >
-          {paginatedRows.length === 0 ? (
+          {orders.length === 0 ? (
             <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 6 }}>
               No orders found
             </Typography>
           ) : (
-            paginatedRows.map((order) => (
+            orders.map((order) => (
               <CaptainOpenOrderCard
                 key={order.id}
                 order={order}
@@ -353,6 +341,14 @@ export function AllOrdersPage() {
               />
             ))
           )}
+          {totalRows > pageSize ? (
+            <TablePagination
+              page={page}
+              pageCount={Math.max(1, Math.ceil(totalRows / pageSize))}
+              onPageChange={setPage}
+              summary={`${totalRows} orders`}
+            />
+          ) : null}
         </Box>
       ) : null}
 
@@ -410,7 +406,10 @@ export function AllOrdersPage() {
               setSearchQuery(val);
               setPage(1);
             }}
-            onClear={() => setSearchQuery('')}
+            onClear={() => {
+              setSearchQuery('');
+              setPage(1);
+            }}
             placeholder="Order, table or bill no."
             width={{ xs: 200, sm: 260 }}
             showClear
@@ -463,8 +462,8 @@ export function AllOrdersPage() {
       >
         <DataGrid
           columns={columns}
-          rows={paginatedRows}
-          totalRows={filteredOrders.length}
+          rows={orders}
+          totalRows={totalRows}
           pagination
           page={page}
           pageSize={pageSize}
@@ -520,7 +519,7 @@ export function AllOrdersPage() {
         <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
           Showing{' '}
           <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
-            {filteredOrders.length} running orders
+            {runningOrdersTotal} running orders
           </Box>{' '}
           · {awaitingKitchenCount} awaiting kitchen, {readyToSettleCount} ready to settle
         </Typography>

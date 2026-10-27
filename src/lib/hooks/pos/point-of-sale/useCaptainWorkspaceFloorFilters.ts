@@ -1,13 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useFloorSections } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { usePosFloorLayout } from '@/lib/hooks/pos/point-of-sale/tables/usePosFloorLayout';
-import {
-  POS_FLOOR_TABS,
-  type PosTableItem,
-} from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
+import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 /** Floor / section dropdowns for captain mobile menu and table screens (Figma). */
@@ -18,23 +15,33 @@ export function useCaptainWorkspaceFloorFilters(table?: PosTableItem | null) {
 
   const floorTabs = useMemo(
     () =>
-      floors.length > 0
-        ? floors.map((floor) => ({ id: String(floor.id), label: floor.name }))
-        : POS_FLOOR_TABS,
+      floors.length > 0 ? floors.map((floor) => ({ id: String(floor.id), label: floor.name })) : [],
     [floors],
   );
 
-  const [activeFloor, setActiveFloor] = useState(
-    () => table?.floorId ?? POS_FLOOR_TABS[0]?.id ?? '',
-  );
+  const [activeFloor, setActiveFloor] = useState(() => table?.floorId ?? '');
   const [activeSection, setActiveSection] = useState(() => table?.sectionId ?? '');
 
-  useEffect(() => {
-    if (table?.floorId) queueMicrotask(() => setActiveFloor(table.floorId));
-    if (table?.sectionId) queueMicrotask(() => setActiveSection(table.sectionId));
-  }, [table?.floorId, table?.sectionId]);
+  const activeFloorResolved = useMemo(() => {
+    if (
+      activeFloor &&
+      (floors.length === 0 || floors.some((floor) => String(floor.id) === activeFloor))
+    ) {
+      return activeFloor;
+    }
+    if (table?.floorId && floors.some((floor) => String(floor.id) === table.floorId)) {
+      return table.floorId;
+    }
+    return floors.length > 0 ? String(floors[0].id) : '';
+  }, [activeFloor, floors, table]);
 
-  const numericFloorId = /^\d+$/.test(activeFloor) ? Number(activeFloor) : undefined;
+  const numericFloorId = useMemo(() => {
+    if (!/^\d+$/.test(activeFloorResolved)) return undefined;
+    const id = Number(activeFloorResolved);
+    if (floors.length > 0 && !floors.some((floor) => floor.id === id)) return undefined;
+    return id;
+  }, [activeFloorResolved, floors]);
+
   const sectionsQuery = useFloorSections(branchId, numericFloorId);
 
   const sectionOptions = useMemo(
@@ -47,28 +54,22 @@ export function useCaptainWorkspaceFloorFilters(table?: PosTableItem | null) {
 
   const isSingleSection = sectionOptions.length === 1;
 
-  const resolvedFloor =
-    floorTabs.length === 0 || floorTabs.some((tab) => tab.id === activeFloor)
-      ? activeFloor
-      : (floorTabs[0]?.id ?? activeFloor);
-  if (resolvedFloor !== activeFloor) {
-    setActiveFloor(resolvedFloor);
-  }
-
-  const resolvedSection =
-    sectionOptions.length === 0 || sectionOptions.some((option) => option.id === activeSection)
-      ? activeSection
-      : (sectionOptions[0]?.id ?? activeSection);
-  if (resolvedSection !== activeSection) {
-    setActiveSection(resolvedSection);
-  }
+  const activeSectionResolved = useMemo(() => {
+    if (activeSection && sectionOptions.some((option) => option.id === activeSection)) {
+      return activeSection;
+    }
+    if (table?.sectionId && sectionOptions.some((option) => option.id === table.sectionId)) {
+      return table.sectionId;
+    }
+    return sectionOptions[0]?.id ?? '';
+  }, [activeSection, sectionOptions, table]);
 
   return {
     floorTabs,
-    activeFloor,
+    activeFloor: activeFloorResolved,
     setActiveFloor,
     sectionOptions,
-    activeSection,
+    activeSection: activeSectionResolved,
     setActiveSection,
     sectionDisabled: sectionsQuery.isLoading || isSingleSection,
   };

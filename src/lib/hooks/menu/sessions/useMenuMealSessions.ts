@@ -10,43 +10,68 @@ import {
   parseMealSessionRecord,
   parseMealSessions,
   type CreateMealSessionBody,
+  type MealSessionListParams,
   type UpdateMealSessionBody,
 } from '@/lib/schemas/menu/sessions/mealSessionsSchema';
 import type { SessionRecord } from '@/lib/schemas/menu/sessions/sessionSchema';
 import { api } from '@/services/api/browserClient';
 import { branchMealSessionPath, branchMealSessionsPath } from '@/services/api/ApiUrlsV1';
 
-export const mealSessionsQueryKey = (branchId: number | undefined) =>
+export const mealSessionsQueryRoot = (branchId: number | undefined) =>
   ['branches', branchId, 'meal-sessions'] as const;
+
+export const mealSessionsQueryKey = (
+  branchId: number | undefined,
+  params?: MealSessionListParams,
+) => [...mealSessionsQueryRoot(branchId), params ?? {}] as const;
+
+function mealSessionsListQueryParams(params?: MealSessionListParams) {
+  const status = params?.status && params.status !== 'all' ? params.status : undefined;
+  return {
+    page: params?.page ?? 1,
+    page_size: params?.page_size ?? 100,
+    ...(params?.search?.trim() ? { search: params.search.trim() } : {}),
+    ...(status ? { status } : {}),
+    ...(status === 'active' ? { is_active: true } : {}),
+    ...(status === 'inactive' ? { is_active: false } : {}),
+  };
+}
 
 /**
  * Branch meal sessions list.
- * GET /v1/branches/{branch_id}/meal-sessions
+ * GET /v1/branches/{branch_id}/meal-sessions?search&status&is_active&page&page_size
  */
-export function useMealSessions(branchId: number | undefined) {
+export function useMealSessions(branchId: number | undefined, params?: MealSessionListParams) {
   return useQuery({
-    queryKey: mealSessionsQueryKey(branchId),
+    queryKey: mealSessionsQueryKey(branchId, params),
     enabled: typeof branchId === 'number',
     staleTime: 60_000,
     queryFn: async ({ signal }) => {
-      const payload = await api.get(branchMealSessionsPath(branchId as number), undefined, signal);
+      const payload = await api.get(
+        branchMealSessionsPath(branchId as number),
+        mealSessionsListQueryParams(params),
+        signal,
+      );
       return parseMealSessions(payload);
     },
   });
 }
 
-export function useMenuMealSessions(branchId?: number) {
+export function useMenuMealSessions(branchId?: number, params?: MealSessionListParams) {
   const activeBranchId = useActiveBranchId(branchId);
-  const query = useMealSessions(activeBranchId);
+  const query = useMealSessions(activeBranchId, params);
 
   const sessions: SessionRecord[] = useMemo(
-    () => (query.data ?? []).map(mealSessionToSessionRecord),
-    [query.data],
+    () => (query.data?.items ?? []).map(mealSessionToSessionRecord),
+    [query.data?.items],
   );
 
   return {
     branchId: activeBranchId,
     sessions,
+    total: query.data?.total ?? 0,
+    page: query.data?.page ?? params?.page ?? 1,
+    pageSize: query.data?.page_size ?? params?.page_size ?? 100,
     ...query,
   };
 }
@@ -70,7 +95,7 @@ export function useCreateMealSession() {
     },
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({
-        queryKey: mealSessionsQueryKey(variables.branchId),
+        queryKey: mealSessionsQueryRoot(variables.branchId),
       });
     },
   });
@@ -98,7 +123,7 @@ export function useUpdateMealSession() {
     },
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({
-        queryKey: mealSessionsQueryKey(variables.branchId),
+        queryKey: mealSessionsQueryRoot(variables.branchId),
       });
     },
   });

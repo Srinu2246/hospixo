@@ -102,31 +102,37 @@ export function useCreateMenuItem({
     : null;
   const seedItem = detailCatalog ?? initialItem ?? null;
 
-  const detailVariants: VariantItem[] =
-    initialDetail?.variants.map((variant) => ({
-      id: String(variant.id),
-      name: variant.name,
-      price: variant.final_price,
-    })) ?? [];
+  const detailVariants = useMemo<VariantItem[]>(
+    () =>
+      initialDetail?.variants.map((variant) => ({
+        id: String(variant.id),
+        name: variant.name,
+        price: variant.final_price,
+      })) ?? [],
+    [initialDetail],
+  );
 
-  const detailModifiers: ModifierItem[] =
-    initialDetail?.modifier_groups.flatMap((group) => {
-      const options = group.modifier_group?.options ?? [];
-      if (options.length > 0) {
-        return options.map((option) => ({
-          id: String(option.id),
-          name: option.name,
-          price: Number(option.price_delta) || 0,
-        }));
-      }
-      return [
-        {
-          id: String(group.modifier_group_id),
-          name: group.modifier_group?.name ?? `Group ${group.modifier_group_id}`,
-          price: 0,
-        },
-      ];
-    }) ?? [];
+  const detailModifiers = useMemo<ModifierItem[]>(
+    () =>
+      initialDetail?.modifier_groups.flatMap((group) => {
+        const options = group.modifier_group?.options ?? [];
+        if (options.length > 0) {
+          return options.map((option) => ({
+            id: String(option.id),
+            name: option.name,
+            price: Number(option.price_delta) || 0,
+          }));
+        }
+        return [
+          {
+            id: String(group.modifier_group_id),
+            name: group.modifier_group?.name ?? `Group ${group.modifier_group_id}`,
+            price: 0,
+          },
+        ];
+      }) ?? [],
+    [initialDetail],
+  );
 
   // Form fields
   const [category, setCategory] = useState(seedItem?.categoryId ?? defaultCategoryId?.trim() ?? '');
@@ -329,9 +335,11 @@ export function useCreateMenuItem({
   );
 
   useEffect(() => {
-    if (touched.orderTypes) {
+    if (!touched.orderTypes) return;
+    const frame = requestAnimationFrame(() => {
       validateField('orderTypes');
-    }
+    });
+    return () => cancelAnimationFrame(frame);
   }, [orderTypes, touched.orderTypes, validateField]);
 
   // Expose in toggle

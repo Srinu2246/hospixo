@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import { Eye, LayoutGrid, Pencil, Plus, QrCode } from 'lucide-react';
 
 import {
@@ -12,17 +14,34 @@ import {
   nextTableNames,
   numericId,
 } from '@/components/features/floor-and-table-setup/EditTableDialog';
-import { SetupCard, StatusRow } from '@/components/features/floor-and-table-setup/SetupFields';
+import { SetupCard } from '@/components/features/floor-and-table-setup/SetupFields';
+import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { Input } from '@/components/shared/form-fields/Input';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
-import type {
-  CatalogSection,
-  CatalogTable,
+import {
+  ACTIVE_STATUS_FILTER_OPTIONS,
+  type ActiveStatusFilter,
+  type CatalogSection,
+  type CatalogTable,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { useCreateTable } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { SectionQrDialog } from '@/components/features/floor-and-table-setup/SectionQrDialog';
+import type { SectionGuestMenuTarget } from '@/lib/helpers/floor-and-table-setup/guestMenuUrl';
 import { screen } from '@/lib/theme/mui/breakpoints';
+
+const compactFilterDropdownSx = {
+  width: '100%',
+  height: 44,
+  '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
+} as const;
+
+const catalogCardHoverSx = {
+  transition: 'border-color 0.15s ease',
+  '&:hover': { borderColor: 'grey.400' },
+} as const;
 
 export function FloorSectionsPanel({
   sections,
@@ -31,6 +50,7 @@ export function FloorSectionsPanel({
   editing,
   branchId,
   floorId,
+  branchName,
   onOpen,
   onEdit,
   onAdd,
@@ -43,27 +63,61 @@ export function FloorSectionsPanel({
   editing: boolean;
   branchId?: number;
   floorId?: number;
+  branchName?: string;
   onOpen: (sectionId: string) => void;
   onEdit: (sectionId: string) => void;
   onAdd: () => void;
   onSave: (section: CatalogSection) => void;
   onCancel: () => void;
 }>) {
+  const [qrSection, setQrSection] = useState<SectionGuestMenuTarget | null>(null);
+  const qrDialog = (
+    <SectionQrDialog
+      open={qrSection != null}
+      section={qrSection}
+      floorId={floorId != null ? String(floorId) : null}
+      outletLabel={branchName?.trim() || 'outlet'}
+      outletId={branchId != null ? String(branchId) : null}
+      branchId={branchId ?? null}
+      onClose={() => setQrSection(null)}
+    />
+  );
+
   if (editing) {
-    return <SectionEditor section={selected} onSave={onSave} onCancel={onCancel} />;
+    return (
+      <>
+        {qrDialog}
+        <SectionEditor section={selected} onSave={onSave} onCancel={onCancel} />
+      </>
+    );
   }
   if (selected) {
     return (
-      <SectionDetail
-        section={selected}
-        tables={tables.filter((item) => item.sectionId === selected.id)}
-        floorTables={tables}
-        branchId={branchId}
-        floorId={floorId}
-      />
+      <>
+        {qrDialog}
+        <SectionDetail
+          section={selected}
+          tables={tables.filter((item) => item.sectionId === selected.id)}
+          floorTables={tables}
+          branchId={branchId}
+          floorId={floorId}
+          onDownloadQr={() => setQrSection({ id: selected.id, name: selected.name })}
+        />
+      </>
     );
   }
-  return <SectionList sections={sections} onOpen={onOpen} onEdit={onEdit} onAdd={onAdd} />;
+  return (
+    <>
+      {qrDialog}
+      <SectionList
+        sections={sections}
+        onOpen={onOpen}
+        onEdit={onEdit}
+        onAdd={onAdd}
+        onDownloadQr={(section) => setQrSection({ id: section.id, name: section.name })}
+      />
+    </>
+  );
 }
 
 function SectionList({
@@ -71,33 +125,79 @@ function SectionList({
   onOpen,
   onEdit,
   onAdd,
+  onDownloadQr,
 }: Readonly<{
   sections: readonly CatalogSection[];
   onOpen: (sectionId: string) => void;
   onEdit: (sectionId: string) => void;
   onAdd: () => void;
+  onDownloadQr: (section: CatalogSection) => void;
 }>) {
+  const theme = useTheme();
+  const belowDesktop = useMediaQuery(theme.breakpoints.down('md'));
+  const [status, setStatus] = useState<ActiveStatusFilter>('all');
+  const filtered = sections.filter((section) => {
+    if (status === 'all') return true;
+    return status === 'active' ? section.active : !section.active;
+  });
+  const visible = belowDesktop ? filtered : sections;
+
   return (
-    <Stack spacing={2}>
+    <Stack spacing={{ xs: 2, md: 2.5 }}>
+      <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
+        <Stack
+          direction="row"
+          spacing={1.5}
+          sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}
+        >
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem' }}>Sections List</Typography>
+            <Typography
+              sx={{ color: 'text.secondary', fontSize: '0.8125rem', mt: 0.25, lineHeight: 1.45 }}
+            >
+              Manage and organize dining zones within this floor
+            </Typography>
+          </Box>
+          <ActionButton
+            startIcon={<Plus size={16} />}
+            size="large"
+            onClick={onAdd}
+            sx={{ flexShrink: 0, minHeight: 44, whiteSpace: 'nowrap' }}
+          >
+            Add Section
+          </ActionButton>
+        </Stack>
+        <Dropdown
+          placeholder="Status"
+          options={ACTIVE_STATUS_FILTER_OPTIONS}
+          value={status}
+          onChange={setStatus}
+          size="large"
+          minWidth={0}
+          sx={compactFilterDropdownSx}
+        />
+      </Stack>
+
       <Stack
-        direction={{ [screen.mobile]: 'column', [screen.desktop]: 'row' }}
+        direction="row"
         spacing={1.5}
-        sx={{ alignItems: { [screen.desktop]: 'center' }, justifyContent: 'space-between' }}
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          display: { xs: 'none', md: 'flex' },
+        }}
       >
-        <Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography sx={{ fontWeight: 800 }}>Sections List</Typography>
           <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
             Manage and organize dining zones within this floor
           </Typography>
         </Box>
-        <ActionButton
-          startIcon={<Plus size={16} />}
-          onClick={onAdd}
-          sx={{ width: { [screen.mobile]: '100%', [screen.desktop]: 'auto' } }}
-        >
+        <ActionButton startIcon={<Plus size={16} />} size="large" onClick={onAdd}>
           Add Section
         </ActionButton>
       </Stack>
+
       <Box
         sx={{
           display: 'grid',
@@ -106,10 +206,17 @@ function SectionList({
             [screen.tablet]: '1fr 1fr',
             [screen.wide]: '1fr 1fr 1fr',
           },
-          gap: 1.5,
+          gap: { xs: 2, md: 2 },
         }}
       >
-        {sections.map((section) => (
+        {visible.length === 0 ? (
+          <Typography
+            sx={{ color: 'text.secondary', gridColumn: '1 / -1', py: 4, textAlign: 'center' }}
+          >
+            {belowDesktop ? 'No sections match this filter.' : 'No sections on this floor.'}
+          </Typography>
+        ) : null}
+        {visible.map((section) => (
           <Box
             key={section.id}
             role="button"
@@ -123,52 +230,98 @@ function SectionList({
               }
             }}
             sx={{
-              p: 1.75,
-              borderRadius: '14px',
+              p: 2,
+              borderRadius: '16px',
               border: '1px solid',
               borderColor: 'divider',
               bgcolor: 'background.paper',
               cursor: 'pointer',
-              transition: 'border-color 0.15s ease',
-              '&:hover': { borderColor: 'grey.400' },
+              ...catalogCardHoverSx,
             }}
           >
-            <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1 }}>
-              <Typography sx={{ fontWeight: 800 }}>{section.name}</Typography>
+            <Stack
+              direction="row"
+              sx={{ justifyContent: 'space-between', gap: 1, alignItems: 'flex-start' }}
+            >
+              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem' }}>{section.name}</Typography>
               <StatusChip
                 label={section.active ? 'Active' : 'Inactive'}
                 variantType={section.active ? 'success' : 'default'}
               />
             </Stack>
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem', mt: 1 }}>
+            <Typography sx={{ color: 'text.secondary', mt: 1, fontSize: '0.875rem' }}>
               {section.tableCount} Tables · {section.seatCount} Seats
             </Typography>
             <Stack
               direction="row"
-              sx={{ justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}
+              sx={{
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mt: 2,
+                pt: 1.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+              }}
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
             >
-              <ActionButton variant="outlined" size="small" startIcon={<QrCode size={14} />}>
-                Download QR
-              </ActionButton>
-              <Stack direction="row" spacing={0.5}>
+              <Typography
+                sx={{ color: 'text.secondary', fontSize: '0.8125rem', minWidth: 0, flex: 1 }}
+              >
+                {section.code || 'No code'}
+              </Typography>
+              <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0, alignItems: 'center' }}>
                 <ActionButton
-                  variant="icon"
+                  variant="outlined"
                   size="small"
-                  ariaLabel={`View ${section.name}`}
-                  onClick={() => onOpen(section.id)}
+                  startIcon={<QrCode size={14} />}
+                  onClick={() => onDownloadQr(section)}
+                  sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
                 >
-                  <Eye size={15} />
+                  Download QR
                 </ActionButton>
-                <ActionButton
-                  variant="icon"
-                  size="small"
-                  ariaLabel={`Edit ${section.name}`}
-                  onClick={() => onEdit(section.id)}
+                <Stack direction="row" spacing={0.5} sx={{ display: { xs: 'none', md: 'flex' } }}>
+                  <ActionButton
+                    variant="icon"
+                    size="small"
+                    ariaLabel={`View ${section.name}`}
+                    onClick={() => onOpen(section.id)}
+                  >
+                    <Eye size={15} />
+                  </ActionButton>
+                  <ActionButton
+                    variant="icon"
+                    size="small"
+                    ariaLabel={`Edit ${section.name}`}
+                    onClick={() => onEdit(section.id)}
+                  >
+                    <Pencil size={15} />
+                  </ActionButton>
+                </Stack>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ display: { xs: 'flex', md: 'none' }, flexShrink: 0 }}
                 >
-                  <Pencil size={15} />
-                </ActionButton>
+                  <ActionButton
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Eye size={15} />}
+                    onClick={() => onOpen(section.id)}
+                    sx={{ minHeight: 40, px: 1.5 }}
+                  >
+                    View
+                  </ActionButton>
+                  <ActionButton
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Pencil size={15} />}
+                    onClick={() => onEdit(section.id)}
+                    sx={{ minHeight: 40, px: 1.5 }}
+                  >
+                    Edit
+                  </ActionButton>
+                </Stack>
               </Stack>
             </Stack>
           </Box>
@@ -184,12 +337,14 @@ function SectionDetail({
   floorTables,
   branchId,
   floorId,
+  onDownloadQr,
 }: Readonly<{
   section: CatalogSection;
   tables: readonly CatalogTable[];
   floorTables: readonly CatalogTable[];
   branchId?: number;
   floorId?: number;
+  onDownloadQr: () => void;
 }>) {
   const [draft, setDraft] = useState<CatalogTable | null>(null);
   const createTable = useCreateTable(branchId);
@@ -218,7 +373,20 @@ function SectionDetail({
   return (
     <Stack spacing={2}>
       <SetupCard>
-        <Typography sx={{ fontWeight: 800, mb: 2 }}>Section Information</Typography>
+        <Stack
+          direction="row"
+          sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+        >
+          <Typography sx={{ fontWeight: 800 }}>Section Information</Typography>
+          <ActionButton
+            variant="outlined"
+            size="small"
+            startIcon={<QrCode size={14} />}
+            onClick={onDownloadQr}
+          >
+            Download QR
+          </ActionButton>
+        </Stack>
         <Box
           sx={{
             display: 'grid',
@@ -436,7 +604,7 @@ function SectionEditor({
           />
         </Box>
         <Box sx={{ mt: 2.5 }}>
-          <StatusRow
+          <LabeledSwitch
             title="Floor Status"
             hint="Toggle active visibility on checkout POS channels"
             checked={draft.active}

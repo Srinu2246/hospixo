@@ -14,7 +14,7 @@ import { Plus, Search } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Loading } from '@/components/shared/ui/Loading';
-import { SkeletonLoader } from '@/components/shared/ui/SkeletonLoader';
+import { TablePagination } from '@/components/shared/ui/TablePagination';
 import {
   sessionFormToCreateMealSessionBody,
   sessionFormToUpdateMealSessionBody,
@@ -24,6 +24,7 @@ import {
   useMenuMealSessions,
   useUpdateMealSession,
 } from '@/lib/hooks/menu/sessions/useMenuMealSessions';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import {
   SESSION_STATUS_FILTER_OPTIONS,
   type SessionStatusFilter,
@@ -89,18 +90,37 @@ export function SessionsPage({
 
   const [mode, setMode] = useState<'list' | 'create' | 'edit'>(currentMode);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 1500);
   const [statusFilter, setStatusFilter] = useState<SessionStatusFilter>('all');
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(targetSessionId);
   const [deletingSession, setDeletingSession] = useState<SessionRecord | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const isListMode = mode === 'list';
+  const listParams = useMemo(
+    () => ({
+      search: isListMode && debouncedSearch.trim() ? debouncedSearch.trim() : undefined,
+      status: statusFilter === 'all' ? undefined : statusFilter,
+      page: isListMode ? page : 1,
+      page_size: isListMode ? pageSize : 50,
+    }),
+    [debouncedSearch, isListMode, page, pageSize, statusFilter],
+  );
+
   const {
     branchId,
     sessions,
+    total: sessionsTotal,
     isLoading: isSessionsLoading,
     isError: isSessionsError,
     error: sessionsError,
-  } = useMenuMealSessions();
+  } = useMenuMealSessions(undefined, listParams);
+  const { total: sessionsCatalogTotal } = useMenuMealSessions(undefined, {
+    page: 1,
+    page_size: 1,
+  });
   const createMealSession = useCreateMealSession();
   const updateMealSession = useUpdateMealSession();
   const submitting = createMealSession.isPending || updateMealSession.isPending;
@@ -111,23 +131,7 @@ export function SessionsPage({
     return sessions.find((s) => s.id === activeSessionId) ?? null;
   }, [activeSessionId, sessions]);
 
-  // Filtered list
-  const filteredSessions = useMemo(() => {
-    return sessions.filter((session) => {
-      if (statusFilter !== 'all' && session.status !== statusFilter) {
-        return false;
-      }
-      if (search.trim()) {
-        const query = search.trim().toLowerCase();
-        const matchesName = session.name.toLowerCase().includes(query);
-        const matchesTimes =
-          session.startTime.toLowerCase().includes(query) ||
-          session.endTime.toLowerCase().includes(query);
-        if (!matchesName && !matchesTimes) return false;
-      }
-      return true;
-    });
-  }, [sessions, statusFilter, search]);
+  const filteredSessions = sessions;
 
   const handleOpenCreate = () => {
     setActiveSessionId(undefined);
@@ -205,7 +209,7 @@ export function SessionsPage({
           />
         ) : null}
         {mode === 'edit' && isSessionsLoading && !activeSession ? (
-          <SkeletonLoader count={4} height={56} sx={{ maxWidth: 720 }} />
+          <Loading fullPage={false} sx={{ maxWidth: 720 }} />
         ) : mode === 'edit' && !activeSession && !isSessionsLoading ? (
           <AlertMessage
             variant="error"
@@ -313,7 +317,10 @@ export function SessionsPage({
       >
         <TextField
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           placeholder="Search sessions..."
           size="small"
           fullWidth
@@ -342,7 +349,10 @@ export function SessionsPage({
 
         <Select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as SessionStatusFilter)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value as SessionStatusFilter);
+            setPage(1);
+          }}
           size="small"
           sx={{
             minWidth: { xs: '100%', sm: 150 },
@@ -390,7 +400,7 @@ export function SessionsPage({
 
       {/* Sessions Grid */}
       {isSessionsLoading && sessions.length === 0 ? (
-        <SkeletonLoader count={6} height={160} sx={{ borderRadius: 2 }} />
+        <Loading fullPage={false} />
       ) : filteredSessions.length === 0 ? (
         <AlertMessage
           variant="info"
@@ -423,6 +433,15 @@ export function SessionsPage({
           ))}
         </Box>
       )}
+
+      {isListMode && sessionsTotal > 0 ? (
+        <TablePagination
+          page={page}
+          pageCount={Math.max(1, Math.ceil(sessionsTotal / pageSize))}
+          onPageChange={setPage}
+          summary={`Showing ${filteredSessions.length} of ${sessionsCatalogTotal} sessions`}
+        />
+      ) : null}
 
       {/* Delete Confirmation Modal */}
       <DeleteSessionModal

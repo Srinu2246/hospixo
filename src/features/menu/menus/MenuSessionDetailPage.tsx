@@ -24,6 +24,7 @@ import {
 } from '@/lib/hooks/menu/menus/menusHooks';
 import { useMenuCategories } from '@/lib/hooks/menu/useMenuCategories';
 import { useMenuItems } from '@/lib/hooks/menu/useMenuItems';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import {
   menuSessionScheduleLabel,
   type MenuSessionAssignedItem,
@@ -80,15 +81,24 @@ export function MenuSessionDetailPage({
 }: Readonly<MenuSessionDetailPageProps>) {
   const showToast = useToastStore((state) => state.show);
   const categoriesQuery = useMenuCategories({ status: 'active', page: 1, page_size: 100 });
-  const itemsQuery = useMenuItems({ status: 'active', page: 1, page_size: 100 });
 
   const menuId = menu.menu_id ?? menu.id;
   const assignCategoryMutation = useAssignMenuCategory();
   const assignmentsQuery = useMenuCategoryAssignments(menuId, { page: 1, page_size: 100 });
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 1500);
   const [page, setPage] = useState(1);
   const [assignOpen, setAssignOpen] = useState(false);
+
+  const catalogItemsQuery = useMenuItems({ status: 'active', page: 1, page_size: 100 });
+  const assignedItemsQuery = useMenuItems({
+    status: 'active',
+    page,
+    page_size: PAGE_SIZE,
+    search: debouncedSearch.trim() || undefined,
+    category_id: categoryFilter === 'all' ? undefined : categoryFilter,
+  });
 
   const isActive = menu.status.toLowerCase() === 'active';
   const sessionName = menu.menu.name;
@@ -98,7 +108,14 @@ export function MenuSessionDetailPage({
     () => categoriesQuery.data?.items ?? [],
     [categoriesQuery.data?.items],
   );
-  const menuItems = useMemo(() => itemsQuery.data?.items ?? [], [itemsQuery.data?.items]);
+  const menuItems = useMemo(
+    () => catalogItemsQuery.data?.items ?? [],
+    [catalogItemsQuery.data?.items],
+  );
+  const assignedPageItems = useMemo(
+    () => assignedItemsQuery.data?.items ?? [],
+    [assignedItemsQuery.data?.items],
+  );
 
   const categoryAssignments = useMemo(
     () => assignmentsQuery.data?.items ?? [],
@@ -141,19 +158,37 @@ export function MenuSessionDetailPage({
 
   const assignedCategorySet = useMemo(() => new Set(assignedCategoryIds), [assignedCategoryIds]);
 
-  const assignedItems = useMemo(
+  const assignedCatalogItems = useMemo(
     () => catalogItems.filter((item) => assignedCategorySet.has(item.categoryId)),
     [assignedCategorySet, catalogItems],
   );
 
+  const assignedListItems = useMemo<MenuSessionAssignedItem[]>(() => {
+    return assignedPageItems
+      .filter((item) => assignedCategorySet.has(item.category_id))
+      .map((item) => {
+        const primaryImage = item.images.find((image) => image.is_primary) ?? item.images[0];
+        return {
+          id: item.id,
+          name: item.name,
+          categoryId: item.category_id,
+          categoryName: categoryNameById.get(item.category_id) ?? `Category #${item.category_id}`,
+          basePrice: item.base_price,
+          dietary: toDietaryLabel(item.dietary_type),
+          orderTypes: orderTypesLabel(item),
+          imageUrl: primaryImage?.url ?? undefined,
+        };
+      });
+  }, [assignedCategorySet, assignedPageItems, categoryNameById]);
+
   const categoryChips = useMemo(() => {
     const counts = new Map<number, number>();
-    for (const item of assignedItems) {
+    for (const item of assignedCatalogItems) {
       counts.set(item.categoryId, (counts.get(item.categoryId) ?? 0) + 1);
     }
 
     const chips = [
-      { id: 'all' as const, label: 'All', count: assignedItems.length },
+      { id: 'all' as const, label: 'All', count: assignedCatalogItems.length },
       ...assignedCategoryIds.map((categoryId) => ({
         id: categoryId as number | 'all',
         label: categoryNameById.get(categoryId) ?? `Category #${categoryId}`,
@@ -161,18 +196,10 @@ export function MenuSessionDetailPage({
       })),
     ];
     return chips;
-  }, [assignedCategoryIds, assignedItems, categoryNameById]);
+  }, [assignedCategoryIds, assignedCatalogItems, categoryNameById]);
 
-  const filteredAssigned = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return assignedItems.filter((item) => {
-      if (categoryFilter !== 'all' && item.categoryId !== categoryFilter) return false;
-      if (!query) return true;
-      return (
-        item.name.toLowerCase().includes(query) || item.categoryName.toLowerCase().includes(query)
-      );
-    });
-  }, [assignedItems, categoryFilter, search]);
+  const filteredAssigned = assignedListItems;
+  const assignedItemsTotal = assignedItemsQuery.data?.total ?? filteredAssigned.length;
 
   const modalCategories = useMemo(() => {
     const counts = new Map<number, number>();
@@ -473,7 +500,7 @@ export function MenuSessionDetailPage({
             >
               <CircularProgress size={28} />
             </Box>
-          ) : assignedItems.length === 0 ? (
+          ) : assignedCategoryIds.length === 0 ? (
             <Box
               sx={{
                 flex: 1,
@@ -526,9 +553,11 @@ export function MenuSessionDetailPage({
                 getRowId={(row) => row.id}
                 height="100%"
                 dense
+                loading={assignedItemsQuery.isFetching}
                 pagination
                 page={page}
                 pageSize={PAGE_SIZE}
+                totalRows={assignedItemsTotal}
                 onPageChange={setPage}
                 paginationEntityName="items"
                 emptyTitle="No items match"

@@ -24,13 +24,15 @@ import {
   MOCK_SHIFT_METRICS,
   resolveCurrentShiftMock,
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
-import { MOCK_BRANCHES } from '@/lib/mocks/organization/branches.mocks';
+import { MOCK_BRANCHES, resolveBranchesMock } from '@/lib/mocks/organization/branches.mocks';
 import { MOCK_COMPANIES } from '@/lib/mocks/organization/companies.mocks';
 import { resolveRestaurantFloorMock } from '@/lib/mocks/floor-and-table-setup/restaurantFloors.mocks';
 import {
   MOCK_KITCHEN_ORDERS,
   resolveKitchenDisplayMock,
 } from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
+import { resolveBranchMenuAssignmentsMock } from '@/lib/mocks/floor-and-table-setup/branchMenuAssignments.mocks';
+import { MOCK_PUBLIC_RESTAURANT_MENU_RESPONSE } from '@/lib/mocks/floor-and-table-setup/publicRestaurantMenu.mocks';
 import { resolveBranchReportsMock } from '@/lib/mocks/reports/reports.mocks';
 import {
   appendMockMenuCategoryAssignment,
@@ -114,6 +116,7 @@ const LIST_MOCKS: Record<string, unknown> = {
   [ApiUrlsV1.dashboard.branch.list]: { stats: BRANCH_STAT_CARDS },
   [ApiUrlsV1.organization.companies]: MOCK_COMPANIES,
   [ApiUrlsV1.restaurant.branches]: MOCK_BRANCHES,
+  [ApiUrlsV1.public.restaurantMenu]: MOCK_PUBLIC_RESTAURANT_MENU_RESPONSE,
   [ApiUrlsV1.restaurant.menuCategories.list]: MOCK_MENU_CATEGORIES,
   [ApiUrlsV1.restaurant.menuItems.list]: MOCK_MENU_ITEMS,
   [ApiUrlsV1.restaurant.menuItemTags.list]: MOCK_MENU_ITEM_TAGS,
@@ -139,6 +142,11 @@ export function isApiProxyEnabled(): boolean {
   return Boolean(process.env.API_BASE_URL?.trim());
 }
 
+function branchMenusUsesListParams(params?: QueryParams): boolean {
+  if (!params) return false;
+  return params.page != null || params.page_size != null || params.status != null;
+}
+
 export function resolveMock(request: MockRequest): unknown | undefined {
   if (
     request.method === 'POST' &&
@@ -156,6 +164,14 @@ export function resolveMock(request: MockRequest): unknown | undefined {
     };
   }
 
+  if (branchMenusUsesListParams(request.params)) {
+    const branchMenusList = resolveBranchMenusMock(request);
+    if (branchMenusList !== undefined) return branchMenusList;
+  }
+
+  const branchMenuAssignments = resolveBranchMenuAssignmentsMock(request.path, request.method);
+  if (branchMenuAssignments !== undefined) return branchMenuAssignments;
+
   // Floors, sections, tables, and floor-map under /v1/branches/:id/floors/**
   const restaurant = resolveRestaurantFloorMock(request);
   if (restaurant !== undefined) return restaurant;
@@ -171,6 +187,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
   const gstRates = resolveGstRatesMock(request);
   if (gstRates !== undefined) return gstRates;
+
+  const branches = resolveBranchesMock(request);
+  if (branches !== undefined) return branches;
 
   const menuCategoryAssignments = resolveMenuCategoryAssignmentsMock(request);
   if (menuCategoryAssignments !== undefined) return menuCategoryAssignments;
@@ -665,16 +684,62 @@ export function resolveMock(request: MockRequest): unknown | undefined {
       listPath === ApiUrlsV1.restaurant.menus.list
     ) {
       let items = Array.isArray(payload) ? payload : [];
+      const statusFilter = request.params?.status;
+      const search =
+        typeof request.params?.search === 'string'
+          ? request.params.search.trim().toLowerCase()
+          : '';
       if (listPath === ApiUrlsV1.restaurant.menuItemTags.list) {
-        const statusFilter = request.params?.status;
         if (typeof statusFilter === 'string' && statusFilter.length > 0) {
           items = items.filter(
             (row) => isRecord(row) && String(row.status ?? 'active') === statusFilter,
           );
         }
       }
+      if (listPath === ApiUrlsV1.restaurant.menuCategories.list) {
+        if (typeof statusFilter === 'string' && statusFilter.length > 0) {
+          items = items.filter(
+            (row) => isRecord(row) && String(row.status ?? 'active') === statusFilter,
+          );
+        }
+        if (search) {
+          items = items.filter(
+            (row) =>
+              isRecord(row) &&
+              String(row.name ?? '')
+                .toLowerCase()
+                .includes(search),
+          );
+        }
+      }
+      if (listPath === ApiUrlsV1.restaurant.menuItems.list) {
+        if (typeof statusFilter === 'string' && statusFilter.length > 0) {
+          items = items.filter(
+            (row) => isRecord(row) && String(row.status ?? 'active') === statusFilter,
+          );
+        }
+        const categoryId = Number(request.params?.category_id);
+        if (Number.isFinite(categoryId) && categoryId > 0) {
+          items = items.filter((row) => isRecord(row) && Number(row.category_id) === categoryId);
+        }
+        const dietaryType = request.params?.dietary_type;
+        if (typeof dietaryType === 'string' && dietaryType.length > 0) {
+          items = items.filter(
+            (row) => isRecord(row) && String(row.dietary_type ?? '') === dietaryType,
+          );
+        }
+        if (search) {
+          items = items.filter((row) => {
+            if (!isRecord(row)) return false;
+            const haystack = [row.name, row.code, row.description]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase();
+            return haystack.includes(search);
+          });
+        }
+      }
       if (listPath === ApiUrlsV1.restaurant.menus.list) {
-        const statusFilter = request.params?.status;
         if (typeof statusFilter === 'string' && statusFilter.length > 0) {
           items = items.filter(
             (row) => isRecord(row) && String(row.status ?? 'active') === statusFilter,
@@ -685,6 +750,16 @@ export function resolveMock(request: MockRequest): unknown | undefined {
           items = items.filter(
             (row) => isRecord(row) && String(row.menu_type ?? '') === menuTypeFilter,
           );
+        }
+        if (search) {
+          items = items.filter((row) => {
+            if (!isRecord(row)) return false;
+            const haystack = [row.name, row.code, row.menu_type]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase();
+            return haystack.includes(search);
+          });
         }
       }
       const page = Number(request.params?.page) || 1;

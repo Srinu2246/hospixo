@@ -11,6 +11,8 @@ import {
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
+
 import {
   AVAILABILITY_CHANNELS,
   type AvailabilityDietaryFilter,
@@ -110,6 +112,10 @@ export interface MenuCreationContextValue {
   refetchItems?: () => void;
   setActiveCategoryId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
+  listPage: number;
+  listPageSize: number;
+  listTotal: number;
+  setListPage: (page: number) => void;
   openCreateCategory: () => void;
   openEditCategory: (category: MenuCategory) => void;
   openCreateItem: () => void;
@@ -140,6 +146,7 @@ export interface MenuCreationContextValue {
 const MenuCreationContext = createContext<MenuCreationContextValue | null>(null);
 
 const MENU_LIST_PARAMS = { page_size: 100 } as const;
+const MENU_ITEMS_PAGE_SIZE = 8;
 
 export function MenuCreationProvider({
   pageConfig,
@@ -164,10 +171,17 @@ export function MenuCreationProvider({
   const [activeCategoryId, setActiveCategoryIdState] = useState<string | null>(
     () => initialCategoryId ?? null,
   );
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQueryState] = useState('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 1500);
+  const [listPage, setListPage] = useState(1);
   const setActiveCategoryId = (id: string | null) => {
     setActiveCategoryIdState(id);
     replaceMenuCreationCategoryParam(id);
+    setListPage(1);
+  };
+  const setSearchQuery = (query: string) => {
+    setSearchQueryState(query);
+    setListPage(1);
   };
 
   const account = useSidebarStore((state) => state.account);
@@ -180,9 +194,27 @@ export function MenuCreationProvider({
     return Number.isFinite(id) && id > 0 ? id : undefined;
   }, [account?.branch_id, pageConfig.scope, sidebarContext.branchId]);
 
+  const activeCategoryNumericId = useMemo(() => {
+    if (!activeCategoryId || !/^\d+$/.test(activeCategoryId)) return undefined;
+    const id = Number(activeCategoryId);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [activeCategoryId]);
+
   const menuListParams = useMemo<MenuItemListParams>(
     () => ({
-      ...MENU_LIST_PARAMS,
+      page: listPage,
+      page_size: MENU_ITEMS_PAGE_SIZE,
+      ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
+      ...(activeCategoryNumericId != null ? { category_id: activeCategoryNumericId } : {}),
+      ...(debouncedSearchQuery.trim() ? { search: debouncedSearchQuery.trim() } : {}),
+    }),
+    [activeCategoryNumericId, branchIdForList, debouncedSearchQuery, listPage],
+  );
+
+  const catalogListParams = useMemo<MenuItemListParams>(
+    () => ({
+      page: 1,
+      page_size: MENU_LIST_PARAMS.page_size,
       ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
     }),
     [branchIdForList],
@@ -191,6 +223,7 @@ export function MenuCreationProvider({
   const queryClient = useQueryClient();
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
   const itemsQuery = useMenuItems(menuListParams);
+  const catalogItemsQuery = useMenuItems(catalogListParams);
   const createMenuItem = useCreateMenuItem({ scope: pageConfig.scope });
   const updateMenuItem = useUpdateMenuItem({ scope: pageConfig.scope });
   const deactivateMenuItem = useDeactivateMenuItem({ scope: pageConfig.scope });
@@ -322,26 +355,25 @@ export function MenuCreationProvider({
     return () => window.removeEventListener('popstate', handlePopState);
   }, [items]);
 
+  const catalogItems = useMemo(
+    () =>
+      (catalogItemsQuery.data?.items ?? []).map((item) =>
+        toMenuCatalogItem(item, categoryNameById),
+      ),
+    [catalogItemsQuery.data?.items, categoryNameById],
+  );
+
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const item of items) {
+    for (const item of catalogItems) {
       counts[item.categoryId] = (counts[item.categoryId] ?? 0) + 1;
     }
     return counts;
-  }, [items]);
+  }, [catalogItems]);
 
-  const filteredItems = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return items.filter((item) => {
-      if (activeCategoryId && item.categoryId !== activeCategoryId) return false;
-      if (!query) return true;
-      return (
-        item.name.toLowerCase().includes(query) ||
-        item.code?.toLowerCase().includes(query) ||
-        item.categoryName.toLowerCase().includes(query)
-      );
-    });
-  }, [activeCategoryId, items, searchQuery]);
+  const filteredItems = items;
+  const listTotal = itemsQuery.data?.total ?? items.length;
+  const totalItemCount = catalogItemsQuery.data?.total ?? catalogItems.length;
 
   const value = useMemo<MenuCreationContextValue>(
     () => ({
@@ -351,7 +383,7 @@ export function MenuCreationProvider({
       items,
       filteredItems,
       categoryCounts,
-      totalItemCount: items.length,
+      totalItemCount,
       activeCategoryId,
       searchQuery,
       selectedItem,
@@ -367,6 +399,10 @@ export function MenuCreationProvider({
       },
       setActiveCategoryId,
       setSearchQuery,
+      listPage,
+      listPageSize: MENU_ITEMS_PAGE_SIZE,
+      listTotal,
+      setListPage,
       openCreateCategory: () => {
         setEditingCategoryId(null);
         setViewMode('create-category');
@@ -582,6 +618,9 @@ export function MenuCreationProvider({
       categoryCounts,
       filteredItems,
       items,
+      listPage,
+      listTotal,
+      totalItemCount,
       pageConfig,
       searchQuery,
       selectedItem,
@@ -603,8 +642,6 @@ export function MenuCreationProvider({
       createMenuCategory,
       updateMenuCategory,
       setMenuCategoryActive,
-      account,
-      sidebarContext.branchId,
     ],
   );
 
@@ -645,6 +682,10 @@ export interface MenuAvailabilityContextValue {
   statusFilter: AvailabilityStatusFilter;
   setActiveCategoryId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
+  listPage: number;
+  listPageSize: number;
+  listTotal: number;
+  setListPage: (page: number) => void;
   setChannelGroup: (group: AvailabilityChannelGroup) => void;
   setActiveChannelId: (channelId: string) => void;
   setDietaryFilter: (value: AvailabilityDietaryFilter) => void;
@@ -692,17 +733,6 @@ function toAvailabilityItem(
   };
 }
 
-function matchesDietaryFilter(
-  dietary: AvailabilityItem['dietary'],
-  filter: AvailabilityDietaryFilter,
-): boolean {
-  if (filter === 'all') return true;
-  if (filter === 'veg') return dietary === 'Veg';
-  if (filter === 'non_veg') return dietary === 'Non-Veg';
-  if (filter === 'egg') return dietary === 'Egg';
-  return dietary === 'Vegan';
-}
-
 export function MenuAvailabilityProvider({
   pageConfig,
   children,
@@ -711,8 +741,10 @@ export function MenuAvailabilityProvider({
   children: ReactNode;
 }>) {
   /** null = All Items (same as Menu Creation). */
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategoryId, setActiveCategoryIdState] = useState<string | null>(null);
+  const [searchQuery, setSearchQueryState] = useState('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 1500);
+  const [listPage, setListPage] = useState(1);
   /** Default DineIn QR — All / Online tabs are feature-flagged off for MVP. */
   const [channelGroup, setChannelGroup] = useState<AvailabilityChannelGroup>('dine-in-qr');
   const [activeChannelId, setActiveChannelId] = useState('dine-in-qr');
@@ -730,19 +762,45 @@ export function MenuAvailabilityProvider({
     return Number.isFinite(id) && id > 0 ? id : undefined;
   }, [account?.branch_id, pageConfig.scope, sidebarContext.branchId]);
 
+  const activeCategoryNumericId = useMemo(() => {
+    if (!activeCategoryId || !/^\d+$/.test(activeCategoryId)) return undefined;
+    const id = Number(activeCategoryId);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }, [activeCategoryId]);
+
   const itemListParams = useMemo<MenuItemListParams>(
     () => ({
-      ...MENU_LIST_PARAMS,
+      page: listPage,
+      page_size: MENU_ITEMS_PAGE_SIZE,
       ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
+      ...(activeCategoryNumericId != null ? { category_id: activeCategoryNumericId } : {}),
+      ...(debouncedSearchQuery.trim() ? { search: debouncedSearchQuery.trim() } : {}),
       ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
       ...(dietaryFilter !== 'all' ? { dietary_type: dietaryFilter } : {}),
     }),
-    [branchIdForList, dietaryFilter, statusFilter],
+    [
+      activeCategoryNumericId,
+      branchIdForList,
+      debouncedSearchQuery,
+      dietaryFilter,
+      listPage,
+      statusFilter,
+    ],
+  );
+
+  const catalogListParams = useMemo<MenuItemListParams>(
+    () => ({
+      page: 1,
+      page_size: MENU_LIST_PARAMS.page_size,
+      ...(branchIdForList != null ? { branch_id: branchIdForList } : {}),
+    }),
+    [branchIdForList],
   );
 
   // Same list APIs as Menu Creation: GET categories + GET menu items (with status / dietary filters).
   const categoriesQuery = useMenuCategories(MENU_LIST_PARAMS);
   const itemsQuery = useMenuItems(itemListParams);
+  const catalogItemsQuery = useMenuItems(catalogListParams);
   const setMenuItemActive = useSetMenuItemActive({ scope: pageConfig.scope });
 
   const categoryNameById = useMemo(() => {
@@ -774,47 +832,51 @@ export function MenuAvailabilityProvider({
 
   const channels = useMemo(() => channelsForGroup(channelGroup), [channelGroup]);
 
+  const catalogItems = useMemo(
+    () =>
+      (catalogItemsQuery.data?.items ?? []).map((item) =>
+        toAvailabilityItem(item, categoryNameById),
+      ),
+    [catalogItemsQuery.data?.items, categoryNameById],
+  );
+
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const item of items) {
+    for (const item of catalogItems) {
       counts[item.categoryId] = (counts[item.categoryId] ?? 0) + 1;
     }
     return counts;
-  }, [items]);
+  }, [catalogItems]);
 
-  const filteredItems = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return items.filter((item) => {
-      if (activeCategoryId && item.categoryId !== activeCategoryId) return false;
-      if (!matchesDietaryFilter(item.dietary, dietaryFilter)) return false;
-      if (statusFilter === 'active' && !item.isActive) return false;
-      if (statusFilter === 'inactive' && item.isActive) return false;
-      if (!query) return true;
-      return (
-        item.name.toLowerCase().includes(query) ||
-        item.tag.toLowerCase().includes(query) ||
-        item.tags.some((tag) => tag.toLowerCase().includes(query)) ||
-        item.categoryName.toLowerCase().includes(query)
-      );
-    });
-  }, [activeCategoryId, dietaryFilter, items, searchQuery, statusFilter]);
+  const filteredItems = items;
+  const listTotal = itemsQuery.data?.total ?? items.length;
+  const totalItemCount = catalogItemsQuery.data?.total ?? catalogItems.length;
+
+  const setActiveCategoryId = (id: string | null) => {
+    setActiveCategoryIdState(id);
+    setListPage(1);
+  };
+  const setSearchQuery = (query: string) => {
+    setSearchQueryState(query);
+    setListPage(1);
+  };
 
   const stats = useMemo(() => {
     let available = 0;
     let eightySixCount = 0;
     let hidden = 0;
-    for (const item of items) {
+    for (const item of catalogItems) {
       if (item.mark === 'available') available += 1;
       if (item.mark === '86d') eightySixCount += 1;
       if (item.isHidden || item.visibility === 'hidden') hidden += 1;
     }
     return {
-      total: items.length,
+      total: totalItemCount,
       available,
       eightySixCount,
       hidden,
     };
-  }, [items]);
+  }, [catalogItems, totalItemCount]);
 
   const value = useMemo<MenuAvailabilityContextValue>(
     () => ({
@@ -824,7 +886,7 @@ export function MenuAvailabilityProvider({
       filteredItems,
       channels,
       categoryCounts,
-      totalItemCount: items.length,
+      totalItemCount,
       stats,
       activeCategoryId,
       searchQuery,
@@ -834,6 +896,10 @@ export function MenuAvailabilityProvider({
       statusFilter,
       setActiveCategoryId,
       setSearchQuery,
+      listPage,
+      listPageSize: MENU_ITEMS_PAGE_SIZE,
+      listTotal,
+      setListPage,
       setChannelGroup: (group) => {
         setChannelGroup(group);
         const nextChannels = channelsForGroup(group);
@@ -846,10 +912,12 @@ export function MenuAvailabilityProvider({
       setDietaryFilter: (next) => {
         setDietaryFilter(next);
         setLocalItems(null);
+        setListPage(1);
       },
       setStatusFilter: (next) => {
         setStatusFilter(next);
         setLocalItems(null);
+        setListPage(1);
       },
       toggleItemMark: async (itemId, nextActive) => {
         const numericId = Number(itemId);
@@ -877,7 +945,7 @@ export function MenuAvailabilityProvider({
               : item,
           );
         });
-        await itemsQuery.refetch();
+        await Promise.all([itemsQuery.refetch(), catalogItemsQuery.refetch()]);
         setLocalItems(null);
       },
       isUpdatingItemStatus: setMenuItemActive.isPending,
@@ -896,11 +964,15 @@ export function MenuAvailabilityProvider({
       dietaryFilter,
       filteredItems,
       items,
+      listPage,
+      listTotal,
+      totalItemCount,
       pageConfig,
       searchQuery,
       stats,
       statusFilter,
       setMenuItemActive,
+      catalogItemsQuery,
       categoriesQuery.isLoading,
       categoriesQuery.error,
       itemsQuery,
