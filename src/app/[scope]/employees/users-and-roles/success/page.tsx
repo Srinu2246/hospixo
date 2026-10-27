@@ -3,8 +3,8 @@ import { CreateUserMultiformFlow } from '@/features/employees/user-roles';
 import { resolveScope } from '@/types/user-roles';
 
 export const metadata: Metadata = {
-  title: 'Invitation Sent | Hospixo Platform',
-  description: 'User invitation has been sent successfully.',
+  title: 'User Created Successfully | Hospixo Platform',
+  description: 'Confirmation and summary after creating a new user.',
 };
 
 interface ScopeRouteProps {

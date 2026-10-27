@@ -197,6 +197,7 @@ export interface UseUserRolesOptions {
   initialUserList?: UserRoleListResponse;
   companyId?: number | string | null;
   branchId?: number | string | null;
+  companies?: readonly { id: number | string; name: string }[];
 }
 
 export const roleTemplateItemSchema = z.object({
@@ -1596,6 +1597,27 @@ function coerceUserItem(mapped: UserRoleItem): UserRoleItem | null {
   return parsed.success ? parsed.data : null;
 }
 
+function isNumericEntityLabel(value: string): boolean {
+  const trimmed = value.trim();
+  return /^\d+$/.test(trimmed) || /^(company|branch)\s*#\s*\d+$/i.test(trimmed);
+}
+
+function readCompanyDisplayName(source: JsonObject): string | undefined {
+  const candidates = [
+    text(source.company),
+    text(source.company_name),
+    text(source.companyName),
+    readNestedName(source.company),
+  ].filter((value): value is string => Boolean(value));
+
+  for (const candidate of candidates) {
+    if (!isNumericEntityLabel(candidate)) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
 function mapUserRow(raw: JsonObject): UserRoleItem {
   const source = flattenUserRecord(raw);
   const id =
@@ -1636,12 +1658,7 @@ function mapUserRow(raw: JsonObject): UserRoleItem {
       readNestedName(source.branch) ??
       readNestedName(source.location) ??
       '—',
-    company:
-      text(source.company) ??
-      text(source.company_name) ??
-      text(source.companyName) ??
-      readNestedName(source.company) ??
-      undefined,
+    company: readCompanyDisplayName(source),
     status: normalizeStatus(source),
     username: text(source.username) ?? undefined,
     avatar:

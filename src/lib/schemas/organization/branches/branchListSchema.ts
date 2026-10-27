@@ -97,10 +97,13 @@ function mapBranch(raw: Record<string, unknown>, fallbackCompanyId?: number | st
   const companyId = toInt(raw.company_id ?? raw.companyId ?? fallbackCompanyId);
 
   const name = text(raw.name) ?? text(raw.branch_name) ?? text(raw.outlet_name) ?? 'Branch';
+  const rawCompanyName = text(raw.companyName) ?? text(raw.company_name);
   const companyName =
-    text(raw.companyName) ??
-    text(raw.company_name) ??
-    (companyId != null ? `Company #${companyId}` : 'Company');
+    rawCompanyName && !isNumericEntityLabel(rawCompanyName)
+      ? rawCompanyName
+      : companyId != null
+        ? `Company #${companyId}`
+        : 'Company';
   const code = text(raw.code) ?? text(raw.branch_code) ?? (id != null ? String(id) : 'BR');
   const city = text(raw.city) ?? text(raw.location) ?? '—';
 
@@ -130,6 +133,11 @@ function toInt(value: unknown): number | undefined {
 
 function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function isNumericEntityLabel(value: string): boolean {
+  const trimmed = value.trim();
+  return /^\d+$/.test(trimmed);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
