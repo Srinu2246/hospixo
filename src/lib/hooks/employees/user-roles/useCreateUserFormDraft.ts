@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 import {
   createUserDraftSchema,
@@ -22,6 +22,9 @@ import {
 import { useCreateUserStore } from '@/stores/createUserStore';
 
 const PERSIST_DEBOUNCE_MS = 400;
+
+/** Per storage key — mirrors former `useState(false)` + microtask ready flip. */
+const draftReadyByKey = new Map<string, boolean>();
 
 export function resolveCreateUserFormDraftStorageKey(scope: ScopeType, routeRoot: string): string {
   return formDraftStorageKey(['create-user', scope, routeRoot]);
@@ -55,6 +58,101 @@ function persistDraft(
   if (draft) writeFormDraft(storageKey, draft);
 }
 
+function subscribeCreateUserDraftHydration(
+  storageKey: string,
+  onStoreChange: () => void,
+): () => void {
+  const parsed = readDraftState(storageKey);
+  if (parsed.success) {
+    useCreateUserStore.getState().hydrateDraft(toCreateUserDraftHydration(parsed.data));
+  }
+
+  draftReadyByKey.set(storageKey, false);
+  queueMicrotask(() => {
+    draftReadyByKey.set(storageKey, true);
+    onStoreChange();
+  });
+
+  return () => {
+    draftReadyByKey.delete(storageKey);
+  };
+}
+
+function subscribeCreateUserDraftPersistence(
+  storageKey: string,
+  currentStep: CreateUserStep,
+): () => void {
+  if (currentStep === 'success') {
+    return () => undefined;
+  }
+
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const flushDraft = () => {
+    const state = useCreateUserStore.getState();
+    persistDraft(
+      storageKey,
+      {
+        scope: state.scope,
+        selectedTemplate: state.selectedTemplate,
+        selectedRoleId: state.selectedRoleId,
+        formValues: state.formValues,
+        categories: state.categories,
+      },
+      currentStep,
+    );
+  };
+
+  flushDraft();
+
+  const unsubscribe = useCreateUserStore.subscribe((state, prevState) => {
+    if (state.formValues.password !== prevState.formValues.password) {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      flushDraft();
+      return;
+    }
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(flushDraft, PERSIST_DEBOUNCE_MS);
+  });
+
+  const handlePageExit = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    flushDraft();
+  };
+
+  window.addEventListener('pagehide', handlePageExit);
+  window.addEventListener('beforeunload', handlePageExit);
+
+  return () => {
+    unsubscribe();
+    if (debounceTimer) clearTimeout(debounceTimer);
+    window.removeEventListener('pagehide', handlePageExit);
+    window.removeEventListener('beforeunload', handlePageExit);
+  };
+}
+
+/** Restore create-user wizard fields on refresh; persist while the flow is open (no useEffect). */
+export function useCreateUserFormDraft(
+  storageKey: string,
+  options: { currentStep: CreateUserStep },
+): { isDraftReady: boolean } {
+  const { currentStep } = options;
+
+  useSyncExternalStore(
+    () => subscribeCreateUserDraftPersistence(storageKey, currentStep),
+    () => 0,
+    () => 0,
+  );
+
+  const isDraftReady = useSyncExternalStore(
+    (onStoreChange) => subscribeCreateUserDraftHydration(storageKey, onStoreChange),
+    () => draftReadyByKey.get(storageKey) ?? false,
+    () => false,
+  );
+
+  return { isDraftReady };
+}
+
 /** Snapshot after create so success page survives refresh (password omitted). */
 export function saveCreateUserSuccessSnapshot(
   storageKey: string,
@@ -71,81 +169,6 @@ export function saveCreateUserSuccessSnapshot(
     clearFormDraft(storageKey);
     writeFormDraft(storageKey, draft);
   }
-}
-
-/** Restore create-user wizard fields on refresh; persist while the flow is open. */
-export function useCreateUserFormDraft(
-  storageKey: string,
-  options: { currentStep: CreateUserStep },
-): { isDraftReady: boolean } {
-  const { currentStep } = options;
-  const hydrateDraft = useCreateUserStore((state) => state.hydrateDraft);
-  const [isDraftReady, setIsDraftReady] = useState(false);
-
-  const flushDraft = useCallback(() => {
-    if (currentStep === 'success') return;
-    const state = useCreateUserStore.getState();
-    persistDraft(
-      storageKey,
-      {
-        scope: state.scope,
-        selectedTemplate: state.selectedTemplate,
-        selectedRoleId: state.selectedRoleId,
-        formValues: state.formValues,
-        categories: state.categories,
-      },
-      currentStep,
-    );
-  }, [currentStep, storageKey]);
-
-  useEffect(() => {
-    const parsed = readDraftState(storageKey);
-    if (parsed.success) {
-      hydrateDraft(toCreateUserDraftHydration(parsed.data));
-    }
-
-    queueMicrotask(() => {
-      setIsDraftReady(true);
-    });
-  }, [hydrateDraft, storageKey]);
-
-  useEffect(() => {
-    if (currentStep === 'success') return undefined;
-
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const schedulePersist = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(flushDraft, PERSIST_DEBOUNCE_MS);
-    };
-
-    flushDraft();
-    const unsubscribe = useCreateUserStore.subscribe((state, prevState) => {
-      if (state.formValues.password !== prevState.formValues.password) {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        flushDraft();
-        return;
-      }
-      schedulePersist();
-    });
-
-    const handlePageExit = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      flushDraft();
-    };
-
-    window.addEventListener('pagehide', handlePageExit);
-    window.addEventListener('beforeunload', handlePageExit);
-
-    return () => {
-      unsubscribe();
-      if (debounceTimer) clearTimeout(debounceTimer);
-      window.removeEventListener('pagehide', handlePageExit);
-      window.removeEventListener('beforeunload', handlePageExit);
-    };
-  }, [currentStep, flushDraft, storageKey]);
-
-  return { isDraftReady };
 }
 
 export function clearCreateUserFormDraft(storageKey: string): void {
