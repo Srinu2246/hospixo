@@ -53,6 +53,7 @@ const KITCHEN_FROM_BADGE: Record<PosKitchenBadge, { status: KitchenStatus; label
   draft: { status: 'draft', label: 'Draft' },
   ordering: { status: 'kot sent', label: 'KOT Sent' },
   'kot sent': { status: 'kot sent', label: 'KOT Sent' },
+  kot_sent: { status: 'kot sent', label: 'KOT Sent' },
   preparing: { status: 'preparing', label: 'Preparing' },
   ready: { status: 'ready', label: 'Ready' },
   billing: { status: 'billing', label: 'Billing' },
@@ -60,11 +61,12 @@ const KITCHEN_FROM_BADGE: Record<PosKitchenBadge, { status: KitchenStatus; label
 
 const KITCHEN_FROM_STATUS: Record<PosOrderStatus, { status: KitchenStatus; label: string }> = {
   draft: { status: 'draft', label: 'Draft' },
+  open: { status: 'preparing', label: 'Preparing' },
+  submitted: { status: 'kot sent', label: 'KOT Sent' },
   ordering: { status: 'kot sent', label: 'KOT Sent' },
   billing: { status: 'billing', label: 'Billing' },
   in_progress: { status: 'preparing', label: 'Preparing' },
   served: { status: 'ready', label: 'Ready' },
-  open: { status: 'preparing', label: 'Preparing' },
   closed: { status: 'billing', label: 'Billing' },
 };
 

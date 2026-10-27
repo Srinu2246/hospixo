@@ -15,11 +15,12 @@ export const posOrderTypeSchema = z.enum(['dine_in', 'takeaway', 'delivery', 'on
 /** API order lifecycle status. */
 export const posOrderStatusSchema = z.enum([
   'draft',
+  'open',
+  'submitted',
   'ordering',
   'billing',
   'in_progress',
   'served',
-  'open',
   'closed',
 ]);
 
@@ -28,6 +29,7 @@ export const posKitchenBadgeSchema = z.enum([
   'draft',
   'ordering',
   'kot sent',
+  'kot_sent',
   'preparing',
   'ready',
   'billing',

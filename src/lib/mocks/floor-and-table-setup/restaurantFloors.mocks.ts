@@ -96,6 +96,7 @@ const FLOOR_PATH = /^\/v1\/branches\/(\d+)\/floors(?:\/(.*))?$/;
 const BRANCH_ORDERS_PATH = /^\/v1\/branches\/(\d+)\/orders$/;
 const BRANCH_ORDER_DETAIL_PATH = /^\/v1\/branches\/(\d+)\/orders\/(\d+)$/;
 const BRANCH_ORDER_ITEMS_PATH = /^\/v1\/branches\/(\d+)\/orders\/(\d+)\/items$/;
+const BRANCH_ORDER_ITEM_PATH = /^\/v1\/branches\/(\d+)\/orders\/(\d+)\/items\/(\d+)$/;
 const BRANCH_ORDER_SUBMIT_PATH = /^\/v1\/branches\/(\d+)\/orders\/(\d+)\/submit$/;
 const BRANCH_MEAL_SESSIONS_PATH = /^\/v1\/branches\/(\d+)\/meal-sessions(?:\/(\d+))?$/;
 const BRANCH_TABLES_AVAILABILITY_PATH = /^\/v1\/branches\/(\d+)\/tables\/availability$/;
@@ -131,9 +132,28 @@ export function resolveRestaurantFloorMock(request: MockRequest): unknown | unde
     );
   }
 
+  const orderItemMatch = BRANCH_ORDER_ITEM_PATH.exec(request.path);
+  if (
+    orderItemMatch?.[1] &&
+    orderItemMatch[2] &&
+    orderItemMatch[3] &&
+    request.method === 'DELETE'
+  ) {
+    return removeBranchOrderItem(
+      Number(orderItemMatch[1]),
+      Number(orderItemMatch[2]),
+      Number(orderItemMatch[3]),
+      request.params,
+    );
+  }
+
   const orderSubmitMatch = BRANCH_ORDER_SUBMIT_PATH.exec(request.path);
   if (orderSubmitMatch?.[1] && orderSubmitMatch[2] && request.method === 'POST') {
-    return submitBranchOrder(Number(orderSubmitMatch[1]), Number(orderSubmitMatch[2]));
+    return submitBranchOrder(
+      Number(orderSubmitMatch[1]),
+      Number(orderSubmitMatch[2]),
+      request.body,
+    );
   }
 
   const orderDetailMatch = BRANCH_ORDER_DETAIL_PATH.exec(request.path);
@@ -800,43 +820,54 @@ function addBranchOrderItems(_branchId: number, orderId: number, body: unknown) 
     throw new ApiError('Order not found', 404);
   }
 
+  const orderRow = order as typeof order & { version?: number; items?: unknown[] };
+  const currentVersion = orderRow.version ?? 0;
+  const expectedVersion = parsed.data.expected_version;
+  if (Number.isFinite(expectedVersion) && expectedVersion !== currentVersion) {
+    throw new ApiError('Order version conflict', 409, 'ORDER_VERSION_CONFLICT');
+  }
+
+  const existingItems = Array.isArray(orderRow.items) ? orderRow.items : [];
+  const nextIdStart = existingItems.length + 1;
+  const addedLines = parsed.data.items.map((item, index) => ({
+    id: nextIdStart + index,
+    branch_menu_item_id: item.branch_menu_item_id,
+    menu_item_id: item.branch_menu_item_id,
+    item_name: `Item ${item.branch_menu_item_id}`,
+    quantity: item.quantity,
+    unit_price: 0,
+    line_total: 0,
+    item_status: 'draft',
+    tags: item.tags,
+  }));
+
+  orderRow.version = currentVersion + 1;
+  orderRow.items = [...existingItems, ...addedLines];
+
   return {
     success: true,
     data: {
-      id: order.id,
-      public_id: order.public_id,
-      order_number: order.order_number,
-      order_type: order.order_type,
-      branch_id: _branchId,
-      table_id: order.table_id,
-      table_name: order.table_name,
-      floor_id: order.floor_id,
-      section_id: order.section_id,
-      guest_count: order.guest_count,
-      status: order.status,
-      kitchen_badge: order.kitchen_badge,
-      payment_status: order.payment_status,
-      grand_total: order.grand_total,
-      opened_at: order.opened_at,
-      items: parsed.data.items.map((item, index) => ({
-        id: index + 1,
-        branch_menu_item_id: item.branch_menu_item_id,
-        menu_item_id: item.branch_menu_item_id,
-        name: `Item ${item.branch_menu_item_id}`,
-        quantity: item.quantity,
-        unit_price: 0,
-        line_total: 0,
-        notes: null,
-        status: 'ordered',
-      })),
+      order_id: order.id,
+      expected_version: orderRow.version,
+      order: {
+        ...order,
+        branch_id: _branchId,
+        version: orderRow.version,
+        items: orderRow.items,
+      },
     },
     message: 'Items added',
     request_id: 'mock-branch-order-items',
   };
 }
 
-/** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
-function submitBranchOrder(_branchId: number, orderId: number) {
+/** DELETE /v1/branches/{branch_id}/orders/{order_id}/items/{item_id} */
+function removeBranchOrderItem(
+  _branchId: number,
+  orderId: number,
+  itemId: number,
+  params?: { expected_version?: unknown },
+) {
   const order =
     MOCK_OPEN_ORDERS.find((row) => row.id === orderId) ??
     MOCK_POS_ORDERS.find((row) => row.id === orderId);
@@ -844,11 +875,94 @@ function submitBranchOrder(_branchId: number, orderId: number) {
     throw new ApiError('Order not found', 404);
   }
 
-  order.kitchen_badge = 'preparing';
+  const orderRow = order as typeof order & { version?: number; items?: { id: number }[] };
+  const currentVersion = orderRow.version ?? 0;
+  const expectedVersion =
+    params?.expected_version != null ? Number(params.expected_version) : currentVersion;
+  if (Number.isFinite(expectedVersion) && expectedVersion !== currentVersion) {
+    throw new ApiError('Order version conflict', 409, 'ORDER_VERSION_CONFLICT');
+  }
+
+  const existingItems = Array.isArray(orderRow.items) ? orderRow.items : [];
+  const nextItems = existingItems.filter((row) => row.id !== itemId);
+  if (nextItems.length === existingItems.length) {
+    throw new ApiError('Order item not found', 404);
+  }
+
+  orderRow.version = currentVersion + 1;
+  orderRow.items = nextItems;
 
   return {
     success: true,
-    data: order,
+    data: {
+      order_id: order.id,
+      expected_version: orderRow.version,
+      order: {
+        ...order,
+        branch_id: _branchId,
+        version: orderRow.version,
+        items: orderRow.items,
+      },
+    },
+    message: 'Item removed',
+    request_id: 'mock-branch-order-item-remove',
+  };
+}
+
+/** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
+function submitBranchOrder(_branchId: number, orderId: number, body: unknown) {
+  const order =
+    MOCK_OPEN_ORDERS.find((row) => row.id === orderId) ??
+    MOCK_POS_ORDERS.find((row) => row.id === orderId);
+  if (!order) {
+    throw new ApiError('Order not found', 404);
+  }
+
+  const expectedVersion =
+    body && typeof body === 'object' && 'expected_version' in body
+      ? Number((body as { expected_version: unknown }).expected_version)
+      : 0;
+
+  const orderRow = order as typeof order & { version?: number };
+  const currentVersion = orderRow.version ?? 0;
+
+  if (Number.isFinite(expectedVersion) && expectedVersion !== currentVersion) {
+    throw new ApiError('Order version conflict', 409, 'ORDER_VERSION_CONFLICT');
+  }
+
+  order.kitchen_badge = 'kot_sent';
+  if (order.status === 'draft' || order.status === 'open') {
+    order.status = 'submitted';
+  }
+  orderRow.version = currentVersion + 1;
+
+  const kotNumber = `KOT-${order.id}-${orderRow.version}`;
+  const settle = getMockOrderSettleDetail(String(orderId));
+  const submittedItems = settle.items.map((item, index) => ({
+    id: index + 1,
+    branch_menu_item_id: index + 1,
+    menu_item_id: index + 1,
+    item_name: item.name,
+    quantity: item.quantity,
+    unit_price: item.unitPrice,
+    line_total: item.totalPrice,
+    item_status: 'submitted',
+    kot_number: kotNumber,
+  }));
+
+  return {
+    success: true,
+    data: {
+      order_id: order.id,
+      expected_version: orderRow.version,
+      kot_number: kotNumber,
+      submitted_item_count: submittedItems.length || 1,
+      order: {
+        ...order,
+        version: orderRow.version,
+        items: submittedItems,
+      },
+    },
     message: 'Order submitted to kitchen',
     request_id: 'mock-branch-order-submit',
   };
@@ -889,6 +1003,7 @@ function openOrderDetail(_branchId: number, orderId: number) {
       floor_id: order.floor_id,
       section_id: order.section_id,
       guest_count: order.guest_count,
+      version: (order as { version?: number }).version ?? 1,
       status: order.status,
       kitchen_badge: order.kitchen_badge,
       payment_status: order.payment_status,

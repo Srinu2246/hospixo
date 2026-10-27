@@ -30,6 +30,7 @@ export function MobileNavbar({
   mobileBranchOptions,
   mobileSelectedOutletSlug,
   onMobileOutletChange,
+  hideOutletSelector = false,
   onNotificationClick,
   onOpenMenu,
   captainWorkspaceTitle,
@@ -125,7 +126,7 @@ export function MobileNavbar({
               />
             </Box>
 
-            {branchSelector}
+            {!hideOutletSelector ? branchSelector : null}
           </>
         )}
       </Box>

@@ -1,20 +1,27 @@
 'use client';
 
-import React from 'react';
+import { useMemo } from 'react';
 import Box from '@mui/material/Box';
 
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { Loading } from '@/components/shared/ui/Loading';
+import {
+  formatCompactDashboardAmount,
+  formatDashboardAmount,
+  formatDashboardPercent,
+  mapOrganizationCompanyPerformanceRows,
+  mapOrganizationTaxSummary,
+  mapOrganizationTopBranches,
+} from '@/lib/helpers/organizationDashboardHelpers';
+import { useOrganizationDashboard } from '@/lib/hooks/dashboard/useOrganizationDashboard';
+import { formatIsoDate } from '@/lib/helpers/reportsOverview';
 import {
   COMPANY_PERFORMANCE_ROWS,
   ORG_STAT_CARDS,
   ORG_TOP_BRANCHES,
 } from '@/lib/mocks/dashboard/dashboard.mocks';
-import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
-import type {
-  CompanyPerformanceRow,
-  DashboardStatItem,
-  TopPerformingBranch,
-} from '../../types/dashboard.types';
+import type { DashboardStatItem } from '../../types/dashboard.types';
 import { DashboardStatCard } from '../shared/DashboardStatCard';
 import { CompanyPerformanceTable } from './CompanyPerformanceTable';
 import { OperationsSummarySection } from './OperationsSummarySection';
@@ -22,65 +29,131 @@ import { SubscriptionUsageCard } from './SubscriptionUsageCard';
 import { TopPerformingBranchesCard } from './TopPerformingBranchesCard';
 
 export interface OrganizationDashboardProps {
-  /** Companies from GET /v2/platform/organizations/{org}/companies. */
+  organizationId?: number;
+  /** Scope chip from dashboard header — filters API by company when not "All Companies". */
+  selectedScope?: string;
   companies?: CompanyListItem[];
-  /** Branches from each company's branches endpoint. */
-  branches?: BranchListItem[];
-  isLoading?: boolean;
+  dateFrom: Date;
+  dateTo: Date;
 }
 
-/**
- * Companies and branches come from the API. Sales, revenue and the other cards
- * have no endpoint yet, so they stay on mock data.
- */
 export function OrganizationDashboard({
-  companies = [],
-  branches = [],
-  isLoading = false,
-}: Readonly<OrganizationDashboardProps> = {}) {
-  const hasLiveData = !isLoading && companies.length > 0;
-  const activeCompanies = companies.filter((company) => company.status === 'active').length;
-  const activeBranches = branches.filter((branch) => branch.status === 'active').length;
+  organizationId,
+  selectedScope = 'All Companies',
+  companies,
+  dateFrom,
+  dateTo,
+}: Readonly<OrganizationDashboardProps>) {
+  const companyFilterId = useMemo(() => {
+    if (!selectedScope || selectedScope === 'All Companies') return undefined;
+    const company = companies?.find((item) => item.name === selectedScope);
+    if (!company) return undefined;
+    return Number(company.id);
+  }, [companies, selectedScope]);
 
-  const stats: DashboardStatItem[] = ORG_STAT_CARDS.map((stat) => {
-    if (!hasLiveData) return stat;
-    if (stat.id === 'org-companies') {
-      return { ...stat, value: `${activeCompanies} Active`, subValue: `${companies.length} Total` };
-    }
-    if (stat.id === 'org-branches') {
-      return { ...stat, value: `${branches.length} Total`, subValue: `${activeBranches} Active` };
-    }
-    return stat;
+  const dashboard = useOrganizationDashboard(organizationId, {
+    start_date: formatIsoDate(dateFrom),
+    end_date: formatIsoDate(dateTo),
+    company_id: companyFilterId,
+    sort_by: 'total_sales',
+    sort_order: 'desc',
+    page: 1,
+    page_size: 15,
   });
 
-  const performanceRows: CompanyPerformanceRow[] = hasLiveData
-    ? companies.map((company, index) => {
-        const mock = COMPANY_PERFORMANCE_ROWS[index % COMPANY_PERFORMANCE_ROWS.length];
-        return {
-          ...mock,
-          id: String(company.id),
-          companyName: company.name,
-          branches: branches.filter((branch) => String(branch.companyId) === String(company.id))
-            .length,
-          status: company.status === 'inactive' ? 'inactive' : 'active',
-        };
-      })
-    : COMPANY_PERFORMANCE_ROWS;
+  const data = dashboard.data;
 
-  const topBranches: TopPerformingBranch[] =
-    hasLiveData && branches.length > 0
-      ? branches.slice(0, ORG_TOP_BRANCHES.length).map((branch, index) => ({
-          ...ORG_TOP_BRANCHES[index],
-          name: branch.name,
-          companyName:
-            companies.find((company) => String(company.id) === String(branch.companyId))?.name ??
-            ORG_TOP_BRANCHES[index].companyName,
-        }))
-      : ORG_TOP_BRANCHES;
+  const stats: DashboardStatItem[] = useMemo(() => {
+    if (!data) return ORG_STAT_CARDS;
+    const metricById: Record<
+      string,
+      { value: string; change?: number | null; subValue?: string } | undefined
+    > = {
+      'org-sales': {
+        value: formatDashboardAmount(data.summary.total_sales),
+        change: data.summary.total_sales_change_percent,
+      },
+      'org-net': {
+        value: formatDashboardAmount(data.summary.net_sales),
+        change: data.summary.net_sales_change_percent,
+      },
+      'org-companies': {
+        value: `${data.summary.active_companies} Active`,
+        subValue: `${data.summary.total_companies} Total`,
+      },
+      'org-branches': {
+        value: `${data.summary.total_branches} Total`,
+        subValue: `${data.summary.active_branches} Branches Active`,
+      },
+    };
+
+    return ORG_STAT_CARDS.map((stat) => {
+      const metric = metricById[stat.id];
+      if (!metric) return stat;
+      return {
+        ...stat,
+        value: metric.value,
+        subValue: metric.subValue ?? stat.subValue,
+        trend:
+          metric.change != null
+            ? {
+                value: formatDashboardPercent(metric.change),
+                isPositive: metric.change >= 0,
+                periodText: 'vs yesterday',
+              }
+            : undefined,
+      };
+    });
+  }, [data]);
+
+  const performanceRows = useMemo(
+    () =>
+      data
+        ? mapOrganizationCompanyPerformanceRows(data.company_performance.items)
+        : COMPANY_PERFORMANCE_ROWS,
+    [data],
+  );
+
+  const topBranches = useMemo(
+    () => (data ? mapOrganizationTopBranches(data.top_performing_branches) : ORG_TOP_BRANCHES),
+    [data],
+  );
+
+  const taxItems = useMemo(
+    () => (data ? mapOrganizationTaxSummary(data.tax_summary) : undefined),
+    [data],
+  );
+
+  if (typeof organizationId !== 'number') {
+    return (
+      <AlertMessage
+        variant="warning"
+        title="Organization required"
+        message="Select an organization before viewing dashboard metrics."
+      />
+    );
+  }
+
+  if (dashboard.isLoading) {
+    return <Loading message="Loading organization dashboard..." fullPage={false} />;
+  }
+
+  if (dashboard.isError) {
+    return (
+      <AlertMessage
+        variant="error"
+        title="Unable to load dashboard"
+        message={
+          dashboard.error instanceof Error
+            ? dashboard.error.message
+            : 'The organization dashboard request failed.'
+        }
+      />
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5, width: '100%', pb: 4 }}>
-      {/* 1. Top 4 Stat Cards */}
       <Box
         sx={{
           display: 'grid',
@@ -93,13 +166,13 @@ export function OrganizationDashboard({
         ))}
       </Box>
 
-      {/* 2. Company Performance (Table / Bar Chart View) */}
       <CompanyPerformanceTable rows={performanceRows} />
 
-      {/* 3. Operations Summary (Tax Donut + Financial Breakdown) */}
-      <OperationsSummarySection />
+      <OperationsSummarySection
+        taxBreakdown={taxItems}
+        taxTotal={data ? formatCompactDashboardAmount(data.tax_summary.total_tax) : undefined}
+      />
 
-      {/* 4. Middle Row: Top Branches (50%) + Subscription & Usage (50%) */}
       <Box
         sx={{
           display: 'grid',
@@ -109,8 +182,8 @@ export function OrganizationDashboard({
       >
         <TopPerformingBranchesCard branches={topBranches} />
         <SubscriptionUsageCard
-          companiesUsed={hasLiveData ? companies.length : undefined}
-          branchesUsed={hasLiveData ? branches.length : undefined}
+          companiesUsed={data?.summary.total_companies}
+          branchesUsed={data?.summary.total_branches}
         />
       </Box>
     </Box>

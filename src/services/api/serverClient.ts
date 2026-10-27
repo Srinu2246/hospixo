@@ -129,8 +129,11 @@ async function request<T>(
       signal: options.signal,
       cache: 'no-store',
     });
-  } catch {
-    console.error('Upstream request failed');
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    console.error('Upstream request failed', error);
     throw new ApiError('Upstream request failed', 502);
   }
 

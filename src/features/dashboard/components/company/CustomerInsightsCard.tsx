@@ -38,7 +38,7 @@ function getCellColor(val: number): string {
   }
 }
 
-function AverageOrderValueBlock() {
+function AverageOrderValueBlock({ value }: Readonly<{ value?: string }>) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
       <Typography
@@ -55,22 +55,19 @@ function AverageOrderValueBlock() {
             lineHeight: 1.2,
           }}
         >
-          ₹412
-        </Typography>
-        <Typography sx={{ fontSize: '0.6875rem', color: '#16A34A', fontWeight: 700 }}>
-          ↑ 5.2%
+          {value ?? '₹412'}
         </Typography>
       </Box>
     </Box>
   );
 }
 
-function ReturnDonut({ size }: Readonly<{ size: number }>) {
+function ReturnDonut({ size, ratePercent }: Readonly<{ size: number; ratePercent: number }>) {
   const radius = size * 0.386;
   const strokeWidth = size * 0.1;
   const center = size / 2;
   const circumference = 2 * Math.PI * radius;
-  const greenLength = (RETURN_RATE / 100) * circumference;
+  const greenLength = (ratePercent / 100) * circumference;
   const blueLength = circumference - greenLength;
   const isLarge = size >= 120;
 
@@ -120,7 +117,7 @@ function ReturnDonut({ size }: Readonly<{ size: number }>) {
             lineHeight: 1.1,
           }}
         >
-          {RETURN_RATE}%
+          {ratePercent}%
         </Typography>
         <Typography
           sx={{ fontSize: isLarge ? '0.75rem' : '0.5625rem', color: colors.text.secondary }}
@@ -192,22 +189,30 @@ function PeakHoursHeatmap() {
   );
 }
 
-export function CustomerInsightsCard() {
+export interface CustomerInsightsCardProps {
+  averageOrderValue?: string;
+  retentionRate?: number | null;
+}
+
+export function CustomerInsightsCard({
+  averageOrderValue,
+  retentionRate,
+}: Readonly<CustomerInsightsCardProps> = {}) {
   const theme = useTheme();
   const isDesktopLayout = useMediaQuery(theme.breakpoints.up('md'));
   const donutSize = isDesktopLayout ? DESKTOP_DONUT_SIZE : MOBILE_DONUT_SIZE;
+  const returnRate = retentionRate ?? RETURN_RATE;
 
   return (
     <Card
       variant="outlined"
       padding={3}
       sx={{
-        borderRadius: '12px',
-        borderColor: (theme) =>
-          theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-        bgcolor: (theme) =>
-          theme.palette.mode === 'dark' ? colors.surface.dark : colors.surface.default,
-        boxShadow: 'none',
+        borderRadius: '14px',
+        borderColor: (theme) => (theme.palette.mode === 'dark' ? theme.palette.divider : '#E2E8F0'),
+        bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
+        boxShadow: (theme) =>
+          theme.palette.mode === 'dark' ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)',
         display: 'flex',
         flexDirection: 'column',
         gap: 2.5,
@@ -248,7 +253,7 @@ export function CustomerInsightsCard() {
             pl: { md: 1 },
           }}
         >
-          <ReturnDonut size={donutSize} />
+          <ReturnDonut size={donutSize} ratePercent={returnRate} />
         </Box>
 
         <Box
@@ -261,7 +266,7 @@ export function CustomerInsightsCard() {
             pl: { xs: 1.5, md: 2.5 },
           }}
         >
-          <AverageOrderValueBlock />
+          <AverageOrderValueBlock value={averageOrderValue} />
         </Box>
 
         <Box sx={{ gridArea: 'heat', minWidth: 0 }}>

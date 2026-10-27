@@ -6,17 +6,14 @@ import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import {
-  DASHBOARD_DATE_RANGE_OPTIONS,
-  DateRangeOption,
-  dateRangeButtonLabel,
-} from '@/features/dashboard/enums';
+import { DateRangeOption } from '@/features/dashboard/enums';
 import { colors } from '@/lib/theme/mui/colors';
+
+import { DashboardDateRangeDropdown } from './DashboardDateRangeDropdown';
 
 export interface DashboardHeaderProps {
   title: string;
@@ -26,6 +23,11 @@ export interface DashboardHeaderProps {
   onScopeChange?: (scope: string) => void;
   onExportClick?: () => void;
   topBanner?: React.ReactNode;
+  dateFrom: Date;
+  dateTo: Date;
+  onDateRangeChange: (range: { dateFrom: Date; dateTo: Date }) => void;
+  onDatePresetSelect: (preset: DateRangeOption) => void;
+  activeDatePreset: DateRangeOption | null;
 }
 
 /**
@@ -40,12 +42,13 @@ export function DashboardHeader({
   onScopeChange,
   onExportClick,
   topBanner,
+  dateFrom,
+  dateTo,
+  onDateRangeChange,
+  onDatePresetSelect,
+  activeDatePreset,
 }: Readonly<DashboardHeaderProps>) {
   const [scopeAnchor, setScopeAnchor] = useState<null | HTMLElement>(null);
-  const [dateAnchor, setDateAnchor] = useState<null | HTMLElement>(null);
-  const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>(
-    DateRangeOption.TODAY,
-  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%' }}>
@@ -139,61 +142,13 @@ export function DashboardHeader({
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <ButtonBase
-            onClick={(e) => setDateAnchor(e.currentTarget)}
-            sx={{
-              px: 1.75,
-              py: 0.85,
-              borderRadius: '8px',
-              border: '1px solid',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-              bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
-              color: 'text.primary',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              transition: 'border-color 0.15s ease',
-              '&:hover': {
-                borderColor: colors.primary.default,
-              },
-            }}
-          >
-            <CalendarMonthOutlinedIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-            {dateRangeButtonLabel(selectedDateRange)}
-            <KeyboardArrowDownIcon sx={{ fontSize: 18, color: colors.text.secondary }} />
-          </ButtonBase>
-
-          <Menu
-            anchorEl={dateAnchor}
-            open={Boolean(dateAnchor)}
-            onClose={() => setDateAnchor(null)}
-            slotProps={{
-              paper: {
-                sx: {
-                  borderRadius: '10px',
-                  minWidth: 220,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                },
-              },
-            }}
-          >
-            {DASHBOARD_DATE_RANGE_OPTIONS.map((range) => (
-              <MenuItem
-                key={range}
-                selected={range === selectedDateRange}
-                onClick={() => {
-                  setSelectedDateRange(range);
-                  setDateAnchor(null);
-                }}
-                sx={{ fontSize: '0.8125rem' }}
-              >
-                {range}
-              </MenuItem>
-            ))}
-          </Menu>
+          <DashboardDateRangeDropdown
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            activeDatePreset={activeDatePreset}
+            onDateRangeChange={onDateRangeChange}
+            onDatePresetSelect={onDatePresetSelect}
+          />
 
           <ActionButton
             variant="outlined"

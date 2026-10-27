@@ -84,6 +84,8 @@ export function TopNavbar({
   const activeRole = propRole || storeRole;
   const activeUser = propUser || storeUser;
   const normalizedRole = normalizeRoleKey(activeRole);
+  const pathname = usePathname() ?? '';
+  const hideOutletSelector = pathname === '/branch-manager/dashboard';
 
   // Business rule: show AI Agent and Explore Products for managers/company, hide for waiter
   const showManagementActions = Boolean(normalizedRole) && normalizedRole !== 'waiter';
@@ -107,7 +109,6 @@ export function TopNavbar({
     setContext({ branchId: parsed });
   };
 
-  const pathname = usePathname() ?? '';
   const isBranchView = pathname.includes('/branch-manager');
   const captainWorkspacePath = isCaptainWorkspacePath(pathname);
   const workspaceSubtitle =
@@ -116,7 +117,7 @@ export function TopNavbar({
 
   const skipBranchDirectoryFetch = pathname.includes('/menu/menus');
   const { options: mobileBranchOptions } = useNavbarBranchOptions({
-    enabled: !skipBranchDirectoryFetch,
+    enabled: !skipBranchDirectoryFetch && !hideOutletSelector,
   });
 
   const mobileSelectedOutletSlug =
@@ -200,6 +201,7 @@ export function TopNavbar({
         mobileBranchOptions={mobileBranchOptions}
         mobileSelectedOutletSlug={mobileSelectedOutletSlug}
         onMobileOutletChange={handleMobileOutletChange}
+        hideOutletSelector={hideOutletSelector}
         onNotificationClick={onNotificationClick}
         onOpenMenu={onOpenMenu}
         captainWorkspaceTitle={captainWorkspacePath ? 'Hospixo Tables' : undefined}
@@ -216,6 +218,7 @@ export function TopNavbar({
         mobileBranchOptions={mobileBranchOptions}
         mobileSelectedOutletSlug={mobileSelectedOutletSlug}
         onMobileOutletChange={handleMobileOutletChange}
+        hideOutletSelector={hideOutletSelector}
         showManagementActions={showManagementActions}
         onAiAgentClick={onAiAgentClick}
         onNotificationClick={onNotificationClick}
@@ -225,6 +228,7 @@ export function TopNavbar({
 
       <DesktopNavbar
         outletOptions={outletOptions}
+        hideOutletSelector={hideOutletSelector}
         selectedOutletSlug={selectedOutletSlug}
         onOutletChange={handleOutletChange}
         showManagementActions={showManagementActions}

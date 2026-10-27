@@ -11,12 +11,11 @@ export function RevenueForecastCard() {
       variant="outlined"
       padding={3}
       sx={{
-        borderRadius: '12px',
-        borderColor: (theme) =>
-          theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-        bgcolor: (theme) =>
-          theme.palette.mode === 'dark' ? colors.surface.dark : colors.surface.default,
-        boxShadow: 'none',
+        borderRadius: '14px',
+        borderColor: (theme) => (theme.palette.mode === 'dark' ? theme.palette.divider : '#E2E8F0'),
+        bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
+        boxShadow: (theme) =>
+          theme.palette.mode === 'dark' ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',

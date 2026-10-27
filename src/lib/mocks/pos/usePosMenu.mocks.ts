@@ -50,6 +50,8 @@ export interface CartItem {
   isExisting?: boolean;
   disableDelete?: boolean;
   originalQuantity?: number;
+  /** Server order line id — DELETE …/orders/{order_id}/items/{item_id}. */
+  orderLineId?: number;
 }
 
 /** Demo cart seed for takeaway / occupied-table flows. */

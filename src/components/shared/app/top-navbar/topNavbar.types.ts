@@ -21,6 +21,8 @@ export interface BaseResponsiveNavbarProps {
   mobileSelectedOutletSlug: string;
   /** Callback fired when an outlet option is chosen */
   onMobileOutletChange: (id: string, option?: DropdownOption<string>) => void;
+  /** Hide the outlet selector on views with a fixed branch context. */
+  hideOutletSelector?: boolean;
   /** Callback fired on notification button click */
   onNotificationClick?: () => void;
   /** Callback fired on mobile/tablet menu button click */

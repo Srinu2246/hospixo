@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import IconButton from '@mui/material/IconButton';
@@ -19,6 +19,11 @@ export interface CalendarRangePickerProps {
   minWidth?: number | string;
   disabled?: boolean;
   sx?: SxProps<Theme>;
+  /** Hide the default trigger; use with `open` + `anchorEl` for an external anchor. */
+  showTrigger?: boolean;
+  open?: boolean;
+  anchorEl?: HTMLElement | null;
+  onClose?: () => void;
 }
 
 const MONTH_NAMES = [
@@ -87,26 +92,40 @@ export function CalendarRangePicker({
   minWidth = 240,
   disabled = false,
   sx,
+  showTrigger = true,
+  open: openProp,
+  anchorEl: anchorElProp,
+  onClose,
 }: Readonly<CalendarRangePickerProps>) {
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [internalAnchorEl, setInternalAnchorEl] = useState<HTMLElement | null>(null);
   const [viewDate, setViewDate] = useState(() => startOfDay(dateFrom));
   const [draftFrom, setDraftFrom] = useState<Date | null>(() => startOfDay(dateFrom));
   const [draftTo, setDraftTo] = useState<Date | null>(() => startOfDay(dateTo));
 
-  const open = Boolean(anchorEl);
+  const isControlledPopover = openProp !== undefined;
+  const anchorEl = isControlledPopover ? (anchorElProp ?? null) : internalAnchorEl;
+  const open = isControlledPopover ? Boolean(openProp) : Boolean(internalAnchorEl);
+
+  useEffect(() => {
+    if (!open) return;
+    setViewDate(startOfDay(dateFrom));
+    setDraftFrom(startOfDay(dateFrom));
+    setDraftTo(startOfDay(dateTo));
+  }, [open, dateFrom, dateTo]);
 
   const label = useMemo(() => formatCalendarRangeLabel(dateFrom, dateTo), [dateFrom, dateTo]);
 
   const handleOpen = (event: MouseEvent<HTMLElement>) => {
     if (disabled) return;
-    setAnchorEl(event.currentTarget);
-    setViewDate(startOfDay(dateFrom));
-    setDraftFrom(startOfDay(dateFrom));
-    setDraftTo(startOfDay(dateTo));
+    setInternalAnchorEl(event.currentTarget);
   };
 
   const handleClose = () => {
-    setAnchorEl(null);
+    if (isControlledPopover) {
+      onClose?.();
+      return;
+    }
+    setInternalAnchorEl(null);
   };
 
   const handlePrevMonth = () => {
@@ -143,66 +162,68 @@ export function CalendarRangePicker({
 
   return (
     <>
-      <ButtonBase
-        component="button"
-        type="button"
-        onClick={handleOpen}
-        disabled={disabled}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label="Select date range"
-        sx={{
-          height,
-          minWidth,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1.25,
-          px: 1.75,
-          borderRadius: '10px',
-          border: '1px solid',
-          borderColor: open ? 'primary.main' : 'divider',
-          bgcolor: 'background.paper',
-          color: 'text.primary',
-          fontSize: '0.875rem',
-          fontWeight: 600,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-          transition: 'all 0.15s ease',
-          '&:hover': {
-            borderColor: disabled ? 'divider' : 'text.secondary',
-            bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'action.hover' : '#F9FAFB'),
-          },
-          ...sx,
-        }}
-      >
-        <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
+      {showTrigger ? (
+        <ButtonBase
+          component="button"
+          type="button"
+          onClick={handleOpen}
+          disabled={disabled}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label="Select date range"
+          sx={{
+            height,
+            minWidth,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1.25,
+            px: 1.75,
+            borderRadius: '10px',
+            border: '1px solid',
+            borderColor: open ? 'primary.main' : 'divider',
+            bgcolor: 'background.paper',
+            color: 'text.primary',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+            transition: 'all 0.15s ease',
+            '&:hover': {
+              borderColor: disabled ? 'divider' : 'text.secondary',
+              bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'action.hover' : '#F9FAFB'),
+            },
+            ...sx,
+          }}
+        >
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
+            <Box sx={{ display: 'inline-flex', color: 'text.secondary' }}>
+              <CalendarIcon size={16} color="currentColor" />
+            </Box>
+            <Typography
+              component="span"
+              sx={{
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: 'text.primary',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {label || placeholder}
+            </Typography>
+          </Stack>
           <Box sx={{ display: 'inline-flex', color: 'text.secondary' }}>
-            <CalendarIcon size={16} color="currentColor" />
+            <ChevronDown
+              size={16}
+              color="currentColor"
+              style={{
+                transform: open ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s ease',
+              }}
+            />
           </Box>
-          <Typography
-            component="span"
-            sx={{
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              color: 'text.primary',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {label || placeholder}
-          </Typography>
-        </Stack>
-        <Box sx={{ display: 'inline-flex', color: 'text.secondary' }}>
-          <ChevronDown
-            size={16}
-            color="currentColor"
-            style={{
-              transform: open ? 'rotate(180deg)' : 'none',
-              transition: 'transform 0.2s ease',
-            }}
-          />
-        </Box>
-      </ButtonBase>
+        </ButtonBase>
+      ) : null}
 
       <Popover
         open={open}

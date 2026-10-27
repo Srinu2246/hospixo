@@ -26,6 +26,7 @@ import { ProfileMenu } from './ProfileMenu';
 export interface DesktopNavbarProps {
   /** Dropdown options list for outlets */
   outletOptions: DropdownOption<string>[];
+  hideOutletSelector?: boolean;
   /** Currently selected outlet identifier */
   selectedOutletSlug: string;
   /** Callback fired when an outlet is changed */
@@ -66,6 +67,7 @@ export interface DesktopNavbarProps {
  */
 export function DesktopNavbar({
   outletOptions,
+  hideOutletSelector = false,
   selectedOutletSlug,
   onOutletChange,
   showManagementActions,
@@ -94,24 +96,26 @@ export function DesktopNavbar({
       ]}
     >
       {/* DESKTOP Left Section - Outlets Dropdown */}
-      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 1 }}>
-        <Dropdown
-          variant="outlet"
-          label="Outlets"
-          startIcon={
-            <PlaceOutlinedIcon
-              sx={{
-                fontSize: 18,
-                color: (theme) => theme.palette.text.primary,
-                flexShrink: 0,
-              }}
-            />
-          }
-          options={outletOptions}
-          value={selectedOutletSlug}
-          onChange={onOutletChange}
-        />
-      </Box>
+      {!hideOutletSelector ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 1 }}>
+          <Dropdown
+            variant="outlet"
+            label="Outlets"
+            startIcon={
+              <PlaceOutlinedIcon
+                sx={{
+                  fontSize: 18,
+                  color: (theme) => theme.palette.text.primary,
+                  flexShrink: 0,
+                }}
+              />
+            }
+            options={outletOptions}
+            value={selectedOutletSlug}
+            onChange={onOutletChange}
+          />
+        </Box>
+      ) : null}
 
       {/* DESKTOP Right Section */}
       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>

@@ -1,4 +1,6 @@
 import { DateRangeOption, PeriodOption } from '@/features/dashboard/enums';
+import { companyDashboardDataSchema } from '@/lib/schemas/dashboard/companyDashboardSchema';
+import { organizationDashboardDataSchema } from '@/lib/schemas/dashboard/organizationDashboardSchema';
 import type {
   DashboardStatItem,
   CompanyPerformanceRow,
@@ -419,6 +421,31 @@ export const BRANCH_STAT_CARDS: DashboardStatItem[] = [
 
 export const MOCK_PERIOD_OPTIONS: PeriodOption[] = Object.values(PeriodOption);
 
+export const BRANCH_SALES_TOTAL_AMOUNT = '₹887,260';
+
+export const BRANCH_DASHBOARD_DATE_RANGES = [
+  {
+    id: 'last-7-days',
+    label: '28 Jun - 4 Jul 2025',
+    menuLabel: 'Last 7 Days (28 Jun - 4 Jul 2025)',
+  },
+  {
+    id: 'today',
+    label: 'Today',
+    menuLabel: 'Today',
+  },
+  {
+    id: 'yesterday',
+    label: 'Yesterday',
+    menuLabel: 'Yesterday',
+  },
+  {
+    id: 'this-month',
+    label: 'This Month',
+    menuLabel: 'This Month',
+  },
+] as const;
+
 export const BRANCH_SALES_SUMMARY = {
   totalOrders: '932',
   totalSales: '₹48,560',
@@ -506,3 +533,234 @@ export const BRANCH_LEAKAGE_STATS = {
     waivedOff: '₹0',
   },
 };
+
+// ——— GET /v1/companies/{company_id}/dashboard ———
+
+/** Mock company dashboard envelope (`pnpm run start-mocked`). */
+export const MOCK_COMPANY_DASHBOARD = companyDashboardDataSchema.parse({
+  company_id: 94,
+  date_range: {
+    start_date: '2026-10-26',
+    end_date: '2026-10-26',
+  },
+  summary: {
+    total_sales: '42850.00',
+    total_sales_change_percent: 12.4,
+    net_sales: '40120.00',
+    net_sales_change_percent: 9.8,
+    online_sales: '20000.00',
+    offline_sales: '22000.00',
+    offline_sales_change_percent: 15.6,
+    total_branches: 24,
+    active_branches: 12,
+  },
+  sales_statistics: {
+    total_orders: 420,
+    total_sales: '42850.00',
+    by_order_type: [
+      { order_type: 'dine_in', sales: '22000.00', orders: 210 },
+      { order_type: 'takeaway', sales: '12000.00', orders: 140 },
+      { order_type: 'delivery', sales: '8850.00', orders: 70 },
+    ],
+  },
+  payment_breakdown: {
+    cash: '15000.00',
+    card: '12000.00',
+    upi: '11000.00',
+    other: '4850.00',
+    total: '42850.00',
+  },
+  branch_performance: {
+    total: OUTLET_PERFORMANCE_ROWS.length,
+    page: 1,
+    page_size: 15,
+    items: OUTLET_PERFORMANCE_ROWS.map((row, index) => ({
+      branch_id: index + 1,
+      branch_name: row.outletName,
+      status: row.orders > 0 ? 'active' : 'inactive',
+      total_sales: row.sales.replace(/[^\d.-]/g, '') || '0',
+      net_sales: row.netSales.replace(/[^\d.-]/g, '') || '0',
+      offline_sales: row.sales.replace(/[^\d.-]/g, '') || '0',
+      total_orders: row.orders,
+      total_sales_change_percent: 8.5,
+      offline_sales_change_percent: 4.2,
+    })),
+  },
+  tax_summary: {
+    total_tax: '4133.68',
+    cgst: '2066.84',
+    sgst: '2066.84',
+    service_tax: null,
+    vat: null,
+    igst: '0.00',
+  },
+  customer_insights: {
+    average_order_value: '412.00',
+    retention_rate: 72,
+    footfall_heatmap: null,
+  },
+});
+
+type CompanyDashboardMockRequest = {
+  method: string;
+  path: string;
+  params?: Record<string, unknown>;
+};
+
+/** GET /v1/companies/{company_id}/dashboard */
+export function resolveCompanyDashboardMock(
+  request: CompanyDashboardMockRequest,
+): unknown | undefined {
+  const match = /^\/v1\/companies\/(\d+)\/dashboard$/.exec(request.path);
+  if (request.method !== 'GET' || !match) return undefined;
+
+  let items = [...MOCK_COMPANY_DASHBOARD.branch_performance.items];
+  const search =
+    typeof request.params?.search === 'string' ? request.params.search.trim().toLowerCase() : '';
+  if (search) {
+    items = items.filter((row) => row.branch_name.toLowerCase().includes(search));
+  }
+
+  const view = request.params?.view;
+  if (view === 'top10') {
+    items = [...items]
+      .sort(
+        (a, b) =>
+          Number(b.total_sales.replace(/[^\d.-]/g, '')) -
+          Number(a.total_sales.replace(/[^\d.-]/g, '')),
+      )
+      .slice(0, 10);
+  }
+
+  const page = Number(request.params?.page ?? 1) || 1;
+  const pageSize = Number(request.params?.page_size ?? 15) || 15;
+  const start = (page - 1) * pageSize;
+  const pageItems = items.slice(start, start + pageSize);
+
+  return {
+    success: true,
+    data: {
+      ...MOCK_COMPANY_DASHBOARD,
+      company_id: Number(match[1]),
+      branch_performance: {
+        total: items.length,
+        page,
+        page_size: pageSize,
+        items: pageItems,
+      },
+    },
+    message: 'OK',
+    request_id: 'mock-company-dashboard',
+  };
+}
+
+// ——— GET /v1/organizations/{organization_id}/dashboard ———
+
+export const MOCK_ORGANIZATION_DASHBOARD = organizationDashboardDataSchema.parse({
+  organization_id: 126,
+  date_range: {
+    start_date: '2026-10-26',
+    end_date: '2026-10-26',
+  },
+  summary: {
+    total_sales: '4852300.00',
+    total_sales_change_percent: 12.4,
+    net_sales: '4218750.00',
+    net_sales_change_percent: 9.8,
+    total_companies: 6,
+    active_companies: 5,
+    total_branches: 24,
+    active_branches: 18,
+  },
+  company_performance: {
+    total: COMPANY_PERFORMANCE_ROWS.length,
+    page: 1,
+    page_size: 15,
+    items: COMPANY_PERFORMANCE_ROWS.map((row, index) => ({
+      company_id: index + 1,
+      company_name: row.companyName,
+      status:
+        row.status === 'inactive' ? 'inactive' : row.status === 'warning' ? 'draft' : 'active',
+      total_branches: row.branches,
+      active_branches: row.status === 'inactive' ? 0 : row.branches,
+      total_sales: String(row.revenueNumeric),
+      net_sales: String(Math.round(row.revenueNumeric * 0.92)),
+      total_orders: Number(row.orders.replace(/[^\d]/g, '')) || 0,
+      expenses: row.expenses.replace(/[^\d.-]/g, '') || null,
+      profit: row.profit.replace(/[^\d.-]/g, '') || null,
+    })),
+  },
+  tax_summary: {
+    total_tax: '111300.00',
+    cgst: '45200.00',
+    sgst: '45200.00',
+    igst: '0.00',
+    service_tax: '12500.00',
+    vat: '8400.00',
+  },
+  top_performing_branches: ORG_TOP_BRANCHES.map((branch, index) => ({
+    branch_id: index + 1,
+    branch_name: branch.name,
+    company_id: index + 1,
+    company_name: branch.companyName,
+    total_sales: branch.revenue.replace(/[^\d.-]/g, '') || '0',
+    total_orders: 1200 - index * 100,
+    status: 'active',
+  })),
+  financial_breakdown: null,
+  subscription_usage: null,
+});
+
+type OrganizationDashboardMockRequest = {
+  method: string;
+  path: string;
+  params?: Record<string, unknown>;
+};
+
+/** GET /v1/organizations/{organization_id}/dashboard */
+export function resolveOrganizationDashboardMock(
+  request: OrganizationDashboardMockRequest,
+): unknown | undefined {
+  const match = /^\/v1\/organizations\/(\d+)\/dashboard$/.exec(request.path);
+  if (request.method !== 'GET' || !match) return undefined;
+
+  let items = [...MOCK_ORGANIZATION_DASHBOARD.company_performance.items];
+
+  const companyId = request.params?.company_id;
+  if (companyId != null && companyId !== '') {
+    items = items.filter((row) => row.company_id === Number(companyId));
+  }
+
+  const search =
+    typeof request.params?.search === 'string' ? request.params.search.trim().toLowerCase() : '';
+  if (search) {
+    items = items.filter((row) => row.company_name.toLowerCase().includes(search));
+  }
+
+  const statusFilter =
+    typeof request.params?.status === 'string' ? request.params.status.trim().toLowerCase() : '';
+  if (statusFilter) {
+    items = items.filter((row) => row.status.toLowerCase() === statusFilter);
+  }
+
+  const page = Number(request.params?.page ?? 1) || 1;
+  const pageSize = Number(request.params?.page_size ?? 15) || 15;
+  const start = (page - 1) * pageSize;
+  const pageItems = items.slice(start, start + pageSize);
+
+  return {
+    success: true,
+    data: {
+      ...MOCK_ORGANIZATION_DASHBOARD,
+      organization_id: Number(match[1]),
+      company_performance: {
+        total: items.length,
+        page,
+        page_size: pageSize,
+        items: pageItems,
+      },
+    },
+    message: 'OK',
+    request_id: 'mock-organization-dashboard',
+  };
+}

@@ -29,6 +29,7 @@ export function TabletNavbar({
   mobileBranchOptions,
   mobileSelectedOutletSlug,
   onMobileOutletChange,
+  hideOutletSelector = false,
   showManagementActions,
   onAiAgentClick,
   onNotificationClick,
@@ -49,18 +50,20 @@ export function TabletNavbar({
       ]}
     >
       {/* Tablet Left: Branches / Outlet selector */}
-      <MobileBranchSelector
-        anchorEl={branchMenuAnchor}
-        onOpen={onOpenBranchMenu}
-        onClose={onCloseBranchMenu}
-        scopeLabel={mobileScopeLabel}
-        outletLabel={mobileOutletLabel}
-        options={mobileBranchOptions}
-        selectedSlug={mobileSelectedOutletSlug}
-        onSelect={onMobileOutletChange}
-        fontSize="0.875rem"
-        maxLabelWidth={280}
-      />
+      {!hideOutletSelector ? (
+        <MobileBranchSelector
+          anchorEl={branchMenuAnchor}
+          onOpen={onOpenBranchMenu}
+          onClose={onCloseBranchMenu}
+          scopeLabel={mobileScopeLabel}
+          outletLabel={mobileOutletLabel}
+          options={mobileBranchOptions}
+          selectedSlug={mobileSelectedOutletSlug}
+          onSelect={onMobileOutletChange}
+          fontSize="0.875rem"
+          maxLabelWidth={280}
+        />
+      ) : null}
 
       {/* Tablet Right: AI Agent, Notifications, Settings, Hamburger button */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexShrink: 0 }}>
