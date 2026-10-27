@@ -29,8 +29,6 @@ export interface CreateUserAssignmentSectionProps {
 }
 
 const ASSIGNMENT_CONTROL_HEIGHT = 40;
-/** Control + reserved validation line — keeps assign columns aligned when some fields are locked. */
-const ASSIGNMENT_CONTROL_BLOCK_MIN_HEIGHT = ASSIGNMENT_CONTROL_HEIGHT + 4 + 18;
 
 const assignmentGridGap = {
   columnGap: { xs: 2, md: 3 },
@@ -56,8 +54,6 @@ const assignmentHeaderBlockSx = {
 const assignmentControlBlockSx = {
   display: 'flex',
   flexDirection: 'column',
-  minHeight: ASSIGNMENT_CONTROL_BLOCK_MIN_HEIGHT,
-  mb: 1,
 } as const;
 
 const assignmentHeadingSx = {
@@ -81,9 +77,8 @@ const assignmentLabelSx = {
 const assignmentHelperSx = {
   fontSize: '0.75rem',
   color: colors.text.secondary,
-  mt: 0.25,
+  m: 1,
   lineHeight: 1.45,
-  minHeight: '2.625rem',
 } as const;
 
 const assignmentDropdownSx = {
@@ -124,39 +119,11 @@ function assignmentGridColumns(columnCount: number) {
   };
 }
 
-function AssignmentColumnHeader({
-  title,
-  label,
-  required = false,
-}: Readonly<{ title: string; label: string; required?: boolean }>) {
+function AssignmentColumnHeader({ title, label }: Readonly<{ title: string; label: string }>) {
   return (
     <Box sx={assignmentHeaderBlockSx}>
       <Typography sx={assignmentHeadingSx}>{title}</Typography>
-      <Typography
-        component="div"
-        sx={{
-          ...assignmentLabelSx,
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) 0.625rem',
-          alignItems: 'center',
-          columnGap: 0.25,
-        }}
-      >
-        <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {label}
-        </Box>
-        <Box
-          component="span"
-          sx={{
-            color: required ? 'error.main' : 'transparent',
-            textAlign: 'center',
-            lineHeight: 1,
-          }}
-          aria-hidden={!required}
-        >
-          *
-        </Box>
-      </Typography>
+      <Typography sx={assignmentLabelSx}>{label}</Typography>
     </Box>
   );
 }
@@ -166,18 +133,18 @@ function AssignmentControlBlock({ children }: Readonly<{ children: React.ReactNo
 }
 
 function AssignmentFieldError({ message }: Readonly<{ message?: string }>) {
+  if (!message) return null;
+
   return (
     <Typography
       sx={{
         fontSize: '0.75rem',
-        color: message ? 'error.main' : 'transparent',
+        color: 'error.main',
         mt: 0.5,
-        minHeight: '1.125rem',
-        lineHeight: '1.125rem',
+        lineHeight: 1.45,
       }}
-      aria-hidden={!message}
     >
-      {message || '\u00a0'}
+      {message}
     </Typography>
   );
 }
@@ -211,11 +178,7 @@ export function CreateUserAssignmentSection({
     <Box sx={assignmentGridColumns(assignmentColumnCount)}>
       {showCompanyField ? (
         <Box sx={assignmentColumnSx}>
-          <AssignmentColumnHeader
-            title="Assign Company"
-            label="SELECT COMPANY"
-            required={assignment.requireCompany && !lockCompanyField}
-          />
+          <AssignmentColumnHeader title="Assign Company" label="SELECT COMPANY" />
           <AssignmentControlBlock>
             {!lockCompanyField ? (
               <Controller
@@ -237,10 +200,7 @@ export function CreateUserAssignmentSection({
                 )}
               />
             ) : (
-              <>
-                <Box sx={lockedFieldSx}>{lockedCompanyLabel}</Box>
-                <AssignmentFieldError />
-              </>
+              <Box sx={lockedFieldSx}>{lockedCompanyLabel}</Box>
             )}
           </AssignmentControlBlock>
           <Typography sx={assignmentHelperSx}>{companyHelper}</Typography>
@@ -249,11 +209,7 @@ export function CreateUserAssignmentSection({
 
       {showBranchField ? (
         <Box sx={assignmentColumnSx}>
-          <AssignmentColumnHeader
-            title="Assign Branch"
-            label="SELECT BRANCH"
-            required={assignment.requireBranch && currentScope !== 'branch'}
-          />
+          <AssignmentColumnHeader title="Assign Branch" label="SELECT BRANCH" />
           <AssignmentControlBlock>
             {isBranchLoading ? (
               <>
@@ -275,14 +231,10 @@ export function CreateUserAssignmentSection({
                     {currentScope === 'branch' ? 'Loading branch...' : 'Loading branches...'}
                   </Typography>
                 </Box>
-                <AssignmentFieldError />
               </>
             ) : null}
             {!isBranchLoading && currentScope === 'branch' ? (
-              <>
-                <Box sx={lockedFieldSx}>{lockedBranchLabel}</Box>
-                <AssignmentFieldError />
-              </>
+              <Box sx={lockedFieldSx}>{lockedBranchLabel}</Box>
             ) : null}
             {!isBranchLoading && currentScope !== 'branch' ? (
               <Controller
@@ -312,7 +264,7 @@ export function CreateUserAssignmentSection({
       ) : null}
 
       <Box sx={assignmentColumnSx}>
-        <AssignmentColumnHeader title="Assign Role" label="SELECT ROLE" required />
+        <AssignmentColumnHeader title="Assign Role" label="SELECT ROLE" />
         <AssignmentControlBlock>
           <Controller
             name="role"
