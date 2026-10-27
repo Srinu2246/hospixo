@@ -92,6 +92,10 @@ export interface AvailabilityItemsTableProps {
   /** nextActive true = active, false = inactive */
   onToggleMark: (itemId: string, nextActive: boolean) => void | Promise<void>;
   toggleDisabled?: boolean;
+  page?: number;
+  pageSize?: number;
+  totalRows?: number;
+  onPageChange?: (page: number) => void;
 }
 
 function visibilityLabel(item: AvailabilityItem): string {
@@ -104,6 +108,10 @@ export function AvailabilityItemsTable({
   items,
   onToggleMark,
   toggleDisabled = false,
+  page = 1,
+  pageSize = 8,
+  totalRows,
+  onPageChange,
 }: Readonly<AvailabilityItemsTableProps>) {
   const columns: DataGridColumn<AvailabilityItem>[] = [
     {
@@ -232,6 +240,12 @@ export function AvailabilityItemsTable({
         columns={columns}
         rows={items}
         getRowId={(row) => row.id}
+        pagination
+        page={page}
+        pageSize={pageSize}
+        totalRows={totalRows}
+        onPageChange={onPageChange}
+        paginationEntityName="items"
         stickyHeader
         height="100%"
         rowHeight={72}

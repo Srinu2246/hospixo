@@ -107,7 +107,7 @@ export function resolveRestaurantFloorMock(request: MockRequest): unknown | unde
     const sessionIdSegment = mealSessionsMatch[2];
     if (!sessionIdSegment) {
       if (request.method === 'GET') {
-        return mealSessionsList(branchId);
+        return mealSessionsList(branchId, request.params);
       }
       if (request.method === 'POST') {
         return createMealSession(branchId, request.body);
@@ -606,10 +606,37 @@ function branchMealSessionsRows(branchId: number) {
 }
 
 /** GET /v1/branches/{branch_id}/meal-sessions */
-function mealSessionsList(branchId: number) {
+function mealSessionsList(branchId: number, params?: QueryParams) {
+  const search = typeof params?.search === 'string' ? params.search.trim().toLowerCase() : '';
+  const status = typeof params?.status === 'string' ? params.status.toLowerCase() : '';
+  const isActiveParam = params?.is_active;
+  const filtered = branchMealSessionsRows(branchId).filter((row) => {
+    if (status === 'active' || isActiveParam === true || isActiveParam === 'true') {
+      if (row.is_active === false) return false;
+    }
+    if (status === 'inactive' || isActiveParam === false || isActiveParam === 'false') {
+      if (row.is_active !== false) return false;
+    }
+    if (!search) return true;
+    const haystack = [row.name, row.start_time, row.end_time]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(search);
+  });
+
+  const page = Number(params?.page ?? 1) || 1;
+  const pageSize = Number(params?.page_size ?? 15) || 15;
+  const start = (page - 1) * pageSize;
+
   return {
     success: true,
-    data: branchMealSessionsRows(branchId),
+    data: {
+      items: filtered.slice(start, start + pageSize),
+      total: filtered.length,
+      page,
+      page_size: pageSize,
+    },
     message: 'Meal sessions retrieved',
     request_id: 'mock-meal-sessions',
   };
@@ -879,6 +906,7 @@ function openOrderDetail(_branchId: number, orderId: number) {
 function openOrdersList(branchId: number, params?: QueryParams) {
   const status = typeof params?.status === 'string' ? params.status : 'open';
   const orderType = typeof params?.order_type === 'string' ? params.order_type : undefined;
+  const search = typeof params?.search === 'string' ? params.search.trim().toLowerCase() : '';
   const floorId = queryNumber(params, 'floor_id');
   const sectionId = queryNumber(params, 'section_id');
   const page = queryNumber(params, 'page') ?? 1;
@@ -895,6 +923,19 @@ function openOrdersList(branchId: number, params?: QueryParams) {
           if (orderType && order.order_type !== orderType) return false;
           if (floorId != null && order.floor_id !== floorId) return false;
           if (sectionId != null && order.section_id !== sectionId) return false;
+          if (search) {
+            const haystack = [
+              order.order_number,
+              order.table_name,
+              order.order_type,
+              order.kitchen_badge,
+              order.public_id,
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase();
+            if (!haystack.includes(search)) return false;
+          }
           return true;
         })
       : [];

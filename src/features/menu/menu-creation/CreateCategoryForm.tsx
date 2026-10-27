@@ -13,7 +13,6 @@ import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { useMenuCreation } from '@/features/menu/context';
 import { assertCatalogueContextForCategoryCreate } from '@/lib/helpers/menuBranchContext';
 import { resolveCatalogueContextIds } from '@/lib/helpers/apiContextHeaders';
-import { useSidebarStore } from '@/stores/sidebarStore';
 import { zodFieldMessage } from '@/lib/schemas/menu/menuCreationSchema';
 import {
   createCategoryInputSchema,
@@ -43,32 +42,21 @@ export function CreateCategoryForm({
   onSubmit,
 }: Readonly<CreateCategoryFormProps>) {
   const { pageConfig, isCreatingCategory, isUpdatingCategory } = useMenuCreation();
-  const sidebarContext = useSidebarStore((state) => state.context);
-  const account = useSidebarStore((state) => state.account);
   const isEdit = mode === 'edit';
   const saving = Boolean(isEdit ? isUpdatingCategory : isCreatingCategory);
+  const catalogueIds = resolveCatalogueContextIds(pageConfig.scope);
 
   const catalogueContextIssue = useMemo((): string | null => {
     if (isEdit) return null;
     try {
-      assertCatalogueContextForCategoryCreate(
-        pageConfig.scope,
-        resolveCatalogueContextIds(pageConfig.scope),
-      );
+      assertCatalogueContextForCategoryCreate(pageConfig.scope, catalogueIds);
       return null;
     } catch (submitError) {
       return submitError instanceof ApiError
         ? submitError.message
         : 'Missing company or branch context for this workspace.';
     }
-  }, [
-    account?.branch_id,
-    account?.company_id,
-    isEdit,
-    pageConfig.scope,
-    sidebarContext.branchId,
-    sidebarContext.companyId,
-  ]);
+  }, [catalogueIds, isEdit, pageConfig.scope]);
 
   // Remount via `key` from parent when the edited category changes — no sync effect needed.
   const initialName = initialCategory?.name ?? '';

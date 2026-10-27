@@ -15,6 +15,7 @@ import {
   type CreateUserRequestContext,
   type RoleCatalogItem,
   type RolePermissionsPayload,
+  type UserRoleItem,
   isMatch,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import type { ScopeType } from '@/lib/schemas/employees/user-roles/userRolesSchema';
@@ -130,7 +131,49 @@ export function isFallbackEntityName(name?: string | null): boolean {
   if (trimmed === 'Downtown Branch') {
     return true;
   }
+  if (/^\d+$/.test(trimmed)) {
+    return true;
+  }
   return false;
+}
+
+/** Replace API company id tokens with a resolved display name when available. */
+export function enrichUserListCompanyNames(
+  users: readonly UserRoleItem[],
+  hints?: {
+    companyName?: string;
+    companies?: readonly Pick<CompanyListItem, 'id' | 'name'>[];
+  },
+): UserRoleItem[] {
+  if (users.length === 0) return [...users];
+
+  const fallbackName =
+    hints?.companyName?.trim() && !isFallbackEntityName(hints.companyName)
+      ? hints.companyName.trim()
+      : undefined;
+  const companies = hints?.companies ?? [];
+
+  return users.map((user) => {
+    const current = user.company?.trim();
+    if (current && !isFallbackEntityName(current)) {
+      return user;
+    }
+
+    if (user.companyId != null && companies.length > 0) {
+      const matched = companies.find((company) => String(company.id) === String(user.companyId));
+      if (matched?.name?.trim() && !isFallbackEntityName(matched.name)) {
+        return { ...user, company: matched.name.trim() };
+      }
+    }
+
+    if (fallbackName) {
+      return { ...user, company: fallbackName };
+    }
+
+    return user.company && isFallbackEntityName(user.company)
+      ? { ...user, company: undefined }
+      : user;
+  });
 }
 
 /** Branch names for the create-user branch dropdown (company filter + keep current selection). */
@@ -373,10 +416,23 @@ export async function loadEmployeeDirectory(
     companies = companiesFromBranches(branches);
   }
 
+  const branchScopedCompanyName =
+    isBranchScope && session.branchId != null
+      ? branches.find((branch) => String(branch.id) === String(session.branchId))?.companyName
+      : undefined;
+  const directoryCompanyName = companies.find((c) => String(c.id) === String(companyId))?.name;
+  const resolvedSessionCompanyName =
+    session.companyName && !isFallbackEntityName(session.companyName)
+      ? session.companyName
+      : branchScopedCompanyName && !isFallbackEntityName(branchScopedCompanyName)
+        ? branchScopedCompanyName.trim()
+        : directoryCompanyName && !isFallbackEntityName(directoryCompanyName)
+          ? directoryCompanyName
+          : undefined;
+
   return enrichDirectoryWithSession(companies, branches, {
     companyId: companyId ?? session.companyId,
-    companyName:
-      session.companyName ?? companies.find((c) => String(c.id) === String(companyId))?.name,
+    companyName: resolvedSessionCompanyName,
     branchId: session.branchId,
     branchName: session.branchName,
   });

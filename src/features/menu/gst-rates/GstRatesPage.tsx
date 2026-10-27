@@ -15,6 +15,7 @@ import { CreateGstRateForm, GstRatesTable } from '@/components/features/menu/gst
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { useCreateGstRate, useGstRate, useGstRates } from '@/lib/hooks/menu/useGstRates';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import type { CreateGstRateBody } from '@/lib/schemas/menu/gstRatesSchema';
 import { ApiError } from '@/services/api/types';
 
@@ -51,16 +52,19 @@ export function GstRatesPage() {
   const { basePath, mode, rateId } = parseGstRatesPath(pathname);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 1500);
   const [activeOnly, setActiveOnly] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const [createError, setCreateError] = useState<string | null>(null);
 
   const numericRateId = rateId && /^\d+$/.test(rateId) ? Number(rateId) : undefined;
 
   const listQuery = useGstRates({
-    code: searchQuery.trim() || undefined,
+    code: debouncedSearchQuery.trim() || undefined,
     active_only: activeOnly || undefined,
-    page: 1,
-    page_size: 50,
+    page,
+    page_size: pageSize,
   });
   const detailQuery = useGstRate(mode === 'view' ? numericRateId : undefined);
   const createMutation = useCreateGstRate();
@@ -237,7 +241,10 @@ export function GstRatesPage() {
       >
         <SearchBar
           value={searchQuery}
-          onChange={setSearchQuery}
+          onChange={(value: string) => {
+            setSearchQuery(value);
+            setPage(1);
+          }}
           placeholder="Filter by GST code (e.g. GST_)"
           showClear
           fullWidth
@@ -248,7 +255,10 @@ export function GstRatesPage() {
           control={
             <Checkbox
               checked={activeOnly}
-              onChange={(event) => setActiveOnly(event.target.checked)}
+              onChange={(event) => {
+                setActiveOnly(event.target.checked);
+                setPage(1);
+              }}
               size="small"
             />
           }
@@ -295,6 +305,10 @@ export function GstRatesPage() {
         ) : (
           <GstRatesTable
             rates={listQuery.data?.items ?? []}
+            page={page}
+            pageSize={pageSize}
+            totalRows={listQuery.data?.total ?? 0}
+            onPageChange={setPage}
             onCreate={() => router.push(`${basePath}/create`)}
             onView={(rate) => router.push(`${basePath}/${rate.id}`)}
           />

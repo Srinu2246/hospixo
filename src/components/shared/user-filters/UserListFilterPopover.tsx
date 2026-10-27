@@ -17,7 +17,7 @@ import {
   USER_STATUS_OPTIONS,
   type UserListSortBy,
   type UserListSortOrder,
-} from '@/lib/schemas/users/userListFilterSchema';
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface UserRoleFilterOption {
   code: string;

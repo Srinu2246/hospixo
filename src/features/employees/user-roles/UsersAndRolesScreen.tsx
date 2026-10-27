@@ -122,6 +122,7 @@ export function UsersAndRolesScreen({
     companyName,
     companyId: directoryQuery.companyId,
     branchId: activeBranchId,
+    companies: directory.data?.companies,
     initialUserList,
   });
 

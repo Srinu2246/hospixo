@@ -160,10 +160,14 @@ export function TagsGrid({
   }, [tags, gap, maxVisible]);
 
   useEffect(() => {
-    recalculate();
+    const frame = requestAnimationFrame(() => {
+      recalculate();
+    });
 
     const container = containerRef.current;
-    if (!container || typeof ResizeObserver === 'undefined') return;
+    if (!container || typeof ResizeObserver === 'undefined') {
+      return () => cancelAnimationFrame(frame);
+    }
 
     const ro = new ResizeObserver(() => {
       recalculate();
@@ -171,6 +175,7 @@ export function TagsGrid({
     ro.observe(container);
 
     return () => {
+      cancelAnimationFrame(frame);
       ro.disconnect();
     };
   }, [recalculate]);

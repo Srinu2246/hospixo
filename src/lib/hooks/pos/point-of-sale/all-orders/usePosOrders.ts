@@ -16,6 +16,8 @@ export type PosOrdersListParams = {
   pageSize?: number;
   /** Backend status filter; defaults to open running orders. */
   status?: string;
+  /** Order number / table / bill search. */
+  search?: string;
 };
 
 export const posOrdersQueryKey = (branchId: number, params?: PosOrdersListParams) =>
@@ -31,6 +33,7 @@ export function usePosOrders(params?: PosOrdersListParams, branchId?: number) {
   const page = params?.page ?? 1;
   const pageSize = params?.pageSize ?? 15;
   const status = params?.status ?? 'open';
+  const search = params?.search?.trim() || undefined;
 
   const listParams = useMemo(
     () => ({
@@ -38,8 +41,9 @@ export function usePosOrders(params?: PosOrdersListParams, branchId?: number) {
       page,
       pageSize,
       status,
+      search,
     }),
-    [orderType, page, pageSize, status],
+    [orderType, page, pageSize, status, search],
   );
 
   return useQuery({
@@ -53,6 +57,7 @@ export function usePosOrders(params?: PosOrdersListParams, branchId?: number) {
           page,
           page_size: pageSize,
           ...(apiOrderType ? { order_type: apiOrderType } : {}),
+          ...(search ? { search } : {}),
         },
         signal,
       );

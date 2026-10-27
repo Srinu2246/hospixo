@@ -5,11 +5,11 @@ import { useMemo, useState } from 'react';
 import {
   DEFAULT_USER_LIST_FILTERS,
   serializeUserListFilterParams,
+  type ScopeType,
   type UserListFilterState,
   type UserListSortBy,
   type UserListSortOrder,
-} from '@/lib/schemas/users/userListFilterSchema';
-import type { ScopeType } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface UseUserListFiltersOptions {
   scope?: ScopeType;

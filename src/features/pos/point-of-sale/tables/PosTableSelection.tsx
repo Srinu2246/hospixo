@@ -112,18 +112,18 @@ export function PosTableSelection({
 
   const mealSessionOptions = useMemo(
     () =>
-      (mealSessionsQuery.data ?? []).map((session) => ({
+      (mealSessionsQuery.data?.items ?? []).map((session) => ({
         id: String(session.id),
         label: session.name,
       })),
-    [mealSessionsQuery.data],
+    [mealSessionsQuery.data?.items],
   );
 
   const defaultMealSessionId = useMemo(() => {
-    const sessions = mealSessionsQuery.data ?? [];
+    const sessions = mealSessionsQuery.data?.items ?? [];
     const active = sessions.find((session) => session.is_active) ?? sessions[0];
     return active ? String(active.id) : '';
-  }, [mealSessionsQuery.data]);
+  }, [mealSessionsQuery.data?.items]);
 
   const floorTabs = useMemo(
     () =>

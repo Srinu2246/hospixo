@@ -6,10 +6,10 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { useQuery } from '@/lib/hooks/api/useQuery';
 import { useUserListFilters } from '@/lib/hooks/users/useUserListFilters';
 import type { JsonValue } from '@/types/json';
-import type { UserListSortBy, UserListSortOrder } from '@/lib/schemas/users/userListFilterSchema';
 
 import {
   enrichDirectoryWithSession,
+  enrichUserListCompanyNames,
   isMatch,
   loadEmployeeDirectory,
   resolveAssignmentPermissionsPayload,
@@ -50,6 +50,8 @@ import {
   type UserRoleItem,
   type UserRoleListResponse,
   type UserRoleStatsData,
+  type UserListSortBy,
+  type UserListSortOrder,
   type UserStatus,
   type UseUserRolesOptions,
   isUserEditDisabled,
@@ -126,6 +128,8 @@ export function useUserRoles(
     initialUserList,
     companyId,
     branchId,
+    companyName,
+    companies: directoryCompanies,
   } = options;
 
   const storeCompanyId = useSidebarStore(
@@ -199,8 +203,12 @@ export function useUserRoles(
   );
 
   const users = useMemo(
-    () => enrichUserListRoles(usersQuery.data?.items ?? [], roleCatalog),
-    [roleCatalog, usersQuery.data?.items],
+    () =>
+      enrichUserListCompanyNames(enrichUserListRoles(usersQuery.data?.items ?? [], roleCatalog), {
+        companyName,
+        companies: directoryCompanies,
+      }),
+    [roleCatalog, usersQuery.data?.items, companyName, directoryCompanies],
   );
   const paginatedUsers = users;
   const totalRows = usersQuery.data?.total ?? users.length;
@@ -743,6 +751,14 @@ export function useRoleCatalogQuery(scope?: ScopeType) {
   });
 }
 
+function normalizeScopedPermissionId(
+  value: number | string | null | undefined,
+): number | undefined {
+  if (value == null || value === '') return undefined;
+  const id = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(id) && id > 0 ? id : undefined;
+}
+
 export function useRolePermissions(
   roleId: string | number | undefined | null,
   options?: {
@@ -751,7 +767,17 @@ export function useRolePermissions(
     branchId?: number | string | null;
   },
 ) {
+  const contextCompanyId = useSidebarStore(
+    (state) => state.context.companyId ?? state.account?.company_id,
+  );
+  const contextBranchId = useSidebarStore(
+    (state) => state.context.branchId ?? state.account?.branch_id,
+  );
   const accountScope = useSidebarStore((state) => state.account?.scope);
+
+  const companyId = normalizeScopedPermissionId(options?.companyId ?? contextCompanyId);
+  const branchId = normalizeScopedPermissionId(options?.branchId ?? contextBranchId);
+
   const requestedScope = (options?.scope ?? accountScope ?? UserRoleScope.Organization)
     .toString()
     .toLowerCase();
@@ -778,12 +804,19 @@ export function useRolePermissions(
       isValidRoleId ? String(numericRoleId) : 'none',
       'permissions',
       scopeType,
+      companyId != null ? String(companyId) : 'all',
+      branchId != null ? String(branchId) : 'all',
     ],
     queryFn: async ({ signal }) => {
       if (!isValidRoleId) return null;
       const params: ScopedRolePermissionsParams = {
         scope_type: scopeType,
         page_size: 100,
+        ...(companyId != null &&
+        (scopeType === UserRoleScope.Company || scopeType === UserRoleScope.Branch)
+          ? { company_id: companyId }
+          : {}),
+        ...(branchId != null && scopeType === UserRoleScope.Branch ? { branch_id: branchId } : {}),
       };
 
       return api.get<JsonValue>(rolePermissionsPath(numericRoleId), params, signal);
