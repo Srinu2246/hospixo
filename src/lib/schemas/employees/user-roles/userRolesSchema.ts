@@ -1152,6 +1152,24 @@ export type RoleAssignmentRequirements = {
   requireBranch: boolean;
 };
 
+export function isBranchScopedRole(scope?: RoleScope | string | null): boolean {
+  return (
+    String(scope ?? '')
+      .trim()
+      .toLowerCase() === 'branch'
+  );
+}
+
+/** Success/review/profile: branch row only for branch-scoped roles (or branch wizard). */
+export function shouldShowBranchInUserSummary(
+  roleLabel: string,
+  catalog: readonly RoleCatalogItem[],
+  wizardScope?: ScopeType,
+): boolean {
+  const assignment = resolveRoleAssignmentRequirements(roleLabel, catalog, wizardScope);
+  return assignment.showBranch || wizardScope === 'branch';
+}
+
 function resolveRoleScopeFromSelection(
   roleLabel: string,
   catalog: readonly RoleCatalogItem[],
@@ -1201,9 +1219,10 @@ export function resolveRoleAssignmentRequirements(
   }
 
   if (roleScope === 'company') {
+    const showCompany = wizardScope === 'organization' || wizardScope === 'company';
     return {
       roleScope,
-      showCompany: wizardScope === 'organization',
+      showCompany,
       showBranch: false,
       requireCompany: wizardScope === 'organization',
       requireBranch: false,
@@ -1392,14 +1411,15 @@ export function buildCreateUserRequest(
   context: CreateUserRequestContext,
 ): CreateUserRequest {
   const catalog = context.roleCatalog ?? [];
-  const roleCandidate = values.role?.trim() || 'Branch Admin';
+  const roleCandidate = context.roleCode?.trim() || values.role?.trim() || '';
   const roleCode =
     context.roleCode ??
     resolveRoleCode(roleCandidate, catalog) ??
     roleCandidate.toLowerCase().replace(/[\s-]+/g, '_');
 
   const needsCompany = roleRequiresCompanyId(roleCode, catalog);
-  const branchId = context.branchId;
+  const needsBranch = roleRequiresBranchId(roleCode, catalog);
+  const branchId = needsBranch ? context.branchId : undefined;
   const companyId = context.companyId;
   const organizationId = context.organizationId ?? 1;
 
@@ -1531,15 +1551,18 @@ export type RoleAssignmentHints = {
 };
 
 function toRoleEntry(roleCode: string, hints?: RoleAssignmentHints): JsonObject {
+  const scopeToken =
+    typeof hints?.scope === 'string' ? hints.scope.trim().toLowerCase() : undefined;
   const branchId =
     hints?.branchId != null && hints.branchId !== '' ? Number(hints.branchId) : undefined;
   const companyId =
     hints?.companyId != null && hints.companyId !== '' ? Number(hints.companyId) : undefined;
+  const includeBranchId = scopeToken === 'branch' && branchId != null && Number.isFinite(branchId);
 
   return compact({
     role_code: String(roleCode).trim(),
     ...(companyId != null && Number.isFinite(companyId) ? { company_id: companyId } : {}),
-    ...(branchId != null && Number.isFinite(branchId) ? { branch_id: branchId } : {}),
+    ...(includeBranchId ? { branch_id: branchId } : {}),
   });
 }
 
@@ -1660,6 +1683,25 @@ export function isMatch(
   return options?.caseSensitive
     ? currentStr === expectedStr
     : currentStr.toLowerCase() === expectedStr.toLowerCase();
+}
+
+/** Selected template / role id wins over stale formValues.role (e.g. draft or dropdown default). */
+export function resolveWizardActiveRoleName(input: {
+  formRole?: string;
+  selectedTemplate?: RoleTemplateItem | null;
+  selectedRoleId?: string | number | null;
+  catalog?: readonly RoleCatalogItem[];
+}): string {
+  const { formRole, selectedTemplate, selectedRoleId, catalog = [] } = input;
+
+  if (selectedRoleId != null && selectedRoleId !== '' && catalog.length > 0) {
+    const byId = catalog.find((role) => String(role.id) === String(selectedRoleId));
+    if (byId?.name?.trim()) return byId.name.trim();
+  }
+
+  if (selectedTemplate?.roleName?.trim()) return selectedTemplate.roleName.trim();
+
+  return formRole?.trim() ?? '';
 }
 
 export function resolveRoleId(

@@ -253,7 +253,10 @@ import {
   trySerializeCreateUserDraft,
   toCreateUserDraftHydration,
 } from '@/lib/schemas/employees/user-roles/createUserDraftSchema';
-import type { PermissionCategory } from '@/lib/schemas/employees/user-roles/userRolesSchema';
+import {
+  buildCreateUserRequest,
+  type PermissionCategory,
+} from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 test('userRolesSchema - isMatch compares case-insensitively and handles null/undefined', () => {
   assert.equal(isMatch('Admin', 'admin'), true);
@@ -453,7 +456,39 @@ test('userRolesHelpers - resolveCreateUserBranchOptions filters branches by acti
   assert.deepEqual(result, ['Downtown Branch']);
 });
 
-test('createUserDraftSchema - trySerializeCreateUserDraft never persists passwords', () => {
+test('buildCreateUserRequest - omits branch_id for company-scoped roles', () => {
+  const catalog = [
+    { id: 'inv', name: 'Inventory Manager', code: 'inventory_manager', scope: 'company' as const },
+  ];
+  const body = buildCreateUserRequest(
+    {
+      firstName: 'Inv',
+      lastName: 'Mgr',
+      countryCode: '+91',
+      phoneNumber: '9876543210',
+      email: 'inv.manager@hospixo.com',
+      username: 'inv.manager',
+      password: 'Hospixo@2026',
+      company: 'Taj Hotel',
+      branch: 'Bommarillu',
+      role: 'Inventory Manager',
+      sendInviteImmediately: true,
+      personalMessage: '',
+    },
+    {
+      organizationId: 1,
+      companyId: 94,
+      branchId: 12,
+      roleCatalog: catalog,
+      roleCode: 'inventory_manager',
+    },
+  );
+
+  assert.equal('branch_id' in body, false);
+  assert.equal(body.company_id, 94);
+});
+
+test('createUserDraftSchema - trySerializeCreateUserDraft persists password in draft', () => {
   const draft = trySerializeCreateUserDraft(
     {
       scope: 'organization',
@@ -479,10 +514,10 @@ test('createUserDraftSchema - trySerializeCreateUserDraft never persists passwor
   );
 
   assert.ok(draft);
-  assert.equal(draft?.formValues.password, '');
+  assert.equal(draft?.formValues.password, 'SecretPassword@123');
 
   const hydrated = toCreateUserDraftHydration(draft!);
-  assert.equal(hydrated.formValues.password, '');
+  assert.equal(hydrated.formValues.password, 'SecretPassword@123');
   assert.equal(hydrated.formValues.firstName, 'John');
 });
 

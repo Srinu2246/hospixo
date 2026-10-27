@@ -57,7 +57,7 @@ export type CreateUserDraftHydration = {
   categories: PermissionCategory[];
 };
 
-/** Persist wizard state; never store passwords in localStorage. */
+/** Persist wizard state to localStorage (full form values, including password). */
 export function trySerializeCreateUserDraft(
   state: CreateUserDraftSource,
   step: CreateUserStep,
@@ -71,7 +71,7 @@ export function trySerializeCreateUserDraft(
     step,
     selectedTemplate,
     selectedRoleId: state.selectedRoleId,
-    formValues: { ...state.formValues, password: '' },
+    formValues: state.formValues,
     categories: state.categories,
     savedAt: Date.now(),
   });
@@ -86,7 +86,7 @@ export function toCreateUserDraftHydration(draft: CreateUserDraft): CreateUserDr
     selectedRoleId: draft.selectedRoleId,
     formValues: {
       ...draft.formValues,
-      password: '',
+      password: draft.formValues.password ?? '',
       countryCode: draft.formValues.countryCode ?? DEFAULT_CREATE_USER_FORM_VALUES.countryCode,
     },
     categories: draft.categories,

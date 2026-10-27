@@ -19,6 +19,7 @@ export interface StaffProfileBasicInfoSectionProps {
   countryCode: string;
   assignedCompany?: string;
   assignedBranch?: string;
+  showAssignedBranch?: boolean;
   onCountryCodeChange: (code: string) => void;
   onSendResetPassword: () => void;
 }
@@ -30,6 +31,7 @@ export function StaffProfileBasicInfoSection({
   countryCode,
   assignedCompany,
   assignedBranch,
+  showAssignedBranch = false,
   onCountryCodeChange,
   onSendResetPassword,
 }: Readonly<StaffProfileBasicInfoSectionProps>) {
@@ -192,40 +194,42 @@ export function StaffProfileBasicInfoSection({
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography
-            sx={{
-              fontSize: '0.6875rem',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              color: colors.text.secondary,
-              textTransform: 'uppercase',
-            }}
-          >
-            Assigned Branch
-          </Typography>
-          <Box
-            sx={{
-              height: 40,
-              borderRadius: '8px',
-              border: '1px solid',
-              borderColor: (theme) =>
-                theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-              bgcolor: (theme) =>
-                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.surface.muted,
-              px: 1.75,
-              display: 'flex',
-              alignItems: 'center',
-              color: 'text.primary',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              cursor: 'default',
-              userSelect: 'none',
-            }}
-          >
-            {assignedBranch || 'Main Branch'}
+        {showAssignedBranch ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Typography
+              sx={{
+                fontSize: '0.6875rem',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                color: colors.text.secondary,
+                textTransform: 'uppercase',
+              }}
+            >
+              Assigned Branch
+            </Typography>
+            <Box
+              sx={{
+                height: 40,
+                borderRadius: '8px',
+                border: '1px solid',
+                borderColor: (theme) =>
+                  theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.surface.muted,
+                px: 1.75,
+                display: 'flex',
+                alignItems: 'center',
+                color: 'text.primary',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'default',
+                userSelect: 'none',
+              }}
+            >
+              {assignedBranch?.trim() ? assignedBranch : '—'}
+            </Box>
           </Box>
-        </Box>
+        ) : null}
       </Box>
 
       {/* Username & Password / Reset Section */}

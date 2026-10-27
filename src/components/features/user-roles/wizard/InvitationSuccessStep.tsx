@@ -10,23 +10,37 @@ import { Card } from '@/components/shared/ui/Card';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
+import { isFallbackEntityName } from '@/lib/helpers/employees/userRolesHelpers';
 import type { CreateUserFormValues } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface InvitationSuccessStepProps {
   formValues: CreateUserFormValues;
+  /** When false, branch is hidden even if legacy form state still has a branch string. */
+  showBranch?: boolean;
   onGoToDashboard: () => void;
   onAssignNewStaff: () => void;
 }
 
+function displayField(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed || isFallbackEntityName(trimmed)) return undefined;
+  return trimmed;
+}
+
 export function InvitationSuccessStep({
   formValues,
+  showBranch = false,
   onGoToDashboard,
   onAssignNewStaff,
 }: Readonly<InvitationSuccessStepProps>) {
-  const fullName = `${formValues.firstName || 'Sarah'} ${formValues.lastName || 'Chen'}`.trim();
-  const email = formValues.email || 'sarah.chen@example.com';
-  const role = formValues.role || 'Branch Admin';
-  const branch = formValues.branch || '—';
+  const firstName = displayField(formValues.firstName);
+  const lastName = displayField(formValues.lastName);
+  const fullName =
+    [firstName, lastName].filter(Boolean).join(' ') || displayField(formValues.username) || '—';
+  const email = displayField(formValues.email) ?? '—';
+  const role = displayField(formValues.role) ?? '—';
+  const branch = showBranch ? displayField(formValues.branch) : undefined;
+  const showBranchRow = Boolean(branch);
 
   return (
     <Box
@@ -42,7 +56,6 @@ export function InvitationSuccessStep({
         gap: 3,
       }}
     >
-      {/* 1. Large Soft Green Checkmark Circle */}
       <Box
         sx={{
           width: 64,
@@ -59,7 +72,6 @@ export function InvitationSuccessStep({
         <CheckIcon sx={{ fontSize: 32, color: colors.success.default, strokeWidth: 2.2 }} />
       </Box>
 
-      {/* 2. Heading & Subtitle */}
       <Box sx={{ width: '100%' }}>
         <Typography
           variant="h4"
@@ -94,7 +106,6 @@ export function InvitationSuccessStep({
         </Typography>
       </Box>
 
-      {/* 3. User summary card */}
       <Card
         variant="outlined"
         padding={3}
@@ -129,7 +140,6 @@ export function InvitationSuccessStep({
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-          {/* User Row */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
               User
@@ -142,7 +152,6 @@ export function InvitationSuccessStep({
             </Typography>
           </Box>
 
-          {/* Assigned Role Row */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
               Assigned Role
@@ -150,20 +159,20 @@ export function InvitationSuccessStep({
             <StatusChip label={role} variantType="role" pill />
           </Box>
 
-          {/* Branch Row */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-              Branch
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.875rem' }}
-            >
-              {branch}
-            </Typography>
-          </Box>
+          {showBranchRow ? (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                Branch
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.875rem' }}
+              >
+                {branch}
+              </Typography>
+            </Box>
+          ) : null}
 
-          {/* Status Row */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
               Status
@@ -192,7 +201,6 @@ export function InvitationSuccessStep({
         </Box>
       </Card>
 
-      {/* 4. Action Buttons (Compact height and padding matching design reference) */}
       <Box
         sx={{
           display: 'flex',
@@ -246,7 +254,6 @@ export function InvitationSuccessStep({
         </ActionButton>
       </Box>
 
-      {/* 5. Info Callout Box (560 Fill) */}
       <Box
         sx={{
           display: 'flex',

@@ -56,6 +56,7 @@ import {
   type UseUserRolesOptions,
   isUserEditDisabled,
   getUsersAndRolesBaseRoute,
+  roleRequiresBranchId,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { api } from '@/services/api/browserClient';
 import ApiUrlsV1, {
@@ -646,9 +647,11 @@ export function useCreateStaffUser() {
       }
 
       const roleCode = resolveRoleCode(input.values.role, roleCatalog);
+      const needsBranch = roleCode ? roleRequiresBranchId(roleCode, roleCatalog) : false;
       const { role, account, user, context: storeContext } = useSidebarStore.getState();
       const isBranchScope =
-        account?.scope === 'branch' || storeContext.branchId != null || input.ids.branchId != null;
+        account?.scope === 'branch' ||
+        (needsBranch && (storeContext.branchId != null || input.ids.branchId != null));
       const directoryAuth = {
         role: role || user?.role || account?.roles?.[0] || account?.scope || '',
         authScope: account?.scope ?? '',
@@ -672,7 +675,7 @@ export function useCreateStaffUser() {
         );
         const roleHints: RoleAssignmentHints = {
           companyId: context.companyId,
-          branchId: context.branchId,
+          branchId: needsBranch ? context.branchId : undefined,
           scope: matched?.scope,
         };
         try {

@@ -153,6 +153,7 @@ export function CreateUserStaffInfoSection({
               onBlur={field.onBlur}
               error={Boolean(fieldState.error)}
               helperText={fieldState.error?.message}
+              reserveHelperSpace={false}
               fullWidth
             />
           )}

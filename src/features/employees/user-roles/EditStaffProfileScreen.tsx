@@ -14,6 +14,7 @@ import { colors } from '@/lib/theme/mui/colors';
 import {
   staffProfileSchema,
   isUserEditDisabled,
+  isBranchScopedRole,
   resolveScopeFromPathname,
   getUsersAndRolesBaseRoute,
   type StaffProfileFormValues,
@@ -83,26 +84,27 @@ export function EditStaffProfileScreen({
   const rawUser = staffProfile.rawUser as { company?: string; branch?: string } | undefined;
   const resolvedCompanyName = useResolvedCompanyName(companyName, { scope: resolvedScope });
   const resolvedBranchName = useResolvedBranchName(rawUser?.branch, { scope: resolvedScope });
-  const contextBranchName = useSidebarStore((state) => state.context.branchName);
   const assignedCompany =
     (userItem?.company && !isFallbackEntityName(userItem.company) ? userItem.company : undefined) ||
     (rawUser?.company && !isFallbackEntityName(rawUser.company) ? rawUser.company : undefined) ||
     resolvedCompanyName ||
     '—';
-  const assignedBranch =
+
+  const userRoleScope = staffProfile.matchedRole?.scope || staffProfile.userItem?.scope;
+  const showAssignedBranch = isBranchScopedRole(userRoleScope);
+  const assignedBranchRaw =
     userItem?.branch ||
     rawUser?.branch ||
     (resolvedBranchName && !isFallbackEntityName(resolvedBranchName)
       ? resolvedBranchName
-      : undefined) ||
-    (contextBranchName && !isFallbackEntityName(contextBranchName)
-      ? contextBranchName
-      : undefined) ||
-    '—';
+      : undefined);
+  const assignedBranch =
+    showAssignedBranch && assignedBranchRaw && !isFallbackEntityName(assignedBranchRaw)
+      ? assignedBranchRaw
+      : undefined;
 
   const baseRoute = getUsersAndRolesBaseRoute(pathname, resolvedScope);
 
-  const userRoleScope = staffProfile.matchedRole?.scope || staffProfile.userItem?.scope;
   const isEditDisabled = isUserEditDisabled(userRoleScope, resolvedScope);
 
   const [mode, setMode] = useState<'view' | 'edit'>(() => {
@@ -290,6 +292,7 @@ export function EditStaffProfileScreen({
               countryCode={countryCodeValue || '+91'}
               assignedCompany={assignedCompany}
               assignedBranch={assignedBranch}
+              showAssignedBranch={showAssignedBranch}
               onCountryCodeChange={(code) => setValue('countryCode', code)}
               onSendResetPassword={handleSendResetPassword}
             />

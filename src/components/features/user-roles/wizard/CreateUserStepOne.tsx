@@ -15,12 +15,14 @@ import {
   parseRoleCatalog,
   resolveRoleAssignmentRequirements,
   resolveRoleId,
+  resolveWizardActiveRoleName,
   type CreateUserFormValues,
   type RoleCatalogItem,
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import {
   isFallbackEntityName,
+  resolveCompanyLabelForBranch,
   resolveCreateUserBranchOptions,
   resolveEmployeeDirectoryOptions,
 } from '@/lib/helpers/employees/userRolesHelpers';
@@ -49,6 +51,8 @@ export function CreateUserStepOne({
     setFormValues,
     setRoleAndDescription,
     setSelectedRoleId,
+    selectedTemplate,
+    selectedRoleId,
     scope: storeScope,
   } = useCreateUserStore();
   const currentScope = scope || storeScope || 'company';
@@ -99,12 +103,14 @@ export function CreateUserStepOne({
   );
 
   const companyOptions = useMemo(() => {
-    const fromDir = (directory.data?.companies ?? []).map((c) => c.name).filter(Boolean);
+    const fromDir = (directory.data?.companies ?? [])
+      .map((c) => c.name?.trim())
+      .filter((name): name is string => Boolean(name && !isFallbackEntityName(name)));
     if (fromDir.length > 0) return fromDir;
     const fromBranches = Array.from(
       new Set(
         (directory.data?.branches ?? [])
-          .map((b) => b.companyName?.trim())
+          .map((b) => resolveCompanyLabelForBranch(b, directory.data?.companies))
           .filter((name): name is string => Boolean(name)),
       ),
     );
@@ -157,21 +163,12 @@ export function CreateUserStepOne({
 
     if (!targetBranch) return undefined;
 
-    if (targetBranch.companyName?.trim() && !isFallbackEntityName(targetBranch.companyName)) {
+    const label = resolveCompanyLabelForBranch(targetBranch, companies);
+    if (label) {
       return {
         id: targetBranch.companyId,
-        name: targetBranch.companyName.trim(),
+        name: label,
       };
-    }
-
-    if (targetBranch.companyId != null) {
-      const matchedCompany = companies.find((c) => String(c.id) === String(targetBranch.companyId));
-      if (matchedCompany?.name?.trim() && !isFallbackEntityName(matchedCompany.name)) {
-        return {
-          id: matchedCompany.id,
-          name: matchedCompany.name.trim(),
-        };
-      }
     }
 
     return undefined;
@@ -240,7 +237,19 @@ export function CreateUserStepOne({
     [roleCatalog, currentScope],
   );
 
-  const defaultRole = formValues.role || roleOptions[0] || DEFAULT_FALLBACK_ROLES[0] || '';
+  const defaultRole = useMemo(
+    () =>
+      resolveWizardActiveRoleName({
+        formRole: formValues.role,
+        selectedTemplate,
+        selectedRoleId,
+        catalog: roleCatalog,
+      }) ||
+      roleOptions[0] ||
+      DEFAULT_FALLBACK_ROLES[0] ||
+      '',
+    [formValues.role, selectedTemplate, selectedRoleId, roleCatalog, roleOptions],
+  );
   const pickCompanyFormValue = (value?: string) =>
     value?.trim() && !isFallbackEntityName(value) ? value.trim() : '';
 
@@ -291,12 +300,16 @@ export function CreateUserStepOne({
       const matchedBranchObj = directory.data?.branches?.find(
         (b) => b.name?.trim().toLowerCase() === trimmedBranch || String(b.id) === trimmedBranch,
       );
-      if (matchedBranchObj?.companyName?.trim()) {
-        setValue('company', matchedBranchObj.companyName.trim(), {
+      const companyLabel = resolveCompanyLabelForBranch(
+        matchedBranchObj,
+        directory.data?.companies,
+      );
+      if (companyLabel) {
+        setValue('company', companyLabel, {
           shouldValidate: true,
           shouldDirty: true,
         });
-        updateFormField('company', matchedBranchObj.companyName.trim());
+        updateFormField('company', companyLabel);
       }
     }
     setValue(field, value as string, { shouldValidate: true, shouldDirty: true });
@@ -313,6 +326,15 @@ export function CreateUserStepOne({
       if (roleId != null) {
         setSelectedRoleId(roleId);
         setRoleAndDescription(matched?.name || value, matched?.description || '', roleId);
+      }
+      const nextAssignment = resolveRoleAssignmentRequirements(
+        trimmedVal,
+        roleCatalog,
+        currentScope,
+      );
+      if (!nextAssignment.requireBranch && !nextAssignment.showBranch) {
+        setValue('branch', '', { shouldValidate: true, shouldDirty: true });
+        updateFormField('branch', '');
       }
     }
   };
@@ -340,8 +362,9 @@ export function CreateUserStepOne({
         String(b.id) === branchCandidate.trim(),
     );
 
+    const branchCompanyLabel = resolveCompanyLabelForBranch(branchObj, directory.data?.companies);
     const effectiveCompany =
-      branchObj?.companyName?.trim() ||
+      branchCompanyLabel ||
       (lockCompanyField || currentScope === 'company' || currentScope === 'branch'
         ? resolvedCompanyLabel !== '—'
           ? resolvedCompanyLabel
@@ -360,11 +383,19 @@ export function CreateUserStepOne({
       setRoleAndDescription(matched?.name || effectiveRole, matched?.description || '', roleId);
     }
 
+    const resolvedSubmitRole =
+      resolveWizardActiveRoleName({
+        formRole: data.role || effectiveRole,
+        selectedTemplate,
+        selectedRoleId,
+        catalog: roleCatalog,
+      }) || effectiveRole;
+
     const finalValues: CreateUserFormValues = {
       ...data,
       company: effectiveCompany === '—' ? '' : effectiveCompany,
       branch: effectiveBranch === '—' ? '' : effectiveBranch,
-      role: effectiveRole,
+      role: resolvedSubmitRole,
     };
     setFormValues(finalValues);
     onValidSubmit?.(finalValues);
