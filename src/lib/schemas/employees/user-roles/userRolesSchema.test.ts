@@ -267,6 +267,7 @@ import {
 } from '@/lib/schemas/employees/user-roles/createUserDraftSchema';
 import {
   buildCreateUserRequest,
+  resolveWizardActiveRoleName,
   type PermissionCategory,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
@@ -466,6 +467,55 @@ test('userRolesHelpers - resolveCreateUserBranchOptions filters branches by acti
   });
 
   assert.deepEqual(result, ['Downtown Branch']);
+});
+
+test('resolveWizardActiveRoleName - form role wins over template role id', () => {
+  const catalog = [
+    { id: '1', name: 'Branch Admin', code: 'branch_admin', scope: 'branch' as const },
+    { id: '2', name: 'Inventory Manager', code: 'inventory_manager', scope: 'company' as const },
+  ];
+  const resolved = resolveWizardActiveRoleName({
+    formRole: 'Inventory Manager',
+    selectedRoleId: '1',
+    selectedTemplate: {
+      id: 'tpl-1',
+      title: 'Branch Admin',
+      description: '',
+      icon: 'restaurant',
+      roleName: 'Branch Admin',
+    },
+    catalog,
+  });
+  assert.equal(resolved, 'Inventory Manager');
+});
+
+test('buildCreateUserRequest - omits email when not provided', () => {
+  const catalog = [{ id: '1', name: 'Captain', code: 'captain', scope: 'branch' as const }];
+  const body = buildCreateUserRequest(
+    {
+      firstName: 'Alex',
+      lastName: 'Lee',
+      countryCode: '+91',
+      phoneNumber: '9876543210',
+      email: '',
+      username: 'alex.lee',
+      password: 'Hospixo@2026',
+      company: 'Acme',
+      branch: 'Main',
+      role: 'Captain',
+      sendInviteImmediately: true,
+      personalMessage: '',
+    },
+    {
+      organizationId: 1,
+      companyId: 1,
+      branchId: 2,
+      roleCatalog: catalog,
+      roleCode: 'captain',
+    },
+  );
+  assert.equal('email' in body, false);
+  assert.equal(body.username, 'alex.lee');
 });
 
 test('buildCreateUserRequest - omits branch_id for company-scoped roles', () => {

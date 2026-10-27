@@ -86,7 +86,7 @@ export type UserStatus = z.infer<typeof userStatusSchema>;
 export const userRoleItemSchema = z.object({
   id: z.string(),
   name: z.string(),
-  email: z.string().email(),
+  email: optionalEmailSchema,
   username: z.string().optional(),
   role: z.string(),
   branch: z.string(),
@@ -232,14 +232,14 @@ export const createUserRequestSchema = z.object({
   branch_id: z.number().int().positive().optional(),
   /** Required for company- and branch-scoped roles; omit for organization-scoped roles. */
   company_id: z.number().int().positive().optional(),
-  email: z.string().email(),
+  email: z.string().email().optional(),
   first_name: z.string().min(1),
   last_name: z.string().min(1),
   organization_id: z.number().int().positive(),
   password: z.string().min(6),
   phone: z.string().min(1),
   role_code: z.string().min(1),
-  username: z.string().min(1),
+  username: z.string().min(1).optional(),
   status: z.string().optional(),
   is_active: z.boolean().optional(),
 });
@@ -1377,7 +1377,7 @@ export type CustomTemplateFormValues = z.infer<typeof customTemplateSchema>;
 export const staffProfileSchema = z.object({
   firstName: personNameSchema,
   lastName: personNameSchema,
-  email: emailSchema,
+  email: optionalEmailSchema,
   phoneNumber: phoneSchema,
   countryCode: z.string(),
   username: usernameSchema,
@@ -1431,7 +1431,7 @@ export function buildCreateUserRequest(
   const companyId = context.companyId;
   const organizationId = context.organizationId ?? 1;
 
-  const email = values.email?.trim().toLowerCase() || `user_${Date.now()}@hospixo.com`;
+  const email = values.email?.trim().toLowerCase();
   const firstName = values.firstName?.trim() || 'New';
   const lastName = values.lastName?.trim() || 'User';
   const password =
@@ -1439,20 +1439,20 @@ export function buildCreateUserRequest(
   const phone = values.phoneNumber?.trim()
     ? formatPhoneNumberWithCountryCode(values.phoneNumber, values.countryCode || '+91')
     : '+919876543210';
-  const username = values.username?.trim() || email;
+  const username = values.username?.trim();
 
   return createUserRequestSchema.parse(
     compact({
       ...(branchId != null ? { branch_id: branchId } : {}),
       ...(needsCompany && companyId != null ? { company_id: companyId } : {}),
       organization_id: organizationId,
-      email,
+      ...(email ? { email } : {}),
       first_name: firstName,
       last_name: lastName,
       password,
       phone,
       role_code: roleCode,
-      username,
+      ...(username ? { username } : {}),
       status: 'active',
       is_active: true,
     }),
@@ -1610,6 +1610,14 @@ export function toCreateRoleBody(input: CreateRoleBodyInput): JsonObject {
   });
 }
 
+function isPlaceholderEmail(email?: string | null): boolean {
+  if (!email?.trim()) return true;
+  const normalized = email.trim().toLowerCase();
+  if (normalized.endsWith('@hospixo.local')) return true;
+  if (/^user_\d+@hospixo\.com$/.test(normalized)) return true;
+  return false;
+}
+
 export function staffProfileFromUser(
   user: UserRoleItem,
   raw?: JsonValue,
@@ -1639,11 +1647,16 @@ export function staffProfileFromUser(
       : undefined) ?? user.phone;
   const { phoneNumber, countryCode } = parsePhoneNumberAndCountryCode(rawPhone);
 
+  const rawEmail =
+    (rawRecord ? (text(rawRecord.email) ?? text(rawRecord.email_address)) : undefined) ??
+    user.email;
+  const email =
+    rawEmail && !isPlaceholderEmail(rawEmail) && rawEmail.includes('@') ? rawEmail.trim() : '';
+
   const username =
     (rawRecord ? text(rawRecord.username) : undefined) ??
-    user.username ??
-    user.email.split('@')[0] ??
-    user.email;
+    user.username?.trim() ??
+    (email ? email.split('@')[0] : '');
 
   const roleName =
     user.role && user.role !== '—'
@@ -1669,7 +1682,7 @@ export function staffProfileFromUser(
   return {
     firstName,
     lastName,
-    email: user.email,
+    email,
     phoneNumber,
     countryCode,
     username,
@@ -1693,7 +1706,7 @@ export function isMatch(
     : currentStr.toLowerCase() === expectedStr.toLowerCase();
 }
 
-/** Selected template / role id wins over stale formValues.role (e.g. draft or dropdown default). */
+/** Assign-role dropdown (`formRole`) wins; template / role id apply only when the field is empty. */
 export function resolveWizardActiveRoleName(input: {
   formRole?: string;
   selectedTemplate?: RoleTemplateItem | null;
@@ -1701,6 +1714,17 @@ export function resolveWizardActiveRoleName(input: {
   catalog?: readonly RoleCatalogItem[];
 }): string {
   const { formRole, selectedTemplate, selectedRoleId, catalog = [] } = input;
+  const trimmedFormRole = formRole?.trim() ?? '';
+
+  if (trimmedFormRole) {
+    if (catalog.length > 0) {
+      const byName = catalog.find(
+        (role) => role.name.trim().toLowerCase() === trimmedFormRole.toLowerCase(),
+      );
+      if (byName?.name?.trim()) return byName.name.trim();
+    }
+    return trimmedFormRole;
+  }
 
   if (selectedRoleId != null && selectedRoleId !== '' && catalog.length > 0) {
     const byId = catalog.find((role) => String(role.id) === String(selectedRoleId));
@@ -1709,7 +1733,7 @@ export function resolveWizardActiveRoleName(input: {
 
   if (selectedTemplate?.roleName?.trim()) return selectedTemplate.roleName.trim();
 
-  return formRole?.trim() ?? '';
+  return '';
 }
 
 export function resolveRoleId(
@@ -1802,15 +1826,13 @@ function coerceUserItem(mapped: UserRoleItem): UserRoleItem | null {
     }
   }
 
-  const email =
-    mapped.email && mapped.email.includes('@')
-      ? mapped.email
-      : `user+${id.replace(/[^\dA-Za-z]/g, '')}@hospixo.local`;
+  const rawEmail = mapped.email?.trim();
+  const email = rawEmail && rawEmail.includes('@') && !isPlaceholderEmail(rawEmail) ? rawEmail : '';
 
   const parsed = userRoleItemSchema.safeParse({
     ...mapped,
     id,
-    name: mapped.name?.trim() || email,
+    name: mapped.name?.trim() || rawEmail || id,
     email,
     role: mapped.role?.trim() || '—',
     branch: mapped.branch?.trim() || '—',

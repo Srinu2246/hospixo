@@ -58,8 +58,13 @@ export function StaffProfileRoleSection({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-          gap: 2,
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, minmax(0, 1fr))',
+            md: 'repeat(3, minmax(0, 1fr))',
+          },
+          columnGap: { xs: 2, md: 3 },
+          rowGap: 3,
         }}
       >
         <Controller
@@ -76,6 +81,7 @@ export function StaffProfileRoleSection({
               disabled={isReadOnly}
               error={Boolean(errors.roleName)}
               helperText={errors.roleName?.message}
+              reserveHelperSpace={false}
               fullWidth
             />
           )}
@@ -95,6 +101,9 @@ export function StaffProfileRoleSection({
               error={Boolean(errors.roleDescription)}
               helperText={errors.roleDescription?.message}
               fullWidth
+              sx={{
+                gridColumn: { xs: '1 / -1', sm: 'span 1', md: 'span 2' },
+              }}
             />
           )}
         />

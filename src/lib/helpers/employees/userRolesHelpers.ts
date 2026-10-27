@@ -137,6 +137,15 @@ export function isFallbackEntityName(name?: string | null): boolean {
   return false;
 }
 
+/** Client-generated or synthetic emails — hide in UI and profile. */
+export function isPlaceholderEmail(email?: string | null): boolean {
+  if (!email?.trim()) return true;
+  const normalized = email.trim().toLowerCase();
+  if (normalized.endsWith('@hospixo.local')) return true;
+  if (/^user_\d+@hospixo\.com$/.test(normalized)) return true;
+  return false;
+}
+
 /** Replace API company id tokens with a resolved display name when available. */
 export function enrichUserListCompanyNames(
   users: readonly UserRoleItem[],

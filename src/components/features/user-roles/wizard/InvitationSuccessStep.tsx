@@ -37,8 +37,8 @@ export function InvitationSuccessStep({
   const lastName = displayField(formValues.lastName);
   const fullName =
     [firstName, lastName].filter(Boolean).join(' ') || displayField(formValues.username) || '—';
-  const email = displayField(formValues.email) ?? '—';
-  const role = displayField(formValues.role) ?? '—';
+  const email = displayField(formValues.email);
+  const role = displayField(formValues.role);
   const branch = showBranch ? displayField(formValues.branch) : undefined;
   const showBranchRow = Boolean(branch);
 
@@ -98,11 +98,17 @@ export function InvitationSuccessStep({
           <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }}>
             {fullName}
           </Box>{' '}
-          was added with email{' '}
-          <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }}>
-            {email}
-          </Box>
-          .
+          {email ? (
+            <>
+              was added with email{' '}
+              <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                {email}
+              </Box>
+              .
+            </>
+          ) : (
+            <>was added successfully.</>
+          )}
         </Typography>
       </Box>
 
@@ -156,7 +162,7 @@ export function InvitationSuccessStep({
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
               Assigned Role
             </Typography>
-            <StatusChip label={role} variantType="role" pill />
+            {role ? <StatusChip label={role} variantType="role" pill /> : null}
           </Box>
 
           {showBranchRow ? (

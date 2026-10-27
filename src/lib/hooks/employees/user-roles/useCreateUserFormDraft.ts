@@ -138,16 +138,18 @@ export function useCreateUserFormDraft(
 ): { isDraftReady: boolean } {
   const { currentStep } = options;
 
-  useSyncExternalStore(
-    () => subscribeCreateUserDraftPersistence(storageKey, currentStep),
-    () => 0,
-    () => 0,
-  );
-
+  // Hydration must run before persistence — an immediate flush with the default store
+  // would overwrite localStorage (password merge keeps only the password field).
   const isDraftReady = useSyncExternalStore(
     (onStoreChange) => subscribeCreateUserDraftHydration(storageKey, onStoreChange),
     () => draftReadyByKey.get(storageKey) ?? false,
     () => false,
+  );
+
+  useSyncExternalStore(
+    () => subscribeCreateUserDraftPersistence(storageKey, currentStep),
+    () => 0,
+    () => 0,
   );
 
   return { isDraftReady };

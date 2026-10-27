@@ -194,7 +194,13 @@ export function EditStaffProfileScreen({
   };
 
   const handleSendResetPassword = () => {
-    showToast(`Password reset link sent to ${userProfile?.email ?? 'user'}`, 'info');
+    const resetTarget = userProfile?.email?.trim();
+    showToast(
+      resetTarget
+        ? `Password reset link sent to ${resetTarget}`
+        : 'Password reset link sent to the user.',
+      'info',
+    );
   };
 
   const handleConfirmDeactivation = async () => {

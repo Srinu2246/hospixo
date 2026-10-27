@@ -237,18 +237,15 @@ export function CreateUserStepOne({
     [roleCatalog, currentScope],
   );
 
-  const defaultRole = useMemo(
+  const templateDefaultRole = useMemo(
     () =>
       resolveWizardActiveRoleName({
-        formRole: formValues.role,
+        formRole: '',
         selectedTemplate,
         selectedRoleId,
         catalog: roleCatalog,
-      }) ||
-      roleOptions[0] ||
-      DEFAULT_FALLBACK_ROLES[0] ||
-      '',
-    [formValues.role, selectedTemplate, selectedRoleId, roleCatalog, roleOptions],
+      }),
+    [selectedTemplate, selectedRoleId, roleCatalog],
   );
   const pickCompanyFormValue = (value?: string) =>
     value?.trim() && !isFallbackEntityName(value) ? value.trim() : '';
@@ -276,11 +273,11 @@ export function CreateUserStepOne({
   const syncedFormValues = useMemo(
     (): CreateUserFormValues => ({
       ...formValues,
-      role: defaultRole,
+      role: formValues.role?.trim() || templateDefaultRole,
       company: derivedCompanyValue,
       branch: derivedBranchValue,
     }),
-    [formValues, defaultRole, derivedCompanyValue, derivedBranchValue],
+    [formValues, templateDefaultRole, derivedCompanyValue, derivedBranchValue],
   );
 
   const { control, handleSubmit, setValue, getValues } = useForm<CreateUserFormValues>({
@@ -345,7 +342,7 @@ export function CreateUserStepOne({
       roleCatalog,
       currentScope,
     );
-    const effectiveRole = data.role || defaultRole;
+    const effectiveRole = data.role?.trim() || templateDefaultRole;
     const effectiveBranch =
       currentScope === 'branch'
         ? lockedBranchLabel !== '—'
@@ -405,12 +402,12 @@ export function CreateUserStepOne({
     e.preventDefault();
     const currentVals = getValues();
     const submitAssignment = resolveRoleAssignmentRequirements(
-      currentVals.role || defaultRole,
+      currentVals.role?.trim() || templateDefaultRole,
       roleCatalog,
       currentScope,
     );
 
-    const effectiveRole = currentVals.role || defaultRole;
+    const effectiveRole = currentVals.role?.trim() || templateDefaultRole;
     const effectiveCompany =
       lockCompanyField || currentScope === 'company' || currentScope === 'branch'
         ? resolvedCompanyLabel !== '—'

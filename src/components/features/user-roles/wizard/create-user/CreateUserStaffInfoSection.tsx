@@ -108,7 +108,7 @@ export function CreateUserStaffInfoSection({
             <Input
               label="EMAIL ADDRESS"
               type="email"
-              placeholder="e.g. sarah.chen@example.com"
+              placeholder="sarah.chen@example.com"
               value={field.value}
               onChange={(e) => onFieldChange('email', e.target.value)}
               onBlur={field.onBlur}
