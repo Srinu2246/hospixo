@@ -107,7 +107,6 @@ export function CreateUserStaffInfoSection({
           render={({ field, fieldState }) => (
             <Input
               label="EMAIL ADDRESS"
-              required
               type="email"
               placeholder="e.g. sarah.chen@example.com"
               value={field.value}
