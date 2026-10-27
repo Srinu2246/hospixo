@@ -38,7 +38,7 @@ import { useCreateMenuItem } from '@/lib/hooks/menu/menu-creation/useCreateMenuI
 import type { MenuCataloguePageScope } from '@/lib/helpers/menuBranchContext';
 import { menuItemTagNameToCode } from '@/lib/helpers/menuItemTagHelpers';
 import { useCreateMenuItemTag, useMenuItemTags } from '@/lib/hooks/menu/useMenuItemTags';
-import { useGstRates } from '@/lib/hooks/menu/useGstRates';
+import { useGstRates } from '@/lib/hooks/menu/gst-rates';
 import { useMenuItem } from '@/lib/hooks/menu/useMenuItems';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useToastStore } from '@/stores/toastStore';

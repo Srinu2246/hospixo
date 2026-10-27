@@ -40,7 +40,11 @@ export const createGstRateFormFieldsSchema = z
       .trim()
       .optional()
       .refine((value) => !value || !Number.isNaN(Number(value)), 'Enter a valid total rate'),
-    effective_from_date: z.date().optional(),
+    effective_from_date: z
+      .union([z.date(), z.null(), z.undefined()])
+      .refine((value): value is Date => value instanceof Date, {
+        message: 'Effective from is required',
+      }),
     effective_to_date: z.date().nullable().optional(),
   })
   .superRefine((values, ctx) => {
@@ -76,9 +80,7 @@ export function toCreateGstRateBody(values: CreateGstRateFormValues): CreateGstR
   const igst = Number(values.igst_rate);
   const rates = resolveGstSlabRates(cgst, sgst, igst);
 
-  const effective_from = values.effective_from_date
-    ? mergeGstEffectiveDateTime(values.effective_from_date, '00:00')
-    : undefined;
+  const effective_from = mergeGstEffectiveDateTime(values.effective_from_date, '00:00');
   const effective_to = values.effective_to_date
     ? mergeGstEffectiveDateTime(values.effective_to_date, '00:00')
     : undefined;
@@ -87,7 +89,7 @@ export function toCreateGstRateBody(values: CreateGstRateFormValues): CreateGstR
     code: values.code,
     name: values.name,
     ...rates,
-    ...(effective_from ? { effective_from } : {}),
+    effective_from,
     effective_to: effective_to || undefined,
   });
 }
@@ -134,27 +136,34 @@ const API_FIELD_TO_FORM: Record<string, CreateGstRateFormField> = {
   effective_to: 'effective_to_date',
 };
 
+const apiValidationIssueSchema = z.object({
+  loc: z.array(z.union([z.string(), z.number()])).optional(),
+  msg: z.string().optional(),
+  message: z.string().optional(),
+});
+
+const apiValidationErrorSchema = z.object({
+  detail: z.array(apiValidationIssueSchema),
+});
+
+function readApiValidationMessage(
+  issue: z.infer<typeof apiValidationIssueSchema>,
+): string | undefined {
+  return issue.msg ?? issue.message;
+}
+
 /** Map API 422 `detail[]` validation entries to form field errors. */
 export function mapApiValidationToGstFormErrors(details: unknown): CreateGstRateFormFieldErrors {
   const fieldErrors: CreateGstRateFormFieldErrors = {};
-  if (!details || typeof details !== 'object') return fieldErrors;
+  const parsed = apiValidationErrorSchema.safeParse(details);
+  if (!parsed.success) return fieldErrors;
 
-  const record = details as Record<string, unknown>;
-  const detail = record.detail;
-  if (!Array.isArray(detail)) return fieldErrors;
+  for (const issue of parsed.data.detail) {
+    const message = readApiValidationMessage(issue);
+    const loc = issue.loc;
+    if (!message || !loc?.length) continue;
 
-  for (const item of detail) {
-    if (!item || typeof item !== 'object') continue;
-    const row = item as { loc?: unknown[]; msg?: string; message?: string };
-    const message =
-      typeof row.msg === 'string'
-        ? row.msg
-        : typeof row.message === 'string'
-          ? row.message
-          : undefined;
-    if (!message || !Array.isArray(row.loc)) continue;
-
-    const last = row.loc[row.loc.length - 1];
+    const last = loc[loc.length - 1];
     if (typeof last !== 'string') continue;
     const formField = API_FIELD_TO_FORM[last];
     if (formField && !fieldErrors[formField]) {

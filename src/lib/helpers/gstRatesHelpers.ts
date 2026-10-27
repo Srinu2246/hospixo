@@ -34,20 +34,28 @@ export function resolveGstSlabRates(
   return { cgst_rate, sgst_rate, igst_rate, total_rate };
 }
 
+export type CreateGstRateApiPayload = {
+  code: string;
+  name: string;
+  cgst_rate: number;
+  sgst_rate: number;
+  igst_rate: number;
+  total_rate: number;
+  effective_to: string | null;
+  effective_from: string;
+};
+
 /** POST body aligned with `/v1/restaurant/gst-rates` validation. */
-export function normalizeCreateGstRateBodyForApi(body: CreateGstRateBody): Record<string, unknown> {
+export function normalizeCreateGstRateBodyForApi(body: CreateGstRateBody): CreateGstRateApiPayload {
   const rates = resolveGstSlabRates(body.cgst_rate, body.sgst_rate, body.igst_rate);
 
-  const payload: Record<string, unknown> = {
+  return {
     code: body.code.trim(),
     name: body.name.trim(),
     ...rates,
+    effective_from: body.effective_from,
     effective_to: body.effective_to ?? null,
   };
-  if (body.effective_from) {
-    payload.effective_from = body.effective_from;
-  }
-  return payload;
 }
 
 export function toGstDateInputValue(value?: string | null): Date | null {

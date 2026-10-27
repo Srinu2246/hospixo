@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -11,16 +11,18 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Plus } from 'lucide-react';
 
-import { CreateGstRateForm, GstRatesTable } from '@/components/features/menu/gst-rates';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
+import { CreateGstRateForm } from './CreateGstRateForm';
+import { GstRatesTable } from './GstRatesTable';
 import {
   getGstRatesDashboardHref,
   GST_RATES_BREADCRUMB_ACTIVE_SX,
   GST_RATES_BREADCRUMB_LINK_SX,
 } from '@/lib/helpers/gstRatesNav';
-import { useCreateGstRate, useGstRate, useGstRates } from '@/lib/hooks/menu/useGstRates';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
+import { useCreateGstRate, useGstRate, useGstRates } from '@/lib/hooks/menu/gst-rates';
 import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
 import {
   mapApiValidationToGstFormErrors,
@@ -66,20 +68,15 @@ export function GstRatesPage() {
   const dashboardHref = getGstRatesDashboardHref(pathname);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedCode, setDebouncedCode] = useState('');
+  const debouncedCode = useDebouncedValue(searchQuery.trim(), 300);
   const [activeOnly, setActiveOnly] = useState(false);
-
-  useEffect(() => {
-    const handle = window.setTimeout(() => setDebouncedCode(searchQuery.trim()), 300);
-    return () => window.clearTimeout(handle);
-  }, [searchQuery]);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createFieldErrors, setCreateFieldErrors] = useState<CreateGstRateFormFieldErrors>({});
 
   const numericRateId = rateId && /^\d+$/.test(rateId) ? Number(rateId) : undefined;
 
   const listQuery = useGstRates({
-    code: debouncedCode || undefined,
+    code: debouncedCode ? debouncedCode : undefined,
     active_only: activeOnly || undefined,
     page: 1,
     page_size: GST_RATES_LIST_PAGE_SIZE,

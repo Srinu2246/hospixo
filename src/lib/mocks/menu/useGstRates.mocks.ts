@@ -92,7 +92,7 @@ function createRate(body: CreateGstRateBody): GstRate {
     sgst_rate: rates.sgst_rate,
     igst_rate: rates.igst_rate,
     total_rate: rates.total_rate,
-    effective_from: body.effective_from,
+    effective_from: body.effective_from ?? now,
     effective_to: body.effective_to || null,
     is_active: true,
     created_at: now,

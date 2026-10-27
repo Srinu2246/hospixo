@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import FormHelperText from '@mui/material/FormHelperText';
@@ -47,7 +47,11 @@ function rateFieldValue(rate: GstRate | null | undefined, key: keyof GstRate): s
 const CODE_HELPER = 'Tax slab code for GST compliance.';
 const NAME_HELPER = 'Descriptive name printed on invoices.';
 const TOTAL_HELPER = 'Auto-calculated from CGST, SGST, and IGST.';
+const EFFECTIVE_FROM_HELPER = 'Start date when this GST rate applies.';
 
+/**
+ * Create or view GST rate form: rate fields, effective dates, sticky footer actions.
+ */
 export function CreateGstRateForm({
   mode = 'create',
   rate = null,
@@ -67,7 +71,6 @@ export function CreateGstRateForm({
   const [cgst, setCgst] = useState(rateFieldValue(rate, 'cgst_rate'));
   const [sgst, setSgst] = useState(rateFieldValue(rate, 'sgst_rate'));
   const [igst, setIgst] = useState(rateFieldValue(rate, 'igst_rate'));
-  const [total, setTotal] = useState(rateFieldValue(rate, 'total_rate'));
 
   const [effectiveFrom, setEffectiveFrom] = useState<Date | null>(
     toGstDateInputValue(rate?.effective_from),
@@ -86,12 +89,11 @@ export function CreateGstRateForm({
     return resolveGstSlabRates(c, s, i);
   }, [cgst, igst, sgst]);
 
-  const displayTotal = isView || !resolvedSlab ? total : String(resolvedSlab.total_rate);
-
-  useEffect(() => {
-    if (isView || !resolvedSlab) return;
-    setTotal(String(resolvedSlab.total_rate));
-  }, [isView, resolvedSlab]);
+  const displayTotal = isView
+    ? rateFieldValue(rate, 'total_rate')
+    : resolvedSlab
+      ? String(resolvedSlab.total_rate)
+      : '';
 
   function clearFieldError(field: CreateGstRateFormField) {
     setFieldErrors((prev) => {
@@ -125,7 +127,7 @@ export function CreateGstRateForm({
       sgst_rate: sgst,
       igst_rate: igst,
       total_rate: undefined,
-      effective_from_date: effectiveFrom ?? undefined,
+      effective_from_date: effectiveFrom,
       effective_to_date: effectiveTo ?? undefined,
     });
 
@@ -264,11 +266,7 @@ export function CreateGstRateForm({
                 error={fieldHasError('total_rate')}
                 reserveHelperSpace
                 value={displayTotal}
-                disabled={!isView || submitting}
-                onChange={(event) => {
-                  setTotal(event.target.value);
-                  clearFieldError('total_rate');
-                }}
+                disabled
               />
             </Box>
 
@@ -342,9 +340,22 @@ export function CreateGstRateForm({
               <Box>
                 <Typography
                   component="label"
-                  sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary', mb: 0.75 }}
+                  sx={{
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    mb: 0.75,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                  }}
                 >
                   Effective From
+                  {!isView ? (
+                    <Box component="span" sx={{ color: 'error.main', fontWeight: 600 }}>
+                      *
+                    </Box>
+                  ) : null}
                 </Typography>
                 <CalendarPicker
                   value={effectiveFrom}
@@ -357,19 +368,17 @@ export function CreateGstRateForm({
                   minWidth="100%"
                   sx={{
                     width: '100%',
-                    ...(fieldHasError('effective_from_date')
-                      ? { outline: '1px solid', outlineColor: 'error.main', borderRadius: 1 }
-                      : {}),
+                    border: '1px solid',
+                    borderColor: fieldHasError('effective_from_date') ? 'error.main' : 'divider',
+                    borderRadius: '10px',
                   }}
                 />
-                {fieldMessage('effective_from_date') ? (
-                  <FormHelperText
-                    error={fieldHasError('effective_from_date')}
-                    sx={{ mx: 0, mt: 0.75 }}
-                  >
-                    {fieldMessage('effective_from_date')}
-                  </FormHelperText>
-                ) : null}
+                <FormHelperText
+                  error={fieldHasError('effective_from_date')}
+                  sx={{ mx: 0, mt: 0.75, minHeight: '1.25rem' }}
+                >
+                  {fieldMessage('effective_from_date', EFFECTIVE_FROM_HELPER)}
+                </FormHelperText>
               </Box>
               <Box>
                 <Typography

@@ -34,7 +34,7 @@ export const createGstRateBodySchema = z.object({
   sgst_rate: z.coerce.number().min(0, 'SGST must be 0 or greater'),
   igst_rate: z.coerce.number().min(0, 'IGST must be 0 or greater'),
   total_rate: z.coerce.number().min(0, 'Total rate must be 0 or greater'),
-  effective_from: z.string().min(1).optional(),
+  effective_from: z.string().min(1, 'Effective from is required'),
   effective_to: z.string().optional(),
 });
 
