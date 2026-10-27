@@ -6,10 +6,12 @@
  *       GET/PATCH /v1/branches/{branch_id}/cash-registers/{register_id}
  */
 
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
+import { CashCounterStatusModal } from '@/components/features/cash-counter';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Loading } from '@/components/shared/ui/Loading';
@@ -19,7 +21,12 @@ import {
   useCreateCashCounter,
   useUpdateCashCounter,
 } from '@/lib/hooks/pos/point-of-sale/cash-counter';
-import type { CashCounterFormValues } from '@/lib/schemas/pos/point-of-sale/cash-counter/cashCounterSchema';
+import {
+  toCashCounterWriteBody,
+  type CashCounter,
+  type CashCounterFormValues,
+} from '@/lib/schemas/pos/point-of-sale/cash-counter/cashCounterSchema';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { useToastStore } from '@/stores/toastStore';
 
@@ -78,11 +85,38 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+/**
+ * AppShell already pads `<main>`. Pull this page back to the content edge,
+ * then inset it 32px on every side so the card can use the remaining width.
+ */
+const cashCounterInsetSx = {
+  boxSizing: 'border-box',
+  bgcolor: 'background.default',
+  mt: {
+    [screen.mobile]: '-15px',
+    [screen.desktop]: -3,
+  },
+  mx: {
+    [screen.mobile]: '-16px',
+    [screen.desktop]: -3,
+  },
+  pt: '32px',
+  px: '32px',
+  pb: '32px',
+  width: {
+    [screen.mobile]: 'calc(100% + 32px)',
+    [screen.desktop]: 'calc(100% + 48px)',
+  },
+  minHeight: '100%',
+} as const;
+
 export function CashCounterPage({ basePath: basePathProp }: Readonly<CashCounterPageProps>) {
   const pathname = usePathname();
   const router = useRouter();
   const showToast = useToastStore((state) => state.show);
   const branchId = useSidebarStore((state) => state.context.branchId);
+  const branchName = useSidebarStore((state) => state.context.branchName) ?? '';
+  const [statusTarget, setStatusTarget] = useState<CashCounter | null>(null);
   const parsed = parseCashCounterPath(pathname);
   const basePath = basePathProp ?? parsed.basePath;
   const { mode, counterId } = parsed;
@@ -114,13 +148,21 @@ export function CashCounterPage({ basePath: basePathProp }: Readonly<CashCounter
     router.push(`${basePath}/${id}/edit`);
   }
 
+  function deviceLabel(code: string, name: string) {
+    return `${code} (${name})`;
+  }
+
   async function handleCreate(values: CashCounterFormValues) {
     try {
-      const created = await createMutation.mutateAsync({ name: values.name });
-      showToast('Cash counter created', 'success');
+      const created = await createMutation.mutateAsync({
+        ...values,
+        branch_name: branchName,
+        pos_device: deviceLabel(values.code, values.name),
+      });
+      showToast('Counter created', 'success');
       goToDetail(created.id);
     } catch (error) {
-      showToast(errorMessage(error, 'Could not create cash counter.'), 'error');
+      showToast(errorMessage(error, 'Could not create this counter.'), 'error');
     }
   }
 
@@ -129,15 +171,30 @@ export function CashCounterPage({ basePath: basePathProp }: Readonly<CashCounter
     try {
       await updateMutation.mutateAsync({
         registerId: activeCounter.id,
-        body: {
-          name: values.name,
-          status: values.status ?? activeCounter.status,
-        },
+        body: toCashCounterWriteBody(activeCounter, {
+          ...values,
+          pos_device: deviceLabel(values.code, values.name),
+        }),
       });
-      showToast('Cash counter updated', 'success');
+      showToast('Counter updated', 'success');
       goToDetail(activeCounter.id);
     } catch (error) {
-      showToast(errorMessage(error, 'Could not update cash counter.'), 'error');
+      showToast(errorMessage(error, 'Could not update this counter.'), 'error');
+    }
+  }
+
+  async function handleStatusConfirm() {
+    if (!statusTarget) return;
+    const nextStatus = statusTarget.status === 'active' ? 'inactive' : 'active';
+    try {
+      await updateMutation.mutateAsync({
+        registerId: statusTarget.id,
+        body: toCashCounterWriteBody(statusTarget, { status: nextStatus }),
+      });
+      showToast(nextStatus === 'active' ? 'Counter activated' : 'Counter deactivated', 'success');
+      setStatusTarget(null);
+    } catch (error) {
+      showToast(errorMessage(error, 'Could not update this counter.'), 'error');
     }
   }
 
@@ -153,11 +210,12 @@ export function CashCounterPage({ basePath: basePathProp }: Readonly<CashCounter
 
   if (mode === 'create') {
     return (
-      <Box sx={{ width: '100%', minHeight: '100%', bgcolor: 'background.default' }}>
+      <Box sx={cashCounterInsetSx}>
         <CashCounterForm
           key="create"
           mode="create"
           basePath={basePath}
+          branchName={branchName}
           submitting={submitting}
           onCancel={goToList}
           onSubmit={(values) => {
@@ -203,11 +261,12 @@ export function CashCounterPage({ basePath: basePathProp }: Readonly<CashCounter
 
     if (mode === 'edit') {
       return (
-        <Box sx={{ width: '100%', minHeight: '100%', bgcolor: 'background.default' }}>
+        <Box sx={cashCounterInsetSx}>
           <CashCounterForm
             key={activeCounter.id}
             mode="edit"
             basePath={basePath}
+            branchName={branchName}
             initial={activeCounter}
             submitting={submitting}
             onCancel={() => goToDetail(activeCounter.id)}
@@ -220,12 +279,24 @@ export function CashCounterPage({ basePath: basePathProp }: Readonly<CashCounter
     }
 
     return (
-      <Box sx={{ width: '100%', minHeight: '100%', bgcolor: 'background.default' }}>
+      <Box sx={cashCounterInsetSx}>
         <CashCounterDetail
           counter={activeCounter}
           basePath={basePath}
+          branchName={branchName}
           onBack={goToList}
           onEdit={() => goToEdit(activeCounter.id)}
+          onRequestStatusChange={() => setStatusTarget(activeCounter)}
+        />
+        <CashCounterStatusModal
+          key={statusTarget ? `${statusTarget.id}-${statusTarget.status}` : 'detail-closed'}
+          counter={statusTarget}
+          branchName={branchName}
+          loading={updateMutation.isPending}
+          onClose={() => setStatusTarget(null)}
+          onConfirm={() => {
+            void handleStatusConfirm();
+          }}
         />
       </Box>
     );
@@ -246,8 +317,20 @@ export function CashCounterPage({ basePath: basePathProp }: Readonly<CashCounter
       ) : null}
       <CashCounterList
         rows={listQuery.data ?? []}
+        branchName={branchName}
         onCreate={goToCreate}
-        onRowClick={(row) => goToDetail(row.id)}
+        onOpen={(row) => goToDetail(row.id)}
+        onRequestStatusChange={setStatusTarget}
+      />
+      <CashCounterStatusModal
+        key={statusTarget ? `${statusTarget.id}-${statusTarget.status}` : 'closed'}
+        counter={statusTarget}
+        branchName={branchName}
+        loading={updateMutation.isPending}
+        onClose={() => setStatusTarget(null)}
+        onConfirm={() => {
+          void handleStatusConfirm();
+        }}
       />
     </Box>
   );

@@ -1,7 +1,6 @@
 import {
-  cashCounterListEnvelopeSchema,
+  cashCounterSchema,
   createCashCounterBodySchema,
-  updateCashCounterBodySchema,
   type CashCounter,
 } from '@/lib/schemas/pos/point-of-sale/cash-counter/cashCounterSchema';
 import { branchCashRegisterPath, branchCashRegistersPath } from '@/services/api/ApiUrlsV1';
@@ -16,32 +15,67 @@ type MockRequest = {
 
 const CASH_REGISTERS_PATH = /^\/v1\/branches\/(\d+)\/cash-registers(?:\/(\d+))?$/;
 
-/** Seed matches live envelope fields; branch_id 49 aligns with mock login session. */
-const SEED_COUNTERS: CashCounter[] = [
+const COUNTER_TEMPLATES: ReadonlyArray<Omit<CashCounter, 'id' | 'branch_id'>> = [
   {
-    id: 3,
-    branch_id: 49,
-    name: 'test',
+    name: 'Counter Terminal',
+    code: 'POS-01',
+    branch_name: 'Hyderabad',
+    counter_type: 'billing',
+    pos_device: 'POS-01 (Counter Terminal)',
     status: 'active',
     open_shift_id: null,
+    payments: { cash: true, card: true, upi: true, wallet: false, gift_card: false },
   },
   {
-    id: 5,
-    branch_id: 49,
-    name: 'test111',
+    name: 'Takeaway Counter',
+    code: 'HYD-02',
+    branch_name: 'Hyderabad',
+    counter_type: 'takeaway',
+    pos_device: 'POS-02 (Takeaway)',
     status: 'active',
     open_shift_id: null,
+    payments: { cash: true, card: true, upi: true, wallet: false, gift_card: false },
+  },
+  {
+    name: 'Lobby Counter',
+    code: 'HYD-03',
+    branch_name: 'Hyderabad',
+    counter_type: 'delivery',
+    pos_device: 'POS-03 (Lobby)',
+    status: 'inactive',
+    open_shift_id: null,
+    payments: { cash: true, card: false, upi: true, wallet: false, gift_card: false },
+  },
+  {
+    name: 'Restaurant Counter',
+    code: 'BLR-01',
+    branch_name: 'Hyderabad',
+    counter_type: 'billing',
+    pos_device: 'POS-04 (Restaurant)',
+    status: 'active',
+    open_shift_id: null,
+    payments: { cash: true, card: true, upi: false, wallet: false, gift_card: false },
   },
 ];
 
-let counters: CashCounter[] = cashCounterListEnvelopeSchema.parse({
-  success: true,
-  data: SEED_COUNTERS,
-  message: 'OK',
-  request_id: '908cd2c6-294d-4b06-a8dc-cd909c01ad4e',
-}).data;
+let counters: CashCounter[] = [];
+let nextId = 1;
 
-let nextId = 100;
+function rowsForBranch(branchId: number): CashCounter[] {
+  const existing = counters.filter((row) => row.branch_id === branchId);
+  if (existing.length > 0) return existing;
+
+  const seeded = COUNTER_TEMPLATES.map((template) =>
+    cashCounterSchema.parse({
+      ...template,
+      id: nextId++,
+      branch_id: branchId,
+      payments: { ...template.payments },
+    }),
+  );
+  counters = [...seeded, ...counters];
+  return seeded;
+}
 
 /**
  * Mock resolver for GET/POST /v1/branches/{branch_id}/cash-registers
@@ -53,15 +87,13 @@ export function resolveCashRegistersMock(request: MockRequest): unknown | undefi
 
   const branchId = Number(match[1]);
   const registerId = match[2] ? Number(match[2]) : undefined;
+  const branchRows = rowsForBranch(branchId);
 
   if (registerId == null) {
     if (request.path !== branchCashRegistersPath(branchId)) return undefined;
 
     if (request.method === 'GET') {
-      return ok(
-        counters.filter((row) => row.branch_id === branchId),
-        'OK',
-      );
+      return ok(branchRows, 'OK');
     }
 
     if (request.method === 'POST') {
@@ -69,13 +101,13 @@ export function resolveCashRegistersMock(request: MockRequest): unknown | undefi
       if (!parsed.success) {
         return fail(parsed.error.issues[0]?.message ?? 'Invalid cash register');
       }
-      const created: CashCounter = {
+      const created = cashCounterSchema.parse({
         id: nextId++,
         branch_id: branchId,
-        name: parsed.data.name,
-        status: 'active',
         open_shift_id: null,
-      };
+        ...parsed.data,
+        pos_device: parsed.data.pos_device || `${parsed.data.code} (${parsed.data.name})`,
+      });
       counters = [created, ...counters];
       return ok(created, 'Cash register created');
     }
@@ -95,15 +127,15 @@ export function resolveCashRegistersMock(request: MockRequest): unknown | undefi
   }
 
   if (request.method === 'PATCH') {
-    const parsed = updateCashCounterBodySchema.safeParse(request.body);
+    const parsed = createCashCounterBodySchema.safeParse(request.body);
     if (!parsed.success) {
       return fail(parsed.error.issues[0]?.message ?? 'Invalid cash register update');
     }
-    const updated: CashCounter = {
+    const updated = cashCounterSchema.parse({
       ...current,
-      name: parsed.data.name,
-      status: parsed.data.status,
-    };
+      ...parsed.data,
+      pos_device: parsed.data.pos_device || `${parsed.data.code} (${parsed.data.name})`,
+    });
     counters = counters.map((row) => (row.id === updated.id ? updated : row));
     return ok(updated, 'Cash register updated');
   }
