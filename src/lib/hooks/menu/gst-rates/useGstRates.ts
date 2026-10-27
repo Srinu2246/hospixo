@@ -3,8 +3,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useQuery } from '@/lib/hooks/api/useQuery';
-
+import { normalizeCreateGstRateBodyForApi } from '@/lib/helpers/gstRatesHelpers';
 import {
+  GST_RATES_LIST_PAGE_SIZE,
   parseGstRateList,
   parseGstRateRecord,
   type CreateGstRateBody,
@@ -22,7 +23,7 @@ const gstRateKey = (gstRateId: number | undefined) =>
 function listParams(params?: GstRateListParams) {
   return {
     page: params?.page ?? 1,
-    page_size: params?.page_size ?? 15,
+    page_size: params?.page_size ?? GST_RATES_LIST_PAGE_SIZE,
     ...(params?.code?.trim() ? { code: params.code.trim() } : {}),
     ...(params?.active_only ? { active_only: true } : {}),
   };
@@ -65,7 +66,11 @@ export function useCreateGstRate() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (body: CreateGstRateBody) => {
-      const payload = await api.post(restaurantGstRatesPath(), body);
+      const payload = await api.post(
+        restaurantGstRatesPath(),
+        normalizeCreateGstRateBodyForApi(body),
+        { silent: true },
+      );
       return parseGstRateRecord(payload);
     },
     onSuccess: async () => {

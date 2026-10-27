@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useQuery } from '@/lib/hooks/api/useQuery';
-import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
-import type { JsonObject, JsonValue } from '@/types/json';
+import { useUserListFilters } from '@/lib/hooks/users/useUserListFilters';
+import type { JsonValue } from '@/types/json';
 
 import {
   enrichDirectoryWithSession,
@@ -50,6 +50,8 @@ import {
   type UserRoleItem,
   type UserRoleListResponse,
   type UserRoleStatsData,
+  type UserListSortBy,
+  type UserListSortOrder,
   type UserStatus,
   type UseUserRolesOptions,
   isUserEditDisabled,
@@ -90,9 +92,20 @@ export interface UseUserRolesReturn {
   page: number;
   setPage: (page: number) => void;
   pageSize: number;
+  setPageSize?: (size: number) => void;
   totalRows: number;
   hasActiveFilters: boolean;
+  activeFilterCount: number;
   resetFilters: () => void;
+  clearFilter: (key: 'search' | 'status' | 'role' | 'company' | 'branch') => void;
+  sortBy: UserListSortBy;
+  sortOrder: UserListSortOrder;
+  setSort: (sortBy: UserListSortBy, sortOrder?: UserListSortOrder) => void;
+  toggleSort: (sortBy: UserListSortBy) => void;
+  selectedCompanyId: number | null;
+  setSelectedCompanyId: (companyId: number | null | undefined) => void;
+  selectedBranchId: number | null;
+  setSelectedBranchId: (branchId: number | null | undefined) => void;
   addUser: (values: UserRoleFormValues) => void;
   updateUser: (id: string, values: UserRoleFormValues) => void;
   deleteUser: (id: string) => void;
@@ -130,52 +143,43 @@ export function useUserRoles(
   const resolvedBranchId = branchId ?? storeBranchId;
 
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQueryState] = useState('');
-  const debouncedSearchQuery = useDebouncedValue(searchQuery, 1500);
-  const [selectedRole, setSelectedRoleState] = useState('');
-  const [selectedBranch, setSelectedBranchState] = useState('');
-  const [selectedStatus, setSelectedStatusState] = useState('');
-  const [page, setPage] = useState(1);
+  const [selectedBranchName, setSelectedBranchNameState] = useState('');
 
-  const listParams = useMemo(
-    () =>
-      compact({
-        page,
-        page_size: pageSize,
-        ...(debouncedSearchQuery.trim() ? { search: debouncedSearchQuery.trim() } : {}),
-        ...(selectedRole ? { role: selectedRole } : {}),
-        ...(selectedBranch ? { branch: selectedBranch } : {}),
-        ...(selectedStatus ? { status: selectedStatus } : {}),
-        scope,
-        scope_type: scope,
-        ...(resolvedCompanyId != null ? { company_id: resolvedCompanyId } : {}),
-        ...(scope === 'branch' && resolvedBranchId != null ? { branch_id: resolvedBranchId } : {}),
-      }),
-    [
-      page,
-      pageSize,
-      debouncedSearchQuery,
-      selectedRole,
-      selectedBranch,
-      selectedStatus,
-      scope,
-      resolvedCompanyId,
-      resolvedBranchId,
-    ],
-  );
+  const userFilters = useUserListFilters({
+    scope,
+    defaultPage: 1,
+    defaultPageSize: pageSize,
+    defaultSortBy: 'created_at',
+    defaultSortOrder: 'desc',
+    defaultIncludeSummary: true,
+    initialCompanyId: resolvedCompanyId != null ? Number(resolvedCompanyId) : null,
+    initialBranchId:
+      scope === 'branch' && resolvedBranchId != null ? Number(resolvedBranchId) : null,
+  });
 
-  const statsParams = useMemo(
-    () =>
-      compact({
-        page: 1,
-        page_size: 100,
-        scope,
-        scope_type: scope,
-        ...(resolvedCompanyId != null ? { company_id: resolvedCompanyId } : {}),
-        ...(scope === 'branch' && resolvedBranchId != null ? { branch_id: resolvedBranchId } : {}),
-      }),
-    [scope, resolvedCompanyId, resolvedBranchId],
-  );
+  const rolesQuery = useRoleCatalogQuery(scope);
+  const roleCatalog = useResolvedRoleCatalog(rolesQuery.data);
+
+  const effectiveRoleCode = useMemo(() => {
+    if (!userFilters.role) return undefined;
+    const match = roleCatalog.find(
+      (r) =>
+        r.code?.toLowerCase() === userFilters.role.toLowerCase() ||
+        r.name?.toLowerCase() === userFilters.role.toLowerCase() ||
+        String(r.id) === userFilters.role,
+    );
+    return match?.code || userFilters.role;
+  }, [userFilters.role, roleCatalog]);
+
+  const listParams = useMemo(() => {
+    const raw: Record<string, unknown> = {
+      ...userFilters.queryParams,
+      ...(effectiveRoleCode ? { role: effectiveRoleCode } : {}),
+      ...(selectedBranchName ? { branch: selectedBranchName } : {}),
+      include_summary: true,
+    };
+    return compact(raw);
+  }, [userFilters.queryParams, effectiveRoleCode, selectedBranchName]);
 
   const usersQuery = useQuery({
     queryKey: [...usersQueryRoot, listParams, scope, resolvedCompanyId, resolvedBranchId],
@@ -184,27 +188,14 @@ export function useUserRoles(
     enabled: scope !== 'branch' || Boolean(resolvedBranchId),
     initialData:
       initialUserList &&
-      page === 1 &&
-      !searchQuery.trim() &&
-      !selectedRole &&
-      !selectedBranch &&
-      !selectedStatus
+      userFilters.page === 1 &&
+      !userFilters.hasActiveFilters &&
+      !selectedBranchName
         ? initialUserList
         : undefined,
     placeholderData: (previous) => previous,
     staleTime: 60_000,
   });
-
-  const statsQuery = useQuery({
-    queryKey: [...usersQueryRoot, 'stats', statsParams, scope, resolvedCompanyId, resolvedBranchId],
-    queryFn: async ({ signal }) =>
-      parseUserList(await api.get<JsonValue>(ApiUrlsV1.users.list, statsParams, signal)),
-    enabled: scope !== 'branch' || Boolean(resolvedBranchId),
-    staleTime: 60_000,
-  });
-
-  const rolesQuery = useRoleCatalogQuery(scope);
-  const roleCatalog = useResolvedRoleCatalog(rolesQuery.data);
 
   const roleOptions = useMemo(
     () => (Array.isArray(roleCatalog) ? roleCatalog.map((role) => role.name) : []),
@@ -223,16 +214,32 @@ export function useUserRoles(
   const totalRows = usersQuery.data?.total ?? users.length;
 
   const stats: UserRoleStatsData = useMemo(() => {
-    const list = enrichUserListRoles(statsQuery.data?.items ?? [], roleCatalog);
+    const list = Array.isArray(users) ? users : [];
+    const summary = usersQuery.data?.summary;
+    if (summary) {
+      return {
+        totalUsers: summary.total_users ?? totalRows,
+        activeNow:
+          summary.active_now ??
+          summary.active_users ??
+          list.filter((user) => user.status === 'active').length,
+        pendingInvites:
+          summary.pending_invites ?? list.filter((user) => user.status === 'invited').length,
+        userRoles:
+          summary.user_roles ??
+          summary.total_roles ??
+          new Set(list.map((user) => user.role).filter(Boolean)).size,
+      };
+    }
     const activeNow = list.filter((user) => user.status === 'active').length;
     const pendingInvites = list.filter((user) => user.status === 'invited').length;
     return {
-      totalUsers: statsQuery.data?.total ?? list.length,
+      totalUsers: totalRows,
       activeNow,
       pendingInvites,
       userRoles: new Set(list.map((user) => user.role).filter(Boolean)).size,
     };
-  }, [roleCatalog, statsQuery.data?.items, statsQuery.data?.total]);
+  }, [users, totalRows, usersQuery.data?.summary]);
 
   const invalidateUsers = async () => {
     await queryClient.invalidateQueries({ queryKey: [...usersQueryRoot] });
@@ -302,43 +309,44 @@ export function useUserRoles(
     isLoading: usersQuery.isLoading,
     isError: usersQuery.isError,
     error: usersQuery.error,
-    searchQuery,
-    setSearchQuery: (query: string) => {
-      setSearchQueryState(query);
-      setPage(1);
-    },
-    selectedRole,
-    setSelectedRole: (role: string) => {
-      setSelectedRoleState(role);
-      setPage(1);
-    },
-    selectedBranch,
+    searchQuery: userFilters.search,
+    setSearchQuery: userFilters.setSearch,
+    selectedRole: userFilters.role,
+    setSelectedRole: userFilters.setRole,
+    selectedBranch:
+      selectedBranchName || (userFilters.branchId != null ? String(userFilters.branchId) : ''),
     setSelectedBranch: (branch: string) => {
-      setSelectedBranchState(branch);
-      setPage(1);
+      setSelectedBranchNameState(branch);
+      userFilters.setPage(1);
     },
-    selectedStatus,
-    setSelectedStatus: (status: string) => {
-      setSelectedStatusState(status);
-      setPage(1);
-    },
-    page,
-    setPage,
-    pageSize,
+    selectedStatus: userFilters.status,
+    setSelectedStatus: userFilters.setStatus,
+    page: userFilters.page,
+    setPage: userFilters.setPage,
+    pageSize: userFilters.pageSize,
+    setPageSize: userFilters.setPageSize,
     totalRows,
-    hasActiveFilters: Boolean(
-      searchQuery.trim() || selectedRole || selectedBranch || selectedStatus,
-    ),
+    hasActiveFilters: userFilters.hasActiveFilters || Boolean(selectedBranchName),
+    activeFilterCount: userFilters.activeFilterCount + (selectedBranchName ? 1 : 0),
     resetFilters: () => {
-      setSearchQueryState('');
-      setSelectedRoleState('');
-      setSelectedBranchState('');
-      setSelectedStatusState('');
-      setPage(1);
+      userFilters.resetFilters();
+      setSelectedBranchNameState('');
     },
+    clearFilter: (key) => {
+      if (key === 'branch') setSelectedBranchNameState('');
+      userFilters.clearFilter(key);
+    },
+    sortBy: userFilters.sortBy,
+    sortOrder: userFilters.sortOrder,
+    setSort: userFilters.setSort,
+    toggleSort: userFilters.toggleSort,
+    selectedCompanyId: userFilters.companyId,
+    setSelectedCompanyId: userFilters.setCompanyId,
+    selectedBranchId: userFilters.branchId,
+    setSelectedBranchId: userFilters.setBranchId,
     addUser: (values) => {
       createMutation.mutate(values);
-      setPage(1);
+      userFilters.setPage(1);
     },
     updateUser: (id, values) => updateMutation.mutate({ id, values }),
     deleteUser: (id) => disableMutation.mutate(id),
@@ -464,8 +472,10 @@ export function useStaffProfile(
     }
     const cachedList = queryClient.getQueryData<UserRoleListResponse>([...usersQueryRoot]);
     if (cachedList && userId) {
-      const parsed = parseUserList(cachedList);
-      const found = parsed.items.find((u: UserRoleItem) => isMatch(u.id, userId));
+      const items = Array.isArray(cachedList.items)
+        ? cachedList.items
+        : parseUserList(cachedList as unknown as JsonValue).items;
+      const found = items.find((u: UserRoleItem) => isMatch(u.id, userId));
       if (found) return found;
     }
     return null;
@@ -942,11 +952,10 @@ export function useEmployeeDirectory(
   });
 }
 
-function compact(record: JsonObject): Record<string, string | number> {
+function compact(record: Record<string, unknown>): Record<string, string | number | boolean> {
   return Object.fromEntries(
     Object.entries(record).filter(
-      (entry): entry is [string, string | number] =>
-        entry[1] !== undefined && entry[1] !== null && entry[1] !== '',
+      ([, value]) => value !== undefined && value !== null && value !== '',
     ),
-  ) as Record<string, string | number>;
+  ) as Record<string, string | number | boolean>;
 }

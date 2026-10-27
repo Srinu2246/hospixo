@@ -7,13 +7,24 @@ import Typography from '@mui/material/Typography';
 
 import { Card } from '@/components/shared/ui/Card';
 import { buildDonutSegments } from '@/lib/helpers/donutChartSegments';
+import type { TaxItem } from '@/features/dashboard/types/dashboard.types';
 import { ORG_TAX_BREAKDOWN } from '@/lib/mocks/dashboard/dashboard.mocks';
 import { colors } from '@/lib/theme/mui/colors';
 
-export function OperationsSummarySection() {
+export interface OperationsSummarySectionProps {
+  taxBreakdown?: readonly TaxItem[];
+  taxTotal?: string;
+}
+
+export function OperationsSummarySection({
+  taxBreakdown,
+  taxTotal,
+}: Readonly<OperationsSummarySectionProps> = {}) {
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
-  const taxSegments = buildDonutSegments(ORG_TAX_BREAKDOWN, circumference);
+  const taxRows = taxBreakdown ?? ORG_TAX_BREAKDOWN;
+  const taxCenter = taxTotal ?? '₹111.3k';
+  const taxSegments = buildDonutSegments(taxRows, circumference);
 
   return (
     <Card
@@ -99,7 +110,7 @@ export function OperationsSummarySection() {
                 }}
               >
                 <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-                  ₹111.3k
+                  {taxCenter}
                 </Typography>
                 <Typography sx={{ fontSize: '0.6875rem', color: colors.text.secondary }}>
                   Total
@@ -109,7 +120,7 @@ export function OperationsSummarySection() {
 
             {/* Tax Legend Items */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}>
-              {ORG_TAX_BREAKDOWN.map((item) => (
+              {taxRows.map((item) => (
                 <Box
                   key={item.label}
                   sx={{

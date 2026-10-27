@@ -7,16 +7,13 @@ import {
 import type { OrderReviewData } from '@/features/pos/point-of-sale/components/OrderReviewSection';
 import {
   INITIAL_CART_ITEMS,
+  type CartCustomization,
   type CartItem,
-  type PosMenuItem,
 } from '@/lib/mocks/pos/usePosMenu.mocks';
 import type { BranchOrderItem } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderDetailSchema';
-import type {
-  AddBranchOrderItemLine,
-  AddBranchOrderItemsBody,
-} from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderItemsSchema';
+import type { AddBranchOrderItemLine } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderItemsSchema';
 import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
-import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
+import type { PosMenuCatalogRow } from '@/lib/schemas/menu/menus/menuTreeSchema';
 
 const EXISTING_ORDER_IMAGE =
   'https://images.unsplash.com/photo-1612874742237-6526221588e3?auto=format&fit=crop&w=160&q=80';
@@ -85,44 +82,6 @@ export function createCartLineId(): string {
   return `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 }
 
-/** Map restaurant menu item API rows into the POS card / cart view model. */
-export function toPosMenuItem(
-  item: MenuItemResponse,
-  categoryNameById: Map<string, string>,
-): PosMenuItem {
-  const primaryImage = item.images.find((image) => image.is_primary) ?? item.images[0];
-  const categoryId = String(item.category_id);
-  const categoryName = categoryNameById.get(categoryId) ?? 'Menu';
-
-  const sizes =
-    item.variants.length > 0
-      ? item.variants.map((variant) => ({
-          id: String(variant.id),
-          name: variant.name,
-          price: variant.final_price,
-        }))
-      : [{ id: `base-${item.id}`, name: 'Regular', price: item.base_price }];
-
-  const addOns = item.modifier_groups.flatMap((group) => {
-    const name = group.modifier_group?.name;
-    if (!name) return [];
-    return [{ id: String(group.id), name, price: 0 }];
-  });
-
-  return {
-    id: String(item.id),
-    name: item.name,
-    category: categoryId,
-    categorySection: categoryName.toUpperCase(),
-    basePrice: item.base_price,
-    imageUrl: primaryImage?.url ?? undefined,
-    isPopular: item.is_favorite,
-    sizes,
-    addOns,
-    cookingPreferences: ['Mild', 'Medium', 'Spicy'],
-  };
-}
-
 /**
  * Seed cart before order-detail fetch resolves.
  * Dine-in / table: always empty (available stays empty; occupied hydrates from GET order).
@@ -137,99 +96,119 @@ export function buildInitialCart(
   return INITIAL_CART_ITEMS;
 }
 
-function resolveVariantId(
+function resolveCatalogVariantId(
   selectedSizeId: string | undefined,
-  catalog: MenuItemResponse | undefined,
+  catalog: PosMenuCatalogRow,
 ): number | undefined {
   if (selectedSizeId) {
     const parsed = Number(selectedSizeId);
     if (Number.isFinite(parsed) && parsed > 0) return parsed;
   }
   const defaultVariant =
-    catalog?.variants.find((variant) => variant.is_default) ?? catalog?.variants[0];
-  return defaultVariant?.id;
+    catalog.variants.find((variant) => variant.isDefault) ?? catalog.variants[0];
+  return defaultVariant?.variantId;
 }
 
-function resolvePreparationStationId(catalog: MenuItemResponse | undefined): number | undefined {
-  const station = catalog?.preparation_stations[0];
-  return station?.preparation_station_id ?? station?.preparation_station?.id;
-}
-
-function resolveModifierSelections(
-  cartItem: CartItem,
-  catalog: MenuItemResponse | undefined,
+function resolveCatalogModifierSelections(
+  customization: CartCustomization | undefined,
+  catalog: PosMenuCatalogRow,
 ): AddBranchOrderItemLine['modifier_selections'] {
-  const selected = cartItem.customization?.selectedAddOns ?? [];
-  if (selected.length === 0 || !catalog) return [];
+  const selected = customization?.selectedAddOns ?? [];
+  if (selected.length === 0) return [];
 
-  const selections: AddBranchOrderItemLine['modifier_selections'] = [];
+  const optionToGroup = new Map<number, number>();
+  for (const group of catalog.modifierGroups) {
+    for (const option of group.options) {
+      optionToGroup.set(option.optionId, group.modifierGroupId);
+    }
+  }
+
+  const grouped = new Map<number, number[]>();
   for (const addOn of selected) {
-    const link = catalog.modifier_groups.find(
-      (group) => String(group.id) === addOn.id || String(group.modifier_group_id) === addOn.id,
-    );
-    if (!link) continue;
-    selections.push({
-      modifier_group_id: link.modifier_group_id,
-      modifier_option_ids: [],
-    });
-  }
-  return selections;
-}
-
-/**
- * Map new cart lines to POST …/orders/{id}/items body.
- * Skips existing (already-ordered) lines. Uses selected menu id as `branch_menu_id`.
- */
-export function buildAddBranchOrderItemsBody(
-  branchMenuId: number,
-  cartItems: readonly CartItem[],
-  catalogById: ReadonlyMap<number, MenuItemResponse>,
-): AddBranchOrderItemsBody | null {
-  const newLines = cartItems.filter((item) => !item.isExisting);
-  if (newLines.length === 0) return null;
-
-  const items: AddBranchOrderItemLine[] = [];
-  for (const line of newLines) {
-    const menuItemId = Number(line.menuItemId);
-    if (!Number.isFinite(menuItemId) || menuItemId <= 0) continue;
-
-    const catalog = catalogById.get(menuItemId);
-    const variantId = resolveVariantId(line.customization?.selectedSizes[0]?.id, catalog);
-    const stationId = resolvePreparationStationId(catalog);
-    const tags = line.customization?.cookingPreference
-      ? [line.customization.cookingPreference]
-      : [];
-
-    items.push({
-      branch_menu_item_id: menuItemId,
-      ...(variantId != null ? { menu_item_variant_id: variantId } : {}),
-      ...(stationId != null ? { preparation_station_id: stationId } : {}),
-      modifier_selections: resolveModifierSelections(line, catalog),
-      quantity: line.quantity,
-      tags,
-    });
+    const optionId = Number(addOn.id);
+    if (Number.isFinite(optionId) && optionId > 0 && optionToGroup.has(optionId)) {
+      const groupId = optionToGroup.get(optionId)!;
+      const list = grouped.get(groupId) ?? [];
+      list.push(optionId);
+      grouped.set(groupId, list);
+      continue;
+    }
+    const groupId = Number(addOn.id);
+    if (Number.isFinite(groupId) && groupId > 0) {
+      grouped.set(groupId, grouped.get(groupId) ?? []);
+    }
   }
 
-  if (items.length === 0) return null;
-  return { branch_menu_id: branchMenuId, items };
+  return [...grouped.entries()].map(([modifier_group_id, modifier_option_ids]) => ({
+    modifier_group_id,
+    modifier_option_ids,
+  }));
 }
 
-/** Map GET order detail line items into order-summary cart rows. */
+/** Build one POST …/items line from a menu-tree catalog row (+ optional customization). */
+export function buildAddBranchOrderItemLine(
+  catalog: PosMenuCatalogRow,
+  quantity: number,
+  customization?: CartCustomization,
+): AddBranchOrderItemLine | null {
+  if (quantity <= 0) return null;
+
+  const branchMenuItemId = catalog.itemOverrideId ?? catalog.branchMenuItemId;
+  if (!Number.isFinite(branchMenuItemId) || branchMenuItemId <= 0) return null;
+
+  const variantId = resolveCatalogVariantId(customization?.selectedSizes[0]?.id, catalog);
+  const stationId = catalog.preparationStationId;
+  const tags = customization?.cookingPreference ? [customization.cookingPreference] : [];
+
+  return {
+    branch_menu_item_id: branchMenuItemId,
+    ...(variantId != null ? { menu_item_variant_id: variantId } : {}),
+    ...(stationId != null ? { preparation_station_id: stationId } : {}),
+    modifier_selections: resolveCatalogModifierSelections(customization, catalog),
+    quantity,
+    tags,
+  };
+}
+
+/** True when the line was already fired to kitchen (not editable/removable). */
+export function isBranchOrderLineSubmitted(item: {
+  item_status?: string;
+  status?: string;
+}): boolean {
+  const raw = (item.item_status ?? item.status ?? 'draft').trim().toLowerCase();
+  return raw !== 'draft' && raw.length > 0;
+}
+
+/** Branch order line id from a cart row (server-backed lines). */
+export function resolveBranchOrderLineId(cartItem: CartItem): number | undefined {
+  if (cartItem.orderLineId != null && cartItem.orderLineId > 0) {
+    return cartItem.orderLineId;
+  }
+  const match = /^existing-(\d+)$/.exec(cartItem.cartId);
+  if (!match) return undefined;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+/** Map GET / submit order line items into order-summary cart rows. */
 export function mapBranchOrderItemsToCart(items: readonly BranchOrderItem[]): CartItem[] {
   return items.map((it) => {
     const menuItemId = String(it.menu_item_id ?? it.branch_menu_item_id ?? it.id);
+    const submitted = isBranchOrderLineSubmitted(it);
+    const kotLabel = it.kot_number?.trim();
     return {
       cartId: `existing-${it.id}`,
+      orderLineId: it.id,
       menuItemId,
       name: it.name,
       basePrice: it.unit_price,
       unitPrice: it.unit_price,
       quantity: it.quantity,
       originalQuantity: it.quantity,
-      isExisting: true,
-      disableDelete: true,
+      isExisting: submitted,
+      disableDelete: submitted,
       imageUrl: EXISTING_ORDER_IMAGE,
-      itemBadges: ['Ordered'],
+      itemBadges: kotLabel ? [`KOT ${kotLabel}`] : submitted ? ['Submitted'] : ['Draft'],
     };
   });
 }

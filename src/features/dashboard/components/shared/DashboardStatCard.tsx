@@ -7,7 +7,6 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ApartmentIcon from '@mui/icons-material/Apartment';
-import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import LanguageIcon from '@mui/icons-material/Language';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
@@ -21,8 +20,13 @@ export interface DashboardStatCardProps {
 }
 
 export function DashboardStatCard({ stat }: Readonly<DashboardStatCardProps>) {
+  const isNetIcon = stat.iconType === 'net';
+
   const renderIcon = () => {
-    const iconSx = { fontSize: 20, color: colors.primary.default };
+    const iconSx = {
+      fontSize: 20,
+      color: isNetIcon ? '#7C3AED' : colors.primary.default,
+    };
     switch (stat.iconType) {
       case 'sales':
         return <ShowChartIcon sx={iconSx} />;
@@ -31,7 +35,7 @@ export function DashboardStatCard({ stat }: Readonly<DashboardStatCardProps>) {
       case 'companies':
         return <ApartmentIcon sx={iconSx} />;
       case 'branches':
-        return <AccountTreeOutlinedIcon sx={iconSx} />;
+        return <BarChartIcon sx={iconSx} />;
       case 'online':
         return <LanguageIcon sx={iconSx} />;
       case 'offline':
@@ -49,20 +53,13 @@ export function DashboardStatCard({ stat }: Readonly<DashboardStatCardProps>) {
         borderRadius: '14px',
         borderColor: (theme) => (theme.palette.mode === 'dark' ? theme.palette.divider : '#E2E8F0'),
         bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
-        boxShadow: 'none',
+        boxShadow: (theme) =>
+          theme.palette.mode === 'dark' ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         gap: 1.25,
-        minHeight: { xs: 112, sm: 124 },
-        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: (theme) =>
-            theme.palette.mode === 'dark'
-              ? '0 6px 20px rgba(0,0,0,0.4)'
-              : '0 6px 20px rgba(27, 89, 248, 0.08)',
-        },
+        minHeight: { xs: 112, sm: 120 },
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -85,7 +82,13 @@ export function DashboardStatCard({ stat }: Readonly<DashboardStatCardProps>) {
             height: 30,
             borderRadius: '8px',
             bgcolor: (theme) =>
-              theme.palette.mode === 'dark' ? 'rgba(27, 89, 248, 0.15)' : '#EFF4FE',
+              isNetIcon
+                ? theme.palette.mode === 'dark'
+                  ? 'rgba(124, 58, 237, 0.2)'
+                  : '#F3E8FF'
+                : theme.palette.mode === 'dark'
+                  ? 'rgba(27, 89, 248, 0.15)'
+                  : '#EFF4FE',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

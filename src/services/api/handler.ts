@@ -9,6 +9,8 @@ import {
   BRANCH_STAT_CARDS,
   COMPANY_STAT_CARDS,
   ORG_STAT_CARDS,
+  resolveCompanyDashboardMock,
+  resolveOrganizationDashboardMock,
 } from '@/lib/mocks/dashboard/dashboard.mocks';
 import { MOCK_DUE_PAYMENTS } from '@/lib/mocks/pos/usePosDuePayments.mocks';
 import {
@@ -41,6 +43,7 @@ import {
   resolveBranchMenusMock,
   resolveMenuCategoryAssignmentsMock,
 } from '@/lib/mocks/menu/menu.mocks';
+import { resolveMenuTreeMock } from '@/lib/mocks/menu/menuTree.mocks';
 import { menuCategoryAssignmentSchema } from '@/lib/schemas/menu/menus/menusSchema';
 import { resolveGstRatesMock } from '@/lib/mocks/menu/useGstRates.mocks';
 import {
@@ -197,8 +200,17 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   const branchMenus = resolveBranchMenusMock(request);
   if (branchMenus !== undefined) return branchMenus;
 
+  const menuTree = resolveMenuTreeMock(request);
+  if (menuTree !== undefined) return menuTree;
+
   const reports = resolveBranchReportsMock(request);
   if (reports !== undefined) return reports;
+
+  const companyDashboard = resolveCompanyDashboardMock(request);
+  if (companyDashboard !== undefined) return companyDashboard;
+
+  const organizationDashboard = resolveOrganizationDashboardMock(request);
+  if (organizationDashboard !== undefined) return organizationDashboard;
 
   const userRoles = resolveUserRolesMock(request);
   if (userRoles !== undefined) return userRoles;

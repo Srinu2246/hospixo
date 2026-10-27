@@ -30,6 +30,8 @@ export interface MenuItemCardProps {
   onAddDefault: () => void;
   onDecrementDefault?: () => void;
   onAddCustomized: (customization: CartCustomization, quantity: number, unitPrice: number) => void;
+  /** Disables Add while a branch order line POST is in flight. */
+  addDisabled?: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export function MenuItemCard({
   onAddDefault,
   onDecrementDefault,
   onAddCustomized,
+  addDisabled = false,
 }: Readonly<MenuItemCardProps>) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -99,6 +102,7 @@ export function MenuItemCard({
   // Direct click on "+ Add" button adds the default item immediately
   const handleDirectAddClick = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+    if (addDisabled) return;
     onAddDefault();
   };
 
@@ -109,6 +113,7 @@ export function MenuItemCard({
 
   // Add customized item to cart
   const handleConfirmCustomization = () => {
+    if (addDisabled) return;
     onAddCustomized(
       {
         selectedSizes,
@@ -678,6 +683,7 @@ export function MenuItemCard({
                   variant="primary"
                   size="small"
                   onClick={handleDirectAddClick}
+                  disabled={addDisabled}
                   sx={{
                     height: 30,
                     px: 1.75,
@@ -1087,6 +1093,7 @@ export function MenuItemCard({
               variant="primary"
               size="small"
               onClick={handleDirectAddClick}
+              disabled={addDisabled}
               sx={{
                 height: 32,
                 px: 2,

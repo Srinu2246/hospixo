@@ -47,6 +47,9 @@ const ApiUrlsV1 = {
         /** POST /v1/branches/{branch_id}/orders/{order_id}/items */
         items: (branchId: number | string, orderId: number | string) =>
           branchOrderItemsPath(branchId, orderId),
+        /** DELETE /v1/branches/{branch_id}/orders/{order_id}/items/{item_id} */
+        item: (branchId: number | string, orderId: number | string, itemId: number | string) =>
+          branchOrderItemPath(branchId, orderId, itemId),
         /** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
         submit: (branchId: number | string, orderId: number | string) =>
           branchOrderSubmitPath(branchId, orderId),
@@ -92,6 +95,15 @@ const ApiUrlsV1 = {
     organization: resource('/v1/dashboard/organization'),
     company: resource('/v1/dashboard/company'),
     branch: resource('/v1/dashboard/branch'),
+    branchDetail: (branchId: number | string) =>
+      `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/dashboard`,
+    /** GET /v1/companies/{company_id}/dashboard */
+    companyDetail: (companyId: number | string) =>
+      `${ApiUrlsV1.organization.companies}/${encodeURIComponent(String(companyId))}/dashboard`,
+    /** GET /v1/organizations/{organization_id}/dashboard — allowlist pattern (BFF). */
+    organizationDetailPath: '/v1/organizations/{organization_id}/dashboard',
+    organizationDetail: (organizationId: number | string) =>
+      `/v1/organizations/${encodeURIComponent(String(organizationId))}/dashboard`,
   },
   organization: {
     companies: '/v1/companies',
@@ -121,6 +133,8 @@ const ApiUrlsV1 = {
     menus: {
       list: '/v1/restaurant/menus',
       create: '/v1/restaurant/menus',
+      /** GET /v1/restaurant/menus/{menu_id}/tree — BFF allowlist pattern. */
+      companyTree: '/v1/restaurant/menus/{menu_id}/tree',
     },
   },
   public: {
@@ -185,6 +199,15 @@ export function branchOrderDetailPath(branchId: number | string, orderId: number
 /** POST /v1/branches/{branch_id}/orders/{order_id}/items */
 export function branchOrderItemsPath(branchId: number | string, orderId: number | string): string {
   return `${branchOrderDetailPath(branchId, orderId)}/items`;
+}
+
+/** DELETE /v1/branches/{branch_id}/orders/{order_id}/items/{item_id} */
+export function branchOrderItemPath(
+  branchId: number | string,
+  orderId: number | string,
+  itemId: number | string,
+): string {
+  return `${branchOrderItemsPath(branchId, orderId)}/${encodeURIComponent(String(itemId))}`;
 }
 
 /** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
@@ -328,6 +351,14 @@ export function restaurantMenuDeactivatePath(menuId: number | string): string {
 /** POST /v1/restaurant/menus/{menu_id}/category-assignments */
 export function restaurantMenuCategoryAssignmentsPath(menuId: number | string): string {
   return `${restaurantMenuPath(menuId)}/category-assignments`;
+}
+
+/** GET /v1/restaurant/branches/{branch_id}/menus/{assignment_id}/tree */
+export function restaurantBranchMenuTreePath(
+  branchId: number | string,
+  assignmentId: number | string,
+): string {
+  return `${restaurantBranchMenuAssignmentPath(branchId, assignmentId)}/tree`;
 }
 
 /** GET/POST /v1/restaurant/gst-rates */

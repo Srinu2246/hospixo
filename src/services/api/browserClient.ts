@@ -13,6 +13,8 @@ export type BrowserWriteOptions = {
   signal?: AbortSignal;
   /** When true, skip automatic success/error toasts for POST/PATCH. */
   silent?: boolean;
+  /** Extra request headers (e.g. Idempotency-Key). */
+  headers?: Record<string, string>;
 };
 
 type BrowserRequestOptions = {
@@ -21,6 +23,7 @@ type BrowserRequestOptions = {
   signal?: AbortSignal;
   silent?: boolean;
   toastOnWrite?: boolean;
+  headers?: Record<string, string>;
 };
 
 let redirectingToLogin = false;
@@ -84,7 +87,7 @@ function showToast(message: string, severity: 'success' | 'error') {
 
 function resolveWriteOptions(
   options?: AbortSignal | BrowserWriteOptions,
-): Pick<BrowserRequestOptions, 'signal' | 'silent'> {
+): Pick<BrowserRequestOptions, 'signal' | 'silent' | 'headers'> {
   if (!options) return {};
   if (typeof AbortSignal !== 'undefined' && options instanceof AbortSignal) {
     return { signal: options };
@@ -107,6 +110,11 @@ async function request<T>(
   const headers = new Headers({ Accept: 'application/json' });
   for (const [key, value] of Object.entries(resolveUpstreamContextHeaders())) {
     headers.set(key, value);
+  }
+  if (options.headers) {
+    for (const [key, value] of Object.entries(options.headers)) {
+      if (value) headers.set(key, value);
+    }
   }
   let body: BodyInit | undefined;
 
@@ -168,6 +176,7 @@ export const api = {
       body,
       signal: write.signal,
       silent: write.silent,
+      headers: write.headers,
       toastOnWrite: true,
     });
   },
@@ -186,11 +195,23 @@ export const api = {
       body,
       signal: write.signal,
       silent: write.silent,
+      headers: write.headers,
       toastOnWrite: true,
     });
   },
 
-  delete<T>(endpoint: string, signal?: AbortSignal): Promise<T> {
-    return request<T>('DELETE', endpoint, { signal });
+  delete<T>(
+    endpoint: string,
+    params?: QueryParams,
+    options?: AbortSignal | BrowserWriteOptions,
+  ): Promise<T> {
+    const write = resolveWriteOptions(options);
+    return request<T>('DELETE', endpoint, {
+      params,
+      signal: write.signal,
+      silent: write.silent,
+      headers: write.headers,
+      toastOnWrite: true,
+    });
   },
 };

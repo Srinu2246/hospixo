@@ -40,6 +40,7 @@ export interface TakeawayMenuCatalogProps {
   ) => void;
   /** Captain mobile/tablet: Figma chips + list (no desktop panel chrome). */
   captainCompact?: boolean;
+  isAddingToOrder?: boolean;
 }
 
 function MenuSectionItems({
@@ -50,6 +51,7 @@ function MenuSectionItems({
   onDecrementDefault,
   onAddCustomized,
   captainCompact = false,
+  isAddingToOrder = false,
 }: Readonly<{
   items: PosMenuItem[];
   viewMode: 'list' | 'grid';
@@ -58,6 +60,7 @@ function MenuSectionItems({
   onDecrementDefault: (item: PosMenuItem) => void;
   onAddCustomized: TakeawayMenuCatalogProps['onAddCustomized'];
   captainCompact?: boolean;
+  isAddingToOrder?: boolean;
 }>) {
   if (viewMode === 'list') {
     return (
@@ -74,6 +77,7 @@ function MenuSectionItems({
             onAddCustomized={(customization, qty, unitPrice) =>
               onAddCustomized(item, customization, qty, unitPrice)
             }
+            addDisabled={isAddingToOrder}
           />
         ))}
       </Stack>
@@ -105,6 +109,7 @@ function MenuSectionItems({
           onAddCustomized={(customization, qty, unitPrice) =>
             onAddCustomized(item, customization, qty, unitPrice)
           }
+          addDisabled={isAddingToOrder}
         />
       ))}
     </Box>
@@ -119,6 +124,7 @@ function MenuCatalogBody({
   onAddDefault,
   onDecrementDefault,
   onAddCustomized,
+  isAddingToOrder = false,
 }: Readonly<{
   isLoading: boolean;
   groupedSections: readonly [string, PosMenuItem[]][];
@@ -127,6 +133,7 @@ function MenuCatalogBody({
   onAddDefault: (item: PosMenuItem) => void;
   onDecrementDefault: (item: PosMenuItem) => void;
   onAddCustomized: TakeawayMenuCatalogProps['onAddCustomized'];
+  isAddingToOrder?: boolean;
 }>) {
   if (isLoading) {
     return <Loading fullPage={false} sx={{ minHeight: 200, py: 1 }} />;
@@ -166,6 +173,7 @@ function MenuCatalogBody({
             onAddDefault={onAddDefault}
             onDecrementDefault={onDecrementDefault}
             onAddCustomized={onAddCustomized}
+            isAddingToOrder={isAddingToOrder}
           />
         </Box>
       ))}
@@ -241,6 +249,7 @@ export function TakeawayMenuCatalog({
   onDecrementDefault,
   onAddCustomized,
   captainCompact = false,
+  isAddingToOrder = false,
 }: Readonly<TakeawayMenuCatalogProps>) {
   if (captainCompact) {
     const flatItems = groupedSections.flatMap(([, sectionItems]) => sectionItems);
@@ -306,6 +315,7 @@ export function TakeawayMenuCatalog({
               onAddDefault={onAddDefault}
               onDecrementDefault={onDecrementDefault}
               onAddCustomized={onAddCustomized}
+              isAddingToOrder={isAddingToOrder}
             />
           )}
         </Box>
@@ -457,6 +467,7 @@ export function TakeawayMenuCatalog({
           onAddDefault={onAddDefault}
           onDecrementDefault={onDecrementDefault}
           onAddCustomized={onAddCustomized}
+          isAddingToOrder={isAddingToOrder}
         />
       </Box>
     </Box>

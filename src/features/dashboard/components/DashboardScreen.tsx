@@ -11,12 +11,14 @@ import { Toast } from '@/components/shared/ui/Toast';
 import { useDashboardDirectory } from '@/lib/hooks/dashboard/useDashboardDirectory';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
+import { DateRangeOption } from '../enums';
+import { dateRangeDatesFromOption } from '@/lib/helpers/dashboardDateRangeHelpers';
+import { createDefaultReportsDateRange } from '@/lib/helpers/reportsOverview';
 import type { DashboardLevel } from '../types/dashboard.types';
 import { DashboardHeader } from './shared/DashboardHeader';
 import { OrganizationDashboard } from './organization/OrganizationDashboard';
 import { CompanyDashboard } from './company/CompanyDashboard';
 import { BranchSalesDashboard } from './branch/BranchSalesDashboard';
-import { LowStockAlertBanner } from './branch/LowStockAlertBanner';
 import { FeatureGate, ExampleFeatureUsage } from '@/integrations/growthbook';
 
 export interface DashboardScreenProps {
@@ -81,7 +83,7 @@ function dashboardLevelFromPath(
 
 const DEFAULT_SCOPE_BY_LEVEL: Record<DashboardLevel, string> = {
   organization: 'All Companies',
-  company: 'All Outlets',
+  company: 'All Branches',
   branch: 'All Outlets',
 };
 
@@ -111,6 +113,29 @@ export function DashboardScreen({
 
   const [selectedScopeByLevel, setSelectedScopeByLevel] =
     useState<Record<DashboardLevel, string>>(DEFAULT_SCOPE_BY_LEVEL);
+  const defaultDateRange = useMemo(() => createDefaultReportsDateRange(), []);
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.dateFrom);
+  const [dateTo, setDateTo] = useState(defaultDateRange.dateTo);
+  const [activeDatePreset, setActiveDatePreset] = useState<DateRangeOption | null>(
+    DateRangeOption.LAST_7_DAYS,
+  );
+
+  const handleDashboardDateRangeChange = (range: { dateFrom: Date; dateTo: Date }) => {
+    setDateFrom(range.dateFrom);
+    setDateTo(range.dateTo);
+    setActiveDatePreset(DateRangeOption.CUSTOM_RANGE);
+  };
+
+  const handleDashboardDatePreset = (preset: DateRangeOption) => {
+    if (preset === DateRangeOption.CUSTOM_RANGE) {
+      setActiveDatePreset(preset);
+      return;
+    }
+    const next = dateRangeDatesFromOption(preset);
+    setDateFrom(next.dateFrom);
+    setDateTo(next.dateTo);
+    setActiveDatePreset(preset);
+  };
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
@@ -129,6 +154,7 @@ export function DashboardScreen({
 
   const scopeDetails = useMemo(() => {
     const companies = directory.data?.companies ?? [];
+    const branches = directory.data?.branches ?? [];
 
     switch (currentLevel) {
       case 'organization':
@@ -143,8 +169,11 @@ export function DashboardScreen({
       case 'company':
         return {
           title: 'All Branches Statistics',
-          entityLabel: 'Outlets',
-          options: [],
+          entityLabel: 'Branches',
+          options:
+            branches.length > 0
+              ? ['All Branches', ...branches.map((branch) => branch.name)]
+              : ['All Branches'],
         };
       case 'branch':
         return {
@@ -166,14 +195,7 @@ export function DashboardScreen({
       }}
     >
       {/* 1. Universal Dashboard Header (Visible above 1050px; hidden up to 1050px on branch view to match tablet design) */}
-      <Box
-        sx={{
-          display: currentLevel === 'branch' ? 'none' : 'block',
-          '@media (min-width: 1051px)': {
-            display: 'block',
-          },
-        }}
-      >
+      {currentLevel !== 'branch' ? (
         <DashboardHeader
           title={scopeDetails.title}
           scopeEntityLabel={scopeDetails.entityLabel}
@@ -183,9 +205,13 @@ export function DashboardScreen({
             setSelectedScopeByLevel((prev) => ({ ...prev, [currentLevel]: scope }))
           }
           onExportClick={handleExportData}
-          topBanner={currentLevel === 'branch' ? <LowStockAlertBanner /> : undefined}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateRangeChange={handleDashboardDateRangeChange}
+          onDatePresetSelect={handleDashboardDatePreset}
+          activeDatePreset={activeDatePreset}
         />
-      </Box>
+      ) : null}
 
       {directory.isError ? (
         <AlertMessage
@@ -204,9 +230,11 @@ export function DashboardScreen({
           <Fade in timeout={300}>
             <Box>
               <OrganizationDashboard
+                organizationId={organizationId}
+                selectedScope={selectedScope}
                 companies={directory.data?.companies}
-                branches={directory.data?.branches}
-                isLoading={directory.isLoading}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
               />
             </Box>
           </Fade>
@@ -216,8 +244,11 @@ export function DashboardScreen({
           <Fade in timeout={300}>
             <Box>
               <CompanyDashboard
+                companyId={companyId}
+                selectedScope={selectedScope}
                 branches={directory.data?.branches}
-                isLoading={directory.isLoading}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
               />
             </Box>
           </Fade>

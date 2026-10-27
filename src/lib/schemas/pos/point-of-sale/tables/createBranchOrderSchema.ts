@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { branchOrderItemSchema } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderDetailSchema';
 import {
   posKitchenBadgeSchema,
   posOrderStatusSchema,
@@ -58,7 +59,7 @@ export const branchOrderSchema = z.object({
   invoice_number: nullableText,
   closed_at: nullableText,
   cancellation_reason: nullableText,
-  items: z.array(z.unknown()).optional(),
+  items: z.array(branchOrderItemSchema).optional(),
   payments: z.array(z.unknown()).optional(),
 });
 

@@ -165,18 +165,14 @@ export function TakeawayPage({
           onCategoryChange={order.setSelectedCategoryId}
           isLoading={order.isMenuLoading}
           isError={order.isMenuError}
-          errorMessage={menuErrorMessage(
-            order.branchMenusQuery.error,
-            order.categoriesQuery.error,
-            order.assignmentsQuery.error,
-            order.itemsQuery.error,
-          )}
+          errorMessage={menuErrorMessage(order.branchMenusQuery.error, order.menuTreeQuery.error)}
           groupedSections={order.groupedSections}
           getItemCartQuantity={order.getItemCartQuantity}
           onAddDefault={order.handleAddDefaultItem}
           onDecrementDefault={order.handleDecrementDefaultItem}
           onAddCustomized={order.handleAddCustomizedItem}
           captainCompact={captainCompact}
+          isAddingToOrder={order.isAddingToOrder || order.isRemovingFromOrder}
         />
 
         <Box

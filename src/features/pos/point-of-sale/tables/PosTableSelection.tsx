@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Box, Stack, Typography } from '@mui/material';
@@ -71,6 +71,36 @@ function matchesFloorAndSection(
   return true;
 }
 
+const TABLE_QUERY_FLOOR = 'floor';
+const TABLE_QUERY_SECTION = 'section';
+
+function readTableLocationFromSearchParams(searchParams: URLSearchParams | null) {
+  return {
+    floor: searchParams?.get(TABLE_QUERY_FLOOR)?.trim() ?? '',
+    section: searchParams?.get(TABLE_QUERY_SECTION)?.trim() ?? '',
+  };
+}
+
+function applyTableLocationToSearchParams(params: URLSearchParams, floor: string, section: string) {
+  if (floor) {
+    params.set(TABLE_QUERY_FLOOR, floor);
+  } else {
+    params.delete(TABLE_QUERY_FLOOR);
+  }
+  if (section) {
+    params.set(TABLE_QUERY_SECTION, section);
+  } else {
+    params.delete(TABLE_QUERY_SECTION);
+  }
+}
+
+function buildTableLocationQuery(floor: string, section: string, extra?: URLSearchParams) {
+  const params = new URLSearchParams(extra?.toString() ?? '');
+  applyTableLocationToSearchParams(params, floor, section);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
 export interface PosTableSelectionProps {
   isDineIn?: boolean;
   onTableSelect?: (table: PosTableItem) => void;
@@ -90,6 +120,7 @@ export function PosTableSelection({
   const searchParams = useSearchParams();
   const fromTables = searchParams?.get('from') === 'tables';
   const queryOrderId = searchParams?.get('orderId');
+  const initialLocation = readTableLocationFromSearchParams(searchParams);
   const isCaptainFlow = Boolean(pathname?.includes('captain-flow'));
   const captainCompact = useCaptainCompactLayout();
   const footerTarget = useAppShellFooterTarget();
@@ -100,8 +131,8 @@ export function PosTableSelection({
   const createOrderMutation = useCreateBranchOrder(branchId);
 
   const [tableOverrides, setTableOverrides] = useState<Record<string, Partial<PosTableItem>>>({});
-  const [activeFloor, setActiveFloor] = useState('');
-  const [activeSection, setActiveSection] = useState('');
+  const [activeFloor, setActiveFloor] = useState(initialLocation.floor);
+  const [activeSection, setActiveSection] = useState(initialLocation.section);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTableId, setSelectedTableId] = useState(initialSelectedTableId);
@@ -211,6 +242,41 @@ export function PosTableSelection({
   }, [pathname]);
 
   const routeTableId = isDineIn ? (initialTableId ?? getTableIdFromPathname(pathname)) : null;
+  const isTableListView = !routeTableId && !manualActiveTable;
+
+  useEffect(() => {
+    const { floor, section } = readTableLocationFromSearchParams(searchParams);
+    if (floor && floor !== activeFloor) {
+      setActiveFloor(floor);
+    }
+    if (section && section !== activeSection) {
+      setActiveSection(section);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync URL → state when navigating back/forward
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!isTableListView) return;
+
+    const listPath = isDineIn ? dineInBasePath : tablesBasePath;
+    const floorParam = searchParams?.get(TABLE_QUERY_FLOOR) ?? '';
+    const sectionParam = searchParams?.get(TABLE_QUERY_SECTION) ?? '';
+    if (floorParam === activeFloorResolved && sectionParam === activeSectionResolved) return;
+
+    const params = new URLSearchParams();
+    applyTableLocationToSearchParams(params, activeFloorResolved, activeSectionResolved);
+    const qs = params.toString();
+    router.replace(`${listPath}${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [
+    isTableListView,
+    isDineIn,
+    dineInBasePath,
+    tablesBasePath,
+    activeFloorResolved,
+    activeSectionResolved,
+    router,
+    searchParams,
+  ]);
   const activeOrderTable = useMemo(() => {
     if (routeTableId) {
       const match = tables.find(
@@ -300,6 +366,7 @@ export function PosTableSelection({
     const params = new URLSearchParams();
     if (!isDineIn) params.set('from', 'tables');
     if (orderId) params.set('orderId', orderId);
+    applyTableLocationToSearchParams(params, activeFloor, activeSection);
     const query = params.toString();
     router.push(`${dineInBasePath}/${tableWithOrder.id}${query ? `?${query}` : ''}`);
   };
@@ -365,7 +432,12 @@ export function PosTableSelection({
 
   const handleBackToTables = () => {
     setManualActiveTable(null);
-    router.push(fromTables || !isDineIn ? tablesBasePath : dineInBasePath);
+    const locationQuery = buildTableLocationQuery(activeFloor, activeSection);
+    if (fromTables || !isDineIn) {
+      router.push(`${tablesBasePath}${locationQuery}`);
+      return;
+    }
+    router.push(`${dineInBasePath}${locationQuery}`);
   };
 
   const handleServeOrder = (servedTable: PosTableItem, items: CartItem[]) => {
@@ -773,7 +845,11 @@ export function PosTableSelection({
             <ActionButton
               variant="primary"
               size="medium"
-              onClick={() => router.push(tablesBasePath)}
+              onClick={() =>
+                router.push(
+                  `${tablesBasePath}${buildTableLocationQuery(activeFloor, activeSection)}`,
+                )
+              }
               sx={{ height: 40, px: 2.5, borderRadius: '8px', fontWeight: 600 }}
             >
               Go to Tables

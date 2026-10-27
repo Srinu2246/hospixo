@@ -16,6 +16,7 @@ import {
   type ScopeType,
   type ParsedUserList,
   type UserRoleFormValues,
+  type UserListSortBy,
   isUserEditDisabled,
   resolveScopeFromPathname,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
@@ -84,6 +85,7 @@ export function UsersAndRolesScreen({
     paginatedUsers,
     stats,
     roleOptions,
+    roleCatalog,
     isLoading,
     isError,
     error,
@@ -100,7 +102,16 @@ export function UsersAndRolesScreen({
     pageSize,
     totalRows,
     hasActiveFilters,
+    activeFilterCount,
     resetFilters,
+    clearFilter,
+    sortBy,
+    sortOrder,
+    setSort,
+    selectedCompanyId,
+    setSelectedCompanyId,
+    selectedBranchId,
+    setSelectedBranchId,
     addUser,
     updateUser,
     deleteUser,
@@ -117,6 +128,33 @@ export function UsersAndRolesScreen({
 
   const branchOptions = (directory.data?.branches ?? []).map((branch) => branch.name);
 
+  const companyOptions = useMemo(
+    () =>
+      (directory.data?.companies ?? []).map((c) => ({
+        id: Number(c.id),
+        name: c.name,
+      })),
+    [directory.data?.companies],
+  );
+
+  const branchFilterOptions = useMemo(
+    () =>
+      (directory.data?.branches ?? []).map((b) => ({
+        id: Number(b.id),
+        name: b.name,
+        companyId: b.companyId != null ? Number(b.companyId) : undefined,
+      })),
+    [directory.data?.branches],
+  );
+
+  const filterRoleOptions = useMemo(
+    () =>
+      roleCatalog.length > 0
+        ? roleCatalog.map((r) => ({ code: r.code || r.name, name: r.name }))
+        : roleOptions,
+    [roleCatalog, roleOptions],
+  );
+
   const [viewMode, setViewMode] = useState<'table' | 'multiform'>('table');
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
@@ -127,6 +165,14 @@ export function UsersAndRolesScreen({
   const handleCloseModal = () => {
     setIsAddModalOpen(false);
     setEditingUser(null);
+  };
+
+  const handleOpenFilter = (e: React.MouseEvent<HTMLButtonElement>) => {
+    setFilterAnchorEl((prev) => (prev ? null : e.currentTarget));
+  };
+
+  const handleCloseFilter = () => {
+    setFilterAnchorEl(null);
   };
 
   const handleSaveUser = (values: UserRoleFormValues) => {
@@ -167,14 +213,6 @@ export function UsersAndRolesScreen({
 
   const handleOpenAddModal = () => {
     router.push(`${baseRoute}/template`);
-  };
-
-  const handleOpenFilter = (e: React.MouseEvent<HTMLButtonElement>) => {
-    setFilterAnchorEl(e.currentTarget);
-  };
-
-  const handleCloseFilter = () => {
-    setFilterAnchorEl(null);
   };
 
   const handleOpenActionMenu = (e: React.MouseEvent<HTMLButtonElement>, user: UserRoleItem) => {
@@ -239,8 +277,6 @@ export function UsersAndRolesScreen({
     showNotification('Invitation sent and user added successfully!');
   };
 
-  const activeFiltersCount = [selectedRole, selectedBranch, selectedStatus].filter(Boolean).length;
-
   if (viewMode === 'multiform') {
     return (
       <CreateUserMultiformFlow
@@ -304,16 +340,27 @@ export function UsersAndRolesScreen({
         <UserRoleTableToolbar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          hasActiveFilters={hasActiveFilters}
-          activeFiltersCount={activeFiltersCount}
           selectedRole={selectedRole}
-          selectedBranch={selectedBranch}
+          onClearRole={() => clearFilter('role')}
+          roleOptions={filterRoleOptions}
           selectedStatus={selectedStatus}
+          onClearStatus={() => clearFilter('status')}
+          showCompanyFilter={resolvedScope === 'organization'}
+          selectedCompanyId={selectedCompanyId}
+          onClearCompany={() => clearFilter('company')}
+          companyOptions={companyOptions}
+          showBranchFilter={resolvedScope !== 'branch'}
+          selectedBranchId={selectedBranchId}
+          selectedBranchName={selectedBranch}
+          onClearBranch={() => clearFilter('branch')}
+          branchOptions={branchFilterOptions}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          hasActiveFilters={hasActiveFilters}
+          activeFiltersCount={activeFilterCount}
           onOpenFilter={handleOpenFilter}
-          onClearRole={() => setSelectedRole('')}
-          onClearBranch={() => setSelectedBranch('')}
-          onClearStatus={() => setSelectedStatus('')}
           onResetFilters={resetFilters}
+          onClearFilter={clearFilter}
         />
 
         <UserRoleDataGrid
@@ -324,6 +371,9 @@ export function UsersAndRolesScreen({
           totalRows={totalRows}
           scope={resolvedScope}
           companyName={companyName}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortChange={(field, direction) => setSort(field as UserListSortBy, direction)}
           onPageChange={setPage}
           onOpenActionMenu={handleOpenActionMenu}
         />
@@ -343,14 +393,26 @@ export function UsersAndRolesScreen({
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
         onClose={handleCloseFilter}
-        roleOptions={roleOptions}
-        branchOptions={branchOptions}
+        roleOptions={filterRoleOptions}
         selectedRole={selectedRole}
-        selectedBranch={selectedBranch}
-        selectedStatus={selectedStatus}
         onRoleChange={setSelectedRole}
-        onBranchChange={setSelectedBranch}
+        selectedStatus={selectedStatus}
         onStatusChange={setSelectedStatus}
+        showCompanyFilter={resolvedScope === 'organization'}
+        companyOptions={companyOptions}
+        selectedCompanyId={selectedCompanyId}
+        onCompanyChange={setSelectedCompanyId}
+        showBranchFilter={resolvedScope !== 'branch'}
+        branchOptions={branchFilterOptions}
+        selectedBranchId={selectedBranchId}
+        selectedBranchName={selectedBranch}
+        onBranchChange={(branchId, branchName) => {
+          setSelectedBranchId(branchId);
+          setSelectedBranch(branchName ?? '');
+        }}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSortChange={(field, order) => setSort(field as UserListSortBy, order)}
         onReset={resetFilters}
       />
 
