@@ -9,6 +9,7 @@ import type { SidebarContext, SidebarUserProfile } from '@/app/sidebar';
 import { normalizeRoleKey } from '@/app/sidebar';
 import type { DropdownOption } from '@/components/shared/form-fields/Dropdown';
 import { useNavbarBranchOptions } from '@/lib/hooks/organization/branches/useNavbarBranchOptions';
+import { formatStaffProfileRoleLabel } from '@/lib/helpers/employees/userRolesHelpers';
 import { isCaptainWorkspacePath, POS_CAPTAIN_COMPACT_PADDING } from '@/lib/helpers/posCaptainFlow';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
@@ -38,15 +39,6 @@ export interface TopNavbarProps {
   onOpenMenu?: () => void;
   /** Optional layout style overrides from the caller */
   sx?: SxProps<Theme>;
-}
-
-/**
- * Normalizes and formats a role string for readable header display.
- */
-function formatRoleLabel(role?: string): string {
-  const value = (role ?? '').trim();
-  if (!value) return 'User';
-  return value.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').toLowerCase();
 }
 
 /**
@@ -111,6 +103,7 @@ export function TopNavbar({
 
   const isBranchView = pathname.includes('/branch-manager');
   const captainWorkspacePath = isCaptainWorkspacePath(pathname);
+  const showWaiterProfileNav = normalizedRole === 'waiter' && captainWorkspacePath;
   const workspaceSubtitle =
     context.branchName?.trim() ||
     (context.branchId != null ? `Branch ${context.branchId}` : 'Restaurant workspace');
@@ -152,7 +145,7 @@ export function TopNavbar({
   const [mobileBranchMenuAnchor, setMobileBranchMenuAnchor] = useState<HTMLElement | null>(null);
 
   const displayName = activeUser?.name?.trim() || 'User';
-  const displayRole = formatRoleLabel(activeUser?.role || activeRole);
+  const displayRole = formatStaffProfileRoleLabel(activeUser?.role || activeRole);
 
   return (
     <Box
@@ -207,6 +200,10 @@ export function TopNavbar({
         captainWorkspaceTitle={captainWorkspacePath ? 'Hospixo Tables' : undefined}
         captainWorkspaceSubtitle={captainWorkspacePath ? workspaceSubtitle : undefined}
         showBranchSelector={captainWorkspacePath && isBranchView}
+        showProfileMenu={showWaiterProfileNav}
+        user={activeUser}
+        displayName={displayName}
+        displayRole={displayRole}
       />
 
       <TabletNavbar
@@ -224,6 +221,10 @@ export function TopNavbar({
         onNotificationClick={onNotificationClick}
         onSettingsClick={onSettingsClick}
         onOpenMenu={onOpenMenu}
+        showProfileMenu={showWaiterProfileNav}
+        user={activeUser}
+        displayName={displayName}
+        displayRole={displayRole}
       />
 
       <DesktopNavbar

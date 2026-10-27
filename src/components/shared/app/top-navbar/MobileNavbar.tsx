@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 
 import logoLight from '@/assets/app/logo-light.svg';
 
+import { ProfileMenu } from './ProfileMenu';
 import { MobileBranchSelector } from './MobileBranchSelector';
 import { NavMenuButton, NavNotificationButton } from './NavActionButtons';
 import type { MobileNavbarProps } from './topNavbar.types';
@@ -36,6 +37,10 @@ export function MobileNavbar({
   captainWorkspaceTitle,
   captainWorkspaceSubtitle,
   showBranchSelector = false,
+  showProfileMenu = false,
+  user,
+  displayName = 'User',
+  displayRole = 'User',
   sx,
 }: Readonly<MobileNavbarProps>) {
   const captainWorkspace = Boolean(captainWorkspaceTitle);
@@ -131,10 +136,31 @@ export function MobileNavbar({
         )}
       </Box>
 
-      {/* Mobile Right: Notifications bell & Hamburger menu button */}
+      {/* Mobile Right: Notifications + profile (waiter) or sidebar menu */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <NavNotificationButton onClick={onNotificationClick} />
-        <NavMenuButton onClick={onOpenMenu} />
+        {showProfileMenu ? (
+          <ProfileMenu
+            user={user}
+            displayName={displayName}
+            displayRole={displayRole}
+            isBranchView
+            sx={{
+              p: 0.75,
+              borderRadius: '8px',
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F3F4F6',
+              '&:hover': {
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : '#E5E7EB',
+              },
+            }}
+          />
+        ) : (
+          <NavMenuButton onClick={onOpenMenu} />
+        )}
       </Box>
     </Box>
   );

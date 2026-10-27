@@ -54,6 +54,7 @@ import type {
 } from '@/lib/schemas/menu/menuCreationSchema';
 import type { MenuItemResponse } from '@/lib/schemas/menu/menuItemsSchema';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 
 import { useMenuCreation } from '@/features/menu/context';
 import { DietaryIcon, type DietaryType } from './DietaryIcon';
@@ -446,7 +447,7 @@ function CreateMenuItemForm({
       <Paper
         variant="outlined"
         sx={{
-          p: { xs: 2.5, sm: 3 },
+          p: { [screen.mobile]: 1.5, [screen.tablet]: 1.5, [screen.desktop]: 3 },
           borderRadius: 2.5,
           bgcolor: 'background.paper',
         }}
@@ -1055,12 +1056,19 @@ function CreateMenuItemForm({
       <Paper
         variant="outlined"
         sx={{
-          p: { xs: 2.5, sm: 3 },
+          p: { [screen.mobile]: 1.5, [screen.tablet]: 1.5, [screen.desktop]: 3 },
           borderRadius: 2.5,
           bgcolor: 'background.paper',
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.0625rem', mb: 2 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 700,
+            fontSize: '1.0625rem',
+            mb: { [screen.mobile]: 1.5, [screen.tablet]: 1.5, [screen.desktop]: 2 },
+          }}
+        >
           Item Image
         </Typography>
 
@@ -1184,7 +1192,16 @@ function CreateMenuItemForm({
           </Box>
         ) : (
           <>
-            <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: { [screen.mobile]: 1.5, [screen.tablet]: 1.5, [screen.desktop]: 2 },
+                pt: { [screen.mobile]: 1.5, [screen.tablet]: 1.5, [screen.desktop]: 0 },
+              }}
+            >
               {/* Main / Active uploaded image */}
               <Box
                 onClick={!showPrimaryPreview ? () => fileInputRef.current?.click() : undefined}
@@ -1302,7 +1319,7 @@ function CreateMenuItemForm({
               >
                 <Plus size={22} />
               </Box>
-            </Stack>
+            </Box>
 
             <Typography
               variant="caption"

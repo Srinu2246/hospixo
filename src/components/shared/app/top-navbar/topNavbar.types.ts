@@ -1,4 +1,5 @@
 import type { SxProps, Theme } from '@mui/material/styles';
+import type { SidebarUserProfile } from '@/app/sidebar';
 import type { DropdownOption } from '@/components/shared/form-fields/Dropdown';
 
 /**
@@ -32,6 +33,11 @@ export interface BaseResponsiveNavbarProps {
   captainWorkspaceSubtitle?: string;
   /** Branch outlet selector on captain mobile (branch-manager routes). */
   showBranchSelector?: boolean;
+  /** Waiter captain-flow: profile avatar instead of sidebar hamburger. */
+  showProfileMenu?: boolean;
+  user?: SidebarUserProfile;
+  displayName?: string;
+  displayRole?: string;
   /** Optional layout style overrides from the caller */
   sx?: SxProps<Theme>;
 }
