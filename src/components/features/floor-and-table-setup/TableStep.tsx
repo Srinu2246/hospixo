@@ -4,54 +4,47 @@ import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { LayoutGrid, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { LayoutGrid, Pencil, Plus, Trash2 } from 'lucide-react';
 
+import { DeleteTableModal } from '@/components/features/floor-and-table-setup/DeleteTableModal';
+import { TablesToolbar } from '@/components/features/floor-and-table-setup/TablesToolbar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import { Dropdown } from '@/components/shared/form-fields/Dropdown';
-import { Input } from '@/components/shared/form-fields/Input';
 import { TableGenerateDialog } from '@/components/shared/ui/TableGenerateDialog';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import { filterTables, nextTableStart } from '@/lib/helpers/floorAndTableSetup';
 import {
-  ACTIVE_STATUS_FILTER_OPTIONS,
+  defaultTableRangeEnd,
+  filterTables,
+  nextTableStart,
+} from '@/lib/helpers/floorAndTableSetup';
+import {
   type ActiveStatusFilter,
+  type TableBulkEditInput,
   type TableDraft,
   type TableGenerateInput,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 
-const compactFilterDropdownSx = {
-  width: '100%',
-  height: 44,
-  '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
-} as const;
-
-const tableToolbarActionsGridSx = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-  gap: 1.25,
-  width: '100%',
-  alignItems: 'stretch',
-  '& > .MuiFormControl-root': { minWidth: 0 },
-  '& .MuiButton-root': { minHeight: 44, width: '100%' },
-} as const;
-
 export function TableStep({
   tables,
+  sections,
   onGenerate,
   onDelete,
   onToggleActive,
   onBulkEdit,
 }: Readonly<{
   tables: readonly TableDraft[];
+  sections: readonly { id: string; name: string }[];
   onGenerate: (input: TableGenerateInput) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string) => void;
-  onBulkEdit: () => void;
+  onBulkEdit: (input: TableBulkEditInput) => void;
 }>) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<ActiveStatusFilter>('all');
-  const [dialog, setDialog] = useState<'single' | 'bulk' | null>(null);
+  const [sectionId, setSectionId] = useState('all');
+  const [dialog, setDialog] = useState<'create' | 'bulk' | 'bulk-edit' | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<TableDraft | null>(null);
   const visible = filterTables(tables, query).filter((table) => {
+    if (sectionId !== 'all' && table.sectionId !== sectionId) return false;
     if (status === 'active') return table.active;
     if (status === 'inactive') return !table.active;
     return true;
@@ -73,37 +66,12 @@ export function TableStep({
           </Box>
           <ActionButton
             startIcon={<Plus size={16} />}
-            onClick={() => setDialog('single')}
+            onClick={() => setDialog('create')}
             sx={{ flexShrink: 0, height: 44, whiteSpace: 'nowrap' }}
           >
             Add Table
           </ActionButton>
         </Stack>
-        <Input
-          id="table-search-mobile"
-          fullWidth
-          placeholder="Search tables..."
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          startIcon={<Search size={16} />}
-        />
-        <Box sx={tableToolbarActionsGridSx}>
-          <Dropdown
-            placeholder="Status"
-            options={ACTIVE_STATUS_FILTER_OPTIONS}
-            value={status}
-            onChange={setStatus}
-            size="large"
-            minWidth={0}
-            sx={compactFilterDropdownSx}
-          />
-          <ActionButton variant="outlined" onClick={onBulkEdit}>
-            Bulk Edit
-          </ActionButton>
-          <ActionButton variant="outlined" onClick={() => setDialog('bulk')}>
-            Bulk Generate
-          </ActionButton>
-        </Box>
       </Stack>
 
       <Stack spacing={2} sx={{ display: { xs: 'none', md: 'flex' } }}>
@@ -118,28 +86,25 @@ export function TableStep({
               Manage and view configuration of layout tables
             </Typography>
           </Box>
-          <ActionButton startIcon={<Plus size={16} />} onClick={() => setDialog('single')}>
+          <ActionButton startIcon={<Plus size={16} />} onClick={() => setDialog('create')}>
             Add Table
           </ActionButton>
         </Stack>
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-          <Box sx={{ flex: 1, width: '100%', maxWidth: 320 }}>
-            <Input
-              id="table-search"
-              placeholder="Search tables..."
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              startIcon={<Search size={16} />}
-            />
-          </Box>
-          <ActionButton variant="outlined" onClick={onBulkEdit}>
-            Bulk Edit
-          </ActionButton>
-          <ActionButton variant="outlined" onClick={() => setDialog('bulk')}>
-            Bulk Generate
-          </ActionButton>
-        </Stack>
       </Stack>
+
+      <TablesToolbar
+        searchId="table-search"
+        query={query}
+        onQueryChange={setQuery}
+        sections={sections}
+        sectionId={sectionId}
+        onSectionChange={setSectionId}
+        status={status}
+        onStatusChange={setStatus}
+        bulkEditDisabled={tables.length === 0}
+        onBulkEdit={() => setDialog('bulk-edit')}
+        onBulkGenerate={() => setDialog('bulk')}
+      />
 
       {tables.length === 0 ? (
         <Box
@@ -180,7 +145,7 @@ export function TableStep({
               Get started by adding your first table to manage seating, layouts, and guest orders
               efficiently.
             </Typography>
-            <ActionButton startIcon={<Plus size={16} />} onClick={() => setDialog('single')}>
+            <ActionButton startIcon={<Plus size={16} />} onClick={() => setDialog('create')}>
               Add Your First Table
             </ActionButton>
           </Stack>
@@ -253,7 +218,7 @@ export function TableStep({
                     variant="icon"
                     size="small"
                     ariaLabel="Delete table"
-                    onClick={() => onDelete(table.id)}
+                    onClick={() => setPendingDelete(table)}
                   >
                     <Trash2 size={15} />
                   </ActionButton>
@@ -264,13 +229,28 @@ export function TableStep({
         </Box>
       )}
 
+      <DeleteTableModal
+        open={pendingDelete !== null}
+        tableName={pendingDelete?.number ?? ''}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          onDelete(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+      />
       <TableGenerateDialog
         open={dialog !== null}
-        bulk={dialog === 'bulk'}
+        mode={dialog ?? 'create'}
         start={nextTableStart(tables)}
+        end={defaultTableRangeEnd(nextTableStart(tables))}
         onClose={() => setDialog(null)}
         onGenerate={(input) => {
           onGenerate(input);
+          setDialog(null);
+        }}
+        onBulkEdit={(input) => {
+          onBulkEdit(input);
           setDialog(null);
         }}
       />

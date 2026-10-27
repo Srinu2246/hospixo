@@ -9,6 +9,7 @@ import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
+import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { StickyActionFooter } from '@/components/shared/ui/StickyActionFooter';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { FloorCatalog } from '@/components/features/floor-and-table-setup/FloorCatalog';
@@ -36,7 +37,7 @@ import {
   removeSection,
   removeTable,
   replaceSection,
-  toggleAllTables,
+  applyBulkTableEdit,
   toggleTableActive,
   unlinkSectionTables,
   withFloorCode,
@@ -61,11 +62,11 @@ const wizardStepLabel = {
 } as const;
 
 const wizardFooterPrimaryLabel = {
-  floor: 'Floor Create',
-  section: 'Section Create',
-  table: 'Table Create',
-  review: 'Create Floor',
-  reviewPending: 'Creating Floor',
+  floor: 'Save Floor',
+  section: 'Save Section',
+  table: 'Save Table',
+  review: 'Save & Exit',
+  reviewPending: 'Saving...',
 } as const;
 
 const wizardTabs = [
@@ -93,6 +94,7 @@ export function FloorSetupScreen() {
   const archiveFloorRequest = useArchiveFloor(branchId);
 
   const [nameError, setNameError] = useState<string | null>(null);
+  const [floorCanSave, setFloorCanSave] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const footerTarget = useAppShellFooterTarget();
   const theme = useTheme();
@@ -269,7 +271,10 @@ export function FloorSetupScreen() {
           onBack={goBackWizard}
           showPrimary={showWizardPrimary}
           primaryLabel={wizardPrimaryLabel}
-          primaryDisabled={step === 'review' && createFloorRequest.isPending}
+          primaryDisabled={
+            (step === 'floor' && !floorCanSave) ||
+            (step === 'review' && createFloorRequest.isPending)
+          }
           primaryLoading={step === 'review' && createFloorRequest.isPending}
           onPrimary={goNextWizard}
         />
@@ -296,7 +301,10 @@ export function FloorSetupScreen() {
         </ActionButton>
         {showWizardPrimary ? (
           <ActionButton
-            disabled={step === 'review' && createFloorRequest.isPending}
+            disabled={
+              (step === 'floor' && !floorCanSave) ||
+              (step === 'review' && createFloorRequest.isPending)
+            }
             loading={step === 'review' && createFloorRequest.isPending}
             onClick={goNextWizard}
           >
@@ -366,6 +374,25 @@ export function FloorSetupScreen() {
 
         {step ? (
           <>
+            <Breadcrumbs
+              items={[
+                {
+                  label: 'Floors List',
+                  href: route.base,
+                  onClick: (event) => {
+                    event.preventDefault();
+                    openStep('hub');
+                  },
+                },
+                { label: 'Add Floor', active: true },
+              ]}
+              linkSx={{
+                color: 'text.primary',
+                fontWeight: 500,
+                '&:hover': { color: 'primary.main', textDecoration: 'underline' },
+              }}
+              activeSx={{ color: 'primary.main', fontWeight: 600 }}
+            />
             <Tabs
               fullWidth={false}
               scrollable={belowDesktop}
@@ -386,6 +413,7 @@ export function FloorSetupScreen() {
               <FloorCreationStep
                 details={details}
                 nameError={displayNameError}
+                onCanSaveChange={setFloorCanSave}
                 onChange={(next) => save({ ...draft, details: next })}
               />
             ) : null}
@@ -409,6 +437,7 @@ export function FloorSetupScreen() {
             {step === 'table' ? (
               <TableStep
                 tables={tables}
+                sections={sections}
                 onGenerate={(input) =>
                   save({
                     ...draft,
@@ -421,7 +450,9 @@ export function FloorSetupScreen() {
                 }
                 onDelete={(id) => save({ ...draft, tables: removeTable(tables, id) })}
                 onToggleActive={(id) => save({ ...draft, tables: toggleTableActive(tables, id) })}
-                onBulkEdit={() => save({ ...draft, tables: toggleAllTables(tables) })}
+                onBulkEdit={(input) =>
+                  save({ ...draft, tables: applyBulkTableEdit(tables, input) })
+                }
               />
             ) : null}
             {step === 'review' ? (

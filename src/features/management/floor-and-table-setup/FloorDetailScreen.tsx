@@ -1,6 +1,8 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useRouter } from 'next/navigation';
@@ -9,29 +11,24 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { ChevronLeft } from 'lucide-react';
 
 import type { FloorTablesPanelActions } from '@/components/features/floor-and-table-setup/FloorTablesPanel';
 import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { StickyActionFooter } from '@/components/shared/ui/StickyActionFooter';
 import { FloorSectionsPanel } from '@/components/features/floor-and-table-setup/FloorSectionsPanel';
 import { FloorTablesPanel } from '@/components/features/floor-and-table-setup/FloorTablesPanel';
-import {
-  LabeledDropdown,
-  SetupCard,
-} from '@/components/features/floor-and-table-setup/SetupFields';
+import { SetupCard } from '@/components/features/floor-and-table-setup/SetupFields';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Tabs } from '@/components/shared/form-fields/Tabs';
+import { Breadcrumbs, type BreadcrumbItem } from '@/components/shared/ui/Breadcrumbs';
 import { Loading } from '@/components/shared/ui/Loading';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import type {
   CatalogFloor,
   CatalogSection,
   CatalogTable,
-  FloorActivity,
   FloorDetailTab,
-  FloorType,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import { floorDetailHref, type FloorDetailRoute } from '@/lib/helpers/floorAndTableSetup';
 import {
@@ -48,11 +45,76 @@ import {
   useUpdateSection,
 } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
-import { MOCK_FLOOR_ACTIVITY } from '@/lib/mocks/floor-and-table-setup/floorSetup.mocks';
 import { formatCreatedOn, isActiveRecord } from '@/lib/schemas/floor-and-table-setup/floors';
+import {
+  canSubmitSetupForm,
+  floorFormSchema,
+  type FloorFormValues,
+} from '@/lib/schemas/floor-and-table-setup/floorSetupFormSchema';
 import { screen } from '@/lib/theme/mui/breakpoints';
 
 const FLOOR_DETAIL_FORM_ID = 'floor-detail-form';
+
+function floorDetailCrumbs({
+  base,
+  floorId,
+  floorName,
+  section,
+  isNewSection,
+  editing,
+  onFloors,
+  onFloor,
+  onSection,
+}: Readonly<{
+  base: string;
+  floorId: string;
+  floorName: string;
+  section: { id: string; name: string } | null;
+  isNewSection: boolean;
+  editing: boolean;
+  onFloors: () => void;
+  onFloor: () => void;
+  onSection: (sectionId: string) => void;
+}>): BreadcrumbItem[] {
+  const floors: BreadcrumbItem = {
+    label: 'Floors List',
+    href: base,
+    onClick: (event) => {
+      event.preventDefault();
+      onFloors();
+    },
+  };
+  const inSection = Boolean(section) || isNewSection;
+  const floor: BreadcrumbItem = inSection
+    ? {
+        label: floorName,
+        href: floorDetailHref(base, floorId, 'sections'),
+        onClick: (event) => {
+          event.preventDefault();
+          onFloor();
+        },
+      }
+    : { label: floorName, active: true };
+
+  if (isNewSection) return [floors, floor, { label: 'Add Section', active: true }];
+  if (editing && section) {
+    return [
+      floors,
+      floor,
+      {
+        label: section.name,
+        href: floorDetailHref(base, floorId, 'sections', section.id),
+        onClick: (event) => {
+          event.preventDefault();
+          onSection(section.id);
+        },
+      },
+      { label: 'Edit Section', active: true },
+    ];
+  }
+  if (section) return [floors, floor, { label: section.name, active: true }];
+  return [floors, floor];
+}
 
 /** Sticky footer primary labels (mobile/tablet) — one action per detail tab. */
 const detailFooterPrimaryLabel = {
@@ -66,14 +128,6 @@ const detailTabs = [
   { value: 'floor', label: 'Floor' },
   { value: 'sections', label: 'Sections' },
   { value: 'tables', label: 'Tables' },
-  { value: 'history', label: 'History' },
-];
-
-const floorTypes: { id: FloorType; label: string }[] = [
-  { id: 'indoor', label: 'Indoor' },
-  { id: 'outdoor', label: 'Outdoor' },
-  { id: 'vip', label: 'VIP' },
-  { id: 'banquet', label: 'Banquet' },
 ];
 
 export function FloorDetailScreen({
@@ -121,13 +175,13 @@ export function FloorDetailScreen({
   const belowDesktop = useMediaQuery(theme.breakpoints.down('md'));
   const tablesPanelActionsRef = useRef<FloorTablesPanelActions | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [floorCanSave, setFloorCanSave] = useState(false);
   const record = floorQuery.data;
   const view: CatalogFloor | null = record
     ? {
         id: String(record.id),
         name: record.name,
         code: record.code ?? '',
-        type: 'indoor',
         description: record.description ?? '',
         active: isActiveRecord(record),
         branch: branchName,
@@ -143,7 +197,6 @@ export function FloorDetailScreen({
         maintenanceCount: tables.filter((table) => !table.active).length,
         sections: sectionsWithTables,
         tables,
-        activity: MOCK_FLOOR_ACTIVITY,
       }
     : null;
   const isNewSection = detail.sectionId === 'new';
@@ -236,15 +289,6 @@ export function FloorDetailScreen({
     }
   }
 
-  const title =
-    detail.editing && section
-      ? `Edit Section – ${section.name}`
-      : isNewSection
-        ? 'Add Section'
-        : section
-          ? `${section.name} Section`
-          : (view?.name ?? 'Floor');
-
   const footer =
     detail.tab === 'floor' ? (
       <StickyActionFooter
@@ -252,7 +296,9 @@ export function FloorDetailScreen({
         primaryLabel={detailFooterPrimaryLabel.floor}
         primaryType="submit"
         primaryForm={FLOOR_DETAIL_FORM_ID}
-        primaryDisabled={updateFloor.isPending || archiveFloor.isPending || restoreFloor.isPending}
+        primaryDisabled={
+          !floorCanSave || updateFloor.isPending || archiveFloor.isPending || restoreFloor.isPending
+        }
         primaryLoading={updateFloor.isPending}
       />
     ) : detail.tab === 'sections' && !detail.editing && !section ? (
@@ -307,58 +353,45 @@ export function FloorDetailScreen({
             pb: { xs: 2.5, md: 0 },
           }}
         >
-          <Tabs
-            fullWidth={false}
-            scrollable={belowDesktop}
-            showIndicator={!belowDesktop}
-            tabs={detailTabs}
-            value={detail.tab}
-            onChange={(value) => {
-              if (
-                value === 'overview' ||
-                value === 'floor' ||
-                value === 'sections' ||
-                value === 'tables' ||
-                value === 'history'
-              ) {
-                openTab(value);
-              }
-            }}
-          />
-        </Box>
-
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
-        >
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
-            <ActionButton
-              variant="icon"
-              ariaLabel="Back"
-              onClick={() => {
-                if (detail.editing && section) openSection(section.id);
-                else if (section) openTab('sections');
-                else router.push(base);
+          <Stack spacing={1.5}>
+            <Breadcrumbs
+              items={floorDetailCrumbs({
+                base,
+                floorId,
+                floorName: view.name,
+                section,
+                isNewSection,
+                editing: detail.editing,
+                onFloors: () => router.push(base),
+                onFloor: () => openTab(section || isNewSection ? 'sections' : 'overview'),
+                onSection: (sectionId) => openSection(sectionId),
+              })}
+              linkSx={{
+                color: 'text.primary',
+                fontWeight: 500,
+                '&:hover': { color: 'primary.main', textDecoration: 'underline' },
               }}
-            >
-              <ChevronLeft size={18} />
-            </ActionButton>
-            <Typography
-              sx={{
-                fontWeight: 800,
-                fontSize: { [screen.mobile]: '1.15rem', [screen.desktop]: '1.35rem' },
+              activeSx={{ color: 'primary.main', fontWeight: 600 }}
+            />
+            <Tabs
+              fullWidth={false}
+              scrollable={belowDesktop}
+              showIndicator={!belowDesktop}
+              tabs={detailTabs}
+              value={detail.tab}
+              onChange={(value) => {
+                if (
+                  value === 'overview' ||
+                  value === 'floor' ||
+                  value === 'sections' ||
+                  value === 'tables'
+                ) {
+                  openTab(value);
+                }
               }}
-            >
-              {title}
-            </Typography>
+            />
           </Stack>
-          {section && !detail.editing ? (
-            <ActionButton onClick={() => openSection(section.id, true)} sx={{ flexShrink: 0 }}>
-              Edit Section
-            </ActionButton>
-          ) : null}
-        </Stack>
+        </Box>
 
         {actionError ? <Alert severity="error">{actionError}</Alert> : null}
         {detail.tab === 'overview' ? (
@@ -366,7 +399,6 @@ export function FloorDetailScreen({
             floor={view}
             sections={sectionsWithTables}
             onOpenSection={(sectionId) => openSection(sectionId)}
-            onViewHistory={() => openTab('history')}
           />
         ) : null}
         {detail.tab === 'floor' ? (
@@ -374,6 +406,7 @@ export function FloorDetailScreen({
             key={`${view.id}-${record?.version ?? 0}`}
             floor={view}
             saving={updateFloor.isPending || archiveFloor.isPending || restoreFloor.isPending}
+            onCanSaveChange={setFloorCanSave}
             onSave={(values) => {
               void saveFloor(values);
             }}
@@ -423,8 +456,6 @@ export function FloorDetailScreen({
             }}
           />
         ) : null}
-        {detail.tab === 'history' ? <HistoryPanel activity={view.activity} /> : null}
-
         {footer ? (
           footerTarget ? (
             createPortal(
@@ -461,15 +492,11 @@ function OverviewPanel({
   floor,
   sections,
   onOpenSection,
-  onViewHistory,
 }: Readonly<{
   floor: CatalogFloor;
   sections: readonly CatalogSection[];
   onOpenSection: (sectionId: string) => void;
-  onViewHistory: () => void;
 }>) {
-  const recentActivity = floor.activity.slice(0, 4);
-
   return (
     <Stack spacing={2}>
       <SetupCard>
@@ -563,66 +590,6 @@ function OverviewPanel({
         <Stat label="Active Tables" value={floor.activeTableCount} />
         <Stat label="Inactive" value={floor.maintenanceCount} />
       </Box>
-
-      <SetupCard sx={{ pb: '15px' }}>
-        <Stack
-          direction="row"
-          sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}
-        >
-          <Typography sx={{ fontWeight: 800 }}>History</Typography>
-          <ActionButton variant="text" size="small" onClick={onViewHistory}>
-            View All
-          </ActionButton>
-        </Stack>
-        {recentActivity.length === 0 ? (
-          <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-            No history for this floor yet.
-          </Typography>
-        ) : (
-          <Stack spacing={1.25}>
-            {recentActivity.map((item) => (
-              <ActivityRow key={item.id} item={item} />
-            ))}
-          </Stack>
-        )}
-      </SetupCard>
-    </Stack>
-  );
-}
-
-function HistoryPanel({ activity }: Readonly<{ activity: readonly FloorActivity[] }>) {
-  return (
-    <Stack spacing={2}>
-      <Box>
-        <Typography sx={{ fontWeight: 800 }}>History</Typography>
-        <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-          Recent changes and activity for this floor
-        </Typography>
-      </Box>
-      <SetupCard>
-        {activity.length === 0 ? (
-          <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-            No history for this floor yet.
-          </Typography>
-        ) : (
-          <Stack spacing={1.5}>
-            {activity.map((item) => (
-              <ActivityRow key={item.id} item={item} />
-            ))}
-          </Stack>
-        )}
-      </SetupCard>
-    </Stack>
-  );
-}
-
-function ActivityRow({ item }: Readonly<{ item: FloorActivity }>) {
-  return (
-    <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 2 }}>
-      <Typography sx={{ fontWeight: 700, fontSize: '0.875rem' }}>{item.message}</Typography>
-      <Typography sx={{ color: 'text.secondary', fontSize: '0.8125rem', flexShrink: 0 }}>
-        {item.timeLabel}
-      </Typography>
     </Stack>
   );
 }
@@ -630,29 +597,45 @@ function ActivityRow({ item }: Readonly<{ item: FloorActivity }>) {
 function FloorPanel({
   floor,
   saving,
+  onCanSaveChange,
   onSave,
 }: Readonly<{
   floor: CatalogFloor;
   saving: boolean;
-  onSave: (values: { name: string; code: string; description: string; active: boolean }) => void;
+  onCanSaveChange: (canSave: boolean) => void;
+  onSave: (values: FloorFormValues) => void;
 }>) {
   const theme = useTheme();
   const belowDesktop = useMediaQuery(theme.breakpoints.down('md'));
-  const [name, setName] = useState(floor.name);
-  const [code, setCode] = useState(floor.code);
-  const [type, setType] = useState<FloorType>(floor.type);
-  const [description, setDescription] = useState(floor.description);
-  const [active, setActive] = useState(floor.active);
+  const { control, handleSubmit, trigger, formState } = useForm<FloorFormValues>({
+    resolver: zodResolver(floorFormSchema),
+    defaultValues: {
+      name: floor.name,
+      code: floor.code,
+      description: floor.description,
+      active: floor.active,
+    },
+    mode: 'onChange',
+  });
+  const canSave = canSubmitSetupForm('edit', formState) && !saving;
+
+  useEffect(() => {
+    void trigger();
+  }, [trigger]);
+
+  useEffect(() => {
+    onCanSaveChange(canSave);
+    return () => onCanSaveChange(false);
+  }, [canSave, onCanSaveChange]);
 
   return (
     <Box
       component="form"
       id={FLOOR_DETAIL_FORM_ID}
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!name.trim() || saving) return;
-        onSave({ name, code, description, active });
-      }}
+      onSubmit={handleSubmit((values) => {
+        if (!canSave) return;
+        onSave(values);
+      })}
     >
       <SetupCard>
         <Typography sx={{ fontWeight: 800, mb: 2, display: { xs: 'none', md: 'block' } }}>
@@ -668,57 +651,83 @@ function FloorPanel({
             gap: 2,
           }}
         >
-          <Input
-            id="detail-floor-name"
-            label="Floor Name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
+          <Controller
+            name="name"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Input
+                id="detail-floor-name"
+                label="Floor Name"
+                required
+                value={field.value}
+                error={fieldState.isTouched && Boolean(fieldState.error)}
+                helperText={fieldState.isTouched ? fieldState.error?.message : undefined}
+                onBlur={field.onBlur}
+                onChange={field.onChange}
+              />
+            )}
           />
-          <Input
-            id="detail-floor-code"
-            label="Floor Code"
-            helperText={belowDesktop ? 'Assigned code for orders routing' : undefined}
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-          />
-          <LabeledDropdown
-            label="Floor Type"
-            options={floorTypes}
-            value={type}
-            onChange={setType}
+          <Controller
+            name="code"
+            control={control}
+            render={({ field }) => (
+              <Input
+                id="detail-floor-code"
+                label="Floor Code"
+                helperText={belowDesktop ? 'Assigned code for orders routing' : undefined}
+                value={field.value}
+                onBlur={field.onBlur}
+                onChange={field.onChange}
+              />
+            )}
           />
         </Box>
         <Box sx={{ mt: 2 }}>
-          <Input
-            id="detail-floor-description"
-            label="Description"
-            placeholder={belowDesktop ? 'Enter floor description' : undefined}
-            value={description}
-            multiline
-            rows={3}
-            onChange={(event) => setDescription(event.target.value)}
+          <Controller
+            name="description"
+            control={control}
+            render={({ field }) => (
+              <Input
+                id="detail-floor-description"
+                label="Description"
+                placeholder={belowDesktop ? 'Enter floor description' : undefined}
+                value={field.value}
+                multiline
+                rows={3}
+                onBlur={field.onBlur}
+                onChange={field.onChange}
+              />
+            )}
           />
         </Box>
         <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ display: { xs: 'block', md: 'none' } }}>
-            <LabeledSwitch
-              title="Floor Status"
-              hint="Toggle active visibility on checkout POS channels"
-              checked={active}
-              onChange={setActive}
-            />
-          </Box>
-          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-            <LabeledSwitch
-              title="Floor Status"
-              hint="Inactive floors are archived. Turning a floor back on restores it."
-              checked={active}
-              onChange={setActive}
-            />
-          </Box>
+          <Controller
+            name="active"
+            control={control}
+            render={({ field }) => (
+              <>
+                <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+                  <LabeledSwitch
+                    title="Floor Status"
+                    hint="Toggle active visibility on checkout POS channels"
+                    checked={field.value}
+                    onChange={field.onChange}
+                  />
+                </Box>
+                <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                  <LabeledSwitch
+                    title="Floor Status"
+                    hint="Inactive floors are archived. Turning a floor back on restores it."
+                    checked={field.value}
+                    onChange={field.onChange}
+                  />
+                </Box>
+              </>
+            )}
+          />
         </Box>
         <Box sx={{ mt: 2, display: { xs: 'none', md: 'flex' }, justifyContent: 'flex-end' }}>
-          <ActionButton type="submit" disabled={saving || !name.trim()}>
+          <ActionButton type="submit" disabled={!canSave}>
             Save Changes
           </ActionButton>
         </Box>

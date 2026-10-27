@@ -1,13 +1,10 @@
 export type WizardStep = 'floor' | 'section' | 'table' | 'review';
 
-export type FloorType = 'indoor' | 'outdoor' | 'vip' | 'banquet';
-
 export type FloorSort = 'recent' | 'name' | 'tables';
 
 export type FloorDetails = {
   name: string;
   code: string;
-  type: FloorType | '';
   description: string;
   active: boolean;
 };
@@ -51,7 +48,15 @@ export type TableGenerateInput = {
   reservations: boolean;
 };
 
-export type FloorDetailTab = 'overview' | 'floor' | 'sections' | 'tables' | 'history';
+export type TableBulkEditInput = {
+  start: string;
+  end: string;
+  seats: number;
+  active: boolean;
+  reservations: boolean;
+};
+
+export type FloorDetailTab = 'overview' | 'floor' | 'sections' | 'tables';
 
 /** Shared active/inactive list filter (floors, sections, tables). */
 export const ActiveStatusFilter = {
@@ -79,14 +84,9 @@ export type FloorSummary = {
   code: string;
   active: boolean;
   tableCount: number | null;
+  seatCount: number | null;
   updatedAt: number;
   updatedLabel: string;
-};
-
-export type FloorActivity = {
-  id: string;
-  message: string;
-  timeLabel: string;
 };
 
 export type CatalogSection = {
@@ -121,7 +121,6 @@ export type CatalogFloor = {
   id: string;
   name: string;
   code: string;
-  type: FloorType;
   description: string;
   active: boolean;
   branch: string;
@@ -137,5 +136,4 @@ export type CatalogFloor = {
   maintenanceCount: number;
   sections: CatalogSection[];
   tables: CatalogTable[];
-  activity: FloorActivity[];
 };

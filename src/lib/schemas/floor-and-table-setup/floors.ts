@@ -10,6 +10,14 @@ import { ApiError } from '@/services/api/types';
 const nullableText = z.string().nullable().optional();
 const nullableNumber = z.number().nullable().optional();
 
+const floorListSectionSchema = z.object({
+  id: z.number(),
+  name: z.string().optional(),
+  code: nullableText,
+  table_count: z.number().nullish(),
+  seat_count: z.number().nullish(),
+});
+
 export const floorRecordSchema = z.object({
   id: z.number(),
   public_id: nullableText,
@@ -28,6 +36,20 @@ export const floorRecordSchema = z.object({
   code: nullableText,
 });
 
+const floorListItemSchema = floorRecordSchema.extend({
+  table_count: z.number().nullish(),
+  seat_count: z.number().nullish(),
+  sections: z.preprocess((value) => {
+    if (!Array.isArray(value)) return value;
+    return value.filter(
+      (item) =>
+        item != null &&
+        typeof item === 'object' &&
+        typeof (item as { id?: unknown }).id === 'number',
+    );
+  }, z.array(floorListSectionSchema).nullish()),
+});
+
 export const sectionRecordSchema = floorRecordSchema.extend({
   floor_id: nullableNumber,
   is_default: z.boolean().nullable().optional(),
@@ -43,7 +65,7 @@ const envelope = <T extends z.ZodType>(data: T) =>
 
 export const floorListSchema = envelope(
   z.object({
-    items: z.array(floorRecordSchema),
+    items: z.array(floorListItemSchema),
     total: z.number(),
     page: nullableNumber,
     page_size: nullableNumber,
@@ -122,6 +144,7 @@ export const floorMapSchema = envelope(
 );
 
 export type FloorRecord = z.infer<typeof floorRecordSchema>;
+export type FloorListItem = z.infer<typeof floorListItemSchema>;
 export type SectionRecord = z.infer<typeof sectionRecordSchema>;
 export type TableRecord = z.infer<typeof tableRecordSchema>;
 
@@ -175,7 +198,7 @@ export type MoveTableBody = {
   version: number;
 };
 
-export function parseFloorList(payload: unknown): FloorRecord[] {
+export function parseFloorList(payload: unknown): FloorListItem[] {
   const parsed = floorListSchema.safeParse(payload);
   if (!parsed.success || !parsed.data.success) {
     throw new ApiError('Unexpected floors response', 502);
@@ -200,11 +223,15 @@ export function parseSectionList(payload: unknown): SectionRecord[] {
 }
 
 export function parseTableList(payload: unknown): TableRecord[] {
+  return parseTableListPage(payload).items;
+}
+
+export function parseTableListPage(payload: unknown): { items: TableRecord[]; total: number } {
   const parsed = tableListSchema.safeParse(payload);
   if (!parsed.success || !parsed.data.success) {
     throw new ApiError('Unexpected tables response', 502);
   }
-  return parsed.data.data.items;
+  return { items: parsed.data.data.items, total: parsed.data.data.total };
 }
 
 export function parseTableRecord(payload: unknown): TableRecord {
@@ -255,14 +282,28 @@ export function parseSectionRecord(payload: unknown): SectionRecord {
   return parsed.data.data;
 }
 
-export function toFloorSummary(floor: FloorRecord): FloorSummary {
+export function toFloorSummary(floor: FloorListItem): FloorSummary {
   const updated = updatedStamp(floor.updated_at);
+  const sections = floor.sections ?? [];
+  const sectionTables = sections.flatMap((section) =>
+    typeof section.table_count === 'number' ? [section.table_count] : [],
+  );
+  const sectionSeats = sections.flatMap((section) =>
+    typeof section.seat_count === 'number' ? [section.seat_count] : [],
+  );
   return {
     id: String(floor.id),
     name: floor.name,
     code: floor.code ?? '',
     active: isActiveRecord(floor),
-    tableCount: null,
+    tableCount:
+      floor.table_count ??
+      (sectionTables.length > 0 ? sectionTables.reduce((total, count) => total + count, 0) : null),
+    seatCount:
+      floor.seat_count ??
+      (sectionSeats.length === sections.length && sections.length > 0
+        ? sectionSeats.reduce((total, count) => total + count, 0)
+        : null),
     updatedAt: updated.at,
     updatedLabel: updated.label,
   };

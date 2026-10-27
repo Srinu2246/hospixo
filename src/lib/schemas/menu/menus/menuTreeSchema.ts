@@ -30,16 +30,6 @@ const menuTreeCategoryRefSchema = z.object({
   status: z.string().optional(),
 });
 
-const menuTreeGstRateSchema = z.object({
-  id: coerceInt,
-  code: z.string().optional(),
-  name: z.string().optional(),
-  cgst_rate: coerceNum.optional(),
-  sgst_rate: coerceNum.optional(),
-  igst_rate: coerceNum.optional(),
-  total_rate: coerceNum.optional(),
-});
-
 const menuTreeImageSchema = z.object({
   id: coerceInt.optional(),
   url: nullableText,

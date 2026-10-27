@@ -1,7 +1,9 @@
 import { TypographyVariantsOptions } from '@mui/material';
 
+import { APP_FONT_FAMILY } from './font';
+
 export const typography: TypographyVariantsOptions = {
-  fontFamily: 'Arial, Helvetica, sans-serif',
+  fontFamily: APP_FONT_FAMILY,
 
   h1: {
     fontSize: '2.5rem',

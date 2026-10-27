@@ -10,7 +10,6 @@ import type {
 import {
   dashboardAmountAsNumber,
   formatDashboardAmount,
-  formatNullableDashboardAmount,
   mapTaxSummaryToTaxItems,
 } from '@/lib/helpers/companyDashboardHelpers';
 

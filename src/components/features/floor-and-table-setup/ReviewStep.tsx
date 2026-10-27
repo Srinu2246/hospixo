@@ -10,7 +10,7 @@ import { LayoutGrid } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SetupCard } from '@/components/features/floor-and-table-setup/SetupFields';
 import { screen } from '@/lib/theme/mui/breakpoints';
-import { floorTypeLabel, sectionStats } from '@/lib/helpers/floorAndTableSetup';
+import { sectionStats } from '@/lib/helpers/floorAndTableSetup';
 import type {
   FloorDetails,
   SectionDraft,
@@ -60,8 +60,6 @@ export function ReviewStep({
             <Value>{details.name}</Value>
             <Label>Floor Code</Label>
             <Value>{details.code}</Value>
-            <Label>Floor Type</Label>
-            <Value>{floorTypeLabel(details.type)}</Value>
             <Label>Floor Status</Label>
             <Switch checked={details.active} disabled color="primary" />
           </Box>

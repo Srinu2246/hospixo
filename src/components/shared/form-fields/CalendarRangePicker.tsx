@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import IconButton from '@mui/material/IconButton';
@@ -105,13 +105,16 @@ export function CalendarRangePicker({
   const isControlledPopover = openProp !== undefined;
   const anchorEl = isControlledPopover ? (anchorElProp ?? null) : internalAnchorEl;
   const open = isControlledPopover ? Boolean(openProp) : Boolean(internalAnchorEl);
-
-  useEffect(() => {
-    if (!open) return;
-    setViewDate(startOfDay(dateFrom));
-    setDraftFrom(startOfDay(dateFrom));
-    setDraftTo(startOfDay(dateTo));
-  }, [open, dateFrom, dateTo]);
+  const rangeKey = `${dateFrom.getTime()}-${dateTo.getTime()}`;
+  const [syncedRange, setSyncedRange] = useState({ open, rangeKey });
+  if (open !== syncedRange.open || (open && rangeKey !== syncedRange.rangeKey)) {
+    setSyncedRange({ open, rangeKey });
+    if (open) {
+      setViewDate(startOfDay(dateFrom));
+      setDraftFrom(startOfDay(dateFrom));
+      setDraftTo(startOfDay(dateTo));
+    }
+  }
 
   const label = useMemo(() => formatCalendarRangeLabel(dateFrom, dateTo), [dateFrom, dateTo]);
 

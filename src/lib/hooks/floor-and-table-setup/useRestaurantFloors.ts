@@ -13,10 +13,12 @@ import {
   parseFloorMapTables,
   parseTableBulk,
   parseTableList,
+  parseTableListPage,
   parseTableRecord,
   toCatalogSection,
   toCatalogTable,
   toFloorSummary,
+  type FloorListItem,
   type ArchiveBody,
   type BulkCreateTablesBody,
   type BulkUpdateTablesBody,
@@ -75,7 +77,7 @@ export function useFloors(branchId: number | undefined, status: FloorStatusFilte
         listParams(status),
         signal,
       );
-      return parseFloorList(payload).map(toFloorSummary);
+      return withFloorSeatCounts(branchId as number, parseFloorList(payload), signal);
     },
   });
 }
@@ -123,12 +125,21 @@ export function useSectionTables(
       const lists = await Promise.all(
         sections.map(async (section) => {
           if (!/^\d+$/.test(section.id)) return [];
-          const payload = await api.get(
-            restaurantSectionTablesPath(branchId as number, floorId as number, Number(section.id)),
-            { page: 1, page_size: 50 },
+          const rows = await listSectionTables(
+            branchId as number,
+            floorId as number,
+            Number(section.id),
             signal,
           );
-          return parseTableList(payload).map((table) => toCatalogTable(table, section.name));
+          return rows.map((table) =>
+            toCatalogTable(
+              {
+                ...table,
+                section_id: table.section_id ?? Number(section.id),
+              },
+              section.name,
+            ),
+          );
         }),
       );
       return lists.flat();
@@ -468,6 +479,69 @@ export function useRestoreSection(branchId: number | undefined) {
       await invalidateSections(queryClient, branchId, input.floorId);
     },
   });
+}
+
+async function withFloorSeatCounts(
+  branchId: number,
+  floors: readonly FloorListItem[],
+  signal: AbortSignal,
+) {
+  return Promise.all(
+    floors.map(async (floor) => {
+      const summary = toFloorSummary(floor);
+      if (summary.seatCount != null) return summary;
+      try {
+        const sectionIds = await floorSectionIds(branchId, floor, signal);
+        const groups = await Promise.all(
+          sectionIds.map((sectionId) => listSectionTables(branchId, floor.id, sectionId, signal)),
+        );
+        const tables = groups.flat();
+        return {
+          ...summary,
+          tableCount: summary.tableCount ?? tables.length,
+          seatCount: tables.reduce((total, table) => total + (table.capacity ?? 0), 0),
+        };
+      } catch {
+        return { ...summary, tableCount: summary.tableCount ?? 0, seatCount: 0 };
+      }
+    }),
+  );
+}
+
+async function floorSectionIds(branchId: number, floor: FloorListItem, signal: AbortSignal) {
+  if (floor.sections && floor.sections.length > 0) {
+    return floor.sections.map((section) => section.id);
+  }
+  const payload = await api.get(
+    restaurantFloorSectionsPath(branchId, floor.id),
+    { page: 1, page_size: 50 },
+    signal,
+  );
+  return parseSectionList(payload).map((section) => section.id);
+}
+
+async function listSectionTables(
+  branchId: number,
+  floorId: number,
+  sectionId: number,
+  signal: AbortSignal,
+) {
+  const items: ReturnType<typeof parseTableList> = [];
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+  while (items.length < total && page <= 20) {
+    const payload = await api.get(
+      restaurantSectionTablesPath(branchId, floorId, sectionId),
+      { page, page_size: 100 },
+      signal,
+    );
+    const batch = parseTableListPage(payload);
+    items.push(...batch.items);
+    total = batch.total;
+    if (batch.items.length === 0) break;
+    page += 1;
+  }
+  return items;
 }
 
 async function invalidateFloor(

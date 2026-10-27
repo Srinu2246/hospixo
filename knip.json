@@ -15,8 +15,7 @@
     "@babel/preset-typescript",
     "@locator/babel-jsx",
     "@locator/webpack-loader",
-    "@treelocator/runtime",
-    "lint-staged"
+    "@treelocator/runtime"
   ],
   "ignoreIssues": {
     "src/lib/mocks/reports/reports.mocks.ts": ["exports"],

@@ -4,25 +4,29 @@ import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 
+import { DeleteTableModal } from '@/components/features/floor-and-table-setup/DeleteTableModal';
 import {
   EditTableDialog,
-  nextTableNames,
   numericId,
 } from '@/components/features/floor-and-table-setup/EditTableDialog';
+import { TablesToolbar } from '@/components/features/floor-and-table-setup/TablesToolbar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import { Dropdown } from '@/components/shared/form-fields/Dropdown';
-import { Input } from '@/components/shared/form-fields/Input';
-import { Modal } from '@/components/shared/ui/Modal';
+import { TableGenerateDialog } from '@/components/shared/ui/TableGenerateDialog';
 import {
-  ACTIVE_STATUS_FILTER_OPTIONS,
   type ActiveStatusFilter,
   type CatalogSection,
   type CatalogTable,
+  type TableBulkEditInput,
+  type TableGenerateInput,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
+import {
+  defaultTableRangeEnd,
+  generateTables,
+  nextTableStart,
+  tableNumberInRange,
+} from '@/lib/helpers/floorAndTableSetup';
 import {
   useArchiveTable,
   useBulkCreateTables,
@@ -36,22 +40,6 @@ import {
 import { toCatalogTable } from '@/lib/schemas/floor-and-table-setup/floors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useToastStore } from '@/stores/toastStore';
-
-const compactFilterDropdownSx = {
-  width: '100%',
-  height: 44,
-  '& .MuiSelect-select': { overflow: 'hidden', textOverflow: 'ellipsis' },
-} as const;
-
-const tableToolbarActionsGridSx = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-  gap: 1.25,
-  width: '100%',
-  alignItems: 'stretch',
-  '& > .MuiFormControl-root': { minWidth: 0 },
-  '& .MuiButton-root': { minHeight: 44, width: '100%' },
-} as const;
 
 export type FloorTablesPanelActions = {
   openAddTable: () => void;
@@ -72,8 +60,10 @@ export function FloorTablesPanel({
 }>) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<ActiveStatusFilter>('all');
+  const [sectionId, setSectionId] = useState('all');
   const [editing, setEditing] = useState<CatalogTable | null>(null);
-  const [bulkOpen, setBulkOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<CatalogTable | null>(null);
+  const [dialog, setDialog] = useState<'create' | 'bulk' | 'bulk-edit' | null>(null);
   const showToast = useToastStore((state) => state.show);
   const createTable = useCreateTable(branchId);
   const updateTable = useUpdateTable(branchId);
@@ -88,14 +78,11 @@ export function FloorTablesPanel({
   const editingTable = tableQuery.data
     ? toCatalogTable(tableQuery.data, editing?.area ?? '')
     : editing;
-  const theme = useTheme();
-  const belowDesktop = useMediaQuery(theme.breakpoints.down('md'));
   const needle = query.trim().toLowerCase();
   const visible = tables.filter((item) => {
-    if (belowDesktop) {
-      if (status === 'active' && !item.active) return false;
-      if (status === 'inactive' && item.active) return false;
-    }
+    if (sectionId !== 'all' && item.sectionId !== sectionId) return false;
+    if (status === 'active' && !item.active) return false;
+    if (status === 'inactive' && item.active) return false;
     return !needle || item.number.toLowerCase().includes(needle);
   });
   const saving =
@@ -180,7 +167,7 @@ export function FloorTablesPanel({
   async function archiveById(table: CatalogTable) {
     const sectionId = numericId(table.sectionId);
     const tableId = numericId(table.id);
-    if (floorId == null || sectionId == null || tableId == null) return;
+    if (floorId == null || sectionId == null || tableId == null) return false;
     try {
       await archiveTable.mutateAsync({
         floorId,
@@ -188,18 +175,25 @@ export function FloorTablesPanel({
         tableId,
         body: { reason: 'Archived', version: table.version ?? 0 },
       });
+      return true;
     } catch {
       // Error toast is shown by the API client (POST/PATCH).
+      return false;
     }
   }
 
-  async function bulkEdit() {
+  async function bulkEdit(input: TableBulkEditInput) {
     if (floorId == null) return;
     const groups = new Map<number, CatalogTable[]>();
     for (const table of tables) {
       const sectionId = numericId(table.sectionId);
       if (numericId(table.id) == null || sectionId == null) continue;
+      if (!tableNumberInRange(table.number, input.start, input.end)) continue;
       groups.set(sectionId, [...(groups.get(sectionId) ?? []), table]);
+    }
+    if (groups.size === 0) {
+      showToast('No tables fall in that number range.', 'error');
+      return;
     }
     try {
       for (const [sectionId, group] of groups) {
@@ -211,56 +205,72 @@ export function FloorTablesPanel({
               table_id: Number(table.id),
               name: table.number,
               description: table.description ?? '',
-              capacity: table.seats,
+              capacity: input.seats,
               sort_order: table.sortOrder ?? 0,
-              status: table.active ? 'inactive' : 'active',
+              status: input.active ? 'active' : 'inactive',
               version: table.version ?? 0,
             })),
           },
         });
       }
+      setDialog(null);
     } catch {
       // Error toast is shown by the API client (POST/PATCH).
     }
   }
 
-  async function bulkGenerate(sectionId: number, count: number, seats: number) {
-    if (floorId == null || count < 1) return;
+  async function bulkGenerate(sectionId: number, input: TableGenerateInput) {
+    if (floorId == null || input.count < 1) return;
+    const created = generateTables(
+      input,
+      tables.map((table) => ({
+        id: table.id,
+        number: table.number,
+        seats: table.seats,
+        active: table.active,
+        reservations: table.reservations,
+        sectionId: table.sectionId,
+      })),
+      [],
+    );
+    if (created.length === 0) return;
     try {
       await bulkCreateTables.mutateAsync({
         floorId,
         sectionId,
         body: {
-          items: nextTableNames(tables, count).map((name, index) => ({
-            name,
+          items: created.map((table, index) => ({
+            name: table.number,
             description: '',
-            capacity: seats,
+            capacity: table.seats,
             sort_order: tables.length + index,
           })),
         },
       });
-      setBulkOpen(false);
+      setDialog(null);
     } catch {
       // Error toast is shown by the API client (POST/PATCH).
     }
   }
 
   function openAddTable() {
-    setEditing({
-      id: `t-${Date.now()}`,
-      number: nextTableNames(tables, 1)[0] ?? 'T001',
-      seats: 4,
-      active: true,
-      reservations: true,
-      sectionId: sections[0]?.id ?? '',
-      area: sections[0]?.name ?? '',
-      shape: 'Square',
-    });
+    setDialog('create');
   }
 
   useEffect(() => {
     onRegisterActions?.({ openAddTable });
   });
+
+  const tableStart = nextTableStart(
+    tables.map((table) => ({
+      id: table.id,
+      number: table.number,
+      seats: table.seats,
+      active: table.active,
+      reservations: table.reservations,
+      sectionId: table.sectionId,
+    })),
+  );
 
   return (
     <Stack spacing={{ xs: 2, md: 2 }}>
@@ -284,41 +294,6 @@ export function FloorTablesPanel({
             Add Table
           </ActionButton>
         </Stack>
-        <Input
-          id="catalog-table-search-mobile"
-          fullWidth
-          placeholder="Search tables..."
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          startIcon={<Search size={16} />}
-        />
-        <Box sx={tableToolbarActionsGridSx}>
-          <Dropdown
-            placeholder="Status"
-            options={ACTIVE_STATUS_FILTER_OPTIONS}
-            value={status}
-            onChange={setStatus}
-            size="large"
-            minWidth={0}
-            sx={compactFilterDropdownSx}
-          />
-          <ActionButton
-            variant="outlined"
-            disabled={saving || tables.length === 0}
-            onClick={() => {
-              void bulkEdit();
-            }}
-          >
-            Bulk Edit
-          </ActionButton>
-          <ActionButton
-            variant="outlined"
-            disabled={saving || sections.length === 0}
-            onClick={() => setBulkOpen(true)}
-          >
-            Bulk Generate
-          </ActionButton>
-        </Box>
       </Stack>
 
       <Stack
@@ -341,46 +316,20 @@ export function FloorTablesPanel({
         </ActionButton>
       </Stack>
 
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{
-          alignItems: 'center',
-          minWidth: 0,
-          display: { xs: 'none', md: 'flex' },
-        }}
-      >
-        <Box sx={{ flex: '1 1 0', minWidth: 0, maxWidth: 280 }}>
-          <Input
-            id="catalog-table-search"
-            fullWidth
-            placeholder="Search tables..."
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            startIcon={<Search size={16} />}
-          />
-        </Box>
-        <ActionButton
-          variant="outlined"
-          size="large"
-          disabled={saving || tables.length === 0}
-          onClick={() => {
-            void bulkEdit();
-          }}
-          sx={{ flexShrink: 0, height: 44, px: 2 }}
-        >
-          Bulk Edit
-        </ActionButton>
-        <ActionButton
-          variant="outlined"
-          size="large"
-          disabled={saving || sections.length === 0}
-          onClick={() => setBulkOpen(true)}
-          sx={{ flexShrink: 0, height: 44, px: 2 }}
-        >
-          Bulk Generate
-        </ActionButton>
-      </Stack>
+      <TablesToolbar
+        searchId="catalog-table-search"
+        query={query}
+        onQueryChange={setQuery}
+        sections={sections}
+        sectionId={sectionId}
+        onSectionChange={setSectionId}
+        status={status}
+        onStatusChange={setStatus}
+        bulkEditDisabled={saving || tables.length === 0}
+        bulkGenerateDisabled={saving || sections.length === 0}
+        onBulkEdit={() => setDialog('bulk-edit')}
+        onBulkGenerate={() => setDialog('bulk')}
+      />
 
       <Box
         sx={{
@@ -459,9 +408,7 @@ export function FloorTablesPanel({
                   variant="icon"
                   size="small"
                   ariaLabel={`Delete ${item.number}`}
-                  onClick={() => {
-                    void archiveById(item);
-                  }}
+                  onClick={() => setPendingDelete(item)}
                 >
                   <Trash2 size={15} />
                 </ActionButton>
@@ -471,6 +418,18 @@ export function FloorTablesPanel({
         ))}
       </Box>
 
+      <DeleteTableModal
+        open={pendingDelete !== null}
+        tableName={pendingDelete?.number ?? ''}
+        loading={archiveTable.isPending}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          void archiveById(pendingDelete).then((removed) => {
+            if (removed) setPendingDelete(null);
+          });
+        }}
+      />
       <EditTableDialog
         table={editingTable}
         sections={sections}
@@ -480,83 +439,23 @@ export function FloorTablesPanel({
           void saveTable(next);
         }}
       />
-      {bulkOpen ? (
-        <BulkGenerateDialog
-          sections={sections}
-          saving={saving}
-          onClose={() => setBulkOpen(false)}
-          onCreate={(sectionId, count, seats) => {
-            void bulkGenerate(sectionId, count, seats);
-          }}
-        />
-      ) : null}
-    </Stack>
-  );
-}
-
-function BulkGenerateDialog({
-  sections,
-  saving,
-  onClose,
-  onCreate,
-}: Readonly<{
-  sections: readonly CatalogSection[];
-  saving: boolean;
-  onClose: () => void;
-  onCreate: (sectionId: number, count: number, seats: number) => void;
-}>) {
-  const [sectionId, setSectionId] = useState(sections[0]?.id ?? '');
-  const [count, setCount] = useState('4');
-  const [seats, setSeats] = useState('4');
-  const parsedCount = Number(count);
-  const parsedSeats = Number(seats);
-
-  return (
-    <Modal open onClose={onClose} title="Bulk Generate" width={440} height="auto">
-      <Stack
-        component="form"
-        spacing={2}
-        onSubmit={(event) => {
-          event.preventDefault();
-          const id = numericId(sectionId);
-          if (id == null || parsedCount < 1 || parsedSeats < 1) return;
-          onCreate(id, parsedCount, parsedSeats);
+      <TableGenerateDialog
+        open={dialog !== null}
+        mode={dialog ?? 'create'}
+        start={tableStart}
+        end={defaultTableRangeEnd(tableStart)}
+        saving={saving}
+        sections={sections}
+        onClose={() => setDialog(null)}
+        onGenerate={(input, sectionId) => {
+          const id = numericId(sectionId ?? sections[0]?.id);
+          if (id == null) return;
+          void bulkGenerate(id, input);
         }}
-      >
-        <Stack spacing={0.75}>
-          <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>Section</Typography>
-          <Dropdown
-            options={sections.map((section) => ({ id: section.id, label: section.name }))}
-            value={sectionId}
-            onChange={setSectionId}
-            minWidth="100%"
-            sx={{ width: '100%' }}
-          />
-        </Stack>
-        <Input
-          id="bulk-table-count"
-          label="Number of tables"
-          value={count}
-          onChange={(event) => setCount(event.target.value.replace(/[^\d]/g, ''))}
-        />
-        <Input
-          id="bulk-table-seats"
-          label="Seats per table"
-          value={seats}
-          onChange={(event) => setSeats(event.target.value.replace(/[^\d]/g, ''))}
-        />
-        <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end' }}>
-          <ActionButton variant="outlined" type="button" onClick={onClose}>
-            Cancel
-          </ActionButton>
-          <ActionButton
-            type="submit"
-            disabled={saving || numericId(sectionId) == null || parsedCount < 1 || parsedSeats < 1}
-          >
-            Generate
-          </ActionButton>
-        </Stack>
-      </Stack>
-    </Modal>
+        onBulkEdit={(input) => {
+          void bulkEdit(input);
+        }}
+      />
+    </Stack>
   );
 }
