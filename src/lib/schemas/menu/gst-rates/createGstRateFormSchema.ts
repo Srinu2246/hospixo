@@ -61,7 +61,11 @@ export const createGstRateFormFieldsSchema = z
     }
   });
 
+/** Parsed form values (after Zod refinements). */
 export type CreateGstRateFormValues = z.infer<typeof createGstRateFormFieldsSchema>;
+
+/** Raw form state passed into `parseCreateGstRateForm` (dates may be null). */
+export type CreateGstRateFormInput = z.input<typeof createGstRateFormFieldsSchema>;
 
 export function mapCreateGstRateFormIssues(error: z.ZodError): CreateGstRateFormFieldErrors {
   const fieldErrors: CreateGstRateFormFieldErrors = {};
@@ -100,7 +104,7 @@ export type ParseCreateGstRateFormResult =
 
 /** Validate form input and map to POST body. */
 export function parseCreateGstRateForm(
-  input: CreateGstRateFormValues,
+  input: CreateGstRateFormInput,
 ): ParseCreateGstRateFormResult {
   const parsed = createGstRateFormFieldsSchema.safeParse(input);
   if (!parsed.success) {
