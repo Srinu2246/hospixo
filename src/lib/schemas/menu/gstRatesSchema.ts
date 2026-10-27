@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 import { ApiError } from '@/services/api/types';
 
+/** Default list page size from GET /v1/restaurant/gst-rates. */
+export const GST_RATES_LIST_PAGE_SIZE = 15;
+
 const nullableText = z.string().nullable().optional();
 const nullableNumber = z.number().nullable().optional();
 
@@ -30,7 +33,7 @@ export const createGstRateBodySchema = z.object({
   cgst_rate: z.coerce.number().min(0, 'CGST must be 0 or greater'),
   sgst_rate: z.coerce.number().min(0, 'SGST must be 0 or greater'),
   igst_rate: z.coerce.number().min(0, 'IGST must be 0 or greater'),
-  total_rate: z.coerce.number().min(0).optional(),
+  total_rate: z.coerce.number().min(0, 'Total rate must be 0 or greater'),
   effective_from: z.string().min(1, 'Effective from is required'),
   effective_to: z.string().optional(),
 });

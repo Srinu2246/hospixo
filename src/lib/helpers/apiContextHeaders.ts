@@ -1,4 +1,5 @@
 import type { MenuCataloguePageScope } from '@/lib/helpers/menuBranchContext';
+import { matchesScopeSlug } from '@/lib/helpers/routing/routingHelpers';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 function positiveInt(value: unknown): number | undefined {
@@ -14,6 +15,19 @@ export function resolveCatalogueRouteScopeFromPathname(
   if (pathname.includes('/branch-manager/')) return 'branch';
   if (pathname.includes('/company/')) return 'company';
   if (pathname.includes('/organization/')) return 'organization';
+
+  const firstSegment = pathname.split('/').filter(Boolean)[0];
+  if (!firstSegment) return undefined;
+
+  const { context } = useSidebarStore.getState();
+  const companySlug = context.companySlug ?? context.companyName;
+  const orgSlug = context.organizationSlug ?? context.organizationName;
+  const branchSlug = context.branchSlug ?? context.branchName;
+
+  if (matchesScopeSlug(firstSegment, companySlug)) return 'company';
+  if (matchesScopeSlug(firstSegment, orgSlug)) return 'organization';
+  if (matchesScopeSlug(firstSegment, branchSlug)) return 'branch';
+
   return undefined;
 }
 

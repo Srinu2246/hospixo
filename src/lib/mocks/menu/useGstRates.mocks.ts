@@ -1,3 +1,4 @@
+import { resolveGstSlabRates } from '@/lib/helpers/gstRatesHelpers';
 import {
   createGstRateBodySchema,
   gstRateListSchema,
@@ -14,15 +15,12 @@ type MockRequest = {
   body?: unknown;
 };
 
-const ORGANIZATION_ID = 126;
-const COMPANY_ID = 94;
-
-/** Seed GST slabs matching GET/POST /v1/restaurant/gst-rates (api.md). */
+/** Seed rows for mock mode only; validated against gstRateSchema (not used in production UI). */
 export const MOCK_GST_RATES: GstRate[] = gstRateListSchema.parse([
   {
     id: 1,
-    organization_id: ORGANIZATION_ID,
-    company_id: COMPANY_ID,
+    organization_id: 0,
+    company_id: 0,
     code: 'GST_2',
     name: 'Main course',
     cgst_rate: 2.5,
@@ -37,8 +35,8 @@ export const MOCK_GST_RATES: GstRate[] = gstRateListSchema.parse([
   },
   {
     id: 2,
-    organization_id: ORGANIZATION_ID,
-    company_id: COMPANY_ID,
+    organization_id: 0,
+    company_id: 0,
     code: 'ITM',
     name: 'starters',
     cgst_rate: 1.5,
@@ -83,19 +81,18 @@ function filterRates(params?: QueryParams): GstRate[] {
 
 function createRate(body: CreateGstRateBody): GstRate {
   const now = new Date().toISOString();
-  const total =
-    body.total_rate ?? Number((body.cgst_rate + body.sgst_rate + body.igst_rate).toFixed(2));
+  const rates = resolveGstSlabRates(body.cgst_rate, body.sgst_rate, body.igst_rate);
   const rate: GstRate = {
     id: nextId++,
-    organization_id: ORGANIZATION_ID,
-    company_id: COMPANY_ID,
+    organization_id: 0,
+    company_id: 0,
     code: body.code,
     name: body.name,
-    cgst_rate: body.cgst_rate,
-    sgst_rate: body.sgst_rate,
-    igst_rate: body.igst_rate,
-    total_rate: total,
-    effective_from: body.effective_from,
+    cgst_rate: rates.cgst_rate,
+    sgst_rate: rates.sgst_rate,
+    igst_rate: rates.igst_rate,
+    total_rate: rates.total_rate,
+    effective_from: body.effective_from ?? now,
     effective_to: body.effective_to || null,
     is_active: true,
     created_at: now,
