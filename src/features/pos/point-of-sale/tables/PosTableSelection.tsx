@@ -14,10 +14,14 @@ import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Loading } from '@/components/shared/ui/Loading';
 import { Toast } from '@/components/shared/ui/Toast';
-import {
-  ReservationDialog,
-  type NewReservationFormData,
-} from '@/features/pos/point-of-sale/reservation/ReservationDialog';
+
+// RESERVATION FEATURE (HIDDEN): Uncomment below when re-enabling table reservations
+// RESERVATION FEATURE (HIDDEN): Uncomment below when re-enabling table reservations
+// import {
+//   ReservationDialog,
+//   type NewReservationFormData,
+// } from '@/features/pos/point-of-sale/reservation/ReservationDialog';
+
 import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway/TakeawayPage';
 import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
 import {
@@ -137,7 +141,11 @@ export function PosTableSelection({
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTableId, setSelectedTableId] = useState(initialSelectedTableId);
   const [manualActiveTable, setManualActiveTable] = useState<PosTableItem | null>(null);
-  const [isReservationOpen, setIsReservationOpen] = useState(false);
+
+  // RESERVATION FEATURE (HIDDEN): Dialog open state for creating table reservations
+  // RESERVATION FEATURE (HIDDEN): Dialog open state for creating table reservations
+  // const [isReservationOpen, setIsReservationOpen] = useState(false);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [pendingAvailableTable, setPendingAvailableTable] = useState<PosTableItem | null>(null);
 
@@ -320,34 +328,35 @@ export function PosTableSelection({
       ? undefined
       : selectedTableMatch;
 
-  const handleConfirmReservation = (data: NewReservationFormData) => {
-    const targetTable =
-      (selectedTable && selectedTable.status !== 'occupied' ? selectedTable : null) ||
-      tables.find((t) => t.status === 'available');
+  // RESERVATION FEATURE (HIDDEN): Handler to save/mock table reservations
+  // const handleConfirmReservation = (data: NewReservationFormData) => {
+  //   const targetTable =
+  //     (selectedTable && selectedTable.status !== 'occupied' ? selectedTable : null) ||
+  //     tables.find((t) => t.status === 'available');
 
-    if (targetTable) {
-      setTableOverrides((prev) => ({
-        ...prev,
-        [targetTable.id]: {
-          status: 'reserved',
-          guests: data.guestCount,
-          time: data.time,
-          message: `Reserved: ${data.guest}`,
-          waiter: data.guest,
-        },
-      }));
-      setSelectedTableId(targetTable.id);
-      setToastMessage(
-        `✓ Table ${targetTable.name} successfully reserved for ${data.guest} (${data.guestCount} guests) at ${data.time}!`,
-      );
-    } else {
-      setToastMessage(
-        `✓ Reservation confirmed for ${data.guest} (${data.guestCount} guests) on ${data.date} at ${data.time}!`,
-      );
-    }
+  //   if (targetTable) {
+  //     setTableOverrides((prev) => ({
+  //       ...prev,
+  //       [targetTable.id]: {
+  //         status: 'reserved',
+  //         guests: data.guestCount,
+  //         time: data.time,
+  //         message: `Reserved: ${data.guest}`,
+  //         waiter: data.guest,
+  //       },
+  //     }));
+  //     setSelectedTableId(targetTable.id);
+  //     setToastMessage(
+  //       `✓ Table ${targetTable.name} successfully reserved for ${data.guest} (${data.guestCount} guests) at ${data.time}!`,
+  //     );
+  //   } else {
+  //     setToastMessage(
+  //       `✓ Reservation confirmed for ${data.guest} (${data.guestCount} guests) on ${data.date} at ${data.time}!`,
+  //     );
+  //   }
 
-    setIsReservationOpen(false);
-  };
+  //   setIsReservationOpen(false);
+  // };
 
   /** Navigate to the table menu, optionally with a created/open order id. */
   const navigateToTableMenu = (t: PosTableItem, orderId?: string | null) => {
@@ -692,6 +701,7 @@ export function PosTableSelection({
             ) : null}
           </Box>
 
+          {/* RESERVATION FEATURE (HIDDEN): Top-right "Reservation" action button
           {!isDineIn ? (
             <ActionButton
               variant="primary"
@@ -708,7 +718,7 @@ export function PosTableSelection({
             >
               Reservation
             </ActionButton>
-          ) : null}
+          ) : null} */}
         </Box>
 
         {floorsQuery.isError ? (
@@ -793,6 +803,7 @@ export function PosTableSelection({
                 Occupied
               </Typography>
             </Box>
+            {/* RESERVATION FEATURE (HIDDEN): "Reserved" red dot indicator in status legend
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Box
                 sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colors.danger.default }}
@@ -800,7 +811,7 @@ export function PosTableSelection({
               <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                 Reserved
               </Typography>
-            </Box>
+            </Box> */}
           </Stack>
         </Box>
       </Box>
@@ -840,8 +851,7 @@ export function PosTableSelection({
               No active dine-in tables
             </Typography>
             <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem', maxWidth: 360 }}>
-              Reserved or ordered tables will show up here. Open Tables to seat guests or start a
-              reservation.
+              Active or ordered tables will show up here. Open Tables to seat guests.
             </Typography>
             <ActionButton
               variant="primary"
@@ -897,13 +907,14 @@ export function PosTableSelection({
         )}
       </Box>
 
+      {/* RESERVATION FEATURE (HIDDEN): Reservation modal dialog
       <ReservationDialog
         open={isReservationOpen}
         onClose={() => setIsReservationOpen(false)}
         onConfirm={handleConfirmReservation}
         title={selectedTable ? `Reserve Table ${selectedTable.name}` : 'Reserve a Table'}
         initialData={{ guestCount: selectedTable?.guests || 2 }}
-      />
+      /> */}
 
       <OpenTableOrderDialog
         open={Boolean(pendingAvailableTable)}

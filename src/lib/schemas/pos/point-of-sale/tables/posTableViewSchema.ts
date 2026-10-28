@@ -52,6 +52,7 @@ export const DINE_IN_TABLE_STATUSES: readonly PosTableStatus[] = [
 export const DINE_IN_STATUS_FILTERS: PosStatusFilter[] = [
   { id: 'all', label: 'All' },
   { id: 'occupied', label: 'Occupied' },
-  { id: 'reserved', label: 'Reserved' },
+  // RESERVATION FEATURE (HIDDEN): Uncomment below to restore the "Reserved" status filter in Dine-In
+  // { id: 'reserved', label: 'Reserved' },
   { id: 'billing', label: 'Billing' },
 ];
