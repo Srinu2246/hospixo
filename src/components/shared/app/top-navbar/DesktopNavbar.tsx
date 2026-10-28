@@ -3,11 +3,9 @@
 import React from 'react';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
-import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import type { SxProps, Theme } from '@mui/material/styles';
@@ -63,7 +61,7 @@ export interface DesktopNavbarProps {
  * Dedicated desktop navigation bar rendered on medium-and-larger screens (`xs: 'none', md: 'flex'`).
  * Sections:
  * - Left: Outlets dropdown selector
- * - Right: Action controls (AI Agent, Explore Products, Theme switch, Notifications, Settings, Profile menu)
+ * - Right: Action controls (Explore Products, Theme switch, Notifications, Profile menu)
  */
 export function DesktopNavbar({
   outletOptions,
@@ -74,10 +72,8 @@ export function DesktopNavbar({
   isBranchView,
   mode,
   onToggleMode,
-  onAiAgentClick,
   onExploreProductsClick,
   onNotificationClick,
-  onSettingsClick,
   user,
   displayName,
   displayRole,
@@ -89,7 +85,7 @@ export function DesktopNavbar({
         {
           display: { xs: 'none', md: 'flex' },
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: hideOutletSelector ? 'flex-end' : 'space-between',
           width: '100%',
         },
         ...(Array.isArray(sx) ? sx : [sx]),
@@ -118,31 +114,7 @@ export function DesktopNavbar({
       ) : null}
 
       {/* DESKTOP Right Section */}
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-        {/* AI Agent Button */}
-        {showManagementActions && (
-          <ActionButton
-            variant="outlined"
-            size="medium"
-            startIcon={<HeadsetMicOutlinedIcon sx={{ fontSize: 18 }} />}
-            onClick={onAiAgentClick}
-            sx={{
-              display: { xs: 'none', sm: 'inline-flex' },
-              borderRadius: '8px',
-              borderColor: (theme) => theme.palette.divider,
-              color: (theme) => theme.palette.text.primary,
-              fontWeight: 600,
-              fontSize: '0.84375rem',
-              '&:hover': {
-                borderColor: (theme) => theme.palette.text.secondary,
-                backgroundColor: 'action.hover',
-              },
-            }}
-          >
-            AI Agent
-          </ActionButton>
-        )}
-
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', ml: 'auto' }}>
         {/* Explore Products Button (hidden on branch-manager routes as per Figma) */}
         {showManagementActions && !isBranchView && (
           <ActionButton
@@ -212,29 +184,6 @@ export function DesktopNavbar({
               }}
             >
               <NotificationsNoneOutlinedIcon sx={{ fontSize: 20 }} />
-            </ActionButton>
-          </span>
-        </Tooltip>
-
-        {/* Settings Button */}
-        <Tooltip title="Settings">
-          <span>
-            <ActionButton
-              variant="icon"
-              size="medium"
-              ariaLabel="Open settings"
-              onClick={onSettingsClick}
-              sx={{
-                borderRadius: '8px',
-                borderColor: (theme) => theme.palette.divider,
-                color: (theme) => theme.palette.text.secondary,
-                '&:hover': {
-                  color: (theme) => theme.palette.text.primary,
-                  backgroundColor: 'action.hover',
-                },
-              }}
-            >
-              <SettingsOutlinedIcon sx={{ fontSize: 20 }} />
             </ActionButton>
           </span>
         </Tooltip>

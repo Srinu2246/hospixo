@@ -137,7 +137,7 @@ export function MobileNavbar({
       </Box>
 
       {/* Mobile Right: Notifications + profile (waiter) or sidebar menu */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
         <NavNotificationButton onClick={onNotificationClick} />
         {showProfileMenu ? (
           <ProfileMenu
