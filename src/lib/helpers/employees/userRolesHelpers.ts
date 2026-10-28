@@ -53,11 +53,42 @@ export type EmployeeDirectoryQueryOptions = {
   lockCompanyField: boolean;
 };
 
+/** Branch label: user/draft input first, then session, then name from branch catalog API. */
+export function resolveSessionBranchDisplay(hints: {
+  formBranch?: string | null;
+  contextBranchName?: string | null;
+  accountBranchName?: string | null;
+  catalogBranchName?: string | null;
+}): string {
+  for (const value of [
+    hints.formBranch,
+    hints.contextBranchName,
+    hints.accountBranchName,
+    hints.catalogBranchName,
+  ]) {
+    const trimmed = value?.trim();
+    if (trimmed && !isFallbackEntityName(trimmed)) return trimmed;
+  }
+  return '';
+}
+
+/** Branch-bound sessions must not load company lists or company-by-id (403 on branch tokens). */
+export function isBranchAuthenticatedSession(input: {
+  authScope?: string | null;
+  accountBranchId?: number | null;
+}): boolean {
+  const scope = input.authScope?.toLowerCase();
+  if (scope === 'branch') return true;
+  if (input.accountBranchId == null) return false;
+  return scope !== 'company' && scope !== 'organization';
+}
+
 /** Company-scoped logins load one company; org admins load the full directory on org routes. */
 export function resolveEmployeeDirectoryOptions(input: {
   wizardScope: ScopeType;
   contextCompanyId?: number;
   accountCompanyId?: number;
+  accountBranchId?: number;
   role?: string | null;
   authScope?: string | null;
 }): EmployeeDirectoryQueryOptions {
@@ -73,9 +104,15 @@ export function resolveEmployeeDirectoryOptions(input: {
     return { companyId: undefined, directoryScope: 'organization', lockCompanyField: false };
   }
 
-  if (input.wizardScope === 'branch') {
+  if (
+    input.wizardScope === 'branch' ||
+    isBranchAuthenticatedSession({
+      authScope: input.authScope,
+      accountBranchId: input.accountBranchId,
+    })
+  ) {
     return {
-      companyId: sessionCompanyId,
+      companyId: undefined,
       directoryScope: 'branch',
       lockCompanyField: true,
     };
@@ -422,6 +459,36 @@ export async function loadEmployeeDirectory(
   const { organizationId, companyId, session, role, authScope, scope } = input;
 
   const directoryScope = scope ?? (companyId != null ? 'company' : 'organization');
+  const isBranchScope = directoryScope === 'branch';
+  const isBranchAuth = isBranchAuthenticatedSession({
+    authScope,
+    accountBranchId: session.branchId,
+  });
+  // Branch-authenticated users must not hit company/branch list or company detail APIs.
+  if (isBranchAuth) {
+    return enrichDirectoryWithSession([], [], {
+      companyId: companyId ?? session.companyId,
+      companyName: session.companyName,
+      branchId: session.branchId,
+      branchName: session.branchName,
+    });
+  }
+
+  const sessionBranchName = session.branchName?.trim();
+  const hasSessionBranch =
+    session.branchId != null &&
+    Boolean(sessionBranchName) &&
+    !isFallbackEntityName(sessionBranchName);
+
+  if (isBranchScope && hasSessionBranch) {
+    return enrichDirectoryWithSession([], [], {
+      companyId: companyId ?? session.companyId,
+      companyName: session.companyName,
+      branchId: session.branchId,
+      branchName: sessionBranchName,
+    });
+  }
+
   const directoryContext = { role, authScope, scope: directoryScope };
 
   const branches = await loadBranchDirectory(
@@ -430,8 +497,6 @@ export async function loadEmployeeDirectory(
     get,
     directoryContext,
   ).catch(() => []);
-
-  const isBranchScope = directoryScope === 'branch';
 
   const mayListAllCompanies =
     !isBranchScope &&

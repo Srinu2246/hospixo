@@ -70,10 +70,11 @@ export function UsersAndRolesScreen({
         wizardScope: resolvedScope,
         contextCompanyId,
         accountCompanyId,
+        accountBranchId,
         role,
         authScope,
       }),
-    [resolvedScope, contextCompanyId, accountCompanyId, role, authScope],
+    [resolvedScope, contextCompanyId, accountCompanyId, accountBranchId, role, authScope],
   );
   const directory = useEmployeeDirectory(organizationId, directoryQuery.companyId, {
     scope: directoryQuery.directoryScope,

@@ -33,11 +33,14 @@ import {
   useRolePermissions,
 } from '@/lib/hooks/employees/user-roles';
 import {
+  isBranchAuthenticatedSession,
   isFallbackEntityName,
   resolveEmployeeDirectoryOptions,
+  resolveSessionBranchDisplay,
 } from '@/lib/helpers/employees/userRolesHelpers';
 import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 import { useResolvedBranchName } from '@/lib/hooks/useResolvedBranchName';
+import { useSessionBranchCatalog } from '@/lib/hooks/useSessionBranchCatalog';
 
 import {
   RoleTemplateSelection,
@@ -68,7 +71,18 @@ export function CreateUserMultiformFlow({
   const router = useRouter();
   const pathname = usePathname() || '';
   const resolvedScope = resolveScopeFromPathname(pathname, scope);
-  const effectiveCompanyName = useResolvedCompanyName(companyName, { scope: resolvedScope });
+  const authScopeEarly = useSidebarStore((state) => state.account?.scope ?? '');
+  const accountBranchIdEarly = useSidebarStore((state) => state.account?.branch_id ?? undefined);
+  const isBranchWizard =
+    resolvedScope === 'branch' ||
+    isBranchAuthenticatedSession({
+      authScope: authScopeEarly,
+      accountBranchId: accountBranchIdEarly,
+    });
+  const resolvedCompanyNameFromHook = useResolvedCompanyName(companyName, {
+    scope: isBranchWizard ? 'branch' : resolvedScope,
+  });
+  const effectiveCompanyName = isBranchWizard ? undefined : resolvedCompanyNameFromHook;
 
   const [toastFeedback, setToastFeedback] = useState<{
     open: boolean;
@@ -100,10 +114,33 @@ export function CreateUserMultiformFlow({
     setIsSubmitting,
     setCategories,
     setScope,
+    setFormValues,
     reset,
   } = useCreateUserStore();
 
-  const effectiveBranchName = useResolvedBranchName(formValues.branch, { scope: resolvedScope });
+  const contextBranchName = useSidebarStore((state) => state.context.branchName);
+  const accountBranchName = useSidebarStore(
+    (state) =>
+      (state.account as { branch_name?: string | null } | null | undefined)?.branch_name ??
+      undefined,
+  );
+
+  const resolvedBranchNameFromHook = useResolvedBranchName(
+    isBranchWizard ? undefined : formValues.branch,
+    { scope: resolvedScope },
+  );
+  const branchCatalog = useSessionBranchCatalog({ enabled: isBranchWizard });
+  const catalogBranchNameForSession =
+    branchCatalog.activeBranchName ?? branchCatalog.resolveBranchName(accountBranchIdEarly);
+
+  const effectiveBranchName = isBranchWizard
+    ? resolveSessionBranchDisplay({
+        formBranch: formValues.branch,
+        contextBranchName,
+        accountBranchName,
+        catalogBranchName: catalogBranchNameForSession,
+      }) || undefined
+    : resolvedBranchNameFromHook;
 
   const getStepFromPathname = (): CreateUserStep | undefined => {
     if (pathname.endsWith('/template')) return 'template';
@@ -153,19 +190,37 @@ export function CreateUserMultiformFlow({
   const directoryQuery = useMemo(
     () =>
       resolveEmployeeDirectoryOptions({
-        wizardScope: resolvedScope,
+        wizardScope: isBranchWizard ? 'branch' : resolvedScope,
         contextCompanyId,
         accountCompanyId,
+        accountBranchId,
         role,
         authScope,
       }),
-    [resolvedScope, contextCompanyId, accountCompanyId, role, authScope],
+    [
+      isBranchWizard,
+      resolvedScope,
+      contextCompanyId,
+      accountCompanyId,
+      accountBranchId,
+      role,
+      authScope,
+    ],
   );
-  const directory = useEmployeeDirectory(organizationId, directoryQuery.companyId, {
-    scope: directoryQuery.directoryScope,
-  });
+  const directory = useEmployeeDirectory(
+    isBranchWizard ? undefined : organizationId,
+    isBranchWizard ? undefined : directoryQuery.companyId,
+    {
+      scope: isBranchWizard ? 'branch' : directoryQuery.directoryScope,
+      enabled: !isBranchWizard,
+    },
+  );
 
   const resolvedBranchId = useMemo(() => {
+    if (isBranchWizard) {
+      if (contextBranchId != null) return Number(contextBranchId);
+      if (accountBranchId != null) return Number(accountBranchId);
+    }
     const branchCandidate =
       (formValues.branch && !isFallbackEntityName(formValues.branch)
         ? formValues.branch
@@ -186,9 +241,17 @@ export function CreateUserMultiformFlow({
       return Number(directory.data.branches[0].id);
     }
     return undefined;
-  }, [contextBranchId, accountBranchId, effectiveBranchName, formValues.branch, directory.data]);
+  }, [
+    isBranchWizard,
+    contextBranchId,
+    accountBranchId,
+    effectiveBranchName,
+    formValues.branch,
+    directory.data,
+  ]);
 
   const resolvedCompanyId = useMemo(() => {
+    if (isBranchWizard) return undefined;
     // 1. If resolvedBranchId is known, the branch's companyId is the absolute authority
     if (resolvedBranchId != null) {
       const branchObj = directory.data?.branches?.find(
@@ -231,6 +294,7 @@ export function CreateUserMultiformFlow({
     if (firstCompanyId != null) return Number(firstCompanyId);
     return undefined;
   }, [
+    isBranchWizard,
     resolvedBranchId,
     formValues.branch,
     formValues.company,
@@ -265,14 +329,16 @@ export function CreateUserMultiformFlow({
     );
   }, [roleCatalog, activeRoleName, selectedRoleId]);
 
+  const reviewWizardScope = isBranchWizard ? 'branch' : resolvedScope;
+
   const reviewAssignment = useMemo(
-    () => resolveRoleAssignmentRequirements(activeRoleName, roleCatalog, resolvedScope),
-    [activeRoleName, roleCatalog, resolvedScope],
+    () => resolveRoleAssignmentRequirements(activeRoleName, roleCatalog, reviewWizardScope),
+    [activeRoleName, roleCatalog, reviewWizardScope],
   );
 
   const showBranchOnSuccess = useMemo(
-    () => shouldShowBranchInUserSummary(activeRoleName, roleCatalog, resolvedScope),
-    [activeRoleName, roleCatalog, resolvedScope],
+    () => shouldShowBranchInUserSummary(activeRoleName, roleCatalog, reviewWizardScope),
+    [activeRoleName, roleCatalog, reviewWizardScope],
   );
 
   const resolvedRoleId = useMemo(() => {
@@ -289,11 +355,15 @@ export function CreateUserMultiformFlow({
       const byName = resolveRoleId(roleCandidate.trim(), roleCatalog);
       if (byName != null) return byName;
     }
-    if (selectedRoleId != null && selectedRoleId !== '') {
-      return selectedRoleId;
-    }
     if (currentRoleCatalogItem?.id != null) {
       return currentRoleCatalogItem.id;
+    }
+    if (
+      selectedRoleId != null &&
+      selectedRoleId !== '' &&
+      roleCatalog.some((item) => String(item.id) === String(selectedRoleId))
+    ) {
+      return selectedRoleId;
     }
     if (selectedTemplate?.id && !isNaN(Number(selectedTemplate.id))) {
       return selectedTemplate.id;
@@ -309,13 +379,14 @@ export function CreateUserMultiformFlow({
     );
   }, [currentRoleCatalogItem?.description, selectedTemplate]);
 
+  const permissionsCompanyId =
+    contextCompanyId ?? accountCompanyId ?? resolvedCompanyId ?? undefined;
+  const permissionsBranchId = resolvedBranchId ?? contextBranchId ?? accountBranchId ?? undefined;
+
   const rolePermissionsQuery = useRolePermissions(resolvedRoleId, {
-    scope: resolvedScope,
-    companyId: resolvedCompanyId ?? contextCompanyId ?? accountCompanyId,
-    branchId:
-      resolvedScope === 'branch'
-        ? (resolvedBranchId ?? contextBranchId ?? accountBranchId)
-        : undefined,
+    scope: isBranchWizard ? 'branch' : resolvedScope,
+    companyId: permissionsCompanyId,
+    branchId: isBranchWizard ? permissionsBranchId : undefined,
   });
 
   const permissionsData = rolePermissionsQuery.data;
@@ -323,6 +394,41 @@ export function CreateUserMultiformFlow({
     if (!permissionsData) return [];
     return parseRolePermissionsToCategories(permissionsData);
   }, [permissionsData]);
+
+  const branchWizardFormValues = useMemo((): CreateUserFormValues => {
+    if (!isBranchWizard) return formValues;
+    const branchLabel = resolveSessionBranchDisplay({
+      formBranch: formValues.branch,
+      contextBranchName,
+      accountBranchName,
+      catalogBranchName:
+        branchCatalog.activeBranchName ??
+        branchCatalog.resolveBranchName(contextBranchId ?? accountBranchId),
+    });
+    return { ...formValues, branch: branchLabel, company: '' };
+  }, [
+    isBranchWizard,
+    formValues,
+    contextBranchName,
+    accountBranchName,
+    contextBranchId,
+    accountBranchId,
+    branchCatalog.activeBranchName,
+    branchCatalog.resolveBranchName,
+  ]);
+
+  const reviewFormValues = useMemo((): CreateUserFormValues => {
+    const base = isBranchWizard ? branchWizardFormValues : formValues;
+    const role =
+      activeRoleName?.trim() || base.role?.trim() || selectedTemplate?.roleName?.trim() || '';
+    return role && role !== base.role ? { ...base, role } : base;
+  }, [
+    isBranchWizard,
+    branchWizardFormValues,
+    formValues,
+    activeRoleName,
+    selectedTemplate?.roleName,
+  ]);
 
   const effectiveCategories = useMemo(() => {
     if (rolePermissionsCategories.length > 0) {
@@ -409,17 +515,21 @@ export function CreateUserMultiformFlow({
       };
 
       await createStaffUser.mutateAsync({
-        values: formValues,
+        values: branchWizardFormValues,
         categories: activeCategories,
         ids,
       });
+
+      setFormValues(branchWizardFormValues);
 
       const snapshotState = useCreateUserStore.getState();
       saveCreateUserSuccessSnapshot(formDraftStorageKey, {
         scope: snapshotState.scope,
         selectedTemplate: snapshotState.selectedTemplate,
         selectedRoleId: snapshotState.selectedRoleId,
-        formValues: showBranchOnSuccess ? formValues : { ...formValues, branch: '' },
+        formValues: showBranchOnSuccess
+          ? branchWizardFormValues
+          : { ...branchWizardFormValues, branch: '' },
         categories: activeCategories,
       });
       onUserCreated?.(formValues);
@@ -552,9 +662,9 @@ export function CreateUserMultiformFlow({
 
             {currentStep === 'review' && isDraftReady && (
               <ReviewAndSaveStepThree
-                formValues={formValues}
+                formValues={reviewFormValues}
                 assignment={reviewAssignment}
-                wizardScope={resolvedScope}
+                wizardScope={isBranchWizard ? 'branch' : resolvedScope}
                 selectedTemplate={
                   selectedTemplate
                     ? {

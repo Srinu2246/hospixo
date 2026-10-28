@@ -11,9 +11,21 @@ import {
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { isFallbackEntityName } from '@/lib/helpers/employees/userRolesHelpers';
 
+function isBranchSessionScope(
+  resolvedScope: ScopeType,
+  accountScope?: string | null,
+  contextBranchId?: number | null,
+): boolean {
+  return (
+    resolvedScope === 'branch' ||
+    accountScope?.toLowerCase() === 'branch' ||
+    contextBranchId != null
+  );
+}
+
 /**
- * Resolves the active branch display name from directory lookup or session without fallback strings.
- * Strictly uses useMemo derivation (no useEffect).
+ * Resolves the active branch display name from session or directory (no useEffect).
+ * Branch-authenticated sessions never trigger directory HTTP — names come from context/account only.
  */
 export function useResolvedBranchName(
   explicitName?: string,
@@ -21,7 +33,6 @@ export function useResolvedBranchName(
 ): string | undefined {
   const pathname = usePathname() || '';
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
-  const contextCompanyId = useSidebarStore((state) => state.context.companyId);
   const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const account = useSidebarStore((state) => state.account);
   const accountBranchId = account?.branch_id ?? undefined;
@@ -30,17 +41,35 @@ export function useResolvedBranchName(
   );
 
   const resolvedScope = resolveScopeFromPathname(pathname, options?.scope);
-  const isBranchScope =
-    resolvedScope === 'branch' || account?.scope === 'branch' || contextBranchId != null;
+  const isBranchScope = isBranchSessionScope(
+    resolvedScope,
+    account?.scope,
+    contextBranchId ?? accountBranchId,
+  );
 
-  const companyId = contextCompanyId ?? account?.company_id ?? undefined;
   const branchId = contextBranchId ?? accountBranchId;
 
-  const directory = useEmployeeDirectory(organizationId, companyId, {
-    scope: isBranchScope ? 'branch' : companyId != null ? 'company' : 'organization',
+  const candidateExplicit = explicitName?.trim();
+  const validExplicit =
+    candidateExplicit && !isFallbackEntityName(candidateExplicit) ? candidateExplicit : undefined;
+
+  const candidateContext = contextBranchName?.trim();
+  const validContext =
+    candidateContext && !isFallbackEntityName(candidateContext) ? candidateContext : undefined;
+
+  const fromAccountRaw = readBranchNameFromAccount(account);
+  const validAccount =
+    fromAccountRaw && !isFallbackEntityName(fromAccountRaw) ? fromAccountRaw : undefined;
+
+  const sessionBranchName = validContext || validAccount || validExplicit;
+
+  const directory = useEmployeeDirectory(organizationId, undefined, {
+    scope: 'branch',
+    enabled: !isBranchScope,
   });
 
   const fromDirectory = useMemo(() => {
+    if (isBranchScope) return undefined;
     const branches = directory.data?.branches ?? [];
     if (branches.length === 0) return undefined;
 
@@ -67,15 +96,20 @@ export function useResolvedBranchName(
 
     const firstReal = branches.find((b) => !isFallbackEntityName(b.name));
     return firstReal?.name?.trim();
-  }, [directory.data?.branches, branchId, explicitName, contextBranchName]);
+  }, [isBranchScope, directory.data?.branches, branchId, explicitName, contextBranchName]);
 
-  const candidateExplicit = explicitName?.trim();
-  const validExplicit =
-    candidateExplicit && !isFallbackEntityName(candidateExplicit) ? candidateExplicit : undefined;
-
-  const candidateContext = contextBranchName?.trim();
-  const validContext =
-    candidateContext && !isFallbackEntityName(candidateContext) ? candidateContext : undefined;
+  if (isBranchScope) {
+    return sessionBranchName || undefined;
+  }
 
   return fromDirectory || validExplicit || validContext || undefined;
+}
+
+function readBranchNameFromAccount(
+  account: { branch_name?: string; scope?: string } | null | undefined,
+): string | undefined {
+  if (!account) return undefined;
+  const flat = account.branch_name?.trim();
+  if (flat) return flat;
+  return undefined;
 }

@@ -10,6 +10,7 @@ import type { JsonValue } from '@/types/json';
 import {
   enrichDirectoryWithSession,
   enrichUserListCompanyNames,
+  isBranchAuthenticatedSession,
   isMatch,
   loadEmployeeDirectory,
   resolveAssignmentPermissionsPayload,
@@ -885,7 +886,7 @@ export function useGroupedPermissions(enabled = true) {
 export function useEmployeeDirectory(
   organizationId?: number,
   companyId?: number,
-  options?: { scope?: ScopeType },
+  options?: { scope?: ScopeType; enabled?: boolean },
 ) {
   const storeOrgId = useSidebarStore(
     (state) => state.context.organizationId ?? state.account?.org_id ?? undefined,
@@ -899,7 +900,11 @@ export function useEmployeeDirectory(
 
   const resolvedOrgId = organizationId ?? storeOrgId ?? undefined;
   const resolvedCompanyId =
-    options?.scope === 'organization' ? companyId : (companyId ?? storeCompanyId ?? undefined);
+    options?.scope === 'branch'
+      ? companyId
+      : options?.scope === 'organization'
+        ? companyId
+        : (companyId ?? storeCompanyId ?? undefined);
 
   const sessionReady = Boolean(role || hasAccount);
   const hasDirectoryScope = resolvedOrgId != null || resolvedCompanyId != null;
@@ -907,6 +912,13 @@ export function useEmployeeDirectory(
   const normalizedScope: ScopeType =
     options?.scope ??
     (authScope === 'branch' ? 'branch' : resolvedCompanyId != null ? 'company' : 'organization');
+
+  const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
+  const isBranchAuth = isBranchAuthenticatedSession({
+    authScope,
+    accountBranchId,
+  });
+  const directoryEnabled = (options?.enabled ?? true) && !isBranchAuth;
 
   return useQuery({
     queryKey: [
@@ -916,7 +928,7 @@ export function useEmployeeDirectory(
       resolvedCompanyId ?? 'all',
       normalizedScope,
     ],
-    enabled: sessionReady && hasDirectoryScope,
+    enabled: directoryEnabled && sessionReady && hasDirectoryScope,
     queryFn: async ({ signal }) => {
       const { context, account } = useSidebarStore.getState();
       const sessionRole = role || account?.roles?.[0] || account?.scope || '';
