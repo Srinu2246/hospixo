@@ -92,8 +92,56 @@ async function request<T>(
     return await mockRequest<T>(method, path, options);
   }
 
-  const isPublic = isPublicEndpoint(path);
   const isLogout = path === ApiUrlsV1.auth.logout;
+  if (isLogout) {
+    const cookieStore = await cookies();
+    clearAuthCookies(cookieStore);
+
+    const session = cookieStore.get(SESSION_COOKIE)?.value;
+    const headers = new Headers({
+      Accept: 'application/json',
+    });
+
+    if (session) {
+      headers.set('Authorization', `Bearer ${session}`);
+      headers.set('X-Session-Id', session);
+    }
+
+    const requestBody = await logoutBody();
+    let body: BodyInit | undefined;
+    if (requestBody !== undefined && method !== 'GET') {
+      headers.set('Content-Type', 'application/json');
+      body = JSON.stringify(requestBody);
+    }
+
+    try {
+      if (session) {
+        const timeoutSignal = AbortSignal.timeout(5000);
+        const combinedSignal = options.signal
+          ? AbortSignal.any([options.signal, timeoutSignal])
+          : timeoutSignal;
+
+        const response = await fetch(buildBackendUrl(path, options.params), {
+          method,
+          headers,
+          body,
+          signal: combinedSignal,
+          cache: 'no-store',
+        });
+
+        if (response.ok) {
+          const payload = await readResponse<T>(response);
+          return sanitizeForClient(payload);
+        }
+      }
+    } catch {
+      // Upstream notification failed; proceed with local logout.
+    }
+
+    return { success: true, message: 'Logged out successfully' } as T;
+  }
+
+  const isPublic = isPublicEndpoint(path);
   // Non-public routes always require a session; BE identifies the user from this JWT only.
   const session = isPublic ? undefined : await requireSession();
   const headers = new Headers({
@@ -109,14 +157,13 @@ async function request<T>(
     if (value) headers.set(key, value);
   }
 
-  const requestBody = isLogout ? await logoutBody() : options.body;
   let body: BodyInit | undefined;
-  if (requestBody !== undefined && method !== 'GET') {
-    if (requestBody instanceof FormData) {
-      body = requestBody;
+  if (options.body !== undefined && method !== 'GET') {
+    if (options.body instanceof FormData) {
+      body = options.body;
     } else {
       headers.set('Content-Type', 'application/json');
-      body = JSON.stringify(requestBody);
+      body = JSON.stringify(options.body);
     }
   }
 
@@ -228,12 +275,18 @@ async function storeSessionFromPayload(path: string, payload: unknown): Promise<
 }
 
 async function logoutBody(): Promise<{ refresh_token: string | null; revoke_all: false }> {
-  const cookieStore = await cookies();
-  const stored = cookieStore.get(REFRESH_COOKIE)?.value ?? '';
-  return logoutRequestSchema.parse({
-    refresh_token: stored.length >= 32 ? stored : null,
-    revoke_all: false,
-  });
+  try {
+    const cookieStore = await cookies();
+    const stored = cookieStore.get(REFRESH_COOKIE)?.value ?? '';
+    const parsed = logoutRequestSchema.safeParse({
+      refresh_token: stored.length >= 32 ? stored : null,
+      revoke_all: false,
+    });
+    if (parsed.success) return parsed.data;
+  } catch {
+    // Ignore parse/cookie errors during logout
+  }
+  return { refresh_token: null, revoke_all: false };
 }
 
 function clearAuthCookies(cookieStore: Awaited<ReturnType<typeof cookies>>): void {
