@@ -220,13 +220,15 @@ function MenuListPane() {
           useFlexGap
           sx={{ flexWrap: 'wrap', alignItems: 'center' }}
         >
-          <ActionButton
-            variant="outlined"
-            startIcon={<Calendar size={18} strokeWidth={1.75} />}
-            onClick={() => router.push(sessionsHref)}
-          >
-            Sessions
-          </ActionButton>
+          {pageConfig.scope === 'company' ? null : (
+            <ActionButton
+              variant="outlined"
+              startIcon={<Calendar size={18} strokeWidth={1.75} />}
+              onClick={() => router.push(sessionsHref)}
+            >
+              Sessions
+            </ActionButton>
+          )}
           <ActionButton variant="outlined" startIcon={<Upload size={18} strokeWidth={1.75} />}>
             Upload CSV
           </ActionButton>

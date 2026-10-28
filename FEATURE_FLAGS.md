@@ -138,7 +138,7 @@ Today every flag is a **sidebar (nav) switch**. When the flag is **ON**, that me
 | `company_operations_cashCounter_nav`    | OFF     | Cash Counter       | (under construction)                                                 |
 | `company_operations_inventory_nav`      | OFF     | Inventory          | (under construction)                                                 |
 | `company_operations_customers_nav`      | OFF     | Customers          | (under construction)                                                 |
-| `company_reports_sales_nav`             | ON      | Sales report       | (under construction)                                                 |
+| `company_reports_sales_nav`             | OFF     | Sales report       | (under construction)                                                 |
 | `company_reports_revenue_nav`           | OFF     | Revenue report     | (under construction)                                                 |
 | `company_reports_analytics_nav`         | OFF     | Analytics          | (under construction)                                                 |
 | `company_settings_companySettings_nav`  | ON      | Company Settings   | (under construction)                                                 |

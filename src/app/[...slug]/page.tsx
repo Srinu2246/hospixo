@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, Suspense, type ReactNode } from 'react';
 import { PosDashboard } from '@/features/pos/point-of-sale/dashboard';
 import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
 import { ReservationList, ReservationDetails } from '@/features/pos/point-of-sale/reservation';
@@ -35,6 +35,7 @@ import {
 import { DashboardScreen } from '@/features/dashboard';
 import { FloorSetupScreen } from '@/features/management/floor-and-table-setup';
 import { KitchenDisplayScreen } from '@/features/kitchen-display';
+import { ReportsPage } from '@/features/reports/reports';
 import {
   GstRatesPage,
   MenuAvailabilityLayout,
@@ -93,6 +94,15 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     match: (path) =>
       path.includes('/management/cash-counter') || path.includes('/management/cash-registers'),
     render: () => <CashCounterPage />,
+  },
+  {
+    name: 'Reports',
+    match: (path) => path.endsWith('management/reports'),
+    render: () => (
+      <Suspense fallback={null}>
+        <ReportsPage />
+      </Suspense>
+    ),
   },
   {
     name: 'POS Create New Shift',
