@@ -1,3 +1,4 @@
+import { resolveSidebarRoute, type SidebarContext } from '@/app/sidebar';
 import { loadBranchDirectory, loadOrganizationBranches } from '@/lib/helpers/organizationBranches';
 import {
   loadCompanyById,
@@ -697,4 +698,33 @@ export async function resolveAssignmentPermissionsPayload(
     permission_ids: permissionCodesList,
     assignment_adjustments: adjustments,
   };
+}
+
+/** Human-readable role label for menus and profile headers. */
+export function formatStaffProfileRoleLabel(role?: string | null): string {
+  const value = (role ?? '').trim();
+  if (!value) return 'User';
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/** Canonical `…/employees/users-and-roles/profile?id=` URL for the signed-in user. */
+export function buildStaffProfileHref(
+  userId: number | string,
+  options: {
+    role: string;
+    context?: SidebarContext;
+  },
+): string {
+  const { role, context = {} } = options;
+  const profilePath = resolveSidebarRoute(
+    '/branch-manager/employees/users-and-roles/profile',
+    context,
+    role,
+  );
+  return `${profilePath}?id=${encodeURIComponent(String(userId))}`;
 }

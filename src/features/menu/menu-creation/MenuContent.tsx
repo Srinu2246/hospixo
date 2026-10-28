@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -15,11 +15,25 @@ import { Loading } from '@/components/shared/ui/Loading';
 import { useMenuCreation } from '@/features/menu/context';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 
+import { screen } from '@/lib/theme/mui/breakpoints';
+
 import { CreateCategoryForm } from './CreateCategoryForm';
 import { CreateMenuItemScreen } from './CreateMenuItemScreen';
 import { MenuItemDetailPanel } from './MenuItemDetailPanel';
 import { MenuItemsTable } from './MenuItemsTable';
 import { MenuSidebar } from './MenuSidebar';
+
+function menuSessionsHrefFromPathname(pathname: string): string {
+  const creationMarker = '/menu/menu-creation';
+  const creationIdx = pathname.indexOf(creationMarker);
+  if (creationIdx >= 0) {
+    return `${pathname.slice(0, creationIdx)}/menu/sessions`;
+  }
+  const sessionsMarker = '/menu/sessions';
+  const sessionsIdx = pathname.indexOf(sessionsMarker);
+  if (sessionsIdx >= 0) return pathname.slice(0, sessionsIdx + sessionsMarker.length);
+  return '/branch-manager/menu/sessions';
+}
 
 function CategoriesSidebarLoading() {
   return (
@@ -32,9 +46,11 @@ function CategoriesSidebarLoading() {
         alignSelf: 'stretch',
         height: { md: '100%' },
         maxHeight: { xs: 240, sm: 280, md: 'none' },
-        p: 1.5,
         display: 'flex',
         flexDirection: 'column',
+        '& > .MuiBox-root': {
+          p: { [screen.mobile]: 1.5, [screen.tablet]: 1.5, [screen.desktop]: 3 },
+        },
       }}
     >
       <Loading fullPage={false} size={28} sx={{ minHeight: 200, p: 1 }} />
@@ -138,6 +154,8 @@ function MenuListPane() {
   } = useMenuCreation();
 
   const router = useRouter();
+  const pathname = usePathname() ?? '';
+  const sessionsHref = menuSessionsHrefFromPathname(pathname);
   const [togglingItemId, setTogglingItemId] = useState<string | null>(null);
   const [statusToggleError, setStatusToggleError] = useState<string | null>(null);
   const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}`;
@@ -173,15 +191,7 @@ function MenuListPane() {
         boxSizing: 'border-box',
       }}
     >
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        sx={{
-          alignItems: { sm: 'flex-start' },
-          justifyContent: 'space-between',
-          flexShrink: 0,
-        }}
-      >
+      <Stack spacing={1.5} sx={{ flexShrink: 0, alignItems: 'flex-start', width: '100%' }}>
         <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="h5"
@@ -204,18 +214,27 @@ function MenuListPane() {
           </Typography>
         </Box>
 
-        <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap', flexShrink: 0 }}>
+        <Stack
+          direction="row"
+          spacing={1.25}
+          useFlexGap
+          sx={{ flexWrap: 'wrap', alignItems: 'center' }}
+        >
           <ActionButton
             variant="outlined"
-            startIcon={<Calendar size={16} />}
-            onClick={() => router.push('/branch-manager/menu/sessions')}
+            startIcon={<Calendar size={18} strokeWidth={1.75} />}
+            onClick={() => router.push(sessionsHref)}
           >
             Sessions
           </ActionButton>
-          <ActionButton variant="outlined" startIcon={<Upload size={16} />}>
+          <ActionButton variant="outlined" startIcon={<Upload size={18} strokeWidth={1.75} />}>
             Upload CSV
           </ActionButton>
-          <ActionButton startIcon={<Plus size={16} />} onClick={openCreateItem}>
+          <ActionButton
+            variant="primary"
+            startIcon={<Plus size={18} strokeWidth={1.75} />}
+            onClick={openCreateItem}
+          >
             Add Item
           </ActionButton>
         </Stack>

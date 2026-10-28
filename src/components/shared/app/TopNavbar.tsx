@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Box from '@mui/material/Box';
 import type { SxProps, Theme } from '@mui/material/styles';
@@ -9,6 +9,7 @@ import type { SidebarContext, SidebarUserProfile } from '@/app/sidebar';
 import { normalizeRoleKey } from '@/app/sidebar';
 import type { DropdownOption } from '@/components/shared/form-fields/Dropdown';
 import { useNavbarBranchOptions } from '@/lib/hooks/organization/branches/useNavbarBranchOptions';
+import { formatStaffProfileRoleLabel } from '@/lib/helpers/employees/userRolesHelpers';
 import { isCaptainWorkspacePath, POS_CAPTAIN_COMPACT_PADDING } from '@/lib/helpers/posCaptainFlow';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useSidebarStore } from '@/stores/sidebarStore';
@@ -38,15 +39,6 @@ export interface TopNavbarProps {
   onOpenMenu?: () => void;
   /** Optional layout style overrides from the caller */
   sx?: SxProps<Theme>;
-}
-
-/**
- * Normalizes and formats a role string for readable header display.
- */
-function formatRoleLabel(role?: string): string {
-  const value = (role ?? '').trim();
-  if (!value) return 'User';
-  return value.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').toLowerCase();
 }
 
 /**
@@ -90,57 +82,63 @@ export function TopNavbar({
   // Business rule: show AI Agent and Explore Products for managers/company, hide for waiter
   const showManagementActions = Boolean(normalizedRole) && normalizedRole !== 'waiter';
 
-  // Desktop Outlets: preserved exactly as original
-  const outletOptions: DropdownOption<string>[] =
-    context.branchId == null
-      ? []
-      : [
-          {
-            id: String(context.branchId),
-            label: context.branchName ?? `Branch ${context.branchId}`,
-          },
-        ];
-
-  const selectedOutletSlug = context.branchId == null ? '' : String(context.branchId);
-
-  const handleOutletChange = (branchId: string) => {
-    const parsed = Number(branchId);
-    if (!Number.isFinite(parsed)) return;
-    setContext({ branchId: parsed });
-  };
-
   const isBranchView = pathname.includes('/branch-manager');
   const captainWorkspacePath = isCaptainWorkspacePath(pathname);
-  const workspaceSubtitle =
-    context.branchName?.trim() ||
-    (context.branchId != null ? `Branch ${context.branchId}` : 'Restaurant workspace');
+  const showWaiterProfileNav = normalizedRole === 'waiter' && captainWorkspacePath;
 
   const skipBranchDirectoryFetch = pathname.includes('/menu/menus');
-  const { options: mobileBranchOptions } = useNavbarBranchOptions({
+  const { options: branchDirectoryOptions } = useNavbarBranchOptions({
     enabled: !skipBranchDirectoryFetch && !hideOutletSelector,
   });
 
-  const mobileSelectedOutletSlug =
-    context.branchId != null ? String(context.branchId) : (mobileBranchOptions[0]?.id ?? '');
+  const outletOptions: DropdownOption<string>[] = useMemo(() => {
+    if (branchDirectoryOptions.length > 0) {
+      return branchDirectoryOptions;
+    }
+    if (context.branchId == null) {
+      return [];
+    }
+    return [
+      {
+        id: String(context.branchId),
+        label: context.branchName?.trim() || `Branch ${context.branchId}`,
+      },
+    ];
+  }, [branchDirectoryOptions, context.branchId, context.branchName]);
 
-  const mobileOutletLabel = useMemo(() => {
-    const found = mobileBranchOptions.find((o) => o.id === mobileSelectedOutletSlug);
+  const selectedOutletSlug =
+    context.branchId != null ? String(context.branchId) : (outletOptions[0]?.id ?? '');
+
+  const resolvedOutletLabel = useMemo(() => {
+    const found = outletOptions.find((o) => o.id === selectedOutletSlug);
     return (
       found?.label ??
       context.branchName?.trim() ??
       (context.branchId != null ? `Branch ${context.branchId}` : 'Select branch')
     );
-  }, [mobileBranchOptions, mobileSelectedOutletSlug, context.branchName, context.branchId]);
+  }, [outletOptions, selectedOutletSlug, context.branchName, context.branchId]);
 
-  const handleMobileOutletChange = (branchId: string, option?: DropdownOption<string>) => {
+  useEffect(() => {
+    if (context.branchId == null || context.branchName?.trim()) return;
+    const match = outletOptions.find((o) => o.id === String(context.branchId));
+    if (match?.label) {
+      setContext({ branchName: match.label });
+    }
+  }, [context.branchId, context.branchName, outletOptions, setContext]);
+
+  const handleOutletChange = (branchId: string, option?: DropdownOption<string>) => {
     const parsed = Number(branchId);
-    const label = option?.label ?? mobileBranchOptions.find((o) => o.id === branchId)?.label;
+    const label = option?.label ?? outletOptions.find((o) => o.id === branchId)?.label;
     if (Number.isFinite(parsed)) {
       setContext({ branchId: parsed, branchName: label });
     } else {
       setContext({ branchName: label });
     }
   };
+
+  const workspaceSubtitle =
+    resolvedOutletLabel ||
+    (context.branchId != null ? `Branch ${context.branchId}` : 'Restaurant workspace');
 
   const mobileScopeLabel = useMemo(() => {
     if (context.branchName || context.branchId || isBranchView) return 'BRANCHES';
@@ -152,7 +150,7 @@ export function TopNavbar({
   const [mobileBranchMenuAnchor, setMobileBranchMenuAnchor] = useState<HTMLElement | null>(null);
 
   const displayName = activeUser?.name?.trim() || 'User';
-  const displayRole = formatRoleLabel(activeUser?.role || activeRole);
+  const displayRole = formatStaffProfileRoleLabel(activeUser?.role || activeRole);
 
   return (
     <Box
@@ -197,16 +195,20 @@ export function TopNavbar({
         onOpenBranchMenu={setMobileBranchMenuAnchor}
         onCloseBranchMenu={() => setMobileBranchMenuAnchor(null)}
         mobileScopeLabel={mobileScopeLabel}
-        mobileOutletLabel={mobileOutletLabel}
-        mobileBranchOptions={mobileBranchOptions}
-        mobileSelectedOutletSlug={mobileSelectedOutletSlug}
-        onMobileOutletChange={handleMobileOutletChange}
+        mobileOutletLabel={resolvedOutletLabel}
+        mobileBranchOptions={outletOptions}
+        mobileSelectedOutletSlug={selectedOutletSlug}
+        onMobileOutletChange={handleOutletChange}
         hideOutletSelector={hideOutletSelector}
         onNotificationClick={onNotificationClick}
         onOpenMenu={onOpenMenu}
         captainWorkspaceTitle={captainWorkspacePath ? 'Hospixo Tables' : undefined}
         captainWorkspaceSubtitle={captainWorkspacePath ? workspaceSubtitle : undefined}
         showBranchSelector={captainWorkspacePath && isBranchView}
+        showProfileMenu={showWaiterProfileNav}
+        user={activeUser}
+        displayName={displayName}
+        displayRole={displayRole}
       />
 
       <TabletNavbar
@@ -214,16 +216,20 @@ export function TopNavbar({
         onOpenBranchMenu={setMobileBranchMenuAnchor}
         onCloseBranchMenu={() => setMobileBranchMenuAnchor(null)}
         mobileScopeLabel={mobileScopeLabel}
-        mobileOutletLabel={mobileOutletLabel}
-        mobileBranchOptions={mobileBranchOptions}
-        mobileSelectedOutletSlug={mobileSelectedOutletSlug}
-        onMobileOutletChange={handleMobileOutletChange}
+        mobileOutletLabel={resolvedOutletLabel}
+        mobileBranchOptions={outletOptions}
+        mobileSelectedOutletSlug={selectedOutletSlug}
+        onMobileOutletChange={handleOutletChange}
         hideOutletSelector={hideOutletSelector}
         showManagementActions={showManagementActions}
         onAiAgentClick={onAiAgentClick}
         onNotificationClick={onNotificationClick}
         onSettingsClick={onSettingsClick}
         onOpenMenu={onOpenMenu}
+        showProfileMenu={showWaiterProfileNav}
+        user={activeUser}
+        displayName={displayName}
+        displayRole={displayRole}
       />
 
       <DesktopNavbar

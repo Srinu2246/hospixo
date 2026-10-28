@@ -24,6 +24,7 @@ import {
   isFallbackEntityName,
   togglePermissionCategory,
   toggleAllInCategory,
+  formatStaffProfileRoleLabel,
 } from '@/lib/helpers/employees/userRolesHelpers';
 import { useStaffProfile } from '@/lib/hooks/employees/user-roles';
 import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
@@ -75,7 +76,12 @@ export function EditStaffProfileScreen({
     return null;
   });
 
-  const selectedUserId = queryUserId || storeSelectedUserId || savedUserId;
+  const accountId = useSidebarStore((state) => state.account?.id);
+  const selectedUserId =
+    queryUserId ||
+    storeSelectedUserId ||
+    savedUserId ||
+    (accountId != null ? String(accountId) : null);
 
   const staffProfile = useStaffProfile(selectedUserId, { scope: resolvedScope });
   const userProfile = staffProfile.profile;
@@ -101,6 +107,9 @@ export function EditStaffProfileScreen({
     '—';
 
   const baseRoute = getUsersAndRolesBaseRoute(pathname, resolvedScope);
+  const profileRoleLabel = formatStaffProfileRoleLabel(
+    staffProfile.matchedRole?.name || userItem?.role || userProfile?.roleName,
+  );
 
   const userRoleScope = staffProfile.matchedRole?.scope || staffProfile.userItem?.scope;
   const isEditDisabled = isUserEditDisabled(userRoleScope, resolvedScope);
@@ -254,6 +263,7 @@ export function EditStaffProfileScreen({
       <StaffProfileHeader
         isReadOnly={isReadOnly}
         isEditDisabled={isEditDisabled}
+        roleLabel={profileRoleLabel}
         onBack={handleBack}
         onEnterEditMode={() => setMode('edit')}
         onNavigateHome={() => router.push(baseRoute)}

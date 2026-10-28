@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 
+import { ProfileMenu } from './ProfileMenu';
 import { MobileBranchSelector } from './MobileBranchSelector';
 import { NavMenuButton, NavNotificationButton, NavSettingsButton } from './NavActionButtons';
 import type { TabletNavbarProps } from './topNavbar.types';
@@ -35,6 +36,10 @@ export function TabletNavbar({
   onNotificationClick,
   onSettingsClick,
   onOpenMenu,
+  showProfileMenu = false,
+  user,
+  displayName = 'User',
+  displayRole = 'User',
   sx,
 }: Readonly<TabletNavbarProps>) {
   return (
@@ -92,7 +97,28 @@ export function TabletNavbar({
 
         <NavNotificationButton onClick={onNotificationClick} />
         <NavSettingsButton onClick={onSettingsClick} />
-        <NavMenuButton onClick={onOpenMenu} />
+        {showProfileMenu ? (
+          <ProfileMenu
+            user={user}
+            displayName={displayName}
+            displayRole={displayRole}
+            isBranchView
+            sx={{
+              p: 0.75,
+              borderRadius: '8px',
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F3F4F6',
+              '&:hover': {
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : '#E5E7EB',
+              },
+            }}
+          />
+        ) : (
+          <NavMenuButton onClick={onOpenMenu} />
+        )}
       </Box>
     </Box>
   );

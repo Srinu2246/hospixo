@@ -12,6 +12,7 @@ import { Pencil, Plus } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { useMenuCreation } from '@/features/menu/context';
 import type { MenuCategory } from '@/lib/schemas/menu/menuCreationSchema';
 
@@ -175,6 +176,9 @@ export function MenuSidebar() {
         height: { md: '100%' },
         maxHeight: { xs: 240, sm: 280, md: 'none' },
         overflow: 'auto',
+        '& > .MuiBox-root': {
+          p: { [screen.mobile]: 1.5, [screen.tablet]: 1.5, [screen.desktop]: 3 },
+        },
       }}
     >
       <Box
@@ -188,7 +192,7 @@ export function MenuSidebar() {
       >
         <Typography
           sx={{
-            px: 1.5,
+            px: { [screen.mobile]: 0, [screen.tablet]: 0, [screen.desktop]: 1.5 },
             fontSize: '0.6875rem',
             fontWeight: 700,
             letterSpacing: '0.08em',

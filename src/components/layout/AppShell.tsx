@@ -259,7 +259,8 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
                     [screen.desktop]: 3,
                   }
                 : {
-                    [screen.mobile]: '15px 16px 10px',
+                    [screen.mobile]: 2,
+                    [screen.tablet]: 2,
                     [screen.desktop]: 3,
                   },
               pb: captainPath

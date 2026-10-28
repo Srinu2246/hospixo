@@ -30,7 +30,7 @@ export interface DesktopNavbarProps {
   /** Currently selected outlet identifier */
   selectedOutletSlug: string;
   /** Callback fired when an outlet is changed */
-  onOutletChange: (branchId: string) => void;
+  onOutletChange: (branchId: string, option?: DropdownOption<string>) => void;
   /** Whether management action buttons should be visible */
   showManagementActions: boolean;
   /** Whether the current route is within a branch manager view */

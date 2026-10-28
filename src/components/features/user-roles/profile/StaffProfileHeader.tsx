@@ -15,6 +15,8 @@ import { screen } from '@/lib/theme/mui/breakpoints';
 export interface StaffProfileHeaderProps {
   isReadOnly: boolean;
   isEditDisabled: boolean;
+  /** Role name for titles, e.g. "Branch Admin Profile". */
+  roleLabel?: string;
   onBack: () => void;
   onEnterEditMode: () => void;
   onNavigateHome: () => void;
@@ -23,10 +25,12 @@ export interface StaffProfileHeaderProps {
 export function StaffProfileHeader({
   isReadOnly,
   isEditDisabled,
+  roleLabel = 'Staff',
   onBack,
   onEnterEditMode,
   onNavigateHome,
 }: Readonly<StaffProfileHeaderProps>) {
+  const profileTitle = isReadOnly ? `${roleLabel} Profile` : `Edit ${roleLabel} Profile`;
   return (
     <>
       {/* Top Breadcrumb Bar */}
@@ -49,7 +53,7 @@ export function StaffProfileHeader({
           items={[
             { label: 'Users & Roles', onClick: onNavigateHome },
             {
-              label: isReadOnly ? 'Staff Profile' : 'Edit Staff Profile',
+              label: profileTitle,
               active: true,
             },
           ]}
@@ -101,7 +105,7 @@ export function StaffProfileHeader({
                 letterSpacing: '-0.02em',
               }}
             >
-              {isReadOnly ? 'Staff Profile' : 'Edit Staff Profile'}
+              {profileTitle}
             </Typography>
             <Typography
               variant="body2"
