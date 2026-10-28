@@ -34,6 +34,8 @@ export const kitchenBoardItemLineSchema = z.object({
 
 export const kitchenBoardTicketSchema = z.object({
   order_id: z.number(),
+  /** Optimistic lock for PATCH kitchen-status. */
+  version: z.coerce.number().int().nonnegative().optional(),
   order_number: z.string(),
   order_type: z.enum(['dine_in', 'takeaway', 'delivery']),
   table_id: z.number().nullable().optional(),
@@ -115,6 +117,7 @@ export const kitchenOrderItemSchema = z.object({
   timeLabel: z.string(),
   elapsedSeconds: z.number().nonnegative(),
   createdAt: z.string(),
+  version: z.number().int().nonnegative().default(1),
 });
 
 export const kitchenDisplayListSchema = z.array(kitchenOrderItemSchema);
@@ -202,6 +205,7 @@ export function ticketToKitchenOrderItem(
     timeLabel: elapsed.label,
     elapsedSeconds: elapsed.seconds,
     createdAt: timestamp ?? new Date().toISOString(),
+    version: ticket.version != null && ticket.version >= 1 ? ticket.version : 1,
   };
 }
 

@@ -2,17 +2,10 @@ import {
   kitchenBoardResponseSchema,
   kitchenBoardResponseToViewModel,
   kitchenDisplayListSchema,
-  kitchenDisplayStatsSchema,
   type KitchenBoardResponse,
 } from '@/lib/schemas/kitchen-display/kitchenDisplaySchema';
-import type {
-  KitchenOrderItem,
-  KitchenDisplayStats,
-  KitchenStation,
-} from '@/types/kitchen-display';
+import type { KitchenOrderItem } from '@/types/kitchen-display';
 import type { HttpMethod, QueryParams } from '@/services/api/types';
-
-export const KITCHEN_STATIONS: KitchenStation[] = ['Main Kitchen', 'Tandoor', 'Bar'];
 
 // ============================================================================
 // 1. Raw OpenAPI Backend Mock Data (KitchenBoardResponse)
@@ -273,14 +266,6 @@ export const MOCK_KITCHEN_BOARD_RESPONSE: KitchenBoardResponse = kitchenBoardRes
 
 const parsedViewModel = kitchenBoardResponseToViewModel(MOCK_KITCHEN_BOARD_RESPONSE);
 
-export const INITIAL_KITCHEN_STATS: KitchenDisplayStats = kitchenDisplayStatsSchema.parse({
-  totalOrders: 324,
-  pendingCount: 4,
-  preparingCount: 2,
-  readyCount: 2,
-  avgPrepTime: '14m 30s',
-});
-
 export const MOCK_KITCHEN_ORDERS: KitchenOrderItem[] = kitchenDisplayListSchema.parse(
   parsedViewModel.orders,
 );
@@ -310,11 +295,31 @@ export function resolveKitchenDisplayMock(request: MockRequest): unknown | undef
   }
 
   if (KITCHEN_STATUS_REGEX.test(request.path) && request.method === 'PATCH') {
+    const orderMatch = KITCHEN_STATUS_REGEX.exec(request.path);
+    const orderId = orderMatch ? Number(orderMatch[2]) : 0;
+    const body =
+      request.body && typeof request.body === 'object'
+        ? (request.body as { expected_version?: number; action?: string })
+        : {};
+    const expected = body.expected_version ?? 1;
     return {
       success: true,
       message: 'Kitchen status updated successfully',
       request_id: 'mock-status-update',
-      data: { status: 'updated' },
+      data: {
+        order_id: orderId,
+        expected_version: expected,
+        status: body.action === 'complete' ? 'completed' : 'preparing',
+        updated_item_ids: [],
+        order: {
+          id: orderId,
+          version: expected + 1,
+          order_number: String(orderId),
+          status: body.action === 'complete' ? 'completed' : 'preparing',
+          kitchen_badge: body.action === 'mark_ready' ? 'ready' : 'preparing',
+          items: [],
+        },
+      },
     };
   }
 

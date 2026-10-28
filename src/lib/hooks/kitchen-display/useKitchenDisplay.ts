@@ -1,56 +1,88 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 import type {
   KitchenOrderItem,
   KitchenStation,
   KitchenDisplayStats,
 } from '@/types/kitchen-display';
+import { resolveBranchId } from '@/lib/helpers/resolveBranchId';
 import {
-  MOCK_KITCHEN_ORDERS,
-  INITIAL_KITCHEN_STATS,
-  KITCHEN_STATIONS,
-} from '@/lib/mocks/kitchen-display/kitchenDisplay.mocks';
+  playKitchenAlertSound,
+  readKitchenSoundEnabled,
+  writeKitchenSoundEnabled,
+} from '@/lib/helpers/kitchenAlertSound';
+import { EMPTY_KITCHEN_DISPLAY_STATS } from '@/lib/hooks/kitchen-display/kitchenDisplayDefaults';
+import { useBranchOrderEventsStream } from '@/lib/hooks/pos/point-of-sale/order-events/useBranchOrderEventsStream';
+import {
+  isKitchenOrderVersionConflict,
+  kitchenStatusErrorMessage,
+  useUpdateKitchenOrderStatus,
+} from '@/lib/hooks/kitchen-display/useUpdateKitchenOrderStatus';
+import type { KitchenStatusAction } from '@/lib/schemas/kitchen-display/kitchenStatusSchema';
 import {
   kitchenBoardResponseToViewModel,
   type KitchenBoardResponse,
   type ApiResponseKitchenBoard,
 } from '@/lib/schemas/kitchen-display/kitchenDisplaySchema';
 import { useApiQuery } from '@/lib/hooks/api/useApiQuery';
-import { api } from '@/services/api/browserClient';
-import { branchKitchenBoardPath, branchKitchenStatusPath } from '@/services/api/ApiUrlsV1';
+import ApiUrlsV1, { branchKitchenBoardPath } from '@/services/api/ApiUrlsV1';
 import { useSidebarStore } from '@/stores/sidebarStore';
+import type { BranchOrderEventsStreamStatus } from '@/lib/hooks/pos/point-of-sale/order-events/branchOrderEventsConnection';
 
 export interface UseKitchenDisplayOptions {
-  initialOrders?: KitchenOrderItem[];
   initialStation?: KitchenStation;
   branchId?: number;
 }
 
-const STATION_ID_MAP: Record<KitchenStation, number | undefined> = {
-  'Main Kitchen': 1,
-  Tandoor: 2,
-  Bar: 3,
+type PreparationStationRow = { id: number; name: string };
+
+type PreparationStationListResponse = {
+  data?: { items?: PreparationStationRow[] };
+  items?: PreparationStationRow[];
 };
 
+export function kitchenPosSyncStatus(
+  streamStatus: BranchOrderEventsStreamStatus,
+  isLive: boolean,
+): 'Active' | 'Syncing' | 'Offline' {
+  if (streamStatus === 'connected' && isLive) return 'Active';
+  if (streamStatus === 'connecting' || streamStatus === 'reconnecting') return 'Syncing';
+  return 'Offline';
+}
+
+export function kitchenLiveLabel(
+  streamStatus: BranchOrderEventsStreamStatus,
+  isLive: boolean,
+): string {
+  if (streamStatus === 'denied') return 'No access';
+  if (streamStatus === 'unavailable') return 'Offline';
+  if (streamStatus === 'reconnecting') return 'Reconnecting';
+  if (streamStatus === 'connecting') return 'Connecting';
+  if (streamStatus === 'connected' && isLive) return 'Live';
+  if (streamStatus === 'error') return 'Error';
+  return 'Paused';
+}
+
 export function useKitchenDisplay({
-  initialOrders = MOCK_KITCHEN_ORDERS,
-  initialStation = 'Main Kitchen',
+  initialStation,
   branchId: propBranchId,
 }: UseKitchenDisplayOptions = {}) {
   const storeBranchId = useSidebarStore((state) => state.context.branchId);
-  const activeBranchId = propBranchId ?? storeBranchId ?? 49;
+  const activeBranchId = resolveBranchId(propBranchId, storeBranchId);
 
-  const [orders, setOrders] = useState<KitchenOrderItem[]>(initialOrders);
-  const [selectedStation, setSelectedStation] = useState<KitchenStation>(initialStation);
+  const [orders, setOrders] = useState<KitchenOrderItem[]>([]);
+  const [stats, setStats] = useState<KitchenDisplayStats>(EMPTY_KITCHEN_DISPLAY_STATS);
+  const [selectedStation, setSelectedStation] = useState<KitchenStation>(initialStation ?? '');
   const [isLiveActive, setIsLiveActive] = useState<boolean>(true);
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => readKitchenSoundEnabled());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Live Digital Clock (Format: "12:44:21 PM")
+  const knownNewOrderIdsRef = useRef<Set<string> | null>(null);
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [streamReadyReceived, setStreamReadyReceived] = useState(false);
+  const hasStreamReadyRef = useRef(false);
+  const refetchKitchenBoardRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const updateTime = () => {
@@ -64,32 +96,134 @@ export function useKitchenDisplay({
         }),
       );
     };
-
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch from GET /api/v1/branches/{branch_id}/kitchen-board
-  const selectedStationId = STATION_ID_MAP[selectedStation];
-  const queryPath = branchKitchenBoardPath(activeBranchId);
-  const queryParams = selectedStationId ? { preparation_station_id: selectedStationId } : undefined;
+  const preparationStationsQuery = useApiQuery<PreparationStationListResponse>({
+    path: ApiUrlsV1.restaurant.preparationStations,
+    params: { status: 'active', page_size: 50 },
+    enabled: activeBranchId != null,
+    retry: false,
+  });
+
+  const preparationStations = useMemo(() => {
+    const payload = preparationStationsQuery.data;
+    const items = payload?.data?.items ?? payload?.items ?? [];
+    return items.filter((row) => row.name.trim().length > 0);
+  }, [preparationStationsQuery.data]);
+
+  const stations = useMemo(
+    () => preparationStations.map((row) => row.name.trim()),
+    [preparationStations],
+  );
+
+  const stationIdByName = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const row of preparationStations) {
+      map[row.name.trim()] = row.id;
+    }
+    return map;
+  }, [preparationStations]);
+
+  useEffect(() => {
+    if (stations.length === 0) return;
+    if (!selectedStation || !stations.includes(selectedStation)) {
+      setSelectedStation(
+        initialStation && stations.includes(initialStation) ? initialStation : stations[0],
+      );
+    }
+  }, [initialStation, selectedStation, stations]);
+
+  useEffect(() => {
+    hasStreamReadyRef.current = false;
+    setStreamReadyReceived(false);
+  }, [activeBranchId]);
+
+  const selectedStationId = selectedStation ? stationIdByName[selectedStation] : undefined;
+
+  const queryPath =
+    activeBranchId != null
+      ? branchKitchenBoardPath(activeBranchId)
+      : '/v1/branches/0/kitchen-board';
+  const queryParams =
+    selectedStationId != null ? { preparation_station_id: selectedStationId } : undefined;
+
+  const stationsSettled = preparationStationsQuery.isFetched;
+  const stationFilterReady =
+    stationsSettled &&
+    (preparationStations.length === 0 ||
+      (selectedStation.trim().length > 0 && selectedStationId != null));
+
+  const handleNewOrderAlert = useCallback(() => {
+    if (soundEnabled) {
+      playKitchenAlertSound();
+    }
+  }, [soundEnabled]);
+
+  const handleStreamReady = useCallback(() => {
+    if (hasStreamReadyRef.current) {
+      refetchKitchenBoardRef.current?.();
+      return;
+    }
+    hasStreamReadyRef.current = true;
+    setStreamReadyReceived(true);
+  }, []);
+
+  const handleStreamResync = useCallback(() => {
+    refetchKitchenBoardRef.current?.();
+  }, []);
+
+  const handleKitchenEventBatch = useCallback(() => {
+    refetchKitchenBoardRef.current?.();
+  }, []);
+
+  const { status: orderEventsSocketStatus, isConnected: isOrderEventsConnected } =
+    useBranchOrderEventsStream({
+      branchId: activeBranchId,
+      enabled: isLiveActive && activeBranchId != null,
+      onStreamReady: handleStreamReady,
+      onStreamResync: handleStreamResync,
+      onKitchenEventBatch: handleKitchenEventBatch,
+      onKitchenAlert: handleNewOrderAlert,
+    });
+
+  const streamFallback =
+    orderEventsSocketStatus === 'unavailable' || orderEventsSocketStatus === 'denied';
+  const streamGateOpen = !isLiveActive || streamReadyReceived || streamFallback;
+
+  const boardQueryEnabled = activeBranchId != null && stationFilterReady && streamGateOpen;
 
   const {
     data: apiResult,
-    isLoading,
+    isLoading: isBoardLoading,
     isError,
+    error: boardError,
     refetch,
   } = useApiQuery<KitchenBoardResponse | ApiResponseKitchenBoard>({
     path: queryPath,
     params: queryParams,
-    // Only poll every 10s if live mode is active AND the endpoint is succeeding without error
-    refetchInterval: (query) => (query.state.error ? false : isLiveActive ? 10000 : false),
+    enabled: boardQueryEnabled,
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+    refetchInterval: (query) => {
+      if (query.state.error || !isLiveActive) return false;
+      if (isOrderEventsConnected) return false;
+      if (!streamFallback) return false;
+      return 15_000;
+    },
     retry: false,
   });
 
-  // Transform backend response into client view model (sync on render when payload changes)
-  const remoteOrders = useMemo(() => {
+  useEffect(() => {
+    refetchKitchenBoardRef.current = () => {
+      if (!boardQueryEnabled) return;
+      void refetch();
+    };
+  }, [boardQueryEnabled, refetch]);
+
+  const remoteViewModel = useMemo(() => {
     if (!apiResult) return null;
 
     let boardData: KitchenBoardResponse | null = null;
@@ -100,175 +234,202 @@ export function useKitchenDisplay({
     }
     if (!boardData) return null;
 
-    const { orders: transformedOrders } = kitchenBoardResponseToViewModel(
-      boardData,
-      selectedStation,
-    );
-    return transformedOrders.length > 0 ? transformedOrders : null;
-  }, [apiResult, selectedStation]);
+    const stationLabel =
+      boardData.preparation_station?.name?.trim() || selectedStation || stations[0] || 'Kitchen';
+    return kitchenBoardResponseToViewModel(boardData, stationLabel);
+  }, [apiResult, selectedStation, stations]);
 
-  const remoteSignature = remoteOrders
-    ? remoteOrders.map((order) => `${order.id}:${order.status}`).join('|')
-    : null;
-  const [appliedRemoteSignature, setAppliedRemoteSignature] = useState<string | null>(null);
-  if (remoteSignature !== null && remoteSignature !== appliedRemoteSignature) {
-    setAppliedRemoteSignature(remoteSignature);
-    setOrders(remoteOrders!);
-  }
+  useEffect(() => {
+    knownNewOrderIdsRef.current = null;
+  }, [activeBranchId, queryPath, queryParams]);
 
-  // QueryClient for cache invalidation
-  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!remoteViewModel) return;
 
-  // Status mutation: PATCH /api/v1/branches/{branch_id}/orders/{order_id}/kitchen-status
-  const statusMutation = useMutation({
-    mutationFn: async ({
-      orderId,
-      action,
-    }: {
-      orderId: string;
-      action: 'start_preparing' | 'mark_ready' | 'complete';
-    }) => {
-      const cleanOrderId = orderId.replace(/^ord-/, '');
-      const path = branchKitchenStatusPath(activeBranchId, cleanOrderId);
-      return api.patch(path, {
-        expected_version: 1,
-        action,
-        preparation_station_id: selectedStationId,
+    const newOrderIds = remoteViewModel.orders
+      .filter((order) => order.status === 'new')
+      .map((order) => order.id);
+    const known = knownNewOrderIdsRef.current;
+    if (known != null && soundEnabled) {
+      const fresh = newOrderIds.filter((id) => !known.has(id));
+      if (fresh.length > 0) {
+        playKitchenAlertSound();
+      }
+    }
+    knownNewOrderIdsRef.current = new Set(newOrderIds);
+
+    setOrders(remoteViewModel.orders);
+    setStats(remoteViewModel.stats);
+  }, [remoteViewModel, soundEnabled]);
+
+  const updateKitchenStatus = useUpdateKitchenOrderStatus();
+
+  const applyOptimisticKitchenAction = useCallback(
+    (orderId: string, action: KitchenStatusAction) => {
+      setOrders((prev) => {
+        if (action === 'complete') {
+          return prev.filter((ord) => ord.id !== orderId);
+        }
+        return prev.map((ord) => {
+          if (ord.id !== orderId) return ord;
+          if (action === 'start_preparing') {
+            return { ...ord, status: 'preparing', timeLabel: '00:01', elapsedSeconds: 1 };
+          }
+          if (action === 'mark_ready') {
+            return { ...ord, status: 'ready', timeLabel: 'Ready 1m', elapsedSeconds: 60 };
+          }
+          return ord;
+        });
       });
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['api', queryPath],
-      });
-    },
-    onError: (err) => {
-      console.warn('Kitchen status update sync note:', err);
-    },
-  });
+    [],
+  );
 
-  // Filter orders by active station
+  const submitKitchenStatusAction = useCallback(
+    (orderId: string, action: KitchenStatusAction, successToast: string) => {
+      if (activeBranchId == null) {
+        setToastMessage('Select a branch before updating kitchen status.');
+        return;
+      }
+
+      const target = orders.find((o) => o.id === orderId);
+      if (!target) return;
+
+      if (updateKitchenStatus.isPending) return;
+
+      const snapshotOrders = orders;
+      const snapshotStats = stats;
+
+      applyOptimisticKitchenAction(orderId, action);
+      setToastMessage(successToast);
+
+      updateKitchenStatus.mutate(
+        {
+          branchId: activeBranchId,
+          orderId,
+          expectedVersion: target.version,
+          action,
+          preparationStationId: selectedStationId,
+          boardQueryPath: queryPath,
+          boardQueryParams: queryParams,
+        },
+        {
+          onSuccess: (result) => {
+            const nextVersion = result.nextVersion;
+            if (nextVersion == null) return;
+            setOrders((prev) =>
+              prev.map((ord) => (ord.id === orderId ? { ...ord, version: nextVersion } : ord)),
+            );
+          },
+          onError: (error) => {
+            setOrders(snapshotOrders);
+            setStats(snapshotStats);
+            if (isKitchenOrderVersionConflict(error)) {
+              void refetch();
+              setToastMessage(
+                'This order was updated elsewhere. The board has been refreshed — try again.',
+              );
+              return;
+            }
+            setToastMessage(kitchenStatusErrorMessage(error));
+          },
+        },
+      );
+    },
+    [
+      activeBranchId,
+      applyOptimisticKitchenAction,
+      orders,
+      queryParams,
+      queryPath,
+      refetch,
+      selectedStationId,
+      stats,
+      updateKitchenStatus,
+    ],
+  );
+
   const stationOrders = useMemo(() => {
+    if (!selectedStation || stations.length === 0) return orders;
     return orders.filter((ord) => ord.station === selectedStation);
-  }, [orders, selectedStation]);
+  }, [orders, selectedStation, stations.length]);
 
-  // Derived column orders
-  const newOrders = useMemo(() => {
-    return stationOrders.filter((ord) => ord.status === 'new');
-  }, [stationOrders]);
+  const newOrders = useMemo(
+    () => stationOrders.filter((ord) => ord.status === 'new'),
+    [stationOrders],
+  );
+  const preparingOrders = useMemo(
+    () => stationOrders.filter((ord) => ord.status === 'preparing'),
+    [stationOrders],
+  );
+  const readyOrders = useMemo(
+    () => stationOrders.filter((ord) => ord.status === 'ready'),
+    [stationOrders],
+  );
 
-  const preparingOrders = useMemo(() => {
-    return stationOrders.filter((ord) => ord.status === 'preparing');
-  }, [stationOrders]);
-
-  const readyOrders = useMemo(() => {
-    return stationOrders.filter((ord) => ord.status === 'ready');
-  }, [stationOrders]);
-
-  // Dynamic statistics
-  const stats: KitchenDisplayStats = useMemo(() => {
-    const pendingTotal = orders.filter((o) => o.status === 'new').length;
-    const preparingTotal = orders.filter((o) => o.status === 'preparing').length;
-    const readyTotal = orders.filter((o) => o.status === 'ready').length;
-
-    return {
-      totalOrders: INITIAL_KITCHEN_STATS.totalOrders,
-      pendingCount: pendingTotal || 4,
-      preparingCount: preparingTotal || 2,
-      readyCount: readyTotal || 2,
-      avgPrepTime: INITIAL_KITCHEN_STATS.avgPrepTime,
-    };
-  }, [orders]);
-
-  // Action Handlers with optimistic updates + backend mutation
   const handleStartPreparing = useCallback(
     (orderId: string) => {
-      setOrders((prev) =>
-        prev.map((ord) => {
-          if (ord.id === orderId) {
-            return {
-              ...ord,
-              status: 'preparing',
-              timeLabel: '00:01',
-              elapsedSeconds: 1,
-            };
-          }
-          return ord;
-        }),
-      );
       const target = orders.find((o) => o.id === orderId);
-      setToastMessage(`Order ${target?.orderNumber ?? orderId} moved to Preparing`);
-      statusMutation.mutate({ orderId, action: 'start_preparing' });
+      submitKitchenStatusAction(
+        orderId,
+        'start_preparing',
+        `Order ${target?.orderNumber ?? orderId} moved to Preparing`,
+      );
     },
-    [orders, statusMutation],
+    [orders, submitKitchenStatusAction],
   );
 
-  const handleRecall = useCallback(
-    (orderId: string) => {
-      setOrders((prev) =>
-        prev.map((ord) => {
-          if (ord.id === orderId) {
-            return {
-              ...ord,
-              status: 'new',
-              timeLabel: 'Just now',
-              elapsedSeconds: 0,
-            };
-          }
-          return ord;
-        }),
-      );
-      const target = orders.find((o) => o.id === orderId);
-      setToastMessage(`Order ${target?.orderNumber ?? orderId} recalled to New Orders`);
-    },
-    [orders],
-  );
+  const handleRecall = useCallback(() => {
+    setToastMessage('Recall is not available for kitchen status updates.');
+  }, []);
 
   const handleMarkReady = useCallback(
     (orderId: string) => {
-      setOrders((prev) =>
-        prev.map((ord) => {
-          if (ord.id === orderId) {
-            return {
-              ...ord,
-              status: 'ready',
-              timeLabel: 'Ready 1m',
-              elapsedSeconds: 60,
-            };
-          }
-          return ord;
-        }),
-      );
       const target = orders.find((o) => o.id === orderId);
-      setToastMessage(`Order ${target?.orderNumber ?? orderId} marked as Ready to Serve`);
-      statusMutation.mutate({ orderId, action: 'mark_ready' });
+      submitKitchenStatusAction(
+        orderId,
+        'mark_ready',
+        `Order ${target?.orderNumber ?? orderId} marked as Ready to Serve`,
+      );
     },
-    [orders, statusMutation],
+    [orders, submitKitchenStatusAction],
   );
 
   const handleServe = useCallback(
     (orderId: string) => {
       const target = orders.find((o) => o.id === orderId);
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
-      setToastMessage(`Order ${target?.orderNumber ?? orderId} served / picked up successfully!`);
-      statusMutation.mutate({ orderId, action: 'complete' });
+      submitKitchenStatusAction(
+        orderId,
+        'complete',
+        `Order ${target?.orderNumber ?? orderId} served / picked up successfully!`,
+      );
     },
-    [orders, statusMutation],
+    [orders, submitKitchenStatusAction],
   );
 
   const handleToggleSound = useCallback(() => {
-    setSoundEnabled((prev) => !prev);
-    setToastMessage(soundEnabled ? 'Kitchen alerts muted' : 'Kitchen alerts enabled');
-  }, [soundEnabled]);
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      writeKitchenSoundEnabled(next);
+      setToastMessage(next ? 'Kitchen alerts enabled' : 'Kitchen alerts muted');
+      return next;
+    });
+  }, []);
 
   const clearToast = useCallback(() => {
     setToastMessage(null);
   }, []);
 
+  const liveLabel = kitchenLiveLabel(orderEventsSocketStatus, isOrderEventsConnected);
+  const posSyncStatus = kitchenPosSyncStatus(orderEventsSocketStatus, isOrderEventsConnected);
+  const isWaitingForStream =
+    isLiveActive && activeBranchId != null && !streamReadyReceived && !streamFallback;
+
   return {
     orders,
     selectedStation,
     setSelectedStation,
-    stations: KITCHEN_STATIONS,
+    stations,
     newOrders,
     preparingOrders,
     readyOrders,
@@ -284,8 +445,13 @@ export function useKitchenDisplay({
     handleServe,
     toastMessage,
     clearToast,
-    isLoading,
+    isLoading: isBoardLoading || isWaitingForStream,
     isError,
+    boardError,
     refetch,
+    orderEventsSocketStatus,
+    isOrderEventsConnected,
+    liveLabel,
+    posSyncStatus,
   };
 }

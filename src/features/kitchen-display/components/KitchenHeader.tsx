@@ -20,6 +20,8 @@ export interface KitchenHeaderProps {
   currentTime: string;
   stats: KitchenDisplayStats;
   isLiveActive: boolean;
+  /** Stream status label (Live, Reconnecting, Offline, …). */
+  liveLabel?: string;
   soundEnabled: boolean;
   onToggleSound: () => void;
   avatarUrl?: string;
@@ -32,10 +34,17 @@ export function KitchenHeader({
   currentTime,
   stats,
   isLiveActive,
+  liveLabel = 'Live',
   soundEnabled,
   onToggleSound,
   avatarUrl = '/images/kumar_reddy.jpg',
 }: Readonly<KitchenHeaderProps>) {
+  const liveDotColor =
+    liveLabel === 'Live'
+      ? '#10B981'
+      : liveLabel === 'Reconnecting' || liveLabel === 'Connecting'
+        ? '#F59E0B'
+        : '#9CA3AF';
   return (
     <Box
       sx={{
@@ -302,8 +311,8 @@ export function KitchenHeader({
               width: 6,
               height: 6,
               borderRadius: '50%',
-              bgcolor: '#10B981',
-              boxShadow: isLiveActive ? '0 0 6px #10B981' : 'none',
+              bgcolor: liveDotColor,
+              boxShadow: isLiveActive && liveLabel === 'Live' ? '0 0 6px #10B981' : 'none',
             }}
           />
           <Typography
@@ -313,7 +322,7 @@ export function KitchenHeader({
               color: (theme) => (theme.palette.mode === 'dark' ? '#34D399' : '#059669'),
             }}
           >
-            Live
+            {liveLabel}
           </Typography>
         </Box>
 

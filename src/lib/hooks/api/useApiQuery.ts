@@ -14,6 +14,9 @@ export type UseApiQueryOptions<T> = {
   initialData?: T;
   refetchInterval?: number | false | ((query: Query<T, unknown, T>) => number | false | undefined);
   retry?: boolean | number | ((failureCount: number, error: unknown) => boolean);
+  staleTime?: number;
+  refetchOnWindowFocus?: boolean;
+  refetchOnMount?: boolean | 'always';
 };
 
 export function useApiQuery<T>({
@@ -23,6 +26,9 @@ export function useApiQuery<T>({
   initialData,
   refetchInterval,
   retry,
+  staleTime,
+  refetchOnWindowFocus,
+  refetchOnMount,
 }: UseApiQueryOptions<T>) {
   const [initialDataUpdatedAt] = useState(() => Date.now());
 
@@ -34,5 +40,8 @@ export function useApiQuery<T>({
     initialDataUpdatedAt: initialData === undefined ? undefined : initialDataUpdatedAt,
     refetchInterval: refetchInterval as never,
     retry,
+    staleTime,
+    refetchOnWindowFocus,
+    refetchOnMount,
   });
 }

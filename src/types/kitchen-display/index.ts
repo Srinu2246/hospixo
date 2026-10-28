@@ -23,6 +23,8 @@ export interface KitchenOrderItem {
   timeLabel: string;
   elapsedSeconds: number;
   createdAt: string;
+  /** Optimistic lock for PATCH kitchen-status. */
+  version: number;
 }
 
 export interface KitchenDisplayStats {
@@ -33,4 +35,4 @@ export interface KitchenDisplayStats {
   avgPrepTime: string;
 }
 
-export type KitchenStation = 'Main Kitchen' | 'Tandoor' | 'Bar';
+export type KitchenStation = string;

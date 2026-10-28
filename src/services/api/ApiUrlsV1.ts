@@ -179,6 +179,17 @@ export function branchKitchenBoardPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branches}/${encodeURIComponent(String(branchId))}/kitchen-board`;
 }
 
+/** WebSocket path for branch POS order events (browser uses SSE relay). */
+export function branchOrderEventsWsPath(branchId: number | string): string {
+  return `/v1/ws/branches/${encodeURIComponent(String(branchId))}/orders`;
+}
+
+export function buildBranchOrderEventsWsUrl(apiBaseUrl: string, branchId: number | string): string {
+  const httpBase = apiBaseUrl.replace(/\/+$/, '');
+  const wsBase = httpBase.replace(/^http/i, 'ws');
+  return `${wsBase}/api${branchOrderEventsWsPath(branchId)}`;
+}
+
 export function branchKitchenStatusPath(
   branchId: number | string,
   orderId: number | string,
