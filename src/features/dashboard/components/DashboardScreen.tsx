@@ -24,6 +24,8 @@ import { FeatureGate, ExampleFeatureUsage } from '@/integrations/growthbook';
 export interface DashboardScreenProps {
   /** Fallback when role/path cannot be resolved. */
   initialLevel?: DashboardLevel;
+  /** Explicit scope segment from route params (e.g. branch ID or slug). */
+  scopeSegment?: string;
 }
 
 /** Role → dashboard catalog. Path can still drill org → company/branch. */
@@ -93,10 +95,12 @@ const DEFAULT_SCOPE_BY_LEVEL: Record<DashboardLevel, string> = {
  */
 export function DashboardScreen({
   initialLevel = 'organization',
+  scopeSegment,
 }: Readonly<DashboardScreenProps> = {}) {
   const pathname = usePathname() ?? '';
   const role = useSidebarStore((state) => state.role);
   const sidebarContext = useSidebarStore((state) => state.context);
+  const setContext = useSidebarStore((state) => state.setContext);
   const organizationId = useSidebarStore(
     (state) => state.account?.org_id ?? state.context.organizationId,
   );
@@ -146,6 +150,62 @@ export function DashboardScreen({
     companyId: directoryCompanyId,
     dashboardLevel: currentLevel,
   });
+
+  const contextBranchId = sidebarContext.branchId;
+  const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
+
+  const resolvedScopeSegment = useMemo(() => {
+    if (scopeSegment?.trim()) return scopeSegment.trim();
+    const match = pathname.match(/^\/([^/]+)\/dashboard\/?$/);
+    return match ? decodeURIComponent(match[1]).trim() : '';
+  }, [pathname, scopeSegment]);
+
+  const matchedScopeBranch = useMemo(() => {
+    const branches = directory.data?.branches ?? [];
+    if (branches.length === 0 || !resolvedScopeSegment) return undefined;
+    const norm = normalizeSlug(resolvedScopeSegment);
+    if (norm === 'branch' || norm === 'branch-manager') return undefined;
+    return branches.find(
+      (b) =>
+        String(b.id) === resolvedScopeSegment ||
+        (b.code && normalizeSlug(b.code) === norm) ||
+        (b.name && normalizeSlug(b.name) === norm),
+    );
+  }, [directory.data?.branches, resolvedScopeSegment]);
+
+  const numericScopeBranchId = useMemo(() => {
+    if (!resolvedScopeSegment) return undefined;
+    const norm = normalizeSlug(resolvedScopeSegment);
+    if (norm === 'branch' || norm === 'branch-manager') return undefined;
+    const parsed = Number(resolvedScopeSegment);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }, [resolvedScopeSegment]);
+
+  const resolvedBranchId =
+    contextBranchId ??
+    accountBranchId ??
+    (matchedScopeBranch ? Number(matchedScopeBranch.id) : undefined) ??
+    numericScopeBranchId;
+
+  React.useEffect(() => {
+    if (currentLevel !== 'branch') return;
+    if (contextBranchId == null && resolvedBranchId != null) {
+      const branchName = matchedScopeBranch?.name ?? sidebarContext.branchName;
+      const branchSlug = matchedScopeBranch?.code?.trim() || String(resolvedBranchId);
+      setContext({
+        branchId: resolvedBranchId,
+        ...(branchName ? { branchName } : {}),
+        ...(branchSlug ? { branchSlug } : {}),
+      });
+    }
+  }, [
+    currentLevel,
+    contextBranchId,
+    resolvedBranchId,
+    matchedScopeBranch,
+    sidebarContext.branchName,
+    setContext,
+  ]);
 
   const handleExportData = () => {
     setToastMsg(`Exporting ${currentLevel} statistics data to CSV/Excel...`);
@@ -261,7 +321,7 @@ export function DashboardScreen({
         {currentLevel === 'branch' && (
           <Fade in timeout={300}>
             <Box>
-              <BranchSalesDashboard onExportClick={handleExportData} />
+              <BranchSalesDashboard branchId={resolvedBranchId} onExportClick={handleExportData} />
             </Box>
           </Fade>
         )}

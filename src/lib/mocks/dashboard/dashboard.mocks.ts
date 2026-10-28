@@ -1,4 +1,5 @@
 import { DateRangeOption, PeriodOption } from '@/features/dashboard/enums';
+import { branchDashboardDataSchema } from '@/lib/schemas/dashboard/branchDashboardSchema';
 import { companyDashboardDataSchema } from '@/lib/schemas/dashboard/companyDashboardSchema';
 import { organizationDashboardDataSchema } from '@/lib/schemas/dashboard/organizationDashboardSchema';
 import type {
@@ -762,5 +763,75 @@ export function resolveOrganizationDashboardMock(
     },
     message: 'OK',
     request_id: 'mock-organization-dashboard',
+  };
+}
+
+// ——— GET /v1/branches/{branch_id}/dashboard ———
+
+export const MOCK_BRANCH_DASHBOARD = branchDashboardDataSchema.parse({
+  branch_id: 1,
+  date_range: {
+    start_date: '2026-10-26',
+    end_date: '2026-10-26',
+  },
+  summary: {
+    total_sales: '887260.00',
+    total_sales_change_percent: 12.4,
+    net_sales: '848582.00',
+    net_sales_change_percent: 9.8,
+    online_sales: '37730.00',
+    offline_sales: '849530.00',
+    offline_sales_change_percent: 15.6,
+  },
+  sales_statistics: {
+    total_orders: 932,
+    total_sales: '887260.00',
+    by_order_type: [
+      { order_type: 'dine_in', sales: '848582.00', orders: 735 },
+      { order_type: 'takeaway', sales: '948.00', orders: 2 },
+      { order_type: 'delivery', sales: '37730.00', orders: 161 },
+    ],
+  },
+  payment_breakdown: {
+    cash: '142783.00',
+    card: '53786.00',
+    upi: '37730.00',
+    other: '652961.00',
+    total: '887260.00',
+  },
+  online_orders: '0.00',
+});
+
+type BranchDashboardMockRequest = {
+  method: string;
+  path: string;
+  params?: Record<string, unknown>;
+};
+
+/** GET /v1/branches/{branch_id}/dashboard */
+export function resolveBranchDashboardMock(
+  request: BranchDashboardMockRequest,
+): unknown | undefined {
+  const match = /^\/v1\/branches\/(\d+)\/dashboard$/.exec(request.path);
+  if (request.method !== 'GET' || !match) return undefined;
+
+  const branchId = Number(match[1]);
+  const startDate =
+    typeof request.params?.start_date === 'string' ? request.params.start_date : '2026-10-26';
+  const endDate =
+    typeof request.params?.end_date === 'string' ? request.params.end_date : '2026-10-26';
+
+  return {
+    success: true,
+    data: {
+      ...MOCK_BRANCH_DASHBOARD,
+      branch_id: branchId,
+      date_range: {
+        start_date: startDate,
+        end_date: endDate,
+      },
+    },
+    message: 'OK',
+    request_id: 'mock-branch-dashboard',
   };
 }

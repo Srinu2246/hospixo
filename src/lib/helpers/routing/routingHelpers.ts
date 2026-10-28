@@ -44,10 +44,12 @@ export function branchDashboardHref(
   role?: string,
 ): string {
   const branchSlug = branch.code?.trim() || String(branch.id);
+  const numericId = typeof branch.id === 'number' ? branch.id : Number(branch.id);
   const nextContext: SidebarContext = {
     ...context,
     branchSlug,
     branchName: branch.name,
+    ...(Number.isFinite(numericId) ? { branchId: numericId } : {}),
   };
   return resolveSidebarRoute('/branch-manager/dashboard', nextContext, role);
 }
