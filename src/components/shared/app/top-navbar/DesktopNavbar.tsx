@@ -2,10 +2,12 @@
 
 import React from 'react';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
-import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
+// import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
+// import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
+// import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import type { SxProps, Theme } from '@mui/material/styles';
@@ -61,19 +63,21 @@ export interface DesktopNavbarProps {
  * Dedicated desktop navigation bar rendered on medium-and-larger screens (`xs: 'none', md: 'flex'`).
  * Sections:
  * - Left: Outlets dropdown selector
- * - Right: Action controls (Explore Products, Theme switch, Notifications, Profile menu)
+ * - Right: Action controls (Theme switch, Notifications, Profile menu; AI Agent, Explore Products, Settings hidden)
  */
 export function DesktopNavbar({
   outletOptions,
   hideOutletSelector = false,
   selectedOutletSlug,
   onOutletChange,
-  showManagementActions,
+  /* showManagementActions, - unused while AI Agent & Explore Products buttons are hidden */
   isBranchView,
   mode,
   onToggleMode,
-  onExploreProductsClick,
+  /* onAiAgentClick, - unused while AI Agent button is hidden */
+  /* onExploreProductsClick, - unused while Explore Products button is hidden */
   onNotificationClick,
+  /* onSettingsClick, - unused while Settings button is hidden */
   user,
   displayName,
   displayRole,
@@ -115,7 +119,39 @@ export function DesktopNavbar({
 
       {/* DESKTOP Right Section */}
       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', ml: 'auto' }}>
-        {/* Explore Products Button (hidden on branch-manager routes as per Figma) */}
+        {/*
+          AI Agent, Explore Products, and Settings features are not currently available.
+          Commented out until these features are implemented.
+        */}
+
+        {/* AI Agent Button - hidden as feature is not currently available */}
+        {/*
+        {showManagementActions && (
+          <ActionButton
+            variant="outlined"
+            size="medium"
+            startIcon={<HeadsetMicOutlinedIcon sx={{ fontSize: 18 }} />}
+            onClick={onAiAgentClick}
+            sx={{
+              display: { xs: 'none', sm: 'inline-flex' },
+              borderRadius: '8px',
+              borderColor: (theme) => theme.palette.divider,
+              color: (theme) => theme.palette.text.primary,
+              fontWeight: 600,
+              fontSize: '0.84375rem',
+              '&:hover': {
+                borderColor: (theme) => theme.palette.text.secondary,
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            AI Agent
+          </ActionButton>
+        )}
+        */}
+
+        {/* Explore Products Button - hidden as feature is not currently available */}
+        {/*
         {showManagementActions && !isBranchView && (
           <ActionButton
             variant="primary"
@@ -137,6 +173,7 @@ export function DesktopNavbar({
             Explore Products
           </ActionButton>
         )}
+        */}
 
         {/* Theme toggle — available for every role that uses the top navbar */}
         <Tooltip title={mode === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}>
@@ -187,6 +224,31 @@ export function DesktopNavbar({
             </ActionButton>
           </span>
         </Tooltip>
+
+        {/* Settings Button - hidden as feature is not currently available */}
+        {/*
+        <Tooltip title="Settings">
+          <span>
+            <ActionButton
+              variant="icon"
+              size="medium"
+              ariaLabel="Open settings"
+              onClick={onSettingsClick}
+              sx={{
+                borderRadius: '8px',
+                borderColor: (theme) => theme.palette.divider,
+                color: (theme) => theme.palette.text.secondary,
+                '&:hover': {
+                  color: (theme) => theme.palette.text.primary,
+                  backgroundColor: 'action.hover',
+                },
+              }}
+            >
+              <SettingsOutlinedIcon sx={{ fontSize: 20 }} />
+            </ActionButton>
+          </span>
+        </Tooltip>
+        */}
 
         {/* User Profile Avatar & Dropdown */}
         <ProfileMenu

@@ -16,7 +16,7 @@ export type { TabletNavbarProps };
  * Dedicated tablet navigation bar rendered on medium-small screens (`xs: 'none', sm: 'flex', md: 'none'`).
  * Sections:
  * - Left: Branch and outlet selector
- * - Right: Notifications and drawer menu trigger (or profile menu)
+ * - Right: Notifications and drawer menu trigger (or profile menu; AI Agent and Settings buttons commented out)
  */
 export function TabletNavbar({
   branchMenuAnchor,
@@ -28,10 +28,10 @@ export function TabletNavbar({
   mobileSelectedOutletSlug,
   onMobileOutletChange,
   hideOutletSelector = false,
-  showManagementActions: _showManagementActions,
-  onAiAgentClick: _onAiAgentClick,
+  /* showManagementActions, - unused while AI Agent button is hidden */
+  /* onAiAgentClick, - unused while AI Agent button is hidden */
   onNotificationClick,
-  onSettingsClick: _onSettingsClick,
+  /* onSettingsClick, - unused while Settings button is hidden */
   onOpenMenu,
   showProfileMenu = false,
   user,
@@ -69,7 +69,44 @@ export function TabletNavbar({
 
       {/* Tablet Right: Notifications, Hamburger button */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexShrink: 0, ml: 'auto' }}>
+        {/*
+          AI Agent and Settings features are not currently available.
+          Commented out until these features are implemented.
+        */}
+
+        {/* AI Agent Button - hidden as feature is not currently available */}
+        {/*
+        {showManagementActions && (
+          <ActionButton
+            variant="outlined"
+            size="medium"
+            startIcon={<HeadsetMicOutlinedIcon sx={{ fontSize: 18 }} />}
+            onClick={onAiAgentClick}
+            sx={{
+              borderRadius: '8px',
+              borderColor: (theme) => theme.palette.divider,
+              color: (theme) => theme.palette.text.primary,
+              fontWeight: 600,
+              fontSize: '0.8125rem',
+              px: 1.5,
+              '&:hover': {
+                borderColor: (theme) => theme.palette.text.secondary,
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            AI Agent
+          </ActionButton>
+        )}
+        */}
+
         <NavNotificationButton onClick={onNotificationClick} />
+
+        {/* Settings Button - hidden as feature is not currently available */}
+        {/*
+        <NavSettingsButton onClick={onSettingsClick} />
+        */}
+
         {showProfileMenu ? (
           <ProfileMenu
             user={user}

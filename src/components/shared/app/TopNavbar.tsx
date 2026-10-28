@@ -79,7 +79,8 @@ export function TopNavbar({
   const pathname = usePathname() ?? '';
   const hideOutletSelector = pathname === '/branch-manager/dashboard';
 
-  // Business rule: show AI Agent and Explore Products for managers/company, hide for waiter
+  // Business rule: show AI Agent and Explore Products for managers/company, hide for waiter.
+  // Note: AI Agent, Explore Products, and Settings buttons are hidden throughout the topbar as these features are not currently available.
   const showManagementActions = Boolean(normalizedRole) && normalizedRole !== 'waiter';
 
   const isBranchView = pathname.includes('/branch-manager');
