@@ -12,9 +12,23 @@ import {
   resolveScopeFromPathname,
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
-import { isFallbackEntityName } from '@/lib/helpers/employees/userRolesHelpers';
+import {
+  isBranchAuthenticatedSession,
+  isFallbackEntityName,
+} from '@/lib/helpers/employees/userRolesHelpers';
 import { api } from '@/services/api/browserClient';
 import type { JsonObject } from '@/types/json';
+
+function isBranchSessionScope(
+  resolvedScope: ScopeType,
+  accountScope?: string | null,
+  accountBranchId?: number | null,
+): boolean {
+  return (
+    resolvedScope === 'branch' ||
+    isBranchAuthenticatedSession({ authScope: accountScope, accountBranchId })
+  );
+}
 
 /** Resolves the active company display name from session, directory, or company detail (no useEffect). */
 export function useResolvedCompanyName(
@@ -24,50 +38,15 @@ export function useResolvedCompanyName(
   const pathname = usePathname() || '';
   const contextCompanyName = useSidebarStore((state) => state.context.companyName);
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
-  const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const account = useSidebarStore((state) => state.account);
   const organizationId = useSidebarStore(
     (state) => state.context.organizationId ?? state.account?.org_id ?? undefined,
   );
 
   const resolvedScope = resolveScopeFromPathname(pathname, options?.scope);
-  const isBranchScope = resolvedScope === 'branch';
+  const isBranchScope = isBranchSessionScope(resolvedScope, account?.scope, account?.branch_id);
 
   const companyId = contextCompanyId ?? account?.company_id ?? undefined;
-  const directory = useEmployeeDirectory(organizationId, companyId, {
-    scope: isBranchScope ? 'branch' : companyId != null ? 'company' : 'organization',
-  });
-
-  const activeBranchId = contextBranchId ?? account?.branch_id ?? undefined;
-
-  const fromBranchDirectory = useMemo(() => {
-    if (resolvedScope !== 'branch') return undefined;
-    const branches = directory.data?.branches ?? [];
-    if (branches.length === 0) return undefined;
-
-    const matched =
-      (activeBranchId != null
-        ? branches.find((branch) => String(branch.id) === String(activeBranchId))
-        : undefined) ?? branches[0];
-
-    const name = matched?.companyName?.trim();
-    return name && !isFallbackEntityName(name) ? name : undefined;
-  }, [resolvedScope, directory.data?.branches, activeBranchId]);
-
-  const fromDirectory = useMemo(() => {
-    const companies = directory.data?.companies ?? [];
-    if (companies.length === 0) return undefined;
-
-    if (companyId != null) {
-      const byId = companies.find((company) => String(company.id) === String(companyId));
-      if (byId?.name && !isFallbackEntityName(byId.name)) {
-        return byId.name.trim();
-      }
-    }
-
-    const firstReal = companies.find((c) => !isFallbackEntityName(c.name));
-    return firstReal?.name?.trim();
-  }, [directory.data?.companies, companyId]);
 
   const accountRecord = account as (typeof account & { company_name?: string }) | null;
   const fromAccountRaw =
@@ -83,15 +62,41 @@ export function useResolvedCompanyName(
       ? contextCompanyName.trim()
       : undefined;
 
+  const branchSessionCompanyName = useMemo(() => {
+    if (!isBranchScope) return undefined;
+    return validExplicit || validContext || fromAccount || undefined;
+  }, [isBranchScope, validExplicit, validContext, fromAccount]);
+
+  const directory = useEmployeeDirectory(organizationId, isBranchScope ? undefined : companyId, {
+    scope: isBranchScope ? 'branch' : companyId != null ? 'company' : 'organization',
+    enabled: !isBranchScope,
+  });
+
+  const fromDirectory = useMemo(() => {
+    if (isBranchScope) return undefined;
+    const companies = directory.data?.companies ?? [];
+    if (companies.length === 0) return undefined;
+
+    if (companyId != null) {
+      const byId = companies.find((company) => String(company.id) === String(companyId));
+      if (byId?.name && !isFallbackEntityName(byId.name)) {
+        return byId.name.trim();
+      }
+    }
+
+    const firstReal = companies.find((c) => !isFallbackEntityName(c.name));
+    return firstReal?.name?.trim();
+  }, [isBranchScope, directory.data?.companies, companyId]);
+
   const resolvedWithoutDetail =
+    branchSessionCompanyName ||
     validExplicit ||
-    fromBranchDirectory ||
     fromDirectory ||
     validContext ||
     fromAccount ||
     undefined;
 
-  const needsCompanyDetail = !resolvedWithoutDetail && companyId != null && !isBranchScope;
+  const needsCompanyDetail = !isBranchScope && !resolvedWithoutDetail && companyId != null;
 
   const companyDetailQuery = useQuery({
     queryKey: ['organization', 'company', 'detail', companyId ?? 'none'],
@@ -108,6 +113,10 @@ export function useResolvedCompanyName(
     const name = companyDetailQuery.data?.name?.trim();
     return name && !isFallbackEntityName(name) ? name : undefined;
   }, [companyDetailQuery.data?.name]);
+
+  if (isBranchScope) {
+    return branchSessionCompanyName;
+  }
 
   return resolvedWithoutDetail || fromCompanyDetail;
 }

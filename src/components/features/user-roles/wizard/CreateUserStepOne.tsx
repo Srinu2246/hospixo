@@ -21,14 +21,17 @@ import {
   type ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import {
+  isBranchAuthenticatedSession,
   isFallbackEntityName,
   resolveCompanyLabelForBranch,
   resolveCreateUserBranchOptions,
   resolveEmployeeDirectoryOptions,
+  resolveSessionBranchDisplay,
 } from '@/lib/helpers/employees/userRolesHelpers';
 import { useEmployeeDirectory, useRoleCatalogQuery } from '@/lib/hooks/employees/user-roles';
 import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 import { useResolvedBranchName } from '@/lib/hooks/useResolvedBranchName';
+import { useSessionBranchCatalog } from '@/lib/hooks/useSessionBranchCatalog';
 import { useCreateUserStore } from '@/stores/createUserStore';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { CreateUserStaffInfoSection } from './create-user/CreateUserStaffInfoSection';
@@ -55,7 +58,7 @@ export function CreateUserStepOne({
     selectedRoleId,
     scope: storeScope,
   } = useCreateUserStore();
-  const currentScope = scope || storeScope || 'company';
+  const wizardScope = scope || storeScope || 'company';
   const accountOrgId = useSidebarStore((state) => state.account?.org_id ?? undefined);
   const accountCompanyId = useSidebarStore((state) => state.account?.company_id ?? undefined);
   const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
@@ -63,27 +66,50 @@ export function CreateUserStepOne({
   const contextCompanyId = useSidebarStore((state) => state.context.companyId);
   const contextBranchId = useSidebarStore((state) => state.context.branchId);
   const contextBranchName = useSidebarStore((state) => state.context.branchName);
+  const accountBranchName = useSidebarStore(
+    (state) =>
+      (state.account as { branch_name?: string | null } | null | undefined)?.branch_name ??
+      undefined,
+  );
   const role = useSidebarStore((state) => state.role || state.user?.role || '');
   const authScope = useSidebarStore((state) => state.account?.scope ?? '');
   const organizationId = contextOrgId ?? accountOrgId;
+
+  const isBranchLogin =
+    wizardScope === 'branch' || isBranchAuthenticatedSession({ authScope, accountBranchId });
+  const currentScope: ScopeType = isBranchLogin ? 'branch' : wizardScope;
 
   const directoryQuery = useMemo(
     () =>
       resolveEmployeeDirectoryOptions({
         wizardScope: currentScope,
-        contextCompanyId,
-        accountCompanyId,
+        contextCompanyId: isBranchLogin ? undefined : contextCompanyId,
+        accountCompanyId: isBranchLogin ? undefined : accountCompanyId,
+        accountBranchId,
         role,
         authScope,
       }),
-    [currentScope, contextCompanyId, accountCompanyId, role, authScope],
+    [
+      currentScope,
+      isBranchLogin,
+      contextCompanyId,
+      accountCompanyId,
+      accountBranchId,
+      role,
+      authScope,
+    ],
   );
-  const directoryCompanyId = directoryQuery.companyId;
+  const directoryCompanyId = isBranchLogin ? undefined : directoryQuery.companyId;
 
-  const directory = useEmployeeDirectory(organizationId, directoryCompanyId, {
-    scope: directoryQuery.directoryScope,
-  });
-  const lockCompanyField = directoryQuery.lockCompanyField;
+  const directory = useEmployeeDirectory(
+    isBranchLogin ? undefined : organizationId,
+    directoryCompanyId,
+    {
+      scope: isBranchLogin ? 'branch' : directoryQuery.directoryScope,
+      enabled: !isBranchLogin,
+    },
+  );
+  const lockCompanyField = isBranchLogin ? true : directoryQuery.lockCompanyField;
 
   const rolesQuery = useRoleCatalogQuery(currentScope);
   const roleCatalog = useMemo((): RoleCatalogItem[] => {
@@ -97,10 +123,17 @@ export function CreateUserStepOne({
     return roleCatalog.map((role) => role.name);
   }, [roleCatalog]);
 
-  const assignment = useMemo(
-    () => resolveRoleAssignmentRequirements(formValues.role, roleCatalog, currentScope),
-    [formValues.role, roleCatalog, currentScope],
-  );
+  const assignment = useMemo(() => {
+    const base = resolveRoleAssignmentRequirements(formValues.role, roleCatalog, currentScope);
+    if (!isBranchLogin) return base;
+    return {
+      ...base,
+      showCompany: false,
+      requireCompany: false,
+      showBranch: true,
+      requireBranch: true,
+    };
+  }, [formValues.role, roleCatalog, currentScope, isBranchLogin]);
 
   const companyOptions = useMemo(() => {
     const fromDir = (directory.data?.companies ?? [])
@@ -128,10 +161,36 @@ export function CreateUserStepOne({
     return firstReal?.name;
   }, [contextCompanyId, accountCompanyId, directoryCompanyId, directory.data?.companies]);
 
-  const sessionCompanyName = useResolvedCompanyName(companyName, { scope: currentScope });
-  const sessionBranchName = useResolvedBranchName(formValues.branch, { scope: currentScope });
-
+  const resolvedCompanyNameHook = useResolvedCompanyName(isBranchLogin ? undefined : companyName, {
+    scope: currentScope,
+  });
+  const resolvedBranchNameHook = useResolvedBranchName(
+    isBranchLogin ? undefined : formValues.branch,
+    { scope: currentScope },
+  );
+  const sessionCompanyName = isBranchLogin ? undefined : resolvedCompanyNameHook;
   const branchId = contextBranchId ?? accountBranchId;
+
+  const branchCatalog = useSessionBranchCatalog({ enabled: isBranchLogin });
+  const catalogBranchName =
+    branchCatalog.activeBranchName ??
+    branchCatalog.resolveBranchName(formValues.branch) ??
+    branchCatalog.resolveBranchName(branchId);
+
+  const sessionBranchDisplay = useMemo(
+    () =>
+      resolveSessionBranchDisplay({
+        formBranch: formValues.branch,
+        contextBranchName,
+        accountBranchName,
+        catalogBranchName,
+      }),
+    [formValues.branch, contextBranchName, accountBranchName, catalogBranchName],
+  );
+
+  const sessionBranchName = isBranchLogin
+    ? sessionBranchDisplay || undefined
+    : resolvedBranchNameHook;
 
   const matchedBranch = useMemo(() => {
     const branches = directory.data?.branches ?? [];
@@ -206,9 +265,17 @@ export function CreateUserStepOne({
     formValues.company,
     resolvedCompanyLabel,
   ]);
-  const isBranchLoading = directory.isLoading || (directory.isPending && !directory.data);
+  const isBranchLoading =
+    (isBranchLogin &&
+      branchCatalog.isLoading &&
+      !sessionBranchDisplay &&
+      currentScope === 'branch') ||
+    (!isBranchLogin && (directory.isFetching || (directory.isLoading && !directory.data)));
 
   const resolvedBranchLabel = useMemo(() => {
+    if (isBranchLogin || currentScope === 'branch') {
+      if (sessionBranchDisplay) return sessionBranchDisplay;
+    }
     if (matchedBranch?.name && !isFallbackEntityName(matchedBranch.name)) {
       return matchedBranch.name.trim();
     }
@@ -228,7 +295,16 @@ export function CreateUserStepOne({
     if (matchedBranch?.name) return matchedBranch.name;
     if (branchOptions[0]) return branchOptions[0];
     return '—';
-  }, [matchedBranch, sessionBranchName, branchOptions, formValues.branch, contextBranchName]);
+  }, [
+    isBranchLogin,
+    currentScope,
+    sessionBranchDisplay,
+    matchedBranch,
+    sessionBranchName,
+    branchOptions,
+    formValues.branch,
+    contextBranchName,
+  ]);
 
   const lockedBranchLabel = resolvedBranchLabel;
 
@@ -261,14 +337,14 @@ export function CreateUserStepOne({
   }, [lockCompanyField, currentScope, resolvedCompanyLabel, formValues.company]);
 
   const derivedBranchValue = useMemo(() => {
-    if (currentScope === 'branch') {
+    if (isBranchLogin || currentScope === 'branch') {
       if (lockedBranchLabel !== '—' && !isFallbackEntityName(lockedBranchLabel)) {
         return lockedBranchLabel;
       }
-      return formValues.branch ?? '';
+      return formValues.branch?.trim() || contextBranchName?.trim() || '';
     }
     return formValues.branch ?? '';
-  }, [currentScope, lockedBranchLabel, formValues.branch]);
+  }, [isBranchLogin, currentScope, lockedBranchLabel, formValues.branch, contextBranchName]);
 
   const syncedFormValues = useMemo(
     (): CreateUserFormValues => ({
@@ -344,29 +420,34 @@ export function CreateUserStepOne({
     );
     const effectiveRole = data.role?.trim() || templateDefaultRole;
     const effectiveBranch =
-      currentScope === 'branch'
+      isBranchLogin || currentScope === 'branch'
         ? lockedBranchLabel !== '—'
           ? lockedBranchLabel
-          : data.branch || branchOptions[0] || ''
+          : data.branch || contextBranchName?.trim() || branchOptions[0] || ''
         : submitAssignment.requireBranch
           ? data.branch || branchOptions[0] || ''
           : '';
 
     const branchCandidate = effectiveBranch || data.branch;
-    const branchObj = directory.data?.branches?.find(
-      (b) =>
-        b.name?.trim().toLowerCase() === branchCandidate.trim().toLowerCase() ||
-        String(b.id) === branchCandidate.trim(),
-    );
+    const branchObj = isBranchLogin
+      ? undefined
+      : directory.data?.branches?.find(
+          (b) =>
+            b.name?.trim().toLowerCase() === branchCandidate.trim().toLowerCase() ||
+            String(b.id) === branchCandidate.trim(),
+        );
 
-    const branchCompanyLabel = resolveCompanyLabelForBranch(branchObj, directory.data?.companies);
-    const effectiveCompany =
-      branchCompanyLabel ||
-      (lockCompanyField || currentScope === 'company' || currentScope === 'branch'
-        ? resolvedCompanyLabel !== '—'
-          ? resolvedCompanyLabel
-          : data.company
-        : data.company);
+    const branchCompanyLabel = isBranchLogin
+      ? ''
+      : resolveCompanyLabelForBranch(branchObj, directory.data?.companies);
+    const effectiveCompany = isBranchLogin
+      ? ''
+      : branchCompanyLabel ||
+        (lockCompanyField || currentScope === 'company' || currentScope === 'branch'
+          ? resolvedCompanyLabel !== '—'
+            ? resolvedCompanyLabel
+            : data.company
+          : data.company);
 
     const matched = roleCatalog.find(
       (r) =>
@@ -408,8 +489,9 @@ export function CreateUserStepOne({
     );
 
     const effectiveRole = currentVals.role?.trim() || templateDefaultRole;
-    const effectiveCompany =
-      lockCompanyField || currentScope === 'company' || currentScope === 'branch'
+    const effectiveCompany = isBranchLogin
+      ? ''
+      : lockCompanyField || currentScope === 'company' || currentScope === 'branch'
         ? resolvedCompanyLabel !== '—'
           ? resolvedCompanyLabel
           : currentVals.company || ''
@@ -418,10 +500,10 @@ export function CreateUserStepOne({
           : currentVals.company;
 
     const effectiveBranch =
-      currentScope === 'branch'
+      isBranchLogin || currentScope === 'branch'
         ? lockedBranchLabel !== '—'
           ? lockedBranchLabel
-          : currentVals.branch || branchOptions[0] || ''
+          : currentVals.branch || contextBranchName?.trim() || branchOptions[0] || ''
         : submitAssignment.requireBranch
           ? currentVals.branch || (branchOptions[0] ?? '')
           : currentVals.branch;
