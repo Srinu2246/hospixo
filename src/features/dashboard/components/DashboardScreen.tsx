@@ -184,6 +184,10 @@ export function DashboardScreen({
     }
   }, [currentLevel, directory.data]);
 
+  if (!role && typeof companyId !== 'number' && typeof organizationId !== 'number') {
+    return null;
+  }
+
   return (
     <Box
       sx={{

@@ -1,15 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Modal } from '@/components/shared/ui/Modal';
+import { clearSidebarSession } from '@/lib/auth/session';
 import { useApiMutation } from '@/lib/hooks/api/useApiMutation';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
-import { useSidebarStore } from '@/stores/sidebarStore';
 
 export interface LogoutModalProps {
   open: boolean;
@@ -17,8 +16,6 @@ export interface LogoutModalProps {
 }
 
 export function LogoutModal({ open, onClose }: Readonly<LogoutModalProps>) {
-  const router = useRouter();
-  const clearSession = useSidebarStore((state) => state.clearSession);
   const [error, setError] = useState<string | null>(null);
   const logout = useApiMutation<unknown, { revoke_all: false }>({
     path: ApiUrlsV1.auth.logout,
@@ -35,11 +32,13 @@ export function LogoutModal({ open, onClose }: Readonly<LogoutModalProps>) {
     setError(null);
     try {
       await logout.mutateAsync({ revoke_all: false });
-      clearSession();
-      onClose();
-      router.replace('/login');
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to log out');
+    } catch {
+      // Best-effort logout notification; proceed with client session cleanup.
+    } finally {
+      clearSidebarSession();
+      // Hard navigation so middleware sees cleared httpOnly cookies and resets client memory
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload required after auth cookie clear
+      window.location.assign('/login');
     }
   }
 

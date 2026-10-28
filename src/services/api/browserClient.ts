@@ -108,8 +108,10 @@ async function request<T>(
   }
 
   const headers = new Headers({ Accept: 'application/json' });
-  for (const [key, value] of Object.entries(resolveUpstreamContextHeaders())) {
-    headers.set(key, value);
+  if (!isAuthPath(endpoint)) {
+    for (const [key, value] of Object.entries(resolveUpstreamContextHeaders())) {
+      headers.set(key, value);
+    }
   }
   if (options.headers) {
     for (const [key, value] of Object.entries(options.headers)) {
