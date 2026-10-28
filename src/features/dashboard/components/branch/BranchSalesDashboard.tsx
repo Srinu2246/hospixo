@@ -38,6 +38,8 @@ import { DashboardDateRangeDropdown } from '../shared/DashboardDateRangeDropdown
 import { DashboardStatCard } from '../shared/DashboardStatCard';
 
 export interface BranchSalesDashboardProps {
+  /** Explicit branch ID from parent dashboard. Falls back to sidebar context or account. */
+  branchId?: number;
   onExportClick?: () => void;
 }
 
@@ -160,7 +162,10 @@ const cardSurfaceSx = {
     theme.palette.mode === 'dark' ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)',
 };
 
-export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDashboardProps> = {}) {
+export function BranchSalesDashboard({
+  branchId: propBranchId,
+  onExportClick,
+}: Readonly<BranchSalesDashboardProps> = {}) {
   const defaultDateRange = useMemo(() => createDefaultReportsDateRange(), []);
   const [dateFrom, setDateFrom] = useState(defaultDateRange.dateFrom);
   const [dateTo, setDateTo] = useState(defaultDateRange.dateTo);
@@ -185,7 +190,15 @@ export function BranchSalesDashboard({ onExportClick }: Readonly<BranchSalesDash
     setActiveDatePreset(preset);
   };
 
-  const branchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
+  const contextBranchId = useSidebarStore((state) => state.context.branchId);
+  const accountBranchId = useSidebarStore((state) => state.account?.branch_id ?? undefined);
+  const rawBranchId = propBranchId ?? contextBranchId ?? accountBranchId;
+  const branchId =
+    typeof rawBranchId === 'number' && Number.isFinite(rawBranchId)
+      ? rawBranchId
+      : typeof rawBranchId === 'string' && Number.isFinite(Number(rawBranchId))
+        ? Number(rawBranchId)
+        : undefined;
   const dashboard = useBranchDashboard(branchId, {
     startDate: formatIsoDate(dateFrom),
     endDate: formatIsoDate(dateTo),

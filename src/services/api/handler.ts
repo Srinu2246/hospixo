@@ -9,6 +9,7 @@ import {
   BRANCH_STAT_CARDS,
   COMPANY_STAT_CARDS,
   ORG_STAT_CARDS,
+  resolveBranchDashboardMock,
   resolveCompanyDashboardMock,
   resolveOrganizationDashboardMock,
 } from '@/lib/mocks/dashboard/dashboard.mocks';
@@ -205,6 +206,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
   const reports = resolveBranchReportsMock(request);
   if (reports !== undefined) return reports;
+
+  const branchDashboard = resolveBranchDashboardMock(request);
+  if (branchDashboard !== undefined) return branchDashboard;
 
   const companyDashboard = resolveCompanyDashboardMock(request);
   if (companyDashboard !== undefined) return companyDashboard;

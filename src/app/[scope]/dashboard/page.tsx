@@ -24,5 +24,5 @@ export default async function ScopedDashboardRoute({
   params,
 }: Readonly<ScopedDashboardRouteProps>) {
   const { scope } = await params;
-  return <DashboardScreen initialLevel={initialLevelFromScope(scope)} />;
+  return <DashboardScreen initialLevel={initialLevelFromScope(scope)} scopeSegment={scope} />;
 }
