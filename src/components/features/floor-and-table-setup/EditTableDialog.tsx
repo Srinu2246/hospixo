@@ -109,7 +109,7 @@ function EditTableForm({
           seats: values.seats,
           sectionId: values.sectionId,
           area: section?.name ?? table.area,
-          active: values.active,
+          active: mode === 'add' ? true : values.active,
           reservations: values.reservations,
         });
       })}
@@ -159,7 +159,8 @@ function EditTableForm({
             <FieldLabel>Status</FieldLabel>
             <Dropdown
               options={statusOptions}
-              value={field.value ? 'active' : 'inactive'}
+              value={mode === 'add' || field.value ? 'active' : 'inactive'}
+              disabled={mode === 'add'}
               onChange={(value) => field.onChange(value === 'active')}
               size="large"
               minWidth="100%"

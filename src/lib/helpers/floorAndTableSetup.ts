@@ -3,7 +3,6 @@ import type {
   FloorDetails,
   SavedFloor,
   SectionDraft,
-  SectionInput,
   TableBulkEditInput,
   TableDraft,
   TableGenerateInput,
@@ -18,6 +17,7 @@ export type FloorSetupDraft = {
   sections: SectionDraft[];
   tables: TableDraft[];
   createdId: string | null;
+  floorVersion: number | null;
 };
 
 const STEP_SUFFIX = /\/(floor|section|table|review|success)$/;
@@ -77,40 +77,6 @@ export function tableSeatSummary(tables: number, seats: number): string {
   return `${tables} ${tableLabel} · ${seats} ${seatLabel}`;
 }
 
-export function buildSection(input: SectionInput, serial: number): SectionDraft {
-  return {
-    id: createId(),
-    name: input.name.trim(),
-    code: input.code.trim() || suggestCode(input.name, serial, 'SEC'),
-    description: input.description.trim(),
-    active: input.active,
-  };
-}
-
-export function insertSection(
-  sections: readonly SectionDraft[],
-  input: SectionInput,
-): SectionDraft[] {
-  return [...sections, buildSection(input, sections.length + 1)];
-}
-
-export function replaceSection(
-  sections: readonly SectionDraft[],
-  id: string,
-  input: SectionInput,
-): SectionDraft[] {
-  return sections.map((section) =>
-    section.id === id
-      ? {
-          ...section,
-          ...input,
-          name: input.name.trim(),
-          code: input.code.trim() || section.code,
-        }
-      : section,
-  );
-}
-
 export function removeSection(sections: readonly SectionDraft[], id: string): SectionDraft[] {
   return sections.filter((section) => section.id !== id);
 }
@@ -166,14 +132,6 @@ export function generateTables(
   }
 
   return created;
-}
-
-export function appendTables(
-  tables: readonly TableDraft[],
-  input: TableGenerateInput,
-  sectionIds: readonly string[],
-): TableDraft[] {
-  return [...tables, ...generateTables(input, tables, sectionIds)];
 }
 
 export function removeTable(tables: readonly TableDraft[], id: string): TableDraft[] {
@@ -329,6 +287,7 @@ const EMPTY_DRAFT: FloorSetupDraft = {
   sections: [],
   tables: [],
   createdId: null,
+  floorVersion: null,
 };
 
 const listeners = new Set<() => void>();
@@ -350,6 +309,10 @@ export function subscribeFloorSetup(onChange: () => void): () => void {
 
 export function getFloorSetupServerSnapshot(): FloorSetupDraft {
   return EMPTY_DRAFT;
+}
+
+export function isFloorSetupHydrated(): boolean {
+  return hydrated;
 }
 
 export function markFloorSetupHydrated(): void {
@@ -413,6 +376,7 @@ function parseDraft(raw: string): FloorSetupDraft {
       sections: Array.isArray(record.sections) ? record.sections.filter(isSection) : [],
       tables: Array.isArray(record.tables) ? record.tables.filter(isTable) : [],
       createdId: typeof record.createdId === 'string' ? record.createdId : null,
+      floorVersion: typeof record.floorVersion === 'number' ? record.floorVersion : null,
     };
   } catch {
     return EMPTY_DRAFT;

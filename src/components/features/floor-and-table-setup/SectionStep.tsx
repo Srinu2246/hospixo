@@ -6,10 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { ChevronLeft, Grid3x3, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Grid3x3, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
+import { Loading } from '@/components/shared/ui/Loading';
 import { Modal } from '@/components/shared/ui/Modal';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
@@ -35,20 +36,18 @@ const emptySection: SectionInput = {
 };
 
 export function SectionStep({
-  floorName,
   sections,
   tables,
-  onBackToFloor,
+  loading = false,
   onCreate,
   onUpdate,
   onDelete,
 }: Readonly<{
-  floorName: string;
   sections: readonly SectionDraft[];
   tables: readonly TableDraft[];
-  onBackToFloor: () => void;
-  onCreate: (input: SectionInput) => void;
-  onUpdate: (id: string, input: SectionInput) => void;
+  loading?: boolean;
+  onCreate: (input: SectionInput) => void | Promise<boolean>;
+  onUpdate: (id: string, input: SectionInput) => void | Promise<boolean>;
   onDelete: (id: string) => void;
 }>) {
   const [query, setQuery] = useState('');
@@ -57,23 +56,12 @@ export function SectionStep({
 
   return (
     <Stack spacing={2.5}>
-      <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
-        <ActionButton variant="icon" ariaLabel="Back" onClick={onBackToFloor}>
-          <ChevronLeft size={18} />
-        </ActionButton>
-        <Typography
-          sx={{
-            fontWeight: 800,
-            fontSize: { [screen.mobile]: '1.05rem', [screen.desktop]: '1.25rem' },
-          }}
-        >
-          {floorName}
-        </Typography>
-      </Stack>
+      {loading ? <Loading message="Loading sections..." fullPage={false} /> : null}
 
-      {sections.length === 0 ? (
+      {!loading && sections.length === 0 ? (
         <EmptySections onCreate={() => setEditor('new')} />
-      ) : (
+      ) : null}
+      {!loading && sections.length > 0 ? (
         <Stack spacing={2}>
           <Stack
             direction={{ [screen.mobile]: 'column', [screen.desktop]: 'row' }}
@@ -173,7 +161,7 @@ export function SectionStep({
             })}
           </Box>
         </Stack>
-      )}
+      ) : null}
 
       <SectionDialog
         open={editor !== null}
@@ -182,10 +170,10 @@ export function SectionStep({
         title={editor && editor !== 'new' ? 'Edit section' : 'Create New Section'}
         submitLabel="Save Section"
         onClose={() => setEditor(null)}
-        onSubmit={(input) => {
-          if (editor && editor !== 'new') onUpdate(editor.id, input);
-          else onCreate(input);
-          setEditor(null);
+        onSubmit={async (input) => {
+          const saved =
+            editor && editor !== 'new' ? await onUpdate(editor.id, input) : await onCreate(input);
+          if (saved !== false) setEditor(null);
         }}
       />
     </Stack>
@@ -242,7 +230,7 @@ function SectionDialog({
   title: string;
   submitLabel: string;
   onClose: () => void;
-  onSubmit: (input: SectionInput) => void;
+  onSubmit: (input: SectionInput) => void | Promise<boolean | void>;
 }>) {
   return (
     <Modal open={open} onClose={onClose} title={title} width={720} height="auto">
@@ -270,8 +258,10 @@ function SectionForm({
   initial: SectionInput;
   submitLabel: string;
   onClose: () => void;
-  onSubmit: (input: SectionInput) => void;
+  onSubmit: (input: SectionInput) => void | Promise<boolean | void>;
 }>) {
+  const [saving, setSaving] = useState(false);
+  const creating = mode === 'add';
   const { control, handleSubmit, trigger, formState } = useForm<SectionFormValues>({
     resolver: zodResolver(sectionFormSchema),
     defaultValues: {
@@ -292,9 +282,14 @@ function SectionForm({
     <Stack
       component="form"
       spacing={2.5}
-      onSubmit={handleSubmit((values) => {
-        if (!canSave) return;
-        onSubmit(values);
+      onSubmit={handleSubmit(async (values) => {
+        if (!canSave || saving) return;
+        setSaving(true);
+        try {
+          await onSubmit(creating ? { ...values, active: true } : values);
+        } finally {
+          setSaving(false);
+        }
       })}
     >
       <Box
@@ -361,8 +356,13 @@ function SectionForm({
         render={({ field }) => (
           <LabeledSwitch
             title="Section Status"
-            hint="Toggle active visibility on checkout POS channels"
-            checked={field.value}
+            hint={
+              creating
+                ? 'New sections are created as active.'
+                : 'Toggle active visibility on checkout POS channels'
+            }
+            checked={creating ? true : field.value}
+            disabled={creating}
             onChange={field.onChange}
           />
         )}
@@ -382,7 +382,8 @@ function SectionForm({
         </ActionButton>
         <ActionButton
           type="submit"
-          disabled={!canSave}
+          disabled={!canSave || saving}
+          loading={saving}
           sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
         >
           {submitLabel}

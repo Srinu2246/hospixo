@@ -86,6 +86,8 @@ export function useKitchenDisplay({
   const [streamReadyReceived, setStreamReadyReceived] = useState(false);
   const hasStreamReadyRef = useRef(false);
   const refetchKitchenBoardRef = useRef<(() => void) | null>(null);
+  const [streamBranchId, setStreamBranchId] = useState(activeBranchId);
+  const [appliedRemoteOrders, setAppliedRemoteOrders] = useState<KitchenOrderItem[] | null>(null);
 
   useEffect(() => {
     const updateTime = () => {
@@ -130,18 +132,25 @@ export function useKitchenDisplay({
     return map;
   }, [preparationStations]);
 
-  useEffect(() => {
-    if (stations.length === 0) return;
-    if (!selectedStation || !stations.includes(selectedStation)) {
-      setSelectedStation(
-        initialStation && stations.includes(initialStation) ? initialStation : stations[0],
-      );
-    }
-  }, [initialStation, selectedStation, stations]);
+  const nextStation =
+    stations.length === 0
+      ? selectedStation
+      : selectedStation && stations.includes(selectedStation)
+        ? selectedStation
+        : initialStation && stations.includes(initialStation)
+          ? initialStation
+          : (stations[0] ?? selectedStation);
+  if (nextStation !== selectedStation) {
+    setSelectedStation(nextStation);
+  }
+
+  if (streamBranchId !== activeBranchId) {
+    setStreamBranchId(activeBranchId);
+    setStreamReadyReceived(false);
+  }
 
   useEffect(() => {
     hasStreamReadyRef.current = false;
-    setStreamReadyReceived(false);
   }, [activeBranchId]);
 
   const selectedStationId = selectedStation ? stationIdByName[selectedStation] : undefined;
@@ -150,8 +159,10 @@ export function useKitchenDisplay({
     activeBranchId != null
       ? branchKitchenBoardPath(activeBranchId)
       : '/v1/branches/0/kitchen-board';
-  const queryParams =
-    selectedStationId != null ? { preparation_station_id: selectedStationId } : undefined;
+  const queryParams = useMemo(
+    () => (selectedStationId != null ? { preparation_station_id: selectedStationId } : undefined),
+    [selectedStationId],
+  );
 
   const stationsSettled = preparationStationsQuery.isFetched;
   const stationFilterReady =
@@ -172,7 +183,7 @@ export function useKitchenDisplay({
     }
     hasStreamReadyRef.current = true;
     setStreamReadyReceived(true);
-  }, []);
+  }, [setStreamReadyReceived]);
 
   const handleStreamResync = useCallback(() => {
     refetchKitchenBoardRef.current?.();
@@ -242,6 +253,12 @@ export function useKitchenDisplay({
     return kitchenBoardResponseToViewModel(boardData, stationLabel);
   }, [apiResult, selectedStation, stations]);
 
+  if (remoteViewModel && appliedRemoteOrders !== remoteViewModel.orders) {
+    setAppliedRemoteOrders(remoteViewModel.orders);
+    setOrders(remoteViewModel.orders);
+    setStats(remoteViewModel.stats);
+  }
+
   useEffect(() => {
     knownNewOrderIdsRef.current = null;
   }, [activeBranchId, queryPath, queryParams]);
@@ -260,9 +277,6 @@ export function useKitchenDisplay({
       }
     }
     knownNewOrderIdsRef.current = new Set(newOrderIds);
-
-    setOrders(remoteViewModel.orders);
-    setStats(remoteViewModel.stats);
   }, [remoteViewModel, soundEnabled]);
 
   const updateKitchenStatus = useUpdateKitchenOrderStatus();
@@ -285,7 +299,7 @@ export function useKitchenDisplay({
         });
       });
     },
-    [],
+    [setOrders],
   );
 
   const submitKitchenStatusAction = useCallback(
@@ -347,6 +361,9 @@ export function useKitchenDisplay({
       queryPath,
       refetch,
       selectedStationId,
+      setOrders,
+      setStats,
+      setToastMessage,
       stats,
       updateKitchenStatus,
     ],
@@ -384,7 +401,7 @@ export function useKitchenDisplay({
 
   const handleRecall = useCallback(() => {
     setToastMessage('Recall is not available for kitchen status updates.');
-  }, []);
+  }, [setToastMessage]);
 
   const handleMarkReady = useCallback(
     (orderId: string) => {
@@ -417,7 +434,7 @@ export function useKitchenDisplay({
       setToastMessage(next ? 'Kitchen display is live' : 'Kitchen display paused');
       return next;
     });
-  }, []);
+  }, [setIsLiveActive, setToastMessage]);
 
   const handleToggleSound = useCallback(() => {
     setSoundEnabled((prev) => {
@@ -426,11 +443,11 @@ export function useKitchenDisplay({
       setToastMessage(next ? 'Kitchen alerts enabled' : 'Kitchen alerts muted');
       return next;
     });
-  }, []);
+  }, [setSoundEnabled, setToastMessage]);
 
   const clearToast = useCallback(() => {
     setToastMessage(null);
-  }, []);
+  }, [setToastMessage]);
 
   const liveLabel = kitchenLiveLabel(orderEventsSocketStatus, isLiveActive);
   const posSyncStatus = kitchenPosSyncStatus(orderEventsSocketStatus, isLiveActive);

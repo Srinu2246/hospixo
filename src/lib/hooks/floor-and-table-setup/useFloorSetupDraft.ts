@@ -7,6 +7,7 @@ import {
   floorStepHref,
   getFloorSetupServerSnapshot,
   getFloorSetupSnapshot,
+  isFloorSetupHydrated,
   markFloorSetupHydrated,
   parseFloorRoute,
   subscribeFloorSetup,
@@ -30,11 +31,7 @@ export function useFloorSetupDraft() {
     () => getFloorSetupSnapshot(route.base),
     getFloorSetupServerSnapshot,
   );
-  const ready = useSyncExternalStore(
-    subscribeHydration,
-    () => true,
-    () => false,
-  );
+  const ready = useSyncExternalStore(subscribeHydration, isFloorSetupHydrated, () => false);
 
   function save(next: FloorSetupDraft) {
     writeFloorSetup(route.base, next);

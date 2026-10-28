@@ -413,8 +413,7 @@ export function CreateUserMultiformFlow({
     accountBranchName,
     contextBranchId,
     accountBranchId,
-    branchCatalog.activeBranchName,
-    branchCatalog.resolveBranchName,
+    branchCatalog,
   ]);
 
   const reviewFormValues = useMemo((): CreateUserFormValues => {

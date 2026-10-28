@@ -15,6 +15,7 @@ export type SectionDraft = {
   code: string;
   description: string;
   active: boolean;
+  version?: number;
 };
 
 export type TableDraft = {

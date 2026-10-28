@@ -587,7 +587,7 @@ function SectionEditor({
             name: values.name.trim(),
             code: values.code.trim(),
             description: values.description.trim(),
-            active: values.active,
+            active: mode === 'add' ? true : values.active,
           });
         })}
         sx={{ width: { [screen.mobile]: '100%', [screen.tablet]: 'auto' } }}
@@ -662,8 +662,13 @@ function SectionEditor({
             render={({ field }) => (
               <LabeledSwitch
                 title="Floor Status"
-                hint="Toggle active visibility on checkout POS channels"
-                checked={field.value}
+                hint={
+                  mode === 'add'
+                    ? 'New sections are created as active.'
+                    : 'Toggle active visibility on checkout POS channels'
+                }
+                checked={mode === 'add' ? true : field.value}
+                disabled={mode === 'add'}
                 onChange={field.onChange}
               />
             )}

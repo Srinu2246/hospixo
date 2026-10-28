@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
 import { Input } from '@/components/shared/form-fields/Input';
+import { Loading } from '@/components/shared/ui/Loading';
 import { SetupCard } from '@/components/features/floor-and-table-setup/SetupFields';
 import { LabeledSwitch } from '@/components/shared/form-fields/LabeledSwitch';
 import { screen } from '@/lib/theme/mui/breakpoints';
@@ -20,11 +21,13 @@ import {
 export function FloorCreationStep({
   details,
   nameError,
+  loading = false,
   onChange,
   onCanSaveChange,
 }: Readonly<{
   details: FloorDetails;
   nameError: string | null;
+  loading?: boolean;
   onChange: (details: FloorDetails) => void;
   onCanSaveChange: (canSave: boolean) => void;
 }>) {
@@ -56,8 +59,12 @@ export function FloorCreationStep({
       name: values.name,
       code: values.code,
       description: values.description,
-      active: values.active,
+      active: true,
     });
+  }
+
+  if (loading) {
+    return <Loading message="Loading floor..." fullPage={false} />;
   }
 
   return (
@@ -149,20 +156,12 @@ export function FloorCreationStep({
         />
       </Box>
       <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Controller
-          name="active"
-          control={control}
-          render={({ field }) => (
-            <LabeledSwitch
-              title="Floor Status"
-              hint="Toggle active visibility on checkout POS channels"
-              checked={field.value}
-              onChange={(active) => {
-                field.onChange(active);
-                publish();
-              }}
-            />
-          )}
+        <LabeledSwitch
+          title="Floor Status"
+          hint="New floors are created as active."
+          checked
+          disabled
+          onChange={() => undefined}
         />
       </Box>
     </SetupCard>

@@ -10,7 +10,7 @@ import { WorkspaceBottomNav } from '@/components/shared/app/WorkspaceBottomNav';
 import { Toast } from '@/components/shared/ui/Toast';
 import { isSidebarlessRole } from '@/app/sidebar';
 import { isMinimalAppShellPath } from '@/lib/auth/publicAuthRoutes';
-import type { SidebarSession } from '@/lib/auth/session';
+import { sessionWithStoredBranch, type SidebarSession } from '@/lib/auth/session';
 import {
   captainMainUsesStickyFooter,
   isCaptainListScreenPath,
@@ -63,7 +63,7 @@ export function AppShell({ children, initialSession = null }: AppShellProps) {
   useEffect(() => {
     if (storeRole) return;
     if (initialSession) {
-      setSession(initialSession);
+      setSession(sessionWithStoredBranch(initialSession));
       return;
     }
     hydrateSession();

@@ -45,6 +45,7 @@ import {
   useUpdateSection,
 } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
+import { useSidebarStore } from '@/stores/sidebarStore';
 import { formatCreatedOn, isActiveRecord } from '@/lib/schemas/floor-and-table-setup/floors';
 import {
   canSubmitSetupForm,
@@ -144,6 +145,7 @@ export function FloorDetailScreen({
   base: string;
 }>) {
   const router = useRouter();
+  const sessionHydrated = useSidebarStore((state) => state.sessionHydrated);
   const numericFloorId = /^\d+$/.test(floorId) ? Number(floorId) : undefined;
   const floorQuery = useFloor(branchId, numericFloorId);
   const sectionsQuery = useFloorSections(branchId, numericFloorId);
@@ -158,6 +160,11 @@ export function FloorDetailScreen({
   const tablesQuery = useSectionTables(branchId, numericFloorId, sections);
   const mapSectionId = numericSectionId(sections[0]?.id);
   const floorMapQuery = useFloorMap(branchId, numericFloorId, mapSectionId);
+  const sectionsLoading = sectionsQuery.isPending;
+  const tablesLoading =
+    sectionsLoading ||
+    (sections.length > 0 && tablesQuery.isPending) ||
+    (mapSectionId != null && floorMapQuery.isPending);
   const tables = mergeTables(tablesQuery.data ?? [], floorMapQuery.data ?? []);
   const sectionsWithTables = sections.map((section) => {
     const owned = tables.filter((table) => table.sectionId === section.id);
@@ -317,11 +324,11 @@ export function FloorDetailScreen({
       />
     ) : null;
 
+  if (!sessionHydrated || (branchId != null && numericFloorId != null && floorQuery.isPending)) {
+    return <Loading message="Loading floor..." fullPage={false} />;
+  }
   if (branchId == null || numericFloorId == null) {
     return <Alert severity="error">This floor could not be loaded.</Alert>;
-  }
-  if (floorQuery.isLoading) {
-    return <Loading message="Loading floor..." fullPage={false} />;
   }
   if (floorQuery.isError || !view) {
     return (
@@ -394,7 +401,10 @@ export function FloorDetailScreen({
         </Box>
 
         {actionError ? <Alert severity="error">{actionError}</Alert> : null}
-        {detail.tab === 'overview' ? (
+        {detail.tab === 'overview' && sectionsLoading ? (
+          <Loading message="Loading floor..." fullPage={false} />
+        ) : null}
+        {detail.tab === 'overview' && !sectionsLoading ? (
           <OverviewPanel
             floor={view}
             sections={sectionsWithTables}
@@ -412,13 +422,13 @@ export function FloorDetailScreen({
             }}
           />
         ) : null}
-        {detail.tab === 'sections' && sectionsQuery.isLoading ? (
+        {detail.tab === 'sections' && sectionsLoading ? (
           <Loading message="Loading sections..." fullPage={false} />
         ) : null}
-        {detail.tab === 'sections' && sectionsQuery.isError ? (
+        {detail.tab === 'sections' && !sectionsLoading && sectionsQuery.isError ? (
           <Alert severity="error">{sectionsQuery.error.message}</Alert>
         ) : null}
-        {detail.tab === 'sections' && !sectionsQuery.isLoading && !sectionsQuery.isError ? (
+        {detail.tab === 'sections' && !sectionsLoading && !sectionsQuery.isError ? (
           <FloorSectionsPanel
             sections={sectionsWithTables}
             tables={tables}
@@ -436,15 +446,14 @@ export function FloorDetailScreen({
             onCancel={() => (section ? openSection(section.id) : openTab('sections'))}
           />
         ) : null}
-        {detail.tab === 'tables' && (tablesQuery.isLoading || floorMapQuery.isLoading) ? (
+        {detail.tab === 'tables' && tablesLoading ? (
           <Loading message="Loading tables..." fullPage={false} />
         ) : null}
-        {detail.tab === 'tables' && tablesQuery.isError && tables.length === 0 ? (
+        {detail.tab === 'tables' && !tablesLoading && tablesQuery.isError && tables.length === 0 ? (
           <Alert severity="error">{tablesQuery.error.message}</Alert>
         ) : null}
         {detail.tab === 'tables' &&
-        !tablesQuery.isLoading &&
-        !floorMapQuery.isLoading &&
+        !tablesLoading &&
         !(tablesQuery.isError && tables.length === 0) ? (
           <FloorTablesPanel
             tables={tables}
@@ -534,11 +543,11 @@ function OverviewPanel({
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { [screen.mobile]: '1fr', [screen.desktop]: '1fr 1fr' },
+              gridTemplateColumns: { [screen.mobile]: '1fr', [screen.desktop]: 'repeat(3, 1fr)' },
               gap: 1.5,
             }}
           >
-            {sections.slice(0, 2).map((item) => (
+            {sections.map((item) => (
               <Box
                 key={item.id}
                 role="button"
