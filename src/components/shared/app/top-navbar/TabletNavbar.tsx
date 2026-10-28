@@ -1,14 +1,11 @@
 'use client';
 
 import React from 'react';
-import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
 import Box from '@mui/material/Box';
-
-import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 
 import { ProfileMenu } from './ProfileMenu';
 import { MobileBranchSelector } from './MobileBranchSelector';
-import { NavMenuButton, NavNotificationButton, NavSettingsButton } from './NavActionButtons';
+import { NavMenuButton, NavNotificationButton } from './NavActionButtons';
 import type { TabletNavbarProps } from './topNavbar.types';
 
 export type { TabletNavbarProps };
@@ -19,7 +16,7 @@ export type { TabletNavbarProps };
  * Dedicated tablet navigation bar rendered on medium-small screens (`xs: 'none', sm: 'flex', md: 'none'`).
  * Sections:
  * - Left: Branch and outlet selector
- * - Right: AI Agent button, notifications, settings, and drawer menu trigger
+ * - Right: Notifications and drawer menu trigger (or profile menu)
  */
 export function TabletNavbar({
   branchMenuAnchor,
@@ -31,10 +28,10 @@ export function TabletNavbar({
   mobileSelectedOutletSlug,
   onMobileOutletChange,
   hideOutletSelector = false,
-  showManagementActions,
-  onAiAgentClick,
+  showManagementActions: _showManagementActions,
+  onAiAgentClick: _onAiAgentClick,
   onNotificationClick,
-  onSettingsClick,
+  onSettingsClick: _onSettingsClick,
   onOpenMenu,
   showProfileMenu = false,
   user,
@@ -48,7 +45,7 @@ export function TabletNavbar({
         {
           display: { xs: 'none', sm: 'flex', md: 'none' },
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: hideOutletSelector ? 'flex-end' : 'space-between',
           width: '100%',
         },
         ...(Array.isArray(sx) ? sx : [sx]),
@@ -70,33 +67,9 @@ export function TabletNavbar({
         />
       ) : null}
 
-      {/* Tablet Right: AI Agent, Notifications, Settings, Hamburger button */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexShrink: 0 }}>
-        {showManagementActions && (
-          <ActionButton
-            variant="outlined"
-            size="medium"
-            startIcon={<HeadsetMicOutlinedIcon sx={{ fontSize: 18 }} />}
-            onClick={onAiAgentClick}
-            sx={{
-              borderRadius: '8px',
-              borderColor: (theme) => theme.palette.divider,
-              color: (theme) => theme.palette.text.primary,
-              fontWeight: 600,
-              fontSize: '0.8125rem',
-              px: 1.5,
-              '&:hover': {
-                borderColor: (theme) => theme.palette.text.secondary,
-                backgroundColor: 'action.hover',
-              },
-            }}
-          >
-            AI Agent
-          </ActionButton>
-        )}
-
+      {/* Tablet Right: Notifications, Hamburger button */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexShrink: 0, ml: 'auto' }}>
         <NavNotificationButton onClick={onNotificationClick} />
-        <NavSettingsButton onClick={onSettingsClick} />
         {showProfileMenu ? (
           <ProfileMenu
             user={user}

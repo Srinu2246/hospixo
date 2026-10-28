@@ -3,7 +3,6 @@
 import React from 'react';
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import type { SxProps, Theme } from '@mui/material/styles';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
@@ -34,35 +33,6 @@ export function NavNotificationButton({
       }}
     >
       <NotificationsNoneOutlinedIcon sx={{ fontSize: 20 }} />
-    </ActionButton>
-  );
-}
-
-/**
- * Reusable icon button for top navbar settings.
- */
-export function NavSettingsButton({
-  onClick,
-  sx,
-}: Readonly<{
-  onClick?: () => void;
-  sx?: SxProps<Theme>;
-}>) {
-  return (
-    <ActionButton
-      variant="icon"
-      size="medium"
-      ariaLabel="Open settings"
-      onClick={onClick}
-      sx={{
-        p: 0.75,
-        color: colors.text.secondary,
-        borderRadius: '8px',
-        '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
-        ...((sx as object) || {}),
-      }}
-    >
-      <SettingsOutlinedIcon sx={{ fontSize: 20 }} />
     </ActionButton>
   );
 }
