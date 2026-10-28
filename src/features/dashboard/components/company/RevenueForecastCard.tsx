@@ -2,6 +2,8 @@
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
+
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
 
@@ -18,96 +20,69 @@ export function RevenueForecastCard() {
           theme.palette.mode === 'dark' ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
         gap: 2,
         height: '100%',
       }}
     >
-      {/* Header */}
+      <Typography
+        sx={{
+          fontSize: '0.6875rem',
+          fontWeight: 700,
+          letterSpacing: '0.04em',
+          color: colors.text.secondary,
+          textTransform: 'uppercase',
+          pb: 1.5,
+        }}
+      >
+        REVENUE FORECAST (AI-POWERED)
+      </Typography>
+
       <Box
         sx={{
           display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 1,
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 3,
+          borderRadius: '12px',
+          border: '1px dashed',
+          borderColor: (theme) =>
+            theme.palette.mode === 'dark' ? theme.palette.divider : '#CBD5E1',
+          bgcolor: (theme) =>
+            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : '#F8FAFC',
+          textAlign: 'center',
+          minHeight: 220,
+          flex: 1,
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-          <Typography
-            sx={{
-              fontSize: '0.6875rem',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              color: colors.text.secondary,
-              textTransform: 'uppercase',
-            }}
-          >
-            REVENUE FORECAST (AI-POWERED)
-          </Typography>
-          <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, mt: 0.5 }}>
-            Predicted 7-Day Revenue
-          </Typography>
-          <Typography
-            sx={{
-              fontSize: '1.5rem',
-              fontWeight: 700,
-              color: 'text.primary',
-              letterSpacing: '-0.02em',
-              mt: 0.5,
-            }}
-          >
-            ₹3,42,850
-          </Typography>
-        </Box>
-
-        {/* High Confidence Badge */}
         <Box
-          component="span"
           sx={{
-            px: { xs: 0.75, md: 0.875, lg: 1.25 },
-            py: { xs: 0.25, md: 0.3, lg: 0.35 },
-            borderRadius: '9999px',
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
             bgcolor: (theme) =>
-              theme.palette.mode === 'dark' ? 'rgba(27, 89, 248, 0.15)' : '#EFF4FE',
-            color: colors.primary.default,
-            fontSize: { xs: '0.5625rem', md: '0.5625rem', lg: '0.6875rem' },
-            fontWeight: 700,
-            lineHeight: 1.25,
-            letterSpacing: { xs: '-0.01em', md: '-0.01em', lg: 'normal' },
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-            alignSelf: 'flex-start',
+              theme.palette.mode === 'dark' ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mb: 1.5,
           }}
         >
-          High Confidence
+          <AccessTimeOutlinedIcon sx={{ fontSize: 20, color: '#3B82F6' }} />
         </Box>
-      </Box>
-
-      {/* Smooth SVG Projection Curve Area Chart */}
-      <Box sx={{ width: '100%', height: 120, pt: 1 }}>
-        <svg width="100%" height="100%" viewBox="0 0 400 120" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="forecastGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#1B59F8" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="#1B59F8" stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-
-          {/* Area fill */}
-          <path
-            d="M 0 100 Q 80 70, 140 90 T 260 50 T 400 30 L 400 120 L 0 120 Z"
-            fill="url(#forecastGrad)"
-          />
-
-          {/* Line stroke */}
-          <path
-            d="M 0 100 Q 80 70, 140 90 T 260 50 T 400 30"
-            fill="none"
-            stroke="#1B59F8"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
-        </svg>
+        <Typography sx={{ fontSize: '0.875rem', fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
+          Coming Soon...
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: '0.75rem',
+            color: colors.text.secondary,
+            maxWidth: 260,
+            lineHeight: 1.5,
+          }}
+        >
+          Revenue Forecast is still in development.
+        </Typography>
       </Box>
     </Card>
   );
