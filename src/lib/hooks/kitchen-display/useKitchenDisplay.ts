@@ -10,7 +10,9 @@ import type {
 import { resolveBranchId } from '@/lib/helpers/resolveBranchId';
 import {
   playKitchenAlertSound,
+  readKitchenLiveEnabled,
   readKitchenSoundEnabled,
+  writeKitchenLiveEnabled,
   writeKitchenSoundEnabled,
 } from '@/lib/helpers/kitchenAlertSound';
 import { EMPTY_KITCHEN_DISPLAY_STATS } from '@/lib/hooks/kitchen-display/kitchenDisplayDefaults';
@@ -45,24 +47,25 @@ type PreparationStationListResponse = {
 
 export function kitchenPosSyncStatus(
   streamStatus: BranchOrderEventsStreamStatus,
-  isLive: boolean,
+  isLiveActive = true,
 ): 'Active' | 'Syncing' | 'Offline' {
-  if (streamStatus === 'connected' && isLive) return 'Active';
+  if (!isLiveActive) return 'Offline';
+  if (streamStatus === 'connected' || streamStatus === 'idle') return 'Active';
   if (streamStatus === 'connecting' || streamStatus === 'reconnecting') return 'Syncing';
   return 'Offline';
 }
 
 export function kitchenLiveLabel(
   streamStatus: BranchOrderEventsStreamStatus,
-  isLive: boolean,
+  isLiveActive = true,
 ): string {
+  if (!isLiveActive) return 'Paused';
   if (streamStatus === 'denied') return 'No access';
   if (streamStatus === 'unavailable') return 'Offline';
   if (streamStatus === 'reconnecting') return 'Reconnecting';
   if (streamStatus === 'connecting') return 'Connecting';
-  if (streamStatus === 'connected' && isLive) return 'Live';
   if (streamStatus === 'error') return 'Error';
-  return 'Paused';
+  return 'Live';
 }
 
 export function useKitchenDisplay({
@@ -75,7 +78,7 @@ export function useKitchenDisplay({
   const [orders, setOrders] = useState<KitchenOrderItem[]>([]);
   const [stats, setStats] = useState<KitchenDisplayStats>(EMPTY_KITCHEN_DISPLAY_STATS);
   const [selectedStation, setSelectedStation] = useState<KitchenStation>(initialStation ?? '');
-  const [isLiveActive, setIsLiveActive] = useState<boolean>(true);
+  const [isLiveActive, setIsLiveActive] = useState<boolean>(() => readKitchenLiveEnabled());
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => readKitchenSoundEnabled());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const knownNewOrderIdsRef = useRef<Set<string> | null>(null);
@@ -210,8 +213,8 @@ export function useKitchenDisplay({
     refetchInterval: (query) => {
       if (query.state.error || !isLiveActive) return false;
       if (isOrderEventsConnected) return false;
-      if (!streamFallback) return false;
-      return 15_000;
+      if (orderEventsSocketStatus === 'connected' || streamFallback) return 15_000;
+      return false;
     },
     retry: false,
   });
@@ -407,6 +410,15 @@ export function useKitchenDisplay({
     [orders, submitKitchenStatusAction],
   );
 
+  const handleToggleLive = useCallback(() => {
+    setIsLiveActive((prev) => {
+      const next = !prev;
+      writeKitchenLiveEnabled(next);
+      setToastMessage(next ? 'Kitchen display is live' : 'Kitchen display paused');
+      return next;
+    });
+  }, []);
+
   const handleToggleSound = useCallback(() => {
     setSoundEnabled((prev) => {
       const next = !prev;
@@ -420,8 +432,8 @@ export function useKitchenDisplay({
     setToastMessage(null);
   }, []);
 
-  const liveLabel = kitchenLiveLabel(orderEventsSocketStatus, isOrderEventsConnected);
-  const posSyncStatus = kitchenPosSyncStatus(orderEventsSocketStatus, isOrderEventsConnected);
+  const liveLabel = kitchenLiveLabel(orderEventsSocketStatus, isLiveActive);
+  const posSyncStatus = kitchenPosSyncStatus(orderEventsSocketStatus, isLiveActive);
   const isWaitingForStream =
     isLiveActive && activeBranchId != null && !streamReadyReceived && !streamFallback;
 
@@ -437,6 +449,7 @@ export function useKitchenDisplay({
     currentTime,
     isLiveActive,
     setIsLiveActive,
+    handleToggleLive,
     soundEnabled,
     handleToggleSound,
     handleStartPreparing,

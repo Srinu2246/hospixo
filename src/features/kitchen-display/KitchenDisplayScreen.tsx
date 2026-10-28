@@ -32,6 +32,7 @@ export function KitchenDisplayScreen({
     stats,
     currentTime,
     isLiveActive,
+    handleToggleLive,
     liveLabel,
     posSyncStatus,
     soundEnabled,
@@ -67,6 +68,7 @@ export function KitchenDisplayScreen({
         stats={stats}
         isLiveActive={isLiveActive}
         liveLabel={liveLabel}
+        onToggleLive={handleToggleLive}
         soundEnabled={soundEnabled}
         onToggleSound={handleToggleSound}
       />

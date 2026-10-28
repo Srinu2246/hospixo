@@ -22,6 +22,7 @@ export interface KitchenHeaderProps {
   isLiveActive: boolean;
   /** Stream status label (Live, Reconnecting, Offline, …). */
   liveLabel?: string;
+  onToggleLive: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
   avatarUrl?: string;
@@ -35,6 +36,7 @@ export function KitchenHeader({
   stats,
   isLiveActive,
   liveLabel = 'Live',
+  onToggleLive,
   soundEnabled,
   onToggleSound,
   avatarUrl = '/images/kumar_reddy.jpg',
@@ -289,42 +291,68 @@ export function KitchenHeader({
           <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Ready</Typography>
         </Box>
 
-        {/* • Live Badge */}
-        <Box
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 0.6,
-            bgcolor: (theme) =>
-              theme.palette.mode === 'dark' ? 'rgba(6, 95, 70, 0.25)' : '#ECFDF5',
-            border: '1px solid',
-            borderColor: (theme) => (theme.palette.mode === 'dark' ? '#065F46' : '#A7F3D0'),
-            borderRadius: '9999px',
-            px: { xs: 1, sm: 1.25 },
-            py: 0.35,
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
+        {/* • Live Badge — click to turn live updates on or pause them */}
+        <Tooltip title={isLiveActive ? 'Pause live updates' : 'Turn live updates on'}>
           <Box
+            component="button"
+            type="button"
+            onClick={onToggleLive}
+            aria-pressed={isLiveActive}
             sx={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              bgcolor: liveDotColor,
-              boxShadow: isLiveActive && liveLabel === 'Live' ? '0 0 6px #10B981' : 'none',
-            }}
-          />
-          <Typography
-            sx={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: (theme) => (theme.palette.mode === 'dark' ? '#34D399' : '#059669'),
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.6,
+              bgcolor: (theme) =>
+                isLiveActive
+                  ? theme.palette.mode === 'dark'
+                    ? 'rgba(6, 95, 70, 0.25)'
+                    : '#ECFDF5'
+                  : theme.palette.mode === 'dark'
+                    ? colors.surface.darkMuted
+                    : '#F3F4F6',
+              border: '1px solid',
+              borderColor: (theme) =>
+                isLiveActive
+                  ? theme.palette.mode === 'dark'
+                    ? '#065F46'
+                    : '#A7F3D0'
+                  : theme.palette.mode === 'dark'
+                    ? theme.palette.divider
+                    : '#E5E7EB',
+              borderRadius: '9999px',
+              px: { xs: 1, sm: 1.25 },
+              py: 0.35,
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              font: 'inherit',
             }}
           >
-            {liveLabel}
-          </Typography>
-        </Box>
+            <Box
+              sx={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                bgcolor: liveDotColor,
+                boxShadow: isLiveActive && liveLabel === 'Live' ? '0 0 6px #10B981' : 'none',
+              }}
+            />
+            <Typography
+              sx={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: (theme) =>
+                  isLiveActive
+                    ? theme.palette.mode === 'dark'
+                      ? '#34D399'
+                      : '#059669'
+                    : theme.palette.text.secondary,
+              }}
+            >
+              {liveLabel}
+            </Typography>
+          </Box>
+        </Tooltip>
 
         {/* Notification Bell Button */}
         <Tooltip title={soundEnabled ? 'Mute Kitchen Alerts' : 'Unmute Kitchen Alerts'}>

@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'hospixo_kitchen_sound_enabled';
+const LIVE_STORAGE_KEY = 'hospixo_kitchen_live_enabled';
 
 export function readKitchenSoundEnabled(): boolean {
   if (typeof window === 'undefined') return true;
@@ -10,6 +11,18 @@ export function readKitchenSoundEnabled(): boolean {
 export function writeKitchenSoundEnabled(enabled: boolean): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(STORAGE_KEY, enabled ? 'true' : 'false');
+}
+
+export function readKitchenLiveEnabled(): boolean {
+  if (typeof window === 'undefined') return true;
+  const raw = window.localStorage.getItem(LIVE_STORAGE_KEY);
+  if (raw == null) return true;
+  return raw !== 'false';
+}
+
+export function writeKitchenLiveEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(LIVE_STORAGE_KEY, enabled ? 'true' : 'false');
 }
 
 export function playKitchenAlertSound(): void {
