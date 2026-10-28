@@ -322,6 +322,7 @@ export function ReservationList() {
         </Box>
 
         {/* Right CTA Button */}
+        {/* RESERVATION FEATURE (HIDDEN): Uncomment below to restore the "New Reservation" action button
         <ActionButton
           variant="primary"
           size="medium"
@@ -342,7 +343,7 @@ export function ReservationList() {
           }}
         >
           New Reservation
-        </ActionButton>
+        </ActionButton> */}
       </Box>
 
       {/* ------------------------------------------------------------- */}

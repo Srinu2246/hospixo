@@ -533,13 +533,14 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
             featureFlag: FEATURE_FLAGS.branch_pos_readyList_nav,
             icon: 'fact_check',
           },
-          {
-            id: 6,
-            name: 'Reservation',
-            href: '/branch-manager/pos/point-of-sale/reservation',
-            featureFlag: FEATURE_FLAGS.branch_pos_reservation_nav,
-            icon: 'bookmark',
-          },
+          // RESERVATION FEATURE (HIDDEN): Uncomment below to re-enable Reservation in Branch Manager sidebar
+          // {
+          //   id: 6,
+          //   name: 'Reservation',
+          //   href: '/branch-manager/pos/point-of-sale/reservation',
+          //   featureFlag: FEATURE_FLAGS.branch_pos_reservation_nav,
+          //   icon: 'bookmark',
+          // },
           {
             id: 7,
             name: 'Online Orders',
