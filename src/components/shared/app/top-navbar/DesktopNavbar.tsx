@@ -2,12 +2,9 @@
 
 import React from 'react';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
-// import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
-// import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
-// import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import type { SxProps, Theme } from '@mui/material/styles';
@@ -31,22 +28,14 @@ export interface DesktopNavbarProps {
   selectedOutletSlug: string;
   /** Callback fired when an outlet is changed */
   onOutletChange: (branchId: string, option?: DropdownOption<string>) => void;
-  /** Whether management action buttons should be visible */
-  showManagementActions: boolean;
   /** Whether the current route is within a branch manager view */
   isBranchView: boolean;
   /** Active color theme mode ('light' | 'dark') */
   mode: 'light' | 'dark';
   /** Callback fired to toggle color mode */
   onToggleMode: () => void;
-  /** Callback fired on AI Agent button click */
-  onAiAgentClick?: () => void;
-  /** Callback fired on Explore Products button click */
-  onExploreProductsClick?: () => void;
   /** Callback fired on notification button click */
   onNotificationClick?: () => void;
-  /** Callback fired on settings button click */
-  onSettingsClick?: () => void;
   /** Active user profile data */
   user?: SidebarUserProfile;
   /** Formatted user display name */
@@ -63,21 +52,17 @@ export interface DesktopNavbarProps {
  * Dedicated desktop navigation bar rendered on medium-and-larger screens (`xs: 'none', md: 'flex'`).
  * Sections:
  * - Left: Outlets dropdown selector
- * - Right: Action controls (Theme switch, Notifications, Profile menu; AI Agent, Explore Products, Settings hidden)
+ * - Right: Action controls (Theme switch, Notifications, Profile menu)
  */
 export function DesktopNavbar({
   outletOptions,
   hideOutletSelector = false,
   selectedOutletSlug,
   onOutletChange,
-  /* showManagementActions, - unused while AI Agent & Explore Products buttons are hidden */
   isBranchView,
   mode,
   onToggleMode,
-  /* onAiAgentClick, - unused while AI Agent button is hidden */
-  /* onExploreProductsClick, - unused while Explore Products button is hidden */
   onNotificationClick,
-  /* onSettingsClick, - unused while Settings button is hidden */
   user,
   displayName,
   displayRole,
@@ -119,62 +104,6 @@ export function DesktopNavbar({
 
       {/* DESKTOP Right Section */}
       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', ml: 'auto' }}>
-        {/*
-          AI Agent, Explore Products, and Settings features are not currently available.
-          Commented out until these features are implemented.
-        */}
-
-        {/* AI Agent Button - hidden as feature is not currently available */}
-        {/*
-        {showManagementActions && (
-          <ActionButton
-            variant="outlined"
-            size="medium"
-            startIcon={<HeadsetMicOutlinedIcon sx={{ fontSize: 18 }} />}
-            onClick={onAiAgentClick}
-            sx={{
-              display: { xs: 'none', sm: 'inline-flex' },
-              borderRadius: '8px',
-              borderColor: (theme) => theme.palette.divider,
-              color: (theme) => theme.palette.text.primary,
-              fontWeight: 600,
-              fontSize: '0.84375rem',
-              '&:hover': {
-                borderColor: (theme) => theme.palette.text.secondary,
-                backgroundColor: 'action.hover',
-              },
-            }}
-          >
-            AI Agent
-          </ActionButton>
-        )}
-        */}
-
-        {/* Explore Products Button - hidden as feature is not currently available */}
-        {/*
-        {showManagementActions && !isBranchView && (
-          <ActionButton
-            variant="primary"
-            size="medium"
-            startIcon={<GridViewOutlinedIcon sx={{ fontSize: 18 }} />}
-            onClick={onExploreProductsClick}
-            sx={{
-              borderRadius: '8px',
-              backgroundColor: colors.primary.default,
-              color: colors.white.default,
-              fontWeight: 600,
-              fontSize: '0.84375rem',
-              boxShadow: `0 2px 8px ${colors.sidebar.activeGlow}`,
-              '&:hover': {
-                backgroundColor: colors.primary.dark,
-              },
-            }}
-          >
-            Explore Products
-          </ActionButton>
-        )}
-        */}
-
         {/* Theme toggle — available for every role that uses the top navbar */}
         <Tooltip title={mode === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}>
           <span>
@@ -224,31 +153,6 @@ export function DesktopNavbar({
             </ActionButton>
           </span>
         </Tooltip>
-
-        {/* Settings Button - hidden as feature is not currently available */}
-        {/*
-        <Tooltip title="Settings">
-          <span>
-            <ActionButton
-              variant="icon"
-              size="medium"
-              ariaLabel="Open settings"
-              onClick={onSettingsClick}
-              sx={{
-                borderRadius: '8px',
-                borderColor: (theme) => theme.palette.divider,
-                color: (theme) => theme.palette.text.secondary,
-                '&:hover': {
-                  color: (theme) => theme.palette.text.primary,
-                  backgroundColor: 'action.hover',
-                },
-              }}
-            >
-              <SettingsOutlinedIcon sx={{ fontSize: 20 }} />
-            </ActionButton>
-          </span>
-        </Tooltip>
-        */}
 
         {/* User Profile Avatar & Dropdown */}
         <ProfileMenu

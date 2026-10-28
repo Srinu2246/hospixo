@@ -38,38 +38,6 @@ export function NavNotificationButton({
 }
 
 /**
- * Reusable icon button for top navbar settings.
- * Hidden as this feature is not currently available; commented out until feature is ready.
- */
-/*
-export function NavSettingsButton({
-  onClick,
-  sx,
-}: Readonly<{
-  onClick?: () => void;
-  sx?: SxProps<Theme>;
-}>) {
-  return (
-    <ActionButton
-      variant="icon"
-      size="medium"
-      ariaLabel="Open settings"
-      onClick={onClick}
-      sx={{
-        p: 0.75,
-        color: colors.text.secondary,
-        borderRadius: '8px',
-        '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
-        ...((sx as object) || {}),
-      }}
-    >
-      <SettingsOutlinedIcon sx={{ fontSize: 20 }} />
-    </ActionButton>
-  );
-}
-*/
-
-/**
  * Reusable icon button for top navbar mobile/tablet hamburger menu.
  */
 export function NavMenuButton({
