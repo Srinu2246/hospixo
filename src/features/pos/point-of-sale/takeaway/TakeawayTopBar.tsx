@@ -7,7 +7,7 @@ import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-import { ChevronDown, ChevronLeft, Plus, Utensils } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
@@ -89,7 +89,6 @@ function CounterMeta() {
 function TableMeta({ table }: Readonly<{ table: PosTableItem }>) {
   return (
     <>
-      <StatusChip status={table.status} label={table.status.toUpperCase()} size="small" showDot />
       {table.guests !== undefined && (
         <MetaBadge>
           <GroupOutlinedIcon sx={{ fontSize: 15 }} />
@@ -102,6 +101,7 @@ function TableMeta({ table }: Readonly<{ table: PosTableItem }>) {
           {table.waiter}
         </MetaBadge>
       )}
+      <StatusChip status={table.status} label={table.status.toUpperCase()} size="small" showDot />
     </>
   );
 }
@@ -111,9 +111,7 @@ export interface TakeawayTopBarProps {
   mode: 'takeaway' | 'dine-in' | 'table';
   effectiveOrderId?: string | null;
   resolvedTableName: string | null;
-  primaryOrderLabel: string;
   onBackToTables?: () => void;
-  onServeItems: () => void;
   onNewOrder: () => void;
 }
 
@@ -122,9 +120,7 @@ export function TakeawayTopBar({
   mode,
   effectiveOrderId,
   resolvedTableName,
-  primaryOrderLabel,
   onBackToTables,
-  onServeItems,
   onNewOrder,
 }: Readonly<TakeawayTopBarProps>) {
   const title = table
@@ -189,49 +185,10 @@ export function TakeawayTopBar({
           {title}
         </Typography>
 
-        {effectiveOrderId && (
-          <Box
-            sx={{
-              px: 1,
-              py: 0.35,
-              borderRadius: '6px',
-              bgcolor: 'action.hover',
-              color: 'primary.main',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              border: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            Adding Items to Order
-          </Box>
-        )}
-
-        {table ? <TableMeta table={table} /> : <CounterMeta />}
+        {!table && <CounterMeta />}
       </Stack>
       <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
-        {/* Dine-in: no Serve / Send KOT in the header */}
-        {mode !== 'dine-in' && (resolvedTableName || table) ? (
-          <ActionButton
-            variant="primary"
-            size="medium"
-            startIcon={<Utensils size={16} />}
-            onClick={onServeItems}
-            sx={{
-              bgcolor: colors.success.default,
-              color: colors.white.default,
-              fontWeight: 700,
-              fontSize: '0.8125rem',
-              borderRadius: '8px',
-              height: 38,
-              px: 2,
-              boxShadow: 'none',
-              '&:hover': { bgcolor: colors.success.dark },
-            }}
-          >
-            {primaryOrderLabel}
-          </ActionButton>
-        ) : null}
+        {table && <TableMeta table={table} />}
 
         {!table && !resolvedTableName && mode === 'takeaway' && (
           <ActionButton
