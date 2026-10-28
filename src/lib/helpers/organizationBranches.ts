@@ -68,15 +68,34 @@ export async function loadBranchDirectory(
     companies = await loadOrganizationCompanies(organizationId, get, listContext).catch(() => []);
   }
   const branches = await loadOrganizationBranches(organizationId, companies, get, companyId);
+  return enrichBranchesWithCompanyNames(branches, companies);
+}
+
+/** Resolve display company names from the organisation company directory. */
+export function enrichBranchesWithCompanyNames(
+  branches: readonly BranchListItem[],
+  companies: readonly CompanyListItem[],
+): BranchListItem[] {
   const namesById = new Map(companies.map((company) => [String(company.id), company.name]));
 
-  return branches.map((branch) => ({
-    ...branch,
-    companyName:
-      branch.companyName ||
-      namesById.get(String(branch.companyId)) ||
-      `Company #${branch.companyId}`,
-  }));
+  return branches.map((branch) => {
+    const directoryName = namesById.get(String(branch.companyId));
+    const resolved =
+      directoryName?.trim() ||
+      (branch.companyName && !isPlaceholderCompanyLabel(branch.companyName)
+        ? branch.companyName
+        : directoryName) ||
+      (branch.companyId ? `Company #${branch.companyId}` : branch.companyName);
+
+    return {
+      ...branch,
+      companyName: resolved,
+    };
+  });
+}
+
+function isPlaceholderCompanyLabel(value: string): boolean {
+  return /^Company\s*#\s*\d+$/i.test(value.trim());
 }
 
 async function loadCompanyBranches(

@@ -2,6 +2,13 @@
 
 import { useMemo } from 'react';
 
+import { enrichBranchesWithCompanyNames } from '@/lib/helpers/organizationBranches';
+import {
+  loadCompanyById,
+  loadOrganizationCompanies,
+  shouldLoadOrganizationCompanyList,
+} from '@/lib/helpers/organizationCompanies';
+import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import { useQuery } from '@/lib/hooks/api/useQuery';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import {
@@ -56,6 +63,7 @@ export function useOrganizationBranches({
   initialBranches,
 }: UseOrganizationBranchesOptions) {
   const role = useSidebarStore((state) => state.role || state.user?.role || '');
+  const authScope = useSidebarStore((state) => state.account?.scope ?? '');
   const debouncedSearch = useDebouncedValue(search, 1500);
 
   const scopedCompanyId = scope === 'company' ? companyId : undefined;
@@ -86,6 +94,49 @@ export function useOrganizationBranches({
 
   const enabled =
     Boolean(role?.trim()) && (scopedCompanyId != null || scopedOrganizationId != null);
+
+  const companyListContext = useMemo(
+    () => ({
+      role,
+      authScope,
+      companyId: scopedCompanyId,
+      scope,
+    }),
+    [authScope, role, scope, scopedCompanyId],
+  );
+
+  const canLoadCompanyDirectory = shouldLoadOrganizationCompanyList(companyListContext);
+
+  const companiesQuery = useQuery({
+    queryKey: [
+      'organization',
+      'companies',
+      'directory',
+      scopedOrganizationId,
+      scopedCompanyId,
+      scope,
+      role,
+    ],
+    queryFn: async ({ signal }) => {
+      const get = (path: string, params?: QueryParams) => api.get(path, params, signal);
+
+      if (scopedOrganizationId != null && canLoadCompanyDirectory) {
+        return loadOrganizationCompanies(scopedOrganizationId, get, companyListContext);
+      }
+
+      if (scopedCompanyId != null) {
+        const company = await loadCompanyById(scopedCompanyId, get);
+        return company ? [company] : [];
+      }
+
+      return [] as CompanyListItem[];
+    },
+    enabled:
+      enabled && (canLoadCompanyDirectory ? scopedOrganizationId != null : scopedCompanyId != null),
+    staleTime: 60_000,
+  });
+
+  const companies = companiesQuery.data ?? [];
 
   const listQuery = useQuery({
     queryKey: ['organization', 'branches', 'list', listParams, scope, role],
@@ -125,9 +176,15 @@ export function useOrganizationBranches({
     staleTime: 30_000,
   });
 
-  const items = listQuery.data?.items ?? [];
+  const items = useMemo(
+    () => enrichBranchesWithCompanyNames(listQuery.data?.items ?? [], companies),
+    [companies, listQuery.data?.items],
+  );
   const total = listQuery.data?.total ?? 0;
-  const catalogItems = catalogQuery.data?.items ?? [];
+  const catalogItems = useMemo(
+    () => enrichBranchesWithCompanyNames(catalogQuery.data?.items ?? [], companies),
+    [catalogQuery.data?.items, companies],
+  );
   const catalogTotal = catalogQuery.data?.total ?? catalogItems.length;
   const activeCount = catalogItems.filter((branch) => branch.status === 'active').length;
   const counts = {
@@ -143,7 +200,7 @@ export function useOrganizationBranches({
     total,
     counts,
     refetch: async () => {
-      await Promise.all([listQuery.refetch(), catalogQuery.refetch()]);
+      await Promise.all([listQuery.refetch(), catalogQuery.refetch(), companiesQuery.refetch()]);
     },
   };
 }

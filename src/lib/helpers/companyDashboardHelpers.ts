@@ -77,6 +77,7 @@ export function buildOutletChartBars(
   });
 
   return items.map((row, index) => ({
+    id: String(row.branch_id),
     label: row.branch_name.length > 10 ? `${row.branch_name.slice(0, 9)}…` : row.branch_name,
     heightPercent: Math.max(
       8,
