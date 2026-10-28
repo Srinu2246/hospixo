@@ -133,9 +133,7 @@ export function TakeawayPage({
           mode={mode}
           effectiveOrderId={effectiveOrderId}
           resolvedTableName={resolvedTableName}
-          primaryOrderLabel={order.primaryOrderLabel}
           onBackToTables={onBackToTables}
-          onServeItems={order.handleServeItems}
           onNewOrder={() => order.setCartItems([])}
         />
       )}
