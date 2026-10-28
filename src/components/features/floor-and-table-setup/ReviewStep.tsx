@@ -9,6 +9,7 @@ import { LayoutGrid } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SetupCard } from '@/components/features/floor-and-table-setup/SetupFields';
+import { Loading } from '@/components/shared/ui/Loading';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { sectionStats } from '@/lib/helpers/floorAndTableSetup';
 import type {
@@ -22,13 +23,19 @@ export function ReviewStep({
   details,
   sections,
   tables,
+  loading = false,
   onEdit,
 }: Readonly<{
   details: FloorDetails;
   sections: readonly SectionDraft[];
   tables: readonly TableDraft[];
+  loading?: boolean;
   onEdit: (step: WizardStep) => void;
 }>) {
+  if (loading) {
+    return <Loading message="Loading review..." fullPage={false} />;
+  }
+
   return (
     <SetupCard>
       <Typography

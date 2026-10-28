@@ -305,13 +305,6 @@ export function organizationCompaniesPath(organizationId: number | string): stri
   );
 }
 
-export function organizationCompanyBranchesPath(
-  organizationId: number | string,
-  companyId: number | string,
-): string {
-  return `${ApiUrlsV1.organization.platformOrganizations}/${encodeURIComponent(String(organizationId))}/companies/${encodeURIComponent(String(companyId))}/branches`;
-}
-
 /** GET /v1/restaurant/branches/{branch_id}/menus — restaurant branch menus list */
 export function restaurantBranchMenusPath(branchId: number | string): string {
   return `${ApiUrlsV1.restaurant.branchMenus.root}/${encodeURIComponent(String(branchId))}/menus`;

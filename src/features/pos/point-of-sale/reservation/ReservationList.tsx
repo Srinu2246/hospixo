@@ -4,12 +4,10 @@ import { useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Box, Typography, Button } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Plus } from 'lucide-react';
 
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { CalendarPicker } from '@/components/shared/form-fields/CalendarPicker';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
-import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Dropdown } from '@/components/shared/form-fields/Dropdown';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { ReservationDialog, type NewReservationFormData } from './ReservationDialog';

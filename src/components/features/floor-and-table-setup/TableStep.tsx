@@ -9,6 +9,7 @@ import { LayoutGrid, Pencil, Plus, Trash2 } from 'lucide-react';
 import { DeleteTableModal } from '@/components/features/floor-and-table-setup/DeleteTableModal';
 import { TablesToolbar } from '@/components/features/floor-and-table-setup/TablesToolbar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { Loading } from '@/components/shared/ui/Loading';
 import { TableGenerateDialog } from '@/components/shared/ui/TableGenerateDialog';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import {
@@ -27,13 +28,17 @@ export function TableStep({
   tables,
   sections,
   onGenerate,
+  saving = false,
+  loading = false,
   onDelete,
   onToggleActive,
   onBulkEdit,
 }: Readonly<{
   tables: readonly TableDraft[];
   sections: readonly { id: string; name: string }[];
-  onGenerate: (input: TableGenerateInput) => void;
+  onGenerate: (input: TableGenerateInput) => void | Promise<void>;
+  saving?: boolean;
+  loading?: boolean;
   onDelete: (id: string) => void;
   onToggleActive: (id: string) => void;
   onBulkEdit: (input: TableBulkEditInput) => void;
@@ -106,7 +111,9 @@ export function TableStep({
         onBulkGenerate={() => setDialog('bulk')}
       />
 
-      {tables.length === 0 ? (
+      {loading ? <Loading message="Loading tables..." fullPage={false} /> : null}
+
+      {!loading && tables.length === 0 ? (
         <Box
           sx={{
             minHeight: { [screen.mobile]: 280, [screen.desktop]: 420 },
@@ -150,7 +157,8 @@ export function TableStep({
             </ActionButton>
           </Stack>
         </Box>
-      ) : (
+      ) : null}
+      {!loading && tables.length > 0 ? (
         <Box
           sx={{
             display: 'grid',
@@ -227,7 +235,7 @@ export function TableStep({
             </Box>
           ))}
         </Box>
-      )}
+      ) : null}
 
       <DeleteTableModal
         open={pendingDelete !== null}
@@ -244,10 +252,15 @@ export function TableStep({
         mode={dialog ?? 'create'}
         start={nextTableStart(tables)}
         end={defaultTableRangeEnd(nextTableStart(tables))}
+        saving={saving}
         onClose={() => setDialog(null)}
-        onGenerate={(input) => {
-          onGenerate(input);
-          setDialog(null);
+        onGenerate={async (input) => {
+          try {
+            await onGenerate(input);
+            setDialog(null);
+          } catch {
+            // Keep the dialog open when the table request fails.
+          }
         }}
         onBulkEdit={(input) => {
           onBulkEdit(input);

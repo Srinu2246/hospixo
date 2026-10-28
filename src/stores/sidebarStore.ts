@@ -15,6 +15,8 @@ export type SidebarState = {
   context: SidebarContext;
   user: SidebarUserProfile;
   account: LoginUser | null;
+  /** False until the shell session has been read on this page load. */
+  sessionHydrated: boolean;
   toggleOpen: () => void;
   setIsOpen: (isOpen: boolean) => void;
   setRole: (role: string) => void;
@@ -33,6 +35,7 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
   context: {},
   user: emptyUser,
   account: null,
+  sessionHydrated: false,
   toggleOpen: () => set((state) => ({ isOpen: !state.isOpen })),
   setIsOpen: (isOpen) => set({ isOpen }),
   setRole: (role) => set({ role }),
@@ -57,21 +60,29 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
       context: session.context,
       user: session.user,
       account: session.account ?? null,
+      sessionHydrated: true,
     });
   },
   clearSession: () => {
     clearSidebarSession();
-    set({ role: '', context: {}, user: emptyUser, account: null });
+    set({ role: '', context: {}, user: emptyUser, account: null, sessionHydrated: true });
   },
   hydrateSession: () => {
-    if (get().role) return;
+    if (get().role) {
+      set({ sessionHydrated: true });
+      return;
+    }
     const stored = readSidebarSession();
-    if (!stored) return;
+    if (!stored) {
+      set({ sessionHydrated: true });
+      return;
+    }
     set({
       role: stored.role,
       context: stored.context,
       user: stored.user,
       account: stored.account ?? null,
+      sessionHydrated: true,
     });
   },
 }));

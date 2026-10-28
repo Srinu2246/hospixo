@@ -73,6 +73,37 @@ export function readSidebarSession(): SidebarSession | null {
   return parseSidebarSession(raw);
 }
 
+/**
+ * The profile cookie is written at login and does not include a branch chosen
+ * later in the navbar. Keep that saved branch when the shell session is reapplied
+ * on reload, so screens wait on the floors request instead of a missing-branch error.
+ */
+export function sessionWithStoredBranch(session: SidebarSession): SidebarSession {
+  const stored = readSidebarSession();
+  if (!stored || stored.role !== session.role) return session;
+
+  const sameCompany =
+    stored.context.companyId == null ||
+    session.context.companyId == null ||
+    stored.context.companyId === session.context.companyId;
+  const sameOrganization =
+    stored.context.organizationId == null ||
+    session.context.organizationId == null ||
+    stored.context.organizationId === session.context.organizationId;
+  if (!sameCompany || !sameOrganization) return session;
+  if (stored.context.branchId == null) return session;
+
+  return {
+    ...session,
+    context: {
+      ...session.context,
+      branchId: stored.context.branchId,
+      branchName: stored.context.branchName ?? session.context.branchName,
+      branchSlug: stored.context.branchSlug ?? session.context.branchSlug,
+    },
+  };
+}
+
 export function writeSidebarSession(session: SidebarSession): void {
   if (typeof window === 'undefined') return;
   window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));

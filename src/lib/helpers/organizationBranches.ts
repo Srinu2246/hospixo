@@ -1,4 +1,4 @@
-import ApiUrlsV1, { organizationCompanyBranchesPath } from '@/services/api/ApiUrlsV1';
+import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 import {
   loadOrganizationCompanies,
   shouldLoadOrganizationCompanyList,
@@ -15,7 +15,7 @@ type GetJson = (path: string, params?: QueryParams) => Promise<JsonValue>;
 
 /**
  * Load branches the same way as main.
- * A company uses its platform branches path, then `/v1/branches?company_id`.
+ * A company loads `/v1/branches?company_id`.
  * An organization walks each company, then `/v1/branches?organization_id`.
  */
 export async function loadOrganizationBranches(
@@ -25,14 +25,14 @@ export async function loadOrganizationBranches(
   companyId?: number,
 ): Promise<BranchListItem[]> {
   if (companyId != null) {
-    const branches = await loadCompanyBranches(organizationId, companyId, get);
+    const branches = await loadCompanyBranches(companyId, get);
     if (branches.length > 0) return dedupeBranches(branches);
   }
 
   if (organizationId != null && companyId == null && companies.length > 0) {
     const collected: BranchListItem[] = [];
     for (const company of companies) {
-      collected.push(...(await loadCompanyBranches(organizationId, company.id, get)));
+      collected.push(...(await loadCompanyBranches(company.id, get)));
     }
     if (collected.length > 0) return dedupeBranches(collected);
   }
@@ -80,7 +80,6 @@ export async function loadBranchDirectory(
 }
 
 async function loadCompanyBranches(
-  organizationId: number | undefined,
   companyId: number | string,
   get: GetJson,
 ): Promise<BranchListItem[]> {
@@ -96,18 +95,6 @@ async function loadCompanyBranches(
     if (items.length > 0) return items;
   } catch (error) {
     if (!isMissingEndpoint(error)) throw error;
-  }
-
-  if (organizationId != null) {
-    try {
-      const items = parseBranchList(
-        await get(organizationCompanyBranchesPath(organizationId, companyId)),
-        companyId,
-      );
-      if (items.length > 0) return items;
-    } catch (error) {
-      if (!isMissingEndpoint(error)) throw error;
-    }
   }
 
   return [];

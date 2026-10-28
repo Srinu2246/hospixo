@@ -41,8 +41,17 @@ export function useBranchOrderEventsStream({
   onReadyListEvent,
   onKitchenAlert,
 }: UseBranchOrderEventsStreamOptions) {
-  const [status, setStatus] = useState<BranchOrderEventsStreamStatus>('idle');
-  const [isLive, setIsLive] = useState(false);
+  const resolvedBranchId = resolveBranchId(branchId);
+  const subscriptionKey = enabled && resolvedBranchId != null ? String(resolvedBranchId) : '';
+  const [subscription, setSubscription] = useState<{
+    key: string;
+    status: BranchOrderEventsStreamStatus;
+    isLive: boolean;
+  }>({ key: subscriptionKey, status: 'idle', isLive: false });
+
+  if (subscription.key !== subscriptionKey) {
+    setSubscription({ key: subscriptionKey, status: 'idle', isLive: false });
+  }
 
   const callbacksRef = useRef<BranchOrderEventsListener>({});
 
@@ -57,12 +66,7 @@ export function useBranchOrderEventsStream({
   }, [onStreamReady, onStreamResync, onKitchenEventBatch, onReadyListEvent, onKitchenAlert]);
 
   useEffect(() => {
-    const resolvedBranchId = resolveBranchId(branchId);
-    if (!enabled || resolvedBranchId == null) {
-      setStatus('idle');
-      setIsLive(false);
-      return;
-    }
+    if (resolvedBranchId == null || subscriptionKey === '') return;
 
     const companyId = resolveCompanyId(propCompanyId);
 
@@ -79,13 +83,19 @@ export function useBranchOrderEventsStream({
       companyId,
       listener,
       onStatus: (nextStatus, live) => {
-        setStatus(nextStatus);
-        setIsLive(live);
+        setSubscription((current) =>
+          current.key === subscriptionKey
+            ? { key: subscriptionKey, status: nextStatus, isLive: live }
+            : current,
+        );
       },
     });
 
     return unsubscribe;
-  }, [branchId, enabled, propCompanyId]);
+  }, [propCompanyId, resolvedBranchId, subscriptionKey]);
+
+  const status = subscription.key === subscriptionKey ? subscription.status : 'idle';
+  const isLive = subscription.key === subscriptionKey ? subscription.isLive : false;
 
   const isConnected = status === 'connected' && isLive;
 

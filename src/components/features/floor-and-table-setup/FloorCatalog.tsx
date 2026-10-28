@@ -207,8 +207,8 @@ export function FloorCatalog({
         </ActionButton>
       </Stack>
 
-      {error ? <Alert severity="error">{error}</Alert> : null}
       {isLoading ? <Loading message="Loading floors..." fullPage={false} /> : null}
+      {!isLoading && error ? <Alert severity="error">{error}</Alert> : null}
 
       {!isLoading && !error && visible.length === 0 ? (
         <>

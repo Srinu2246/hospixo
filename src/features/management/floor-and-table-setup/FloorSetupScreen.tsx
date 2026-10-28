@@ -10,6 +10,7 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
+import { Loading } from '@/components/shared/ui/Loading';
 import { StickyActionFooter } from '@/components/shared/ui/StickyActionFooter';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { FloorCatalog } from '@/components/features/floor-and-table-setup/FloorCatalog';
@@ -27,16 +28,15 @@ import type {
   WizardStep,
 } from '@/features/management/floor-and-table-setup/types/floorSetup';
 import {
-  appendTables,
   buildSavedFloor,
   emptyFloor,
   floorDetailHref,
-  insertSection,
+  generateTables,
   isWizardStep,
   parseFloorDetailRoute,
   removeSection,
   removeTable,
-  replaceSection,
+  suggestCode,
   applyBulkTableEdit,
   toggleTableActive,
   unlinkSectionTables,
@@ -44,11 +44,12 @@ import {
 } from '@/lib/helpers/floorAndTableSetup';
 import { useFloorSetupDraft } from '@/lib/hooks/floor-and-table-setup/useFloorSetupDraft';
 import {
-  useArchiveFloor,
   useBulkCreateTables,
   useCreateFloor,
   useCreateSection,
   useFloors,
+  useUpdateFloor,
+  useUpdateSection,
 } from '@/lib/hooks/floor-and-table-setup/useRestaurantFloors';
 import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 import { useSidebarStore } from '@/stores/sidebarStore';
@@ -79,6 +80,7 @@ const wizardTabs = [
 export function FloorSetupScreen() {
   const branchName = useSidebarStore((state) => state.context.branchName);
   const branchId = useSidebarStore((state) => state.context.branchId);
+  const sessionHydrated = useSidebarStore((state) => state.sessionHydrated);
   const outlet = branchName || (branchId ? `Branch ${branchId}` : 'this outlet');
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -88,10 +90,24 @@ export function FloorSetupScreen() {
   const detail = parseFloorDetailRoute(pathname, searchParams.get('tab'));
   const [floorStatus, setFloorStatus] = useState<FloorStatusFilter>('all');
   const floorsQuery = useFloors(branchId, floorStatus);
+  const persistedFloorId =
+    draft.createdId && /^\d+$/.test(draft.createdId) ? Number(draft.createdId) : undefined;
   const createFloorRequest = useCreateFloor(branchId);
+  const updateFloorRequest = useUpdateFloor(branchId, persistedFloorId);
   const createSectionRequest = useCreateSection(branchId);
+  const updateSectionRequest = useUpdateSection(branchId);
   const bulkCreateTables = useBulkCreateTables(branchId);
-  const archiveFloorRequest = useArchiveFloor(branchId);
+  const savingFloor = createFloorRequest.isPending || updateFloorRequest.isPending;
+  const floorsLoading =
+    !sessionHydrated ||
+    (typeof branchId === 'number' && (floorsQuery.isLoading || floorsQuery.isPending));
+  const floorsError = floorsLoading
+    ? null
+    : branchId == null
+      ? 'Select a branch to load floors.'
+      : floorsQuery.isError
+        ? floorsQuery.error.message
+        : null;
 
   const [nameError, setNameError] = useState<string | null>(null);
   const [floorCanSave, setFloorCanSave] = useState(false);
@@ -102,7 +118,6 @@ export function FloorSetupScreen() {
 
   const step: WizardStep | null = isWizardStep(route.step) ? route.step : null;
   const created = floors.find((floor) => floor.id === draft.createdId) ?? null;
-  const floorTitle = details.name.trim() || 'Ground Floor';
   const needsFloorName = Boolean(ready && step && step !== 'floor' && !details.name.trim());
   const successWithoutFloor = Boolean(ready && route.step === 'success' && !created);
 
@@ -126,6 +141,7 @@ export function FloorSetupScreen() {
       sections: [],
       tables: [],
       createdId: null,
+      floorVersion: null,
     });
   }
 
@@ -141,6 +157,11 @@ export function FloorSetupScreen() {
   }
 
   function goToStep(next: WizardStep) {
+    if (next !== 'floor' && persistedFloorId == null) {
+      setCreateError('Save the floor before continuing.');
+      openStep('floor');
+      return;
+    }
     if (next !== 'floor' && !details.name.trim()) {
       setNameError('Enter a floor name.');
       openStep('floor');
@@ -149,18 +170,11 @@ export function FloorSetupScreen() {
     setNameError(null);
     openStep(next, {
       ...draft,
-      details: next === 'floor' ? details : withFloorCode(details),
+      details: next === 'floor' ? details : { ...withFloorCode(details), active: true },
     });
   }
 
-  function saveSection(input: SectionInput, id?: string) {
-    save({
-      ...draft,
-      sections: id ? replaceSection(sections, id, input) : insertSection(sections, input),
-    });
-  }
-
-  async function createFloor() {
+  async function saveFloorStep() {
     if (!details.name.trim()) {
       setNameError('Enter a floor name.');
       openStep('floor');
@@ -170,65 +184,183 @@ export function FloorSetupScreen() {
       setCreateError('Select a branch before creating a floor.');
       return;
     }
+    setNameError(null);
     setCreateError(null);
-    const saved = buildSavedFloor(details, sections, tables);
+    const nextDetails = { ...withFloorCode(details), active: true };
     try {
-      const created = await createFloorRequest.mutateAsync({
-        name: saved.details.name,
-        description: saved.details.description,
+      if (persistedFloorId == null) {
+        const created = await createFloorRequest.mutateAsync({
+          name: nextDetails.name,
+          description: nextDetails.description,
+          sort_order: 0,
+          code: nextDetails.code,
+        });
+        openStep('section', {
+          ...draft,
+          details: nextDetails,
+          createdId: String(created.id),
+          floorVersion: created.version ?? 0,
+        });
+        return;
+      }
+      const updated = await updateFloorRequest.mutateAsync({
+        name: nextDetails.name,
+        description: nextDetails.description,
         sort_order: 0,
-        code: saved.details.code,
+        status: 'active',
+        version: draft.floorVersion ?? 0,
+        code: nextDetails.code,
       });
-      if (!saved.details.active) {
-        await archiveFloorRequest.mutateAsync({
-          floorId: created.id,
-          body: { reason: 'Inactive', version: created.version ?? 0 },
-        });
-      }
-      const sectionIds = new Map<string, number>();
-      for (const [index, section] of saved.sections.entries()) {
-        const createdSection = await createSectionRequest.mutateAsync({
-          floorId: created.id,
-          body: {
-            name: section.name,
-            description: section.description,
-            sort_order: index,
-            code: section.code,
-          },
-        });
-        sectionIds.set(section.id, createdSection.id);
-      }
-      const tablesBySection = new Map<number, typeof saved.tables>();
-      for (const table of saved.tables) {
-        const sectionId =
-          (table.sectionId ? sectionIds.get(table.sectionId) : undefined) ??
-          sectionIds.values().next().value;
-        if (sectionId == null) continue;
-        tablesBySection.set(sectionId, [...(tablesBySection.get(sectionId) ?? []), table]);
-      }
-      for (const [sectionId, group] of tablesBySection) {
-        await bulkCreateTables.mutateAsync({
-          floorId: created.id,
-          sectionId,
-          body: {
-            items: group.map((table, index) => ({
-              name: table.number,
-              description: '',
-              capacity: table.seats,
-              sort_order: index,
-            })),
-          },
-        });
-      }
-      openStep('success', {
+      openStep('section', {
         ...draft,
-        floors: [saved, ...floors.filter((floor) => floor.id !== draft.createdId)],
-        details: saved.details,
-        createdId: saved.id,
+        details: nextDetails,
+        floorVersion: updated.version ?? draft.floorVersion ?? 0,
       });
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'Could not create this floor.');
     }
+  }
+
+  async function saveSection(input: SectionInput, id?: string): Promise<boolean> {
+    if (persistedFloorId == null) {
+      setCreateError('Save the floor before adding a section.');
+      return false;
+    }
+    const code =
+      input.code.trim() || suggestCode(input.name, (id ? 0 : sections.length) + 1, 'SEC');
+    const sortOrder = id
+      ? Math.max(
+          0,
+          sections.findIndex((section) => section.id === id),
+        )
+      : sections.length;
+    const body = {
+      name: input.name.trim(),
+      description: input.description.trim(),
+      sort_order: sortOrder,
+      code,
+    };
+    try {
+      if (!id) {
+        const created = await createSectionRequest.mutateAsync({
+          floorId: persistedFloorId,
+          body,
+        });
+        save({
+          ...draft,
+          sections: [
+            ...sections,
+            {
+              id: String(created.id),
+              name: body.name,
+              code: created.code ?? code,
+              description: body.description,
+              active: true,
+              version: created.version ?? 0,
+            },
+          ],
+        });
+        return true;
+      }
+      const current = sections.find((section) => section.id === id);
+      if (current && /^\d+$/.test(current.id)) {
+        const updated = await updateSectionRequest.mutateAsync({
+          floorId: persistedFloorId,
+          sectionId: Number(current.id),
+          body: {
+            ...body,
+            status: input.active ? 'active' : 'inactive',
+            version: current.version ?? 0,
+          },
+        });
+        save({
+          ...draft,
+          sections: sections.map((section) =>
+            section.id === id
+              ? {
+                  ...section,
+                  name: body.name,
+                  code: updated.code ?? code,
+                  description: body.description,
+                  active: input.active,
+                  version: updated.version ?? section.version,
+                }
+              : section,
+          ),
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Could not save this section.');
+      return false;
+    }
+  }
+
+  async function saveTables(input: Parameters<typeof generateTables>[0]) {
+    if (persistedFloorId == null) {
+      const message = 'Save the floor before adding tables.';
+      setCreateError(message);
+      throw new Error(message);
+    }
+    const sectionIds = sections.map((section) => section.id).filter((id) => /^\d+$/.test(id));
+    if (sectionIds.length === 0) {
+      const message = 'Save a section before adding tables.';
+      setCreateError(message);
+      throw new Error(message);
+    }
+    const created = generateTables({ ...input, count: input.count || 1 }, tables, sectionIds);
+    const groups = new Map<number, typeof created>();
+    for (const table of created) {
+      const sectionId = Number(table.sectionId);
+      if (!Number.isFinite(sectionId)) continue;
+      groups.set(sectionId, [...(groups.get(sectionId) ?? []), table]);
+    }
+    const savedTables = [...tables];
+    for (const [sectionId, group] of groups) {
+      const records = await bulkCreateTables.mutateAsync({
+        floorId: persistedFloorId,
+        sectionId,
+        body: {
+          items: group.map((table, index) => ({
+            name: table.number,
+            description: '',
+            capacity: table.seats,
+            sort_order: tables.length + index,
+          })),
+        },
+      });
+      records.forEach((record, index) => {
+        const table = group[index];
+        if (!table) return;
+        savedTables.push({
+          ...table,
+          id: String(record.id),
+          number: record.name,
+          seats: record.capacity ?? table.seats,
+          active: true,
+          sectionId: String(sectionId),
+        });
+      });
+    }
+    save({ ...draft, tables: savedTables });
+  }
+
+  function finishWizard() {
+    if (persistedFloorId == null) {
+      setCreateError('Save the floor before finishing.');
+      openStep('floor');
+      return;
+    }
+    const saved = buildSavedFloor({ ...withFloorCode(details), active: true }, sections, tables);
+    openStep('success', {
+      ...draft,
+      floors: [
+        { ...saved, id: String(persistedFloorId) },
+        ...floors.filter((floor) => floor.id !== String(persistedFloorId)),
+      ],
+      createdId: String(persistedFloorId),
+    });
   }
 
   const showWizardPrimary =
@@ -244,7 +376,7 @@ export function FloorSetupScreen() {
         ? wizardFooterPrimaryLabel.section
         : step === 'table'
           ? wizardFooterPrimaryLabel.table
-          : createFloorRequest.isPending
+          : savingFloor
             ? wizardFooterPrimaryLabel.reviewPending
             : wizardFooterPrimaryLabel.review;
 
@@ -258,62 +390,57 @@ export function FloorSetupScreen() {
 
   function goNextWizard() {
     if (!step) return;
-    if (step === 'floor') goToStep('section');
+    if (step === 'floor') void saveFloorStep();
     else if (step === 'section') goToStep('table');
     else if (step === 'table') goToStep('review');
-    else void createFloor();
+    else finishWizard();
   }
 
-  const footer = step ? (
-    <>
-      <Box sx={{ display: { xs: 'block', md: 'none' }, width: '100%' }}>
-        <StickyActionFooter
-          onBack={goBackWizard}
-          showPrimary={showWizardPrimary}
-          primaryLabel={wizardPrimaryLabel}
-          primaryDisabled={
-            (step === 'floor' && !floorCanSave) ||
-            (step === 'review' && createFloorRequest.isPending)
-          }
-          primaryLoading={step === 'review' && createFloorRequest.isPending}
-          onPrimary={goNextWizard}
-        />
-      </Box>
-      <Stack
-        component="footer"
-        direction="row"
-        spacing={1.5}
-        sx={{
-          display: { xs: 'none', md: 'flex' },
-          width: '100%',
-          bgcolor: 'background.paper',
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          px: 3,
-          py: 2,
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxSizing: 'border-box',
-        }}
-      >
-        <ActionButton variant="outlined" onClick={goBackWizard}>
-          Back
-        </ActionButton>
-        {showWizardPrimary ? (
-          <ActionButton
-            disabled={
-              (step === 'floor' && !floorCanSave) ||
-              (step === 'review' && createFloorRequest.isPending)
-            }
-            loading={step === 'review' && createFloorRequest.isPending}
-            onClick={goNextWizard}
-          >
-            {wizardPrimaryLabel}
+  const footer =
+    step && ready ? (
+      <>
+        <Box sx={{ display: { xs: 'block', md: 'none' }, width: '100%' }}>
+          <StickyActionFooter
+            onBack={goBackWizard}
+            showPrimary={showWizardPrimary}
+            primaryLabel={wizardPrimaryLabel}
+            primaryDisabled={(step === 'floor' && !floorCanSave) || savingFloor}
+            primaryLoading={savingFloor}
+            onPrimary={goNextWizard}
+          />
+        </Box>
+        <Stack
+          component="footer"
+          direction="row"
+          spacing={1.5}
+          sx={{
+            display: { xs: 'none', md: 'flex' },
+            width: '100%',
+            bgcolor: 'background.paper',
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            px: 3,
+            py: 2,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxSizing: 'border-box',
+          }}
+        >
+          <ActionButton variant="outlined" onClick={goBackWizard}>
+            Back
           </ActionButton>
-        ) : null}
-      </Stack>
-    </>
-  ) : null;
+          {showWizardPrimary ? (
+            <ActionButton
+              disabled={(step === 'floor' && !floorCanSave) || savingFloor}
+              loading={savingFloor}
+              onClick={goNextWizard}
+            >
+              {wizardPrimaryLabel}
+            </ActionButton>
+          ) : null}
+        </Stack>
+      </>
+    ) : null;
 
   if (detail) {
     return (
@@ -355,14 +482,8 @@ export function FloorSetupScreen() {
         {route.step === 'hub' ? (
           <FloorCatalog
             floors={floorsQuery.data ?? []}
-            isLoading={floorsQuery.isLoading}
-            error={
-              branchId == null
-                ? 'Select a branch to load floors.'
-                : floorsQuery.isError
-                  ? floorsQuery.error.message
-                  : null
-            }
+            isLoading={floorsLoading}
+            error={floorsError}
             status={floorStatus}
             onStatusChange={setFloorStatus}
             onCreate={openCreate}
@@ -411,18 +532,19 @@ export function FloorSetupScreen() {
             />
             {step === 'floor' ? (
               <FloorCreationStep
+                key={ready ? 'floor-ready' : 'floor-loading'}
                 details={details}
                 nameError={displayNameError}
+                loading={!ready}
                 onCanSaveChange={setFloorCanSave}
                 onChange={(next) => save({ ...draft, details: next })}
               />
             ) : null}
             {step === 'section' ? (
               <SectionStep
-                floorName={floorTitle}
                 sections={sections}
                 tables={tables}
-                onBackToFloor={() => openStep('floor')}
+                loading={!ready}
                 onCreate={(input) => saveSection(input)}
                 onUpdate={(id, input) => saveSection(input, id)}
                 onDelete={(id) =>
@@ -438,16 +560,9 @@ export function FloorSetupScreen() {
               <TableStep
                 tables={tables}
                 sections={sections}
-                onGenerate={(input) =>
-                  save({
-                    ...draft,
-                    tables: appendTables(
-                      tables,
-                      input,
-                      sections.map((section) => section.id),
-                    ),
-                  })
-                }
+                loading={!ready}
+                saving={bulkCreateTables.isPending}
+                onGenerate={(input) => saveTables(input)}
                 onDelete={(id) => save({ ...draft, tables: removeTable(tables, id) })}
                 onToggleActive={(id) => save({ ...draft, tables: toggleTableActive(tables, id) })}
                 onBulkEdit={(input) =>
@@ -460,13 +575,17 @@ export function FloorSetupScreen() {
                 details={withFloorCode(details)}
                 sections={sections}
                 tables={tables}
+                loading={!ready}
                 onEdit={goToStep}
               />
             ) : null}
           </>
         ) : null}
 
-        {route.step === 'success' && created ? (
+        {route.step === 'success' && !ready ? (
+          <Loading message="Loading floor..." fullPage={false} />
+        ) : null}
+        {route.step === 'success' && ready && created ? (
           <SuccessStep
             floor={created}
             outlet={outlet}
