@@ -20,6 +20,7 @@ import {
 import { api } from '@/services/api/browserClient';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 import type { QueryParams } from '@/services/api/types';
+import type { JsonValue } from '@/types/json';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 export type UseOrganizationBranchesOptions = Readonly<{
@@ -118,7 +119,7 @@ export function useOrganizationBranches({
       role,
     ],
     queryFn: async ({ signal }) => {
-      const get = (path: string, params?: QueryParams) => api.get(path, params, signal);
+      const get = (path: string, params?: QueryParams) => api.get<JsonValue>(path, params, signal);
 
       if (scopedOrganizationId != null && canLoadCompanyDirectory) {
         return loadOrganizationCompanies(scopedOrganizationId, get, companyListContext);
