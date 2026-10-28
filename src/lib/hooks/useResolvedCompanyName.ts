@@ -31,8 +31,7 @@ export function useResolvedCompanyName(
   );
 
   const resolvedScope = resolveScopeFromPathname(pathname, options?.scope);
-  const isBranchScope =
-    resolvedScope === 'branch' || account?.scope === 'branch' || contextBranchId != null;
+  const isBranchScope = resolvedScope === 'branch';
 
   const companyId = contextCompanyId ?? account?.company_id ?? undefined;
   const directory = useEmployeeDirectory(organizationId, companyId, {
@@ -42,7 +41,7 @@ export function useResolvedCompanyName(
   const activeBranchId = contextBranchId ?? account?.branch_id ?? undefined;
 
   const fromBranchDirectory = useMemo(() => {
-    if (!isBranchScope) return undefined;
+    if (resolvedScope !== 'branch') return undefined;
     const branches = directory.data?.branches ?? [];
     if (branches.length === 0) return undefined;
 
@@ -53,7 +52,7 @@ export function useResolvedCompanyName(
 
     const name = matched?.companyName?.trim();
     return name && !isFallbackEntityName(name) ? name : undefined;
-  }, [isBranchScope, directory.data?.branches, activeBranchId]);
+  }, [resolvedScope, directory.data?.branches, activeBranchId]);
 
   const fromDirectory = useMemo(() => {
     const companies = directory.data?.companies ?? [];

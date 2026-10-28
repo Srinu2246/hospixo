@@ -99,7 +99,7 @@ export function UserRoleDataGrid({
         minWidth: 230,
         render: (row) => (
           <Typography sx={{ fontSize: '0.875rem', color: colors.text.secondary }}>
-            {row.email}
+            {row.email || '—'}
           </Typography>
         ),
       },

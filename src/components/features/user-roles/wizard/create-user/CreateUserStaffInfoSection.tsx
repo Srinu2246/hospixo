@@ -107,9 +107,8 @@ export function CreateUserStaffInfoSection({
           render={({ field, fieldState }) => (
             <Input
               label="EMAIL ADDRESS"
-              required
               type="email"
-              placeholder="e.g. sarah.chen@example.com"
+              placeholder="sarah.chen@example.com"
               value={field.value}
               onChange={(e) => onFieldChange('email', e.target.value)}
               onBlur={field.onBlur}
@@ -153,6 +152,7 @@ export function CreateUserStaffInfoSection({
               onBlur={field.onBlur}
               error={Boolean(fieldState.error)}
               helperText={fieldState.error?.message}
+              reserveHelperSpace={false}
               fullWidth
             />
           )}

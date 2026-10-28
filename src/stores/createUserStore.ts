@@ -69,7 +69,7 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
       categories: [],
       formValues: {
         ...state.formValues,
-        role: template?.roleName || state.formValues.role || 'Branch Admin',
+        role: template?.roleName?.trim() || state.formValues.role,
       },
     })),
 
@@ -133,14 +133,19 @@ export const useCreateUserStore = create<CreateUserState>((set) => ({
   setIsSubmitting: (isSubmitting) => set({ isSubmitting }),
 
   hydrateDraft: (draft) =>
-    set((state) => ({
+    set(() => ({
       scope: draft.scope,
       selectedTemplate: draft.selectedTemplate,
       selectedRoleId: draft.selectedRoleId,
       formValues: {
-        ...state.formValues,
+        ...DEFAULT_CREATE_USER_FORM_VALUES,
         ...draft.formValues,
-        password: state.formValues.password || '',
+        role:
+          draft.selectedTemplate?.roleName?.trim() ||
+          draft.formValues.role?.trim() ||
+          DEFAULT_CREATE_USER_FORM_VALUES.role,
+        password: draft.formValues.password ?? '',
+        countryCode: draft.formValues.countryCode ?? DEFAULT_CREATE_USER_FORM_VALUES.countryCode,
       },
       categories: draft.categories,
       errors: {},

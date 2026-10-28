@@ -9,6 +9,9 @@ import { useAppShellFooterTarget } from '@/lib/hooks/useAppShellFooterTarget';
 
 import {
   parseRolePermissionsToCategories,
+  resolveRoleAssignmentRequirements,
+  resolveWizardActiveRoleName,
+  shouldShowBranchInUserSummary,
   resolveRoleId,
   resolveScopeFromPathname,
   getUsersAndRolesBaseRoute,
@@ -22,6 +25,7 @@ import { useSidebarStore } from '@/stores/sidebarStore';
 import {
   clearCreateUserFormDraft,
   resolveCreateUserFormDraftStorageKey,
+  saveCreateUserSuccessSnapshot,
   useCreateStaffUser,
   useCreateUserFormDraft,
   useEmployeeDirectory,
@@ -140,7 +144,6 @@ export function CreateUserMultiformFlow({
   }
 
   const { isDraftReady } = useCreateUserFormDraft(formDraftStorageKey, {
-    enabled: currentStep !== 'success',
     currentStep,
   });
 
@@ -242,9 +245,16 @@ export function CreateUserMultiformFlow({
     return Array.isArray(rolesCatalogQuery.data) ? rolesCatalogQuery.data : [];
   }, [rolesCatalogQuery.data]);
 
-  const activeRoleName = useMemo(() => {
-    return formValues.role || selectedTemplate?.roleName || 'Branch Admin';
-  }, [formValues.role, selectedTemplate?.roleName]);
+  const activeRoleName = useMemo(
+    () =>
+      resolveWizardActiveRoleName({
+        formRole: formValues.role,
+        selectedTemplate,
+        selectedRoleId,
+        catalog: roleCatalog,
+      }),
+    [formValues.role, selectedTemplate, selectedRoleId, roleCatalog],
+  );
 
   const currentRoleCatalogItem = useMemo(() => {
     return roleCatalog.find(
@@ -254,6 +264,16 @@ export function CreateUserMultiformFlow({
         (selectedRoleId != null && String(item.id) === String(selectedRoleId)),
     );
   }, [roleCatalog, activeRoleName, selectedRoleId]);
+
+  const reviewAssignment = useMemo(
+    () => resolveRoleAssignmentRequirements(activeRoleName, roleCatalog, resolvedScope),
+    [activeRoleName, roleCatalog, resolvedScope],
+  );
+
+  const showBranchOnSuccess = useMemo(
+    () => shouldShowBranchInUserSummary(activeRoleName, roleCatalog, resolvedScope),
+    [activeRoleName, roleCatalog, resolvedScope],
+  );
 
   const resolvedRoleId = useMemo(() => {
     const roleCandidate = formValues.role || selectedTemplate?.roleName;
@@ -343,7 +363,6 @@ export function CreateUserMultiformFlow({
   };
 
   const handleSelectTemplate = (template: RoleTemplateItem) => {
-    setSelectedTemplate(template);
     const matchedCatalogItem = roleCatalog.find(
       (r) =>
         r.name.toLowerCase() === template.roleName.toLowerCase() ||
@@ -352,7 +371,9 @@ export function CreateUserMultiformFlow({
     );
     const resolvedId = matchedCatalogItem?.id ?? template.id;
     const finalDescription = matchedCatalogItem?.description || template.description;
-    setRoleAndDescription(template.roleName, finalDescription, resolvedId);
+    const resolvedRoleName = matchedCatalogItem?.name?.trim() || template.roleName.trim();
+    setSelectedTemplate({ ...template, roleName: resolvedRoleName });
+    setRoleAndDescription(resolvedRoleName, finalDescription, resolvedId);
     navigateToStep('user-form');
   };
 
@@ -393,7 +414,14 @@ export function CreateUserMultiformFlow({
         ids,
       });
 
-      clearCreateUserFormDraft(formDraftStorageKey);
+      const snapshotState = useCreateUserStore.getState();
+      saveCreateUserSuccessSnapshot(formDraftStorageKey, {
+        scope: snapshotState.scope,
+        selectedTemplate: snapshotState.selectedTemplate,
+        selectedRoleId: snapshotState.selectedRoleId,
+        formValues: showBranchOnSuccess ? formValues : { ...formValues, branch: '' },
+        categories: activeCategories,
+      });
       onUserCreated?.(formValues);
       setStep('success');
       navigateToStep('success');
@@ -453,13 +481,17 @@ export function CreateUserMultiformFlow({
         />
       )}
 
-      {currentStep === 'success' && (
-        <InvitationSuccessStep
-          formValues={formValues}
-          onGoToDashboard={handleExitFlow}
-          onAssignNewStaff={handleRestart}
-        />
-      )}
+      {currentStep === 'success' &&
+        (isDraftReady ? (
+          <InvitationSuccessStep
+            formValues={formValues}
+            showBranch={showBranchOnSuccess}
+            onGoToDashboard={handleExitFlow}
+            onAssignNewStaff={handleRestart}
+          />
+        ) : (
+          <Loading />
+        ))}
 
       {currentStep !== 'template' && currentStep !== 'success' && (
         <Box
@@ -521,6 +553,8 @@ export function CreateUserMultiformFlow({
             {currentStep === 'review' && isDraftReady && (
               <ReviewAndSaveStepThree
                 formValues={formValues}
+                assignment={reviewAssignment}
+                wizardScope={resolvedScope}
                 selectedTemplate={
                   selectedTemplate
                     ? {

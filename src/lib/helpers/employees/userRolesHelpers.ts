@@ -138,6 +138,15 @@ export function isFallbackEntityName(name?: string | null): boolean {
   return false;
 }
 
+/** Client-generated or synthetic emails — hide in UI and profile. */
+export function isPlaceholderEmail(email?: string | null): boolean {
+  if (!email?.trim()) return true;
+  const normalized = email.trim().toLowerCase();
+  if (normalized.endsWith('@hospixo.local')) return true;
+  if (/^user_\d+@hospixo\.com$/.test(normalized)) return true;
+  return false;
+}
+
 /** Replace API company id tokens with a resolved display name when available. */
 export function enrichUserListCompanyNames(
   users: readonly UserRoleItem[],
@@ -282,6 +291,50 @@ export function companiesFromBranches(branches: readonly BranchListItem[]): Comp
   }));
 }
 
+/** Prefer company directory name over branch payload placeholders (e.g. Company #94). */
+export function resolveCompanyLabelForBranch(
+  branch: BranchListItem | undefined,
+  companies: readonly CompanyListItem[] | undefined,
+): string | undefined {
+  if (!branch) return undefined;
+
+  if (branch.companyId != null && companies?.length) {
+    const matched = companies.find((company) => String(company.id) === String(branch.companyId));
+    if (matched?.name?.trim() && !isFallbackEntityName(matched.name)) {
+      return matched.name.trim();
+    }
+  }
+
+  if (branch.companyName?.trim() && !isFallbackEntityName(branch.companyName)) {
+    return branch.companyName.trim();
+  }
+
+  return undefined;
+}
+
+async function enrichCompaniesWithDetails(
+  companies: CompanyListItem[],
+  get: GetJson,
+): Promise<CompanyListItem[]> {
+  let next = [...companies];
+  const fallbackIds = [
+    ...new Set(
+      next.filter((company) => isFallbackEntityName(company.name)).map((company) => company.id),
+    ),
+  ];
+
+  await Promise.all(
+    fallbackIds.map(async (id) => {
+      const detail = await loadCompanyById(id, get).catch(() => null);
+      if (detail) {
+        next = next.map((company) => (String(company.id) === String(id) ? detail : company));
+      }
+    }),
+  );
+
+  return next;
+}
+
 export function enrichDirectoryWithSession(
   companies: readonly CompanyListItem[],
   branches: readonly BranchListItem[],
@@ -390,7 +443,40 @@ export async function loadEmployeeDirectory(
     });
 
   let companies: CompanyListItem[] = [];
-  if (!isBranchScope) {
+  const resolvedCompanyId =
+    companyId ??
+    session.companyId ??
+    (isBranchScope && session.branchId != null
+      ? branches.find((branch) => String(branch.id) === String(session.branchId))?.companyId
+      : undefined) ??
+    (isBranchScope ? branches[0]?.companyId : undefined);
+
+  if (isBranchScope) {
+    companies = branches.length > 0 ? companiesFromBranches(branches) : [];
+    const sessionCompanyLabel =
+      session.companyName?.trim() && !isFallbackEntityName(session.companyName)
+        ? session.companyName.trim()
+        : undefined;
+    if (sessionCompanyLabel && resolvedCompanyId != null) {
+      const hasCompany = companies.some((c) => String(c.id) === String(resolvedCompanyId));
+      companies = hasCompany
+        ? companies.map((c) =>
+            String(c.id) === String(resolvedCompanyId) ? { ...c, name: sessionCompanyLabel } : c,
+          )
+        : [
+            ...companies,
+            {
+              id: resolvedCompanyId,
+              name: sessionCompanyLabel,
+              code: null,
+              businessType: null,
+              status: 'active' as const,
+              branchCount: branches.length,
+              userCount: 0,
+            },
+          ];
+    }
+  } else if (!isBranchScope) {
     if (companyId == null && organizationId != null && mayListAllCompanies) {
       companies = await loadOrganizationCompanies(organizationId, get, {
         role,
@@ -413,15 +499,22 @@ export async function loadEmployeeDirectory(
     }
   }
 
-  if (companies.length === 0 && branches.length > 0) {
+  if (!isBranchScope && companies.length === 0 && branches.length > 0) {
     companies = companiesFromBranches(branches);
   }
 
-  const branchScopedCompanyName =
+  if (!isBranchScope) {
+    companies = await enrichCompaniesWithDetails(companies, get);
+  }
+
+  const branchScopedBranch =
     isBranchScope && session.branchId != null
-      ? branches.find((branch) => String(branch.id) === String(session.branchId))?.companyName
+      ? branches.find((branch) => String(branch.id) === String(session.branchId))
       : undefined;
-  const directoryCompanyName = companies.find((c) => String(c.id) === String(companyId))?.name;
+  const branchScopedCompanyName = resolveCompanyLabelForBranch(branchScopedBranch, companies);
+  const directoryCompanyName = companies.find(
+    (c) => String(c.id) === String(resolvedCompanyId),
+  )?.name;
   const resolvedSessionCompanyName =
     session.companyName && !isFallbackEntityName(session.companyName)
       ? session.companyName
@@ -460,12 +553,13 @@ export async function resolveCreateUserRequestContext(
   let companyId = normalizeId(ids.companyId);
   let branchId = normalizeId(ids.branchId);
 
-  const isBranchScope =
-    directoryAuth?.scope === 'branch' ||
-    directoryAuth?.authScope === 'branch' ||
-    ids.branchId != null;
+  const wizardBranchScope =
+    directoryAuth?.scope === 'branch' || directoryAuth?.authScope === 'branch';
+
+  const isBranchScope = needsBranch && (wizardBranchScope || ids.branchId != null);
 
   const mayListAllCompanies =
+    !wizardBranchScope &&
     !isBranchScope &&
     shouldLoadOrganizationCompanyList({
       role: directoryAuth?.role,
@@ -475,7 +569,7 @@ export async function resolveCreateUserRequestContext(
     });
 
   let companies: CompanyListItem[] = [];
-  if (!isBranchScope) {
+  if (!wizardBranchScope && !isBranchScope) {
     if (mayListAllCompanies) {
       companies = await loadOrganizationCompanies(organizationId, get, {
         role: directoryAuth?.role,
@@ -542,14 +636,16 @@ export async function resolveCreateUserRequestContext(
     companyId = normalizeId(companies[0]?.id);
   }
 
-  if (needsBranch && branchId == null) {
+  if (!needsBranch) {
+    branchId = undefined;
+  } else if (branchId == null) {
     branchId = normalizeId(branches[0]?.id);
   }
 
   return {
     organizationId,
     ...(companyId != null ? { companyId } : {}),
-    ...(branchId != null ? { branchId } : {}),
+    ...(needsBranch && branchId != null ? { branchId } : {}),
     roleCatalog,
     ...(roleCode ? { roleCode } : {}),
   };

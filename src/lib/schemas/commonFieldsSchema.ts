@@ -55,6 +55,15 @@ export const emailSchema = z
   .max(254, 'Email cannot exceed 254 characters')
   .email('Please enter a valid email address');
 
+/** Empty allowed; non-empty values must pass `emailSchema`. */
+export const optionalEmailSchema = z
+  .string()
+  .trim()
+  .max(254, 'Email cannot exceed 254 characters')
+  .refine((value) => value.length === 0 || emailSchema.safeParse(value).success, {
+    message: 'Please enter a valid email address',
+  });
+
 /**
  * Global Username Schema
  * - Trimmed whitespace

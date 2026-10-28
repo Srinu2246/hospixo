@@ -24,8 +24,8 @@ export function ConfigurePermissionsStepTwo({
   categories,
   onTogglePermission,
   onToggleCategoryAll,
-  roleName = 'Branch Manager',
-  roleDescription = 'Manages staff and inventory at a specific branch level.',
+  roleName = '',
+  roleDescription = '',
   onRoleNameChange,
   onRoleDescriptionChange,
 }: Readonly<ConfigurePermissionsStepTwoProps>) {

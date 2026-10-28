@@ -28,6 +28,127 @@ export interface CreateUserAssignmentSectionProps {
   onFieldChange: (field: keyof CreateUserFormValues, value: string | boolean) => void;
 }
 
+const ASSIGNMENT_CONTROL_HEIGHT = 40;
+
+const assignmentGridGap = {
+  columnGap: { xs: 2, md: 3 },
+  rowGap: 3,
+  alignItems: 'start',
+} as const;
+
+const assignmentColumnSx = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 0,
+  width: '100%',
+} as const;
+
+const assignmentHeaderBlockSx = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 0.5,
+  minHeight: '2.875rem',
+  mb: 1,
+} as const;
+
+const assignmentControlBlockSx = {
+  display: 'flex',
+  flexDirection: 'column',
+} as const;
+
+const assignmentHeadingSx = {
+  fontSize: '1rem',
+  fontWeight: 700,
+  color: 'text.primary',
+  lineHeight: 1.25,
+  minHeight: '1.25rem',
+} as const;
+
+const assignmentLabelSx = {
+  fontSize: '0.6875rem',
+  fontWeight: 700,
+  color: colors.text.secondary,
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase',
+  lineHeight: 1.3,
+  minHeight: '1.125rem',
+} as const;
+
+const assignmentHelperSx = {
+  fontSize: '0.75rem',
+  color: colors.text.secondary,
+  m: 1,
+  lineHeight: 1.45,
+} as const;
+
+const assignmentDropdownSx = {
+  width: '100%',
+  '& .MuiOutlinedInput-root': {
+    height: ASSIGNMENT_CONTROL_HEIGHT,
+    borderRadius: '8px',
+  },
+} as const;
+
+const lockedFieldSx = {
+  height: ASSIGNMENT_CONTROL_HEIGHT,
+  borderRadius: '8px',
+  border: '1px solid',
+  borderColor: (theme: { palette: { mode: string; divider: string } }) =>
+    theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
+  bgcolor: (theme: { palette: { mode: string } }) =>
+    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.surface.muted,
+  px: 1.75,
+  display: 'flex',
+  alignItems: 'center',
+  color: 'text.primary',
+  fontSize: '0.875rem',
+  fontWeight: 600,
+  cursor: 'default',
+  userSelect: 'none',
+} as const;
+
+function assignmentGridColumns(columnCount: number) {
+  const capped = Math.min(Math.max(columnCount, 1), 3);
+  return {
+    display: 'grid',
+    gridTemplateColumns: {
+      xs: '1fr',
+      sm: capped === 1 ? '1fr' : `repeat(${capped}, minmax(0, 1fr))`,
+    },
+    ...assignmentGridGap,
+  };
+}
+
+function AssignmentColumnHeader({ title, label }: Readonly<{ title: string; label: string }>) {
+  return (
+    <Box sx={assignmentHeaderBlockSx}>
+      <Typography sx={assignmentHeadingSx}>{title}</Typography>
+      <Typography sx={assignmentLabelSx}>{label}</Typography>
+    </Box>
+  );
+}
+
+function AssignmentControlBlock({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <Box sx={assignmentControlBlockSx}>{children}</Box>;
+}
+
+function AssignmentFieldError({ message }: Readonly<{ message?: string }>) {
+  if (!message) return null;
+
+  return (
+    <Typography
+      sx={{
+        fontSize: '0.75rem',
+        color: 'error.main',
+        mt: 0.5,
+        lineHeight: 1.45,
+      }}
+    >
+      {message}
+    </Typography>
+  );
+}
+
 export function CreateUserAssignmentSection({
   control,
   currentScope,
@@ -41,222 +162,131 @@ export function CreateUserAssignmentSection({
   isBranchLoading,
   onFieldChange,
 }: Readonly<CreateUserAssignmentSectionProps>) {
-  const showCompanyField =
-    assignment.showCompany || currentScope === 'branch' || currentScope === 'company';
+  const showCompanyField = assignment.showCompany || currentScope === 'company';
   const showBranchField = assignment.showBranch || currentScope === 'branch';
 
-  const assignmentGridSx = {
-    display: 'grid',
-    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, minmax(0, 1fr))' },
-    columnGap: { xs: 2, md: 3 },
-    rowGap: 3,
-  } as const;
+  const companyHelper =
+    currentScope === 'branch'
+      ? 'The user belongs to this company organization.'
+      : assignment.roleScope === 'company'
+        ? 'The user operates at company level across all branches.'
+        : 'Choose which company this user belongs to.';
 
-  const roleField = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-        Assign Role
-      </Typography>
-      <Typography
-        sx={{
-          fontSize: '0.6875rem',
-          fontWeight: 700,
-          color: colors.text.secondary,
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
-        }}
-      >
-        SELECT ROLE
-      </Typography>
-      <Controller
-        name="role"
-        control={control}
-        render={({ field, fieldState }) => (
-          <>
-            <Dropdown
-              options={roleOptions}
-              value={field.value}
-              onChange={(val) => onFieldChange('role', val)}
-              placeholder="Select role"
-              sx={{ width: '100%' }}
-            />
-            {fieldState.error?.message && (
-              <Typography sx={{ fontSize: '0.75rem', color: 'error.main', mt: 0.5 }}>
-                {fieldState.error.message}
-              </Typography>
-            )}
-          </>
-        )}
-      />
-    </Box>
-  );
+  const assignmentColumnCount = (showCompanyField ? 1 : 0) + (showBranchField ? 1 : 0) + 1;
 
   return (
-    <Box sx={assignmentGridSx}>
-      {showCompanyField && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-            Assign Company
-          </Typography>
-          <Typography
-            sx={{
-              fontSize: '0.6875rem',
-              fontWeight: 700,
-              color: colors.text.secondary,
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-            }}
-          >
-            SELECT COMPANY
-          </Typography>
-          {!lockCompanyField ? (
-            <Controller
-              name="company"
-              control={control}
-              render={({ field, fieldState }) => (
-                <>
-                  <Dropdown
-                    options={companyOptions}
-                    value={field.value?.trim() ? field.value : ''}
-                    onChange={(val) => onFieldChange('company', val)}
-                    placeholder={
-                      companyOptions.length === 0 ? 'No companies available' : 'Select company'
-                    }
-                    sx={{ width: '100%' }}
-                  />
-                  {fieldState.error?.message && (
-                    <Typography sx={{ fontSize: '0.75rem', color: 'error.main', mt: 0.5 }}>
-                      {fieldState.error.message}
-                    </Typography>
-                  )}
-                </>
-              )}
-            />
-          ) : (
-            <Box
-              sx={{
-                height: 40,
-                borderRadius: '8px',
-                border: '1px solid',
-                borderColor: (theme) =>
-                  theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.surface.muted,
-                px: 1.75,
-                display: 'flex',
-                alignItems: 'center',
-                color: 'text.primary',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                cursor: 'default',
-                userSelect: 'none',
-              }}
-            >
-              {lockedCompanyLabel}
-            </Box>
-          )}
-          <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, mt: 0.25 }}>
-            {currentScope === 'branch'
-              ? 'The user belongs to this company organization.'
-              : assignment.roleScope === 'company'
-                ? 'The user operates at company level across all branches.'
-                : 'Choose which company this user belongs to.'}
-          </Typography>
+    <Box sx={assignmentGridColumns(assignmentColumnCount)}>
+      {showCompanyField ? (
+        <Box sx={assignmentColumnSx}>
+          <AssignmentColumnHeader title="Assign Company" label="SELECT COMPANY" />
+          <AssignmentControlBlock>
+            {!lockCompanyField ? (
+              <Controller
+                name="company"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <>
+                    <Dropdown
+                      options={companyOptions}
+                      value={field.value?.trim() ? field.value : ''}
+                      onChange={(val) => onFieldChange('company', val)}
+                      placeholder={
+                        companyOptions.length === 0 ? 'No companies available' : 'Select company'
+                      }
+                      sx={assignmentDropdownSx}
+                    />
+                    <AssignmentFieldError message={fieldState.error?.message} />
+                  </>
+                )}
+              />
+            ) : (
+              <Box sx={lockedFieldSx}>{lockedCompanyLabel}</Box>
+            )}
+          </AssignmentControlBlock>
+          <Typography sx={assignmentHelperSx}>{companyHelper}</Typography>
         </Box>
-      )}
+      ) : null}
 
-      {showBranchField && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-            Assign Branch
-          </Typography>
-          <Typography
-            sx={{
-              fontSize: '0.6875rem',
-              fontWeight: 700,
-              color: colors.text.secondary,
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-            }}
-          >
-            SELECT BRANCH
-          </Typography>
-          {isBranchLoading ? (
-            <Box
-              sx={{
-                height: 40,
-                borderRadius: '8px',
-                border: '1px solid',
-                borderColor: (theme) =>
-                  theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : colors.surface.muted,
-                px: 1.75,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.25,
-              }}
-            >
-              <CircularProgress size={16} sx={{ color: 'primary.main' }} />
-              <Typography
-                sx={{ fontSize: '0.875rem', color: colors.text.secondary, fontWeight: 500 }}
-              >
-                {currentScope === 'branch' ? 'Loading branch...' : 'Loading branches...'}
-              </Typography>
-            </Box>
-          ) : currentScope === 'branch' ? (
-            <Box
-              sx={{
-                height: 40,
-                borderRadius: '8px',
-                border: '1px solid',
-                borderColor: (theme) =>
-                  theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : colors.white.default,
-                px: 1.75,
-                display: 'flex',
-                alignItems: 'center',
-                color: 'text.primary',
-                fontWeight: 500,
-                fontSize: '0.875rem',
-                cursor: 'default',
-                userSelect: 'none',
-              }}
-            >
-              {lockedBranchLabel}
-            </Box>
-          ) : (
-            <Controller
-              name="branch"
-              control={control}
-              render={({ field, fieldState }) => (
-                <>
-                  <Dropdown
-                    options={branchOptions}
-                    value={field.value?.trim() ? field.value : ''}
-                    onChange={(val) => onFieldChange('branch', val)}
-                    placeholder={
-                      branchOptions.length === 0 ? 'No branches available' : 'Select branch'
-                    }
-                    sx={{ width: '100%' }}
-                  />
-                  {fieldState.error?.message && (
-                    <Typography sx={{ fontSize: '0.75rem', color: 'error.main', mt: 0.5 }}>
-                      {fieldState.error.message}
-                    </Typography>
-                  )}
-                </>
-              )}
-            />
-          )}
-          <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, mt: 0.25 }}>
+      {showBranchField ? (
+        <Box sx={assignmentColumnSx}>
+          <AssignmentColumnHeader title="Assign Branch" label="SELECT BRANCH" />
+          <AssignmentControlBlock>
+            {isBranchLoading ? (
+              <>
+                <Box
+                  sx={{
+                    ...lockedFieldSx,
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark'
+                        ? 'rgba(255,255,255,0.04)'
+                        : colors.surface.muted,
+                    gap: 1.25,
+                    fontWeight: 500,
+                  }}
+                >
+                  <CircularProgress size={16} sx={{ color: 'primary.main' }} />
+                  <Typography
+                    sx={{ fontSize: '0.875rem', color: colors.text.secondary, fontWeight: 500 }}
+                  >
+                    {currentScope === 'branch' ? 'Loading branch...' : 'Loading branches...'}
+                  </Typography>
+                </Box>
+              </>
+            ) : null}
+            {!isBranchLoading && currentScope === 'branch' ? (
+              <Box sx={lockedFieldSx}>{lockedBranchLabel}</Box>
+            ) : null}
+            {!isBranchLoading && currentScope !== 'branch' ? (
+              <Controller
+                name="branch"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <>
+                    <Dropdown
+                      options={branchOptions}
+                      value={field.value?.trim() ? field.value : ''}
+                      onChange={(val) => onFieldChange('branch', val)}
+                      placeholder={
+                        branchOptions.length === 0 ? 'No branches available' : 'Select branch'
+                      }
+                      sx={assignmentDropdownSx}
+                    />
+                    <AssignmentFieldError message={fieldState.error?.message} />
+                  </>
+                )}
+              />
+            ) : null}
+          </AssignmentControlBlock>
+          <Typography sx={assignmentHelperSx}>
             The user will only see data for the selected branch.
           </Typography>
         </Box>
-      )}
+      ) : null}
 
-      {roleField}
+      <Box sx={assignmentColumnSx}>
+        <AssignmentColumnHeader title="Assign Role" label="SELECT ROLE" />
+        <AssignmentControlBlock>
+          <Controller
+            name="role"
+            control={control}
+            render={({ field, fieldState }) => (
+              <>
+                <Dropdown
+                  options={roleOptions}
+                  value={field.value?.trim() ? field.value : ''}
+                  onChange={(val) => onFieldChange('role', val)}
+                  placeholder="Select role"
+                  sx={assignmentDropdownSx}
+                />
+                <AssignmentFieldError message={fieldState.error?.message} />
+              </>
+            )}
+          />
+        </AssignmentControlBlock>
+        <Typography sx={assignmentHelperSx}>
+          Role defines permissions and data scope for this user.
+        </Typography>
+      </Box>
     </Box>
   );
 }

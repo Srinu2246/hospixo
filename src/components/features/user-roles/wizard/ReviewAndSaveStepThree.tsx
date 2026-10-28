@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
@@ -8,10 +8,13 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
+import { isFallbackEntityName } from '@/lib/helpers/employees/userRolesHelpers';
 import type {
   CreateUserFormValues,
   PermissionCategory,
+  RoleAssignmentRequirements,
   RoleTemplateItem,
+  ScopeType,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { PermissionGroupsGrid } from '../PermissionGroupsGrid';
 
@@ -19,18 +22,95 @@ export interface ReviewAndSaveStepThreeProps {
   formValues: CreateUserFormValues;
   selectedTemplate: RoleTemplateItem | null;
   categories: PermissionCategory[];
+  assignment: RoleAssignmentRequirements;
+  wizardScope: ScopeType;
   onEditSection: (step: 'template' | 'user-form' | 'permissions') => void;
+}
+
+function ReviewField({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
+        {label}
+      </Typography>
+      <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
+function displayValue(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed || isFallbackEntityName(trimmed)) return undefined;
+  return trimmed;
+}
+
+function shouldShowCompanyOnReview(
+  assignment: RoleAssignmentRequirements,
+  wizardScope: ScopeType,
+): boolean {
+  return assignment.showCompany || wizardScope === 'company';
 }
 
 export function ReviewAndSaveStepThree({
   formValues,
   selectedTemplate,
   categories,
+  assignment,
+  wizardScope,
   onEditSection,
 }: Readonly<ReviewAndSaveStepThreeProps>) {
+  const phoneDisplay = useMemo(() => {
+    const number = formValues.phoneNumber?.trim();
+    if (!number) return undefined;
+    const code = formValues.countryCode?.trim();
+    return code ? `${code} ${number}` : number;
+  }, [formValues.countryCode, formValues.phoneNumber]);
+
+  const userInfoFields = useMemo(() => {
+    const fields: { label: string; value: string }[] = [];
+
+    const firstName = displayValue(formValues.firstName);
+    if (firstName) fields.push({ label: 'First Name', value: firstName });
+
+    const lastName = displayValue(formValues.lastName);
+    if (lastName) fields.push({ label: 'Last Name', value: lastName });
+
+    const email = displayValue(formValues.email);
+    if (email) fields.push({ label: 'Email Address', value: email });
+
+    if (phoneDisplay) fields.push({ label: 'Phone Number', value: phoneDisplay });
+
+    const username = displayValue(formValues.username);
+    if (username) fields.push({ label: 'Username', value: username });
+
+    if (formValues.password?.trim()) {
+      fields.push({ label: 'Password', value: '••••••••' });
+    }
+
+    if (shouldShowCompanyOnReview(assignment, wizardScope)) {
+      const company = displayValue(formValues.company);
+      if (company) fields.push({ label: 'Company', value: company });
+    }
+
+    if (assignment.showBranch || wizardScope === 'branch') {
+      const branch = displayValue(formValues.branch);
+      if (branch) fields.push({ label: 'Branch', value: branch });
+    }
+
+    const role = displayValue(formValues.role);
+    if (role) fields.push({ label: 'Role', value: role });
+
+    return fields;
+  }, [assignment, formValues, phoneDisplay, wizardScope]);
+
+  const roleName = displayValue(formValues.role) ?? displayValue(selectedTemplate?.title);
+  const roleDescription = displayValue(selectedTemplate?.description);
+  const templateTitle = displayValue(selectedTemplate?.title) ?? roleName;
+
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2.5, pb: 4 }}>
-      {/* 1. Role Summary Card (24px padding) */}
       <Card
         variant="outlined"
         padding={3}
@@ -81,7 +161,7 @@ export function ReviewAndSaveStepThree({
               ROLE NAME
             </Typography>
             <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.role || 'Branch Admin'}
+              {roleName ?? '—'}
             </Typography>
           </Box>
 
@@ -106,8 +186,7 @@ export function ReviewAndSaveStepThree({
                 lineHeight: 1.45,
               }}
             >
-              {selectedTemplate?.description ||
-                'Manages staff and inventory at a specific branch level.'}
+              {roleDescription ?? '—'}
             </Typography>
           </Box>
 
@@ -125,13 +204,12 @@ export function ReviewAndSaveStepThree({
               TEMPLATE
             </Typography>
             <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {selectedTemplate?.title || formValues.role || 'Branch Admin'}
+              {templateTitle ?? '—'}
             </Typography>
           </Box>
         </Box>
       </Card>
 
-      {/* 2. User Information Card (Fixed Alignment, Clear Hierarchy, Zero Overlap) */}
       <Card
         variant="outlined"
         padding={3}
@@ -164,108 +242,26 @@ export function ReviewAndSaveStepThree({
           </IconButton>
         </Box>
 
-        {/* 2-Column Clean Key-Value Grid */}
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-            columnGap: 4,
-            rowGap: 2,
-          }}
-        >
-          {/* First Name */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              First Name
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.firstName || 'Sarah'}
-            </Typography>
+        {userInfoFields.length === 0 ? (
+          <Typography sx={{ fontSize: '0.875rem', color: colors.text.secondary }}>
+            No user details entered yet.
+          </Typography>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              columnGap: 4,
+              rowGap: 2,
+            }}
+          >
+            {userInfoFields.map((field) => (
+              <ReviewField key={field.label} label={field.label} value={field.value} />
+            ))}
           </Box>
-
-          {/* Last Name */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              Last Name
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.lastName || 'Chen'}
-            </Typography>
-          </Box>
-
-          {/* Email Address */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              Email Address
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.email || 'sarah.chen@example.com'}
-            </Typography>
-          </Box>
-
-          {/* Phone Number */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              Phone Number
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.phoneNumber || '+1 (555) 000-0000'}
-            </Typography>
-          </Box>
-
-          {/* Username */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              Username
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.username || 'sarahH123'}
-            </Typography>
-          </Box>
-
-          {/* Password */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              Password
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.password ? '••••••••' : 'sarahH@123'}
-            </Typography>
-          </Box>
-
-          {/* Company */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              Company
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.company || '—'}
-            </Typography>
-          </Box>
-
-          {/* Branch */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              Branch
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.branch || '—'}
-            </Typography>
-          </Box>
-
-          {/* Role */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.text.secondary, fontWeight: 500 }}>
-              Role
-            </Typography>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
-              {formValues.role || 'Captain'}
-            </Typography>
-          </Box>
-        </Box>
+        )}
       </Card>
 
-      {/* 3. Permissions summary (same groups as configure step, read-only) */}
       <Card
         variant="outlined"
         padding={3}

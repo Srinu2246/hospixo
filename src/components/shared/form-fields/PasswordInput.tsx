@@ -48,6 +48,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
       showToggle = true,
       error = false,
       helperText,
+      reserveHelperSpace,
       value,
       defaultValue,
       onChange,
@@ -98,6 +99,9 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           onBlur={handleBlurCapture}
           error={error}
           helperText={error ? helperText : undefined}
+          reserveHelperSpace={
+            reserveHelperSpace ?? (Boolean(showCriteria && hint) ? false : undefined)
+          }
           fullWidth
           endIcon={
             showToggle ? (
@@ -123,8 +127,8 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
         />
 
         {/* Live Criteria Checklist / Inline Guidance */}
-        {showCriteria && (
-          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        {showCriteria ? (
+          <Box sx={{ mt: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
             {/* Show criteria chips when user has typed or when focused */}
             {(hasTyped || isFocused) && !allSatisfied ? (
               <Box
@@ -192,7 +196,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
               </Typography>
             ) : null}
           </Box>
-        )}
+        ) : null}
       </Box>
     );
   },
