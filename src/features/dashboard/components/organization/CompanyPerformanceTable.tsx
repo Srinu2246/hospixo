@@ -20,6 +20,7 @@ export function CompanyPerformanceTable({
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
   const maxBranches = Math.max(...rows.map((row) => row.branches), 1);
   const chartBars = rows.map((row, index) => ({
+    id: row.id,
     label: row.companyName,
     heightPercent: Math.max(12, Math.round((row.branches / maxBranches) * 100)),
     isHighlight: index === 0,
@@ -381,7 +382,7 @@ export function CompanyPerformanceTable({
           >
             {chartBars.map((bar) => (
               <Box
-                key={bar.label}
+                key={bar.id}
                 sx={{
                   display: 'flex',
                   flexDirection: 'column',

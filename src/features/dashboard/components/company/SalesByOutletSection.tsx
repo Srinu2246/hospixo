@@ -186,9 +186,9 @@ export function SalesByOutletSection({
                 px: { xs: 0.5, sm: 1.5 },
               }}
             >
-              {bars.map((bar) => (
+              {bars.map((bar, index) => (
                 <Box
-                  key={bar.id}
+                  key={bar.id || `branch-bar-${index}`}
                   sx={{
                     display: 'flex',
                     flexDirection: 'column',

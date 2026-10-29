@@ -351,11 +351,6 @@ export function CreateGstRateForm({
                   }}
                 >
                   Effective From
-                  {!isView ? (
-                    <Box component="span" sx={{ color: 'error.main', fontWeight: 600 }}>
-                      *
-                    </Box>
-                  ) : null}
                 </Typography>
                 <CalendarPicker
                   value={effectiveFrom}
