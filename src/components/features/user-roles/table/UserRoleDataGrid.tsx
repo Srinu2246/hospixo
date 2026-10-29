@@ -6,10 +6,14 @@ import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
 import IconButton from '@mui/material/IconButton';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
+import { useHydrated } from '@/lib/hooks/useHydrated';
 import type { UserRoleItem, ScopeType } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface UserRoleDataGridProps {
@@ -41,43 +45,113 @@ export function UserRoleDataGrid({
   onPageChange,
   onOpenActionMenu,
 }: Readonly<UserRoleDataGridProps>) {
-  const columns: DataGridColumn<UserRoleItem>[] = useMemo(
-    () => [
+  const theme = useTheme();
+  const hydrated = useHydrated();
+  const viewportCompact = useMediaQuery(theme.breakpoints.down(screen.desktop), { noSsr: true });
+  const compactTable = hydrated && viewportCompact;
+
+  const actionColumn: DataGridColumn<UserRoleItem> = useMemo(
+    () => ({
+      field: 'actions',
+      headerName: '',
+      align: 'right',
+      width: 48,
+      minWidth: 48,
+      sortable: false,
+      render: (row) => (
+        <IconButton
+          size="small"
+          aria-label={`Actions for ${row.name}`}
+          onClick={(e) => onOpenActionMenu(e, row)}
+          sx={{
+            color: colors.text.secondary,
+            minWidth: 44,
+            minHeight: 44,
+            '&:hover': {
+              color: 'text.primary',
+              bgcolor: (t) => (t.palette.mode === 'dark' ? 'action.hover' : colors.surface.muted),
+            },
+          }}
+        >
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      ),
+    }),
+    [onOpenActionMenu],
+  );
+
+  const nameCell = (row: UserRoleItem) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+      <Avatar
+        src={row.avatar}
+        alt={row.name}
+        sx={{
+          width: 32,
+          height: 32,
+          flexShrink: 0,
+          bgcolor: (t) =>
+            t.palette.mode === 'dark' ? 'rgba(51, 84, 244, 0.25)' : 'rgba(51, 84, 244, 0.12)',
+          color: colors.primary.default,
+          fontSize: '0.8125rem',
+          fontWeight: 700,
+        }}
+      >
+        {row.name.charAt(0)}
+      </Avatar>
+      <Typography
+        sx={{
+          fontSize: '0.875rem',
+          fontWeight: 600,
+          color: 'text.primary',
+          letterSpacing: '-0.01em',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {row.name}
+      </Typography>
+    </Box>
+  );
+
+  const columns: DataGridColumn<UserRoleItem>[] = useMemo(() => {
+    if (compactTable) {
+      return [
+        {
+          field: 'name',
+          headerName: 'FULL NAME',
+          minWidth: 120,
+          render: (row) => nameCell(row),
+        },
+        {
+          field: 'email',
+          headerName: 'EMAIL',
+          minWidth: 100,
+          render: (row) => (
+            <Typography
+              sx={{
+                fontSize: '0.875rem',
+                color: colors.text.secondary,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '100%',
+              }}
+            >
+              {row.email || '—'}
+            </Typography>
+          ),
+        },
+        actionColumn,
+      ];
+    }
+
+    return [
       {
         field: 'name',
         headerName: 'NAME',
         minWidth: 220,
-        render: (row) => (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar
-              src={row.avatar}
-              alt={row.name}
-              sx={{
-                width: 32,
-                height: 32,
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(51, 84, 244, 0.25)'
-                    : 'rgba(51, 84, 244, 0.12)',
-                color: colors.primary.default,
-                fontSize: '0.8125rem',
-                fontWeight: 700,
-              }}
-            >
-              {row.name.charAt(0)}
-            </Avatar>
-            <Typography
-              sx={{
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: 'text.primary',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              {row.name}
-            </Typography>
-          </Box>
-        ),
+        render: (row) => nameCell(row),
       },
       ...(scope === 'organization'
         ? [
@@ -135,41 +209,16 @@ export function UserRoleDataGrid({
         minWidth: 130,
         render: (row) => <StatusChip status={row.status} />,
       },
-      {
-        field: 'actions',
-        headerName: '',
-        align: 'right',
-        width: 50,
-        minWidth: 50,
-        sortable: false,
-        render: (row) => (
-          <IconButton
-            size="small"
-            aria-label={`Actions for ${row.name}`}
-            onClick={(e) => onOpenActionMenu(e, row)}
-            sx={{
-              color: colors.text.secondary,
-              '&:hover': {
-                color: 'text.primary',
-                bgcolor: (theme) =>
-                  theme.palette.mode === 'dark' ? 'action.hover' : colors.surface.muted,
-              },
-            }}
-          >
-            <MoreVertIcon fontSize="small" />
-          </IconButton>
-        ),
-      },
-    ],
-    [onOpenActionMenu, scope, companyName],
-  );
+      actionColumn,
+    ];
+  }, [actionColumn, compactTable, companyName, scope]);
 
   return (
     <Box
       sx={{
         width: '100%',
-        overflowX: 'auto',
-        maxHeight: { xs: 400, md: 'calc(100vh - 350px)' },
+        overflowX: compactTable ? 'hidden' : 'auto',
+        maxHeight: compactTable ? undefined : { xs: 400, md: 'calc(100vh - 350px)' },
         overflowY: 'auto',
         pr: 0.5,
         '&::-webkit-scrollbar': {

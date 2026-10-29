@@ -7,6 +7,8 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
 
+import { responsiveSurfacePadding } from '@/lib/theme/mui/layoutPadding';
+
 export type CardVariant = 'outlined' | 'elevated' | 'flat' | 'interactive';
 
 export interface CardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
@@ -73,7 +75,7 @@ export function CardHeader({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        p: padding,
+        p: responsiveSurfacePadding(padding),
         gap: 1.5,
         ...sx,
       }}
@@ -143,7 +145,7 @@ export function CardContent({ children, padding = 3, sx }: Readonly<CardContentP
   return (
     <Box
       sx={{
-        p: padding,
+        p: responsiveSurfacePadding(padding),
         flex: 1,
         minWidth: 0,
         minHeight: 0,
@@ -166,7 +168,7 @@ export function CardFooter({ children, padding = 3, sx }: Readonly<CardFooterPro
   return (
     <Box
       sx={{
-        p: padding,
+        p: responsiveSurfacePadding(padding),
         pt: 1.5,
         display: 'flex',
         alignItems: 'center',

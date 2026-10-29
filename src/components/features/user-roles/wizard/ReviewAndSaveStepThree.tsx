@@ -8,6 +8,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { isFallbackEntityName } from '@/lib/helpers/employees/userRolesHelpers';
 import type {
   CreateUserFormValues,
@@ -111,6 +112,26 @@ export function ReviewAndSaveStepThree({
 
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2.5, pb: 4 }}>
+      <Box sx={{ display: { [screen.mobile]: 'block', [screen.desktop]: 'none' } }}>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 700,
+            fontSize: '1.25rem',
+            color: 'text.primary',
+            letterSpacing: '-0.015em',
+          }}
+        >
+          Review Details
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={{ color: colors.text.secondary, mt: 0.75, fontSize: '0.875rem' }}
+        >
+          Confirm user information and permissions
+        </Typography>
+      </Box>
+
       <Card
         variant="outlined"
         padding={3}
@@ -143,7 +164,11 @@ export function ReviewAndSaveStepThree({
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '1.2fr 2fr 1fr' },
+            gridTemplateColumns: {
+              [screen.mobile]: '1fr',
+              [screen.tablet]: '1fr',
+              [screen.desktop]: '1.2fr 2fr 1fr',
+            },
             gap: 2.5,
           }}
         >
@@ -250,8 +275,12 @@ export function ReviewAndSaveStepThree({
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-              columnGap: 4,
+              gridTemplateColumns: {
+                [screen.mobile]: '1fr',
+                [screen.tablet]: '1fr 1fr',
+                [screen.desktop]: '1fr 1fr',
+              },
+              columnGap: { [screen.mobile]: 2, [screen.desktop]: 4 },
               rowGap: 2,
             }}
           >
@@ -276,7 +305,7 @@ export function ReviewAndSaveStepThree({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: 'text.primary' }}>
-            Permissions
+            Permissions Review
           </Typography>
           <IconButton
             size="small"

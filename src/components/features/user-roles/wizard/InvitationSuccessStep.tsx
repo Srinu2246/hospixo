@@ -10,6 +10,7 @@ import { Card } from '@/components/shared/ui/Card';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { isFallbackEntityName } from '@/lib/helpers/employees/userRolesHelpers';
 import type { CreateUserFormValues } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
@@ -210,10 +211,11 @@ export function InvitationSuccessStep({
       <Box
         sx={{
           display: 'flex',
-          gap: 2,
+          flexDirection: { [screen.mobile]: 'column', [screen.desktop]: 'row' },
+          gap: 1.5,
           justifyContent: 'center',
-          alignItems: 'center',
-          flexWrap: 'wrap',
+          alignItems: 'stretch',
+          width: '100%',
           mt: 0.5,
         }}
       >
@@ -221,9 +223,10 @@ export function InvitationSuccessStep({
           variant="outlined"
           onClick={onGoToDashboard}
           sx={{
-            height: 38,
+            flex: { [screen.mobile]: 1, [screen.desktop]: 'unset' },
+            height: { [screen.mobile]: 44, [screen.desktop]: 38 },
             px: 2.5,
-            minWidth: 150,
+            minWidth: { [screen.desktop]: 150 },
             borderRadius: '8px',
             fontWeight: 600,
             fontSize: '0.875rem',
@@ -244,9 +247,10 @@ export function InvitationSuccessStep({
           variant="primary"
           onClick={onAssignNewStaff}
           sx={{
-            height: 38,
+            flex: { [screen.mobile]: 1, [screen.desktop]: 'unset' },
+            height: { [screen.mobile]: 44, [screen.desktop]: 38 },
             px: 2.5,
-            minWidth: 150,
+            minWidth: { [screen.desktop]: 150 },
             borderRadius: '8px',
             fontWeight: 600,
             fontSize: '0.875rem',

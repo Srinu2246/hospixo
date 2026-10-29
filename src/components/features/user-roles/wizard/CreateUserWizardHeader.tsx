@@ -5,14 +5,18 @@ import Box from '@mui/material/Box';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { ProgressBar } from '@/components/shared/ui/ProgressBar';
 import { colors } from '@/lib/theme/mui/colors';
-import { screen } from '@/lib/theme/mui/breakpoints';
+import {
+  userRolesBreadcrumbStripSx,
+  userRolesWizardStepperWrapSx,
+} from '@/lib/helpers/employees/userRolesLayout';
+import type { ProgressStepItem } from '@/components/shared/ui/ProgressBar';
 import type { CreateUserStep } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
-const WIZARD_STEPS = [
-  { id: 'step-1', label: 'Create User' },
-  { id: 'step-2', label: 'Configure Permissions' },
-  { id: 'step-3', label: 'Review & Save' },
-] as const;
+const WIZARD_STEPS: ProgressStepItem[] = [
+  { id: 'step-1', label: 'Create User', compactLabel: 'Create' },
+  { id: 'step-2', label: 'Configure Permissions', compactLabel: 'Configure' },
+  { id: 'step-3', label: 'Review & Save', compactLabel: 'Review' },
+];
 
 export interface CreateUserWizardHeaderProps {
   currentStep: CreateUserStep;
@@ -51,10 +55,7 @@ export function CreateUserWizardHeader({
       {/* Top Breadcrumb Bar */}
       <Box
         sx={{
-          mt: { [screen.mobile]: -2, [screen.desktop]: -3 },
-          mx: { [screen.mobile]: -2, [screen.desktop]: -3 },
-          px: { [screen.mobile]: 2, [screen.desktop]: 3 },
-          py: 1.5,
+          ...userRolesBreadcrumbStripSx,
           bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
           borderBottom: '1px solid',
           borderColor: (theme) =>
@@ -77,7 +78,7 @@ export function CreateUserWizardHeader({
       </Box>
 
       {/* Global Reusable Stepped Progress Bar */}
-      <Box sx={{ my: 3, flexShrink: 0 }}>
+      <Box sx={{ ...userRolesWizardStepperWrapSx, flexShrink: 0 }}>
         <ProgressBar
           variant="stepped"
           steps={WIZARD_STEPS}
