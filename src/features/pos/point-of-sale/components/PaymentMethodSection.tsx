@@ -38,6 +38,12 @@ export interface PaymentMethodSectionProps {
   couponAmount?: number;
   /** When true, parent renders confirm CTA in `#app-shell-footer`. */
   hideConfirmButton?: boolean;
+  /** Optional: fetch persisted bill (GET …/bill) below confirm. */
+  showGetBillButton?: boolean;
+  onGetBill?: () => void;
+  isGettingBill?: boolean;
+  /** Live-order checkout: hide unsupported tenders (e.g. cash until API exists). */
+  disabledPaymentMethodIds?: readonly PaymentMethodId[];
   sx?: SxProps<Theme>;
 }
 
@@ -61,6 +67,10 @@ export function PaymentMethodSection({
   taxAmount,
   couponAmount = 0,
   hideConfirmButton = false,
+  showGetBillButton = false,
+  onGetBill,
+  isGettingBill = false,
+  disabledPaymentMethodIds,
   sx,
 }: Readonly<PaymentMethodSectionProps>) {
   const renderMethodIcon = (id: PaymentMethodId, isSelected: boolean) => {
@@ -237,13 +247,18 @@ export function PaymentMethodSection({
       <Stack spacing={1.5} sx={{ mb: 2.5 }}>
         {PAYMENT_OPTIONS.map((option) => {
           const isSelected = selectedMethod === option.id;
+          const isDisabled = disabledPaymentMethodIds?.includes(option.id) ?? false;
 
           const compactSelected = compact && isSelected;
 
           return (
             <ButtonBase
               key={option.id}
-              onClick={() => onSelectMethod(option.id)}
+              disabled={isDisabled}
+              onClick={() => {
+                if (isDisabled) return;
+                onSelectMethod(option.id);
+              }}
               sx={{
                 width: '100%',
                 display: 'flex',
@@ -272,6 +287,8 @@ export function PaymentMethodSection({
                       : 'divider',
                 boxShadow: compact ? '0 1px 2px rgba(15, 23, 42, 0.04)' : 'none',
                 transition: 'all 0.15s ease-in-out',
+                opacity: isDisabled ? 0.45 : 1,
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
                 '&:hover': {
                   bgcolor: compact
                     ? 'action.hover'
@@ -349,34 +366,60 @@ export function PaymentMethodSection({
       ) : null}
 
       {!hideConfirmButton ? (
-        <ButtonBase
-          onClick={onConfirmPayment}
-          disabled={isProcessing}
-          sx={{
-            width: '100%',
-            bgcolor: colors.danger.default,
-            color: colors.white.default,
-            py: 1.6,
-            borderRadius: '12px',
-            fontSize: '0.9375rem',
-            fontWeight: 700,
-            letterSpacing: '-0.01em',
-            boxShadow: `0 4px 14px 0 ${alpha(colors.danger.default, 0.3)}`,
-            transition: 'all 0.15s ease-in-out',
-            opacity: isProcessing ? 0.7 : 1,
-            cursor: isProcessing ? 'not-allowed' : 'pointer',
-            '&:hover': {
-              bgcolor: colors.danger.dark,
-              boxShadow: `0 6px 18px 0 ${alpha(colors.danger.default, 0.4)}`,
-            },
-          }}
-        >
-          {isProcessing
-            ? 'Processing Payment...'
-            : compact
-              ? `Confirm Payment (Rs ${formatRs(total)})`
-              : 'Confirm Payment'}
-        </ButtonBase>
+        <Stack spacing={1.25}>
+          <ButtonBase
+            onClick={onConfirmPayment}
+            disabled={isProcessing || isGettingBill}
+            sx={{
+              width: '100%',
+              bgcolor: colors.danger.default,
+              color: colors.white.default,
+              py: 1.6,
+              borderRadius: '12px',
+              fontSize: '0.9375rem',
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              boxShadow: `0 4px 14px 0 ${alpha(colors.danger.default, 0.3)}`,
+              transition: 'all 0.15s ease-in-out',
+              opacity: isProcessing ? 0.7 : 1,
+              cursor: isProcessing ? 'not-allowed' : 'pointer',
+              '&:hover': {
+                bgcolor: colors.danger.dark,
+                boxShadow: `0 6px 18px 0 ${alpha(colors.danger.default, 0.4)}`,
+              },
+            }}
+          >
+            {isProcessing
+              ? 'Processing Payment...'
+              : compact
+                ? `Confirm Payment (Rs ${formatRs(total)})`
+                : 'Confirm Payment'}
+          </ButtonBase>
+          {showGetBillButton && onGetBill ? (
+            <ButtonBase
+              onClick={onGetBill}
+              disabled={isProcessing || isGettingBill}
+              sx={{
+                width: '100%',
+                bgcolor: 'background.paper',
+                color: colors.primary.default,
+                py: 1.45,
+                borderRadius: '12px',
+                fontSize: '0.9375rem',
+                fontWeight: 700,
+                border: '1px solid',
+                borderColor: colors.primary.default,
+                opacity: isGettingBill ? 0.7 : 1,
+                cursor: isGettingBill ? 'wait' : 'pointer',
+                '&:hover': {
+                  bgcolor: (theme) => alpha(theme.palette.primary.main, 0.06),
+                },
+              }}
+            >
+              {isGettingBill ? 'Loading bill & receipt…' : 'Get Bill'}
+            </ButtonBase>
+          ) : null}
+        </Stack>
       ) : null}
 
       {!compact ? (

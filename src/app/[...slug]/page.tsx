@@ -49,6 +49,8 @@ import {
 import type { MenuAvailabilityScope } from '@/lib/schemas/menu/menuAvailabilitySchema';
 import type { MenuCreationScope } from '@/lib/schemas/menu/menuCreationSchema';
 import { parseMenuCreationSearchParams } from '@/lib/params/menu';
+import { readCheckoutOrderIdParam } from '@/lib/helpers/posOrderHelpers';
+import { Loading } from '@/components/shared/ui/Loading';
 
 interface CatchAllPageProps {
   params: Promise<{
@@ -122,7 +124,8 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
   {
     name: 'POS Checkout',
     match: (path) => path.endsWith('/checkout') || path.endsWith('checkout'),
-    render: (_, slug) => {
+    render: (_, slug, searchParams) => {
+      const queryOrderId = readCheckoutOrderIdParam(searchParams);
       const tableId =
         slug.length >= 3 &&
         slug[slug.length - 1] === 'checkout' &&
@@ -132,9 +135,13 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
           ? slug[slug.length - 2]
           : undefined;
       if (tableId) {
-        return <PosOrderSettleRoutePage orderId={tableId} initialStep="checkout" />;
+        return <PosOrderSettleRoutePage orderId={queryOrderId ?? tableId} initialStep="checkout" />;
       }
-      return <OrderSettle initialStep="checkout" />;
+      return (
+        <Suspense fallback={<Loading message="Loading checkout…" />}>
+          <OrderSettle initialStep="checkout" orderId={queryOrderId} />
+        </Suspense>
+      );
     },
   },
 
@@ -156,7 +163,8 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
         path.endsWith('success') ||
         path.endsWith('/payment-success') ||
         path.endsWith('payment-success')),
-    render: (_, slug) => {
+    render: (_, slug, searchParams) => {
+      const queryOrderId = readCheckoutOrderIdParam(searchParams);
       const last = slug[slug.length - 1];
       const tableId =
         slug.length >= 3 &&
@@ -167,9 +175,13 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
           ? slug[slug.length - 2]
           : undefined;
       if (tableId) {
-        return <PosOrderSettleRoutePage orderId={tableId} initialStep="success" />;
+        return <PosOrderSettleRoutePage orderId={queryOrderId ?? tableId} initialStep="success" />;
       }
-      return <OrderSettle initialStep="success" />;
+      return (
+        <Suspense fallback={<Loading message="Loading receipt…" />}>
+          <OrderSettle initialStep="success" orderId={queryOrderId} />
+        </Suspense>
+      );
     },
   },
 

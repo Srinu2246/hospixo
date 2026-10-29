@@ -54,6 +54,18 @@ const ApiUrlsV1 = {
         /** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
         submit: (branchId: number | string, orderId: number | string) =>
           branchOrderSubmitPath(branchId, orderId),
+        /** POST /v1/branches/{branch_id}/orders/{order_id}/pay/razorpay/order */
+        razorpayOrder: (branchId: number | string, orderId: number | string) =>
+          branchOrderRazorpayOrderPath(branchId, orderId),
+        /** POST /v1/branches/{branch_id}/orders/{order_id}/pay/razorpay/confirm */
+        razorpayConfirm: (branchId: number | string, orderId: number | string) =>
+          branchOrderRazorpayConfirmPath(branchId, orderId),
+        /** GET /v1/branches/{branch_id}/orders/{order_id}/bill */
+        bill: (branchId: number | string, orderId: number | string) =>
+          branchOrderBillPath(branchId, orderId),
+        /** GET /v1/branches/{branch_id}/orders/{order_id}/receipt */
+        receipt: (branchId: number | string, orderId: number | string) =>
+          branchOrderReceiptPath(branchId, orderId),
       },
       cashAndShift: {
         ...resource('/v1/pos/point-of-sale/cash-and-shift'),
@@ -225,6 +237,35 @@ export function branchOrderItemPath(
 /** POST /v1/branches/{branch_id}/orders/{order_id}/submit */
 export function branchOrderSubmitPath(branchId: number | string, orderId: number | string): string {
   return `${branchOrderDetailPath(branchId, orderId)}/submit`;
+}
+
+/** POST /v1/branches/{branch_id}/orders/{order_id}/pay/razorpay/order */
+export function branchOrderRazorpayOrderPath(
+  branchId: number | string,
+  orderId: number | string,
+): string {
+  return `${branchOrderDetailPath(branchId, orderId)}/pay/razorpay/order`;
+}
+
+/** POST /v1/branches/{branch_id}/orders/{order_id}/pay/razorpay/confirm */
+export function branchOrderRazorpayConfirmPath(
+  branchId: number | string,
+  orderId: number | string,
+): string {
+  return `${branchOrderDetailPath(branchId, orderId)}/pay/razorpay/confirm`;
+}
+
+/** GET /v1/branches/{branch_id}/orders/{order_id}/bill */
+export function branchOrderBillPath(branchId: number | string, orderId: number | string): string {
+  return `${branchOrderDetailPath(branchId, orderId)}/bill`;
+}
+
+/** GET /v1/branches/{branch_id}/orders/{order_id}/receipt */
+export function branchOrderReceiptPath(
+  branchId: number | string,
+  orderId: number | string,
+): string {
+  return `${branchOrderDetailPath(branchId, orderId)}/receipt`;
 }
 
 /** GET/POST /v1/branches/{branch_id}/meal-sessions */

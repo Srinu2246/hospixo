@@ -29,6 +29,7 @@ import {
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
 import { MOCK_BRANCHES, resolveBranchesMock } from '@/lib/mocks/organization/branches.mocks';
 import { MOCK_COMPANIES } from '@/lib/mocks/organization/companies.mocks';
+import { resolveBranchOrderSettleMock } from '@/lib/mocks/pos/branchOrderSettle.mocks';
 import { resolveRestaurantFloorMock } from '@/lib/mocks/floor-and-table-setup/restaurantFloors.mocks';
 import {
   MOCK_KITCHEN_ORDERS,
@@ -179,6 +180,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
   const branchMenuAssignments = resolveBranchMenuAssignmentsMock(request.path, request.method);
   if (branchMenuAssignments !== undefined) return branchMenuAssignments;
+
+  const orderSettle = resolveBranchOrderSettleMock(request);
+  if (orderSettle !== undefined) return orderSettle;
 
   // Floors, sections, tables, and floor-map under /v1/branches/:id/floors/**
   const restaurant = resolveRestaurantFloorMock(request);

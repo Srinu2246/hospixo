@@ -1,5 +1,22 @@
-import { OrderSettle } from '@/features/pos/point-of-sale/all-orders';
+import { Suspense } from 'react';
 
-export default function TakeawayPaymentSuccessPage() {
-  return <OrderSettle initialStep="success" />;
+import { Loading } from '@/components/shared/ui/Loading';
+import { OrderSettle } from '@/features/pos/point-of-sale/all-orders';
+import { readCheckoutOrderIdParam } from '@/lib/helpers/posOrderHelpers';
+
+interface TakeawayPaymentSuccessPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function TakeawayPaymentSuccessPage({
+  searchParams,
+}: TakeawayPaymentSuccessPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const orderId = readCheckoutOrderIdParam(resolvedSearchParams);
+
+  return (
+    <Suspense fallback={<Loading message="Loading receipt…" />}>
+      <OrderSettle initialStep="success" orderId={orderId} />
+    </Suspense>
+  );
 }
