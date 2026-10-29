@@ -41,6 +41,7 @@ export function MobileNavbar({
   user,
   displayName = 'User',
   displayRole = 'User',
+  isReadOnly = false,
   sx,
 }: Readonly<MobileNavbarProps>) {
   const captainWorkspace = Boolean(captainWorkspaceTitle);
@@ -57,6 +58,7 @@ export function MobileNavbar({
       fontSize="0.8125rem"
       maxLabelWidth={{ xs: 150, sm: 220 }}
       hideScopeLabel={showBranchSelector && captainWorkspace}
+      isReadOnly={isReadOnly}
     />
   );
   return (

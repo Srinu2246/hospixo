@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Box, Typography } from '@mui/material';
 import FormControl from '@mui/material/FormControl';
 import MenuItem from '@mui/material/MenuItem';
@@ -103,8 +103,9 @@ export function Dropdown<T extends string | number = string>({
   const isOutletVariant = variant === 'outlet' || variant === 'header';
   const anchorRef = useRef<HTMLDivElement>(null);
   const [menuPlacement, setMenuPlacement] = useState<'bottom' | 'top'>('bottom');
+  const [isOpen, setIsOpen] = useState(false);
 
-  const updateMenuPlacement = useCallback(() => {
+  const updateMenuPlacement = () => {
     const anchor = anchorRef.current;
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
@@ -112,7 +113,16 @@ export function Dropdown<T extends string | number = string>({
     const spaceAbove = rect.top;
     const preferredHeight = Math.min(maxMenuHeight, 320);
     setMenuPlacement(spaceBelow < preferredHeight && spaceAbove > spaceBelow ? 'top' : 'bottom');
-  }, [maxMenuHeight]);
+  };
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    updateMenuPlacement();
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+  };
 
   const menuPaperSx = {
     maxHeight: maxMenuHeight,
@@ -173,7 +183,8 @@ export function Dropdown<T extends string | number = string>({
       <Select
         value={selectedValue}
         onChange={handleChange}
-        onOpen={updateMenuPlacement}
+        onOpen={handleOpen}
+        onClose={handleClose}
         disabled={disabled}
         displayEmpty={
           Boolean(placeholder) || selectedValue === ('' as T) || selectedValue === undefined
@@ -225,11 +236,12 @@ export function Dropdown<T extends string | number = string>({
                     variant="caption"
                     component="span"
                     sx={{
-                      fontSize: '0.6875rem',
+                      fontSize: '1rem',
                       color: 'text.secondary',
-                      fontWeight: 500,
-                      mb: 0.2,
-                      letterSpacing: '0.01em',
+                      fontWeight: 600,
+                      mb: 0.25,
+                      letterSpacing: '-0.01em',
+                      lineHeight: 1.2,
                     }}
                   >
                     {label}
@@ -239,7 +251,7 @@ export function Dropdown<T extends string | number = string>({
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 0.75,
+                    gap: 0.5,
                     maxWidth: '100%',
                   }}
                 >
@@ -251,7 +263,6 @@ export function Dropdown<T extends string | number = string>({
                       justifyContent: 'center',
                       lineHeight: 0,
                       flexShrink: 0,
-                      transform: 'translateY(-1px)',
                     }}
                   >
                     {startIcon ?? opt?.icon}
@@ -259,18 +270,34 @@ export function Dropdown<T extends string | number = string>({
                   <Typography
                     component="span"
                     sx={{
-                      color: 'text.primary',
-                      fontWeight: 700,
-                      fontSize: '0.875rem',
+                      color: isEmptyValue ? 'text.secondary' : 'text.primary',
+                      fontWeight: isEmptyValue ? 500 : 700,
+                      fontSize: '0.8125rem',
                       lineHeight: 1.25,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
-                      maxWidth: { xs: 150, sm: 220, md: 280 },
+                      maxWidth: { xs: 140, sm: 200, md: 240 },
                     }}
                   >
                     {displayLabel}
                   </Typography>
+                  <Box
+                    component="span"
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 0,
+                      flexShrink: 0,
+                      color: 'text.secondary',
+                      transform: isOpen ? 'rotate(180deg)' : 'none',
+                      transition: 'transform 0.2s ease',
+                      ml: 0.25,
+                    }}
+                  >
+                    <ChevronDown size={14} />
+                  </Box>
                 </Box>
               </Box>
             );
@@ -310,8 +337,8 @@ export function Dropdown<T extends string | number = string>({
         sx={{
           width: isOutletVariant ? undefined : '100%',
           height: isOutletVariant ? 'auto' : sizeConfig.height,
-          minHeight: isOutletVariant ? 40 : undefined,
-          borderRadius: sizeConfig.borderRadius,
+          minHeight: isOutletVariant ? 32 : undefined,
+          borderRadius: isOutletVariant ? '8px' : sizeConfig.borderRadius,
           bgcolor: isOutletVariant ? 'transparent' : 'background.paper',
           fontSize: sizeConfig.fontSize,
           fontWeight: 600,
@@ -329,23 +356,20 @@ export function Dropdown<T extends string | number = string>({
             borderWidth: 1.5,
           },
           '& .MuiSelect-select': {
-            py: isOutletVariant ? 0.5 : 0.75,
-            px: isOutletVariant ? 1 : 1.5,
-            pr: '32px !important',
+            py: isOutletVariant ? 0.25 : 0.75,
+            px: isOutletVariant ? 0.75 : 1.5,
+            pr: isOutletVariant ? '8px !important' : '32px !important',
             display: 'flex',
             alignItems: 'center',
             gap: 1,
             color: 'text.primary',
           },
           '& .MuiSelect-icon': {
+            display: isOutletVariant ? 'none' : 'block',
             right: 8,
             fontSize: 18,
             color: 'text.secondary',
             transition: 'transform 0.2s ease',
-            ...(isOutletVariant && {
-              top: 'auto',
-              bottom: 6,
-            }),
           },
           '&:hover': isOutletVariant
             ? {
@@ -359,7 +383,11 @@ export function Dropdown<T extends string | number = string>({
           <MenuItem
             value=""
             disabled
-            sx={{ color: 'text.secondary', fontSize: sizeConfig.fontSize }}
+            sx={{
+              display: isOutletVariant ? 'none' : 'flex',
+              color: 'text.secondary',
+              fontSize: sizeConfig.fontSize,
+            }}
           >
             {placeholder}
           </MenuItem>

@@ -18,9 +18,14 @@ import type { QueryParams } from '@/services/api/types';
 import type { JsonValue } from '@/types/json';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
+export type UseOrganizationCompaniesOptions = Readonly<{
+  enabled?: boolean;
+}>;
+
 export function useOrganizationCompanies(
   organizationId?: number,
   initialCompanies?: CompanyListItem[],
+  options?: UseOrganizationCompaniesOptions,
 ) {
   const role = useSidebarStore((state) => state.role || state.user?.role || '');
   const authScope = useSidebarStore((state) => state.account?.scope ?? '');
@@ -42,7 +47,7 @@ export function useOrganizationCompanies(
         scope: 'organization',
       }),
     initialData: initialCompanies,
-    enabled: canFetch && orgId != null,
+    enabled: (options?.enabled ?? true) && canFetch && orgId != null,
     staleTime: 30_000,
     refetchOnMount: initialCompanies ? false : undefined,
   });
