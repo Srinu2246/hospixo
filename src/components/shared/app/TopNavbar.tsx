@@ -27,14 +27,8 @@ export interface TopNavbarProps {
   context?: SidebarContext;
   /** User profile override (falls back to sidebar store user) */
   user?: SidebarUserProfile;
-  /** Triggered when the AI Agent button is clicked */
-  onAiAgentClick?: () => void;
-  /** Triggered when the Explore Products button is clicked */
-  onExploreProductsClick?: () => void;
   /** Triggered when the Notification icon is clicked */
   onNotificationClick?: () => void;
-  /** Triggered when the Settings icon is clicked */
-  onSettingsClick?: () => void;
   /** Triggered when the mobile/tablet navigation menu button is clicked */
   onOpenMenu?: () => void;
   /** Optional layout style overrides from the caller */
@@ -56,10 +50,7 @@ export function TopNavbar({
   role: propRole,
   context: propContext,
   user: propUser,
-  onAiAgentClick,
-  onExploreProductsClick,
   onNotificationClick,
-  onSettingsClick,
   onOpenMenu,
   sx,
 }: Readonly<TopNavbarProps>) {
@@ -78,9 +69,6 @@ export function TopNavbar({
   const normalizedRole = normalizeRoleKey(activeRole);
   const pathname = usePathname() ?? '';
   const hideOutletSelector = pathname === '/branch-manager/dashboard';
-
-  // Business rule: show AI Agent and Explore Products for managers/company, hide for waiter
-  const showManagementActions = Boolean(normalizedRole) && normalizedRole !== 'waiter';
 
   const isBranchView = pathname.includes('/branch-manager');
   const captainWorkspacePath = isCaptainWorkspacePath(pathname);
@@ -221,10 +209,7 @@ export function TopNavbar({
         mobileSelectedOutletSlug={selectedOutletSlug}
         onMobileOutletChange={handleOutletChange}
         hideOutletSelector={hideOutletSelector}
-        showManagementActions={showManagementActions}
-        onAiAgentClick={onAiAgentClick}
         onNotificationClick={onNotificationClick}
-        onSettingsClick={onSettingsClick}
         onOpenMenu={onOpenMenu}
         showProfileMenu={showWaiterProfileNav}
         user={activeUser}
@@ -237,14 +222,10 @@ export function TopNavbar({
         hideOutletSelector={hideOutletSelector}
         selectedOutletSlug={selectedOutletSlug}
         onOutletChange={handleOutletChange}
-        showManagementActions={showManagementActions}
         isBranchView={isBranchView}
         mode={mode}
         onToggleMode={toggleMode}
-        onAiAgentClick={onAiAgentClick}
-        onExploreProductsClick={onExploreProductsClick}
         onNotificationClick={onNotificationClick}
-        onSettingsClick={onSettingsClick}
         user={activeUser}
         displayName={displayName}
         displayRole={displayRole}
