@@ -51,6 +51,7 @@ import {
 } from '@/components/features/user-roles';
 import { CreateUserWizardHeader } from '@/components/features/user-roles/wizard/CreateUserWizardHeader';
 import { CreateUserWizardFooter } from '@/components/features/user-roles/wizard/CreateUserWizardFooter';
+import { userRolesWizardContentPbSx } from '@/lib/helpers/employees/userRolesLayout';
 
 export interface CreateUserMultiformFlowProps {
   initialStep?: CreateUserStep;
@@ -620,7 +621,7 @@ export function CreateUserMultiformFlow({
             onNavigateToStep={navigateToStep}
           />
 
-          <Box sx={{ flex: 1, width: '100%', pb: 3 }}>
+          <Box sx={{ flex: 1, width: '100%', ...userRolesWizardContentPbSx }}>
             {wizardStepsNeedDraft && !isDraftReady ? <Loading /> : null}
             {currentStep === 'user-form' && isDraftReady && (
               <CreateUserStepOne

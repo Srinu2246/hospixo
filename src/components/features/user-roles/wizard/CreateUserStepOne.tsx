@@ -541,7 +541,13 @@ export function CreateUserStepOne({
           boxShadow: 'none',
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: { xs: 2.5, md: 4 },
+          }}
+        >
           <Box>
             <Typography
               variant="h5"

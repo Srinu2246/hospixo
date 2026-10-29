@@ -6,10 +6,13 @@ import Typography from '@mui/material/Typography';
 import type { SxProps, Theme } from '@mui/material/styles';
 import CheckIcon from '@mui/icons-material/Check';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 
 export interface ProgressStepItem {
   id?: string | number;
   label: string;
+  /** Shorter label below desktop breakpoint (CSS-only; avoids hydration mismatch). */
+  compactLabel?: string;
   description?: string;
 }
 
@@ -204,20 +207,63 @@ export function ProgressBar({
               </Box>
 
               {/* Step Label */}
-              <Typography
-                sx={{
-                  mt: 1,
-                  fontSize: { xs: '0.6875rem', sm: '0.75rem' },
-                  fontWeight: isActive || isCompleted ? 600 : 500,
-                  color: isActive || isCompleted ? 'text.secondary' : 'text.disabled',
-                  textAlign: 'center',
-                  whiteSpace: { xs: 'normal', sm: 'nowrap' },
-                  px: 0.5,
-                  transition: 'color 0.2s ease',
-                }}
-              >
-                {step.label}
-              </Typography>
+              {step.compactLabel ? (
+                <>
+                  <Typography
+                    sx={{
+                      mt: 1,
+                      fontSize: { xs: '0.6875rem', sm: '0.75rem' },
+                      fontWeight: isActive || isCompleted ? 600 : 500,
+                      color: isActive || isCompleted ? 'text.secondary' : 'text.disabled',
+                      textAlign: 'center',
+                      whiteSpace: { xs: 'normal', sm: 'nowrap' },
+                      px: 0.5,
+                      transition: 'color 0.2s ease',
+                      display: {
+                        [screen.mobile]: 'block',
+                        [screen.tablet]: 'block',
+                        [screen.desktop]: 'none',
+                      },
+                    }}
+                  >
+                    {step.compactLabel}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      mt: 1,
+                      fontSize: { xs: '0.6875rem', sm: '0.75rem' },
+                      fontWeight: isActive || isCompleted ? 600 : 500,
+                      color: isActive || isCompleted ? 'text.secondary' : 'text.disabled',
+                      textAlign: 'center',
+                      whiteSpace: { xs: 'normal', sm: 'nowrap' },
+                      px: 0.5,
+                      transition: 'color 0.2s ease',
+                      display: {
+                        [screen.mobile]: 'none',
+                        [screen.tablet]: 'none',
+                        [screen.desktop]: 'block',
+                      },
+                    }}
+                  >
+                    {step.label}
+                  </Typography>
+                </>
+              ) : (
+                <Typography
+                  sx={{
+                    mt: 1,
+                    fontSize: { xs: '0.6875rem', sm: '0.75rem' },
+                    fontWeight: isActive || isCompleted ? 600 : 500,
+                    color: isActive || isCompleted ? 'text.secondary' : 'text.disabled',
+                    textAlign: 'center',
+                    whiteSpace: { xs: 'normal', sm: 'nowrap' },
+                    px: 0.5,
+                    transition: 'color 0.2s ease',
+                  }}
+                >
+                  {step.label}
+                </Typography>
+              )}
             </Box>
           );
         })}

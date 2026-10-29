@@ -7,7 +7,7 @@ import Chip from '@mui/material/Chip';
 import TableCell from '@mui/material/TableCell';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import { MapPin, Store } from 'lucide-react';
+import { MapPin, Store, Users } from 'lucide-react';
 
 import {
   EntityDashboardButton,
@@ -41,6 +41,7 @@ const COLUMNS: readonly EntityTableColumn[] = [
   { label: 'Branch' },
   { label: 'Company' },
   { label: 'Location / City' },
+  { label: 'Users' },
   { label: 'Status' },
   { label: 'Action', align: 'center' },
 ];
@@ -219,6 +220,20 @@ function BranchRow({
         >
           <MapPin size={14} />
           <span>{branch.city ?? 'Not specified'}</span>
+        </Box>
+      </TableCell>
+      <TableCell sx={{ py: 1, px: 1.5, whiteSpace: 'nowrap' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            color: 'text.secondary',
+            fontSize: '0.875rem',
+          }}
+        >
+          <Users size={14} />
+          <span>{branch.userCount}</span>
         </Box>
       </TableCell>
       <TableCell sx={{ py: 1, px: 1.5, whiteSpace: 'nowrap' }}>

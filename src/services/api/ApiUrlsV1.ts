@@ -31,6 +31,7 @@ const ApiUrlsV1 = {
     login: '/v1/auth/login',
     logout: '/v1/auth/logout',
     me: '/v1/auth/me',
+    changePassword: '/v1/auth/change-password',
   },
   invitations: {
     accept: '/v1/invitations/accept',

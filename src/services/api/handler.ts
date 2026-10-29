@@ -79,6 +79,10 @@ const LIST_MOCKS: Record<string, unknown> = {
     },
   },
   [ApiUrlsV1.auth.logout]: { success: true, message: 'OK' },
+  [ApiUrlsV1.auth.changePassword]: {
+    success: true,
+    message: 'Password changed successfully',
+  },
   [ApiUrlsV1.auth.me]: {
     success: true,
     message: 'OK',
@@ -222,6 +226,23 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   const organizationDashboard = resolveOrganizationDashboardMock(request);
   if (organizationDashboard !== undefined) return organizationDashboard;
 
+  if (
+    request.method === 'GET' &&
+    request.path.match(/^\/v[12]\/platform\/organizations\/[^/]+\/companies$/)
+  ) {
+    return {
+      success: true,
+      data: {
+        items: MOCK_COMPANIES,
+        total: MOCK_COMPANIES.length,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      message: 'OK',
+    };
+  }
+
   const userRoles = resolveUserRolesMock(request);
   if (userRoles !== undefined) return userRoles;
 
@@ -229,7 +250,11 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   if (!listPath) return undefined;
 
   if (request.method !== 'GET') {
-    if (request.path === ApiUrlsV1.auth.login || request.path === ApiUrlsV1.auth.logout) {
+    if (
+      request.path === ApiUrlsV1.auth.login ||
+      request.path === ApiUrlsV1.auth.logout ||
+      request.path === ApiUrlsV1.auth.changePassword
+    ) {
       return LIST_MOCKS[request.path];
     }
 

@@ -34,6 +34,7 @@ export function TabletNavbar({
   user,
   displayName = 'User',
   displayRole = 'User',
+  isReadOnly = false,
   sx,
 }: Readonly<TabletNavbarProps>) {
   return (
@@ -61,6 +62,7 @@ export function TabletNavbar({
           onSelect={onMobileOutletChange}
           fontSize="0.875rem"
           maxLabelWidth={280}
+          isReadOnly={isReadOnly}
         />
       ) : null}
 

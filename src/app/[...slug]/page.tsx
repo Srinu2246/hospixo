@@ -12,9 +12,11 @@ import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway';
 import {
   CaptainFlowAllOrdersRoutePage,
   CaptainFlowOrderMenuRoutePage,
+  CaptainFlowReadyListIndexRoutePage,
   CaptainFlowReadyListRoutePage,
   CaptainFlowTablesRoutePage,
 } from '@/features/pos/captain-flow';
+import { readyListQueueFromSegment } from '@/lib/helpers/captainReadyListRoutes';
 import { ReadyListPage } from '@/features/pos/point-of-sale/ready-list';
 import { DuePaymentsPage } from '@/features/pos/point-of-sale/due-payments';
 import {
@@ -26,6 +28,7 @@ import {
 import { CreateNewShiftPage } from '@/features/pos/point-of-sale/cash-and-shift/CreateNewShiftPage';
 import { CashCounterPage } from '@/features/pos/point-of-sale/cash-counter';
 import { UnderConstructionPage } from '@/components/shared/UnderConstruction';
+import { AdminProfilePage } from '@/features/admin/profile';
 import {
   UsersAndRolesScreen,
   CreateUserMultiformFlow,
@@ -289,7 +292,18 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       ),
   },
 
-  // 6. POS Ready List / Captain Ready List
+  // 6. Captain Ready List tab routes (refresh keeps tab)
+  {
+    name: 'Captain Ready List Tab',
+    match: (path) =>
+      /(?:^|\/)pos\/captain-flow\/ready-list\/(ready-to-serve|preparing|served)$/.test(path) ||
+      /(?:^|\/)captain-flow\/ready-list\/(ready-to-serve|preparing|served)$/.test(path),
+    render: (path) => {
+      const segment = path.match(/ready-list\/([^/]+)$/)?.[1] ?? '';
+      const activeTab = readyListQueueFromSegment(segment) ?? 'active';
+      return <CaptainFlowReadyListRoutePage activeTab={activeTab} />;
+    },
+  },
   {
     name: 'POS Ready List',
     match: (path) =>
@@ -297,7 +311,7 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
       path.endsWith('pos/captain-flow/ready-list') ||
       path.endsWith('captain-flow/ready-list'),
     render: (path) =>
-      path.includes('captain-flow') ? <CaptainFlowReadyListRoutePage /> : <ReadyListPage />,
+      path.includes('captain-flow') ? <CaptainFlowReadyListIndexRoutePage /> : <ReadyListPage />,
   },
 
   // 7. POS Online Orders
@@ -335,9 +349,18 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     render: () => <CaptainFlowOrderMenuRoutePage />,
   },
   {
+    name: 'Role POS Ready List Tab',
+    match: (path) => /(?:^|\/)pos\/ready-list\/(ready-to-serve|preparing|served)$/.test(path),
+    render: (path) => {
+      const segment = path.match(/ready-list\/([^/]+)$/)?.[1] ?? '';
+      const activeTab = readyListQueueFromSegment(segment) ?? 'active';
+      return <CaptainFlowReadyListRoutePage activeTab={activeTab} />;
+    },
+  },
+  {
     name: 'Role POS Ready List',
     match: (path) => path.endsWith('pos/ready-list'),
-    render: () => <CaptainFlowReadyListRoutePage />,
+    render: () => <CaptainFlowReadyListIndexRoutePage />,
   },
 
   // 10. POS Due Payments
@@ -345,6 +368,16 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     name: 'POS Due Payments',
     match: (path) => path.endsWith('pos/point-of-sale/due-payments'),
     render: () => <DuePaymentsPage />,
+  },
+
+  // 10b. User / Admin Profile Settings
+  {
+    name: 'Admin Profile Settings',
+    match: (path) =>
+      path === 'profile' ||
+      path === 'admin/profile' ||
+      (path.endsWith('/profile') && !path.includes('users-and-roles')),
+    render: () => <AdminProfilePage />,
   },
 
   // 11. Staff Profile: .../users-and-roles/{edit|profile}

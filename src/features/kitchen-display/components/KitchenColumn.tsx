@@ -13,10 +13,12 @@ export interface KitchenColumnProps {
   count: number;
   accentColor: string;
   orders: KitchenOrderItem[];
-  onStartPreparing?: (orderId: string) => void;
+  onStartPreparing?: (orderId: string, itemId?: string) => void;
   onRecall?: (orderId: string) => void;
-  onMarkReady?: (orderId: string) => void;
-  onServe?: (orderId: string) => void;
+  onMarkReady?: (orderId: string, itemId?: string) => void;
+  onServe?: (orderId: string, itemId?: string) => void;
+  /** Ready queue on KDS is view-only; no serve / picked-up buttons. */
+  showServeActions?: boolean;
 }
 
 export function KitchenColumn({
@@ -28,6 +30,7 @@ export function KitchenColumn({
   onRecall,
   onMarkReady,
   onServe,
+  showServeActions = true,
 }: Readonly<KitchenColumnProps>) {
   return (
     <Box
@@ -110,8 +113,9 @@ export function KitchenColumn({
         ) : (
           orders.map((order) => (
             <KitchenOrderCard
-              key={order.id}
+              key={`${order.id}-${order.items.map((item) => item.id).join('-')}`}
               order={order}
+              showServeActions={showServeActions}
               onStartPreparing={onStartPreparing}
               onRecall={onRecall}
               onMarkReady={onMarkReady}

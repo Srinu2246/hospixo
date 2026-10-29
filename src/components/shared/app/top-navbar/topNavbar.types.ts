@@ -1,6 +1,9 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { SidebarUserProfile } from '@/app/sidebar';
 import type { DropdownOption } from '@/components/shared/form-fields/Dropdown';
+import type { TopNavbarLevel } from '@/lib/helpers';
+
+export type { TopNavbarLevel };
 
 /**
  * Base props shared across responsive navigation headers (Mobile & Tablet).
@@ -24,6 +27,8 @@ export interface BaseResponsiveNavbarProps {
   onMobileOutletChange: (id: string, option?: DropdownOption<string>) => void;
   /** Hide the outlet selector on views with a fixed branch context. */
   hideOutletSelector?: boolean;
+  /** If true, the selector is read-only (non-interactive, no dropdown arrow) */
+  isReadOnly?: boolean;
   /** Callback fired on notification button click */
   onNotificationClick?: () => void;
   /** Callback fired on mobile/tablet menu button click */
@@ -50,11 +55,4 @@ export type MobileNavbarProps = BaseResponsiveNavbarProps;
 /**
  * Props for TabletNavbar.
  */
-export interface TabletNavbarProps extends BaseResponsiveNavbarProps {
-  /** Whether management action buttons should be visible */
-  showManagementActions: boolean;
-  /** Callback fired on AI Agent button click */
-  onAiAgentClick?: () => void;
-  /** Callback fired on settings button click */
-  onSettingsClick?: () => void;
-}
+export type TabletNavbarProps = BaseResponsiveNavbarProps;

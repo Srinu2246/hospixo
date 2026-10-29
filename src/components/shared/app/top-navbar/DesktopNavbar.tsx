@@ -2,7 +2,6 @@
 
 import React from 'react';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
-import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
@@ -10,6 +9,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import type { SxProps, Theme } from '@mui/material/styles';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 
 import type { SidebarUserProfile } from '@/app/sidebar';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
@@ -17,11 +17,14 @@ import { Dropdown, type DropdownOption } from '@/components/shared/form-fields/D
 import { colors } from '@/lib/theme/mui/colors';
 
 import { ProfileMenu } from './ProfileMenu';
+import type { TopNavbarLevel } from './topNavbar.types';
 
 /**
  * DesktopNavbarProps
  */
 export interface DesktopNavbarProps {
+  /** Active navbar organizational level */
+  level?: TopNavbarLevel;
   /** Dropdown options list for outlets */
   outletOptions: DropdownOption<string>[];
   hideOutletSelector?: boolean;
@@ -29,22 +32,18 @@ export interface DesktopNavbarProps {
   selectedOutletSlug: string;
   /** Callback fired when an outlet is changed */
   onOutletChange: (branchId: string, option?: DropdownOption<string>) => void;
-  /** Whether management action buttons should be visible */
-  showManagementActions: boolean;
+  /** Branch name to display when at branch level */
+  branchDisplayName?: string;
+  /** Placeholder text for dropdown when no value is selected */
+  placeholder?: string;
   /** Whether the current route is within a branch manager view */
   isBranchView: boolean;
   /** Active color theme mode ('light' | 'dark') */
   mode: 'light' | 'dark';
   /** Callback fired to toggle color mode */
   onToggleMode: () => void;
-  /** Callback fired on AI Agent button click */
-  onAiAgentClick?: () => void;
-  /** Callback fired on Explore Products button click */
-  onExploreProductsClick?: () => void;
   /** Callback fired on notification button click */
   onNotificationClick?: () => void;
-  /** Callback fired on settings button click */
-  onSettingsClick?: () => void;
   /** Active user profile data */
   user?: SidebarUserProfile;
   /** Formatted user display name */
@@ -61,18 +60,19 @@ export interface DesktopNavbarProps {
  * Dedicated desktop navigation bar rendered on medium-and-larger screens (`xs: 'none', md: 'flex'`).
  * Sections:
  * - Left: Outlets dropdown selector
- * - Right: Action controls (Explore Products, Theme switch, Notifications, Profile menu)
+ * - Right: Action controls (Theme switch, Notifications, Profile menu)
  */
 export function DesktopNavbar({
+  level = 'branch',
   outletOptions,
   hideOutletSelector = false,
   selectedOutletSlug,
   onOutletChange,
-  showManagementActions,
+  branchDisplayName,
+  placeholder,
   isBranchView,
   mode,
   onToggleMode,
-  onExploreProductsClick,
   onNotificationClick,
   user,
   displayName,
@@ -91,53 +91,92 @@ export function DesktopNavbar({
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
     >
-      {/* DESKTOP Left Section - Outlets Dropdown */}
+      {/* DESKTOP Left Section - Outlets Dropdown or Branch Display */}
       {!hideOutletSelector ? (
         <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 1 }}>
-          <Dropdown
-            variant="outlet"
-            label="Outlets"
-            startIcon={
-              <PlaceOutlinedIcon
+          {level === 'branch' ? (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                textAlign: 'left',
+                lineHeight: 1.15,
+                py: 0.25,
+                px: 0.75,
+                borderRadius: '8px',
+              }}
+            >
+              <Typography
+                variant="caption"
+                component="span"
                 sx={{
-                  fontSize: 18,
-                  color: (theme) => theme.palette.text.primary,
-                  flexShrink: 0,
+                  fontSize: '1rem',
+                  color: 'text..secondary',
+                  fontWeight: 400,
+                  mb: 0.25,
+                  letterSpacing: '-0.01em',
+                  lineHeight: 1.2,
                 }}
-              />
-            }
-            options={outletOptions}
-            value={selectedOutletSlug}
-            onChange={onOutletChange}
-          />
+              >
+                Outlets
+              </Typography>
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  maxWidth: '100%',
+                }}
+              >
+                <PlaceOutlinedIcon
+                  sx={{
+                    fontSize: 16,
+                    color: (theme) => theme.palette.text.primary,
+                    flexShrink: 0,
+                  }}
+                />
+                <Typography
+                  component="span"
+                  sx={{
+                    color: 'text.primary',
+                    fontWeight: 700,
+                    fontSize: '0.8125rem',
+                    lineHeight: 1.25,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: { xs: 140, sm: 200, md: 240 },
+                  }}
+                >
+                  {branchDisplayName || 'Branch'}
+                </Typography>
+              </Box>
+            </Box>
+          ) : (
+            <Dropdown
+              variant="outlet"
+              label="Outlets"
+              placeholder={placeholder}
+              startIcon={
+                <PlaceOutlinedIcon
+                  sx={{
+                    fontSize: 16,
+                    color: (theme) => theme.palette.text.primary,
+                    flexShrink: 0,
+                  }}
+                />
+              }
+              options={outletOptions}
+              value={selectedOutletSlug}
+              onChange={onOutletChange}
+            />
+          )}
         </Box>
       ) : null}
 
       {/* DESKTOP Right Section */}
       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', ml: 'auto' }}>
-        {/* Explore Products Button (hidden on branch-manager routes as per Figma) */}
-        {showManagementActions && !isBranchView && (
-          <ActionButton
-            variant="primary"
-            size="medium"
-            startIcon={<GridViewOutlinedIcon sx={{ fontSize: 18 }} />}
-            onClick={onExploreProductsClick}
-            sx={{
-              borderRadius: '8px',
-              backgroundColor: colors.primary.default,
-              color: colors.white.default,
-              fontWeight: 600,
-              fontSize: '0.84375rem',
-              boxShadow: `0 2px 8px ${colors.sidebar.activeGlow}`,
-              '&:hover': {
-                backgroundColor: colors.primary.dark,
-              },
-            }}
-          >
-            Explore Products
-          </ActionButton>
-        )}
-
         {/* Theme toggle — available for every role that uses the top navbar */}
         <Tooltip title={mode === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}>
           <span>

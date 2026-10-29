@@ -225,15 +225,35 @@ export const INITIAL_USERS: UserRoleItem[] = userRoleListSchema.parse(
       roleLower.includes('inventory') ||
       roleLower.includes('hr');
     const scope = isOrg ? 'organization' : isCompany ? 'company' : 'branch';
+    const company =
+      ('company' in u && u.company) ||
+      (u.branch.includes('Airport')
+        ? 'Spice Garden Group'
+        : u.branch.includes('Eastgate')
+          ? 'Urban Bites Co'
+          : 'Al Baik Foods Ltd');
+    const companyId =
+      company === 'Al Baik Foods Ltd'
+        ? 12
+        : company === 'Spice Garden Group'
+          ? 18
+          : company === 'Urban Bites Co'
+            ? 21
+            : undefined;
+    const branchId = u.branch.includes('Downtown')
+      ? 101
+      : u.branch.includes('Westside')
+        ? 102
+        : u.branch.includes('Airport')
+          ? 103
+          : u.branch.includes('Eastgate')
+            ? 104
+            : undefined;
     return {
       ...u,
-      company:
-        ('company' in u && u.company) ||
-        (u.branch.includes('Airport')
-          ? 'Spice Garden Group'
-          : u.branch.includes('Eastgate')
-            ? 'Urban Bites Co'
-            : 'Al Baik Foods Ltd'),
+      company,
+      companyId,
+      branchId,
       phone: 'phone' in u && typeof u.phone === 'string' ? u.phone : undefined,
       scope,
     };
@@ -540,11 +560,11 @@ function resolveUsersMock(request: MockRequest, itemId?: string): unknown {
     }
     const companyId = request.params?.company_id;
     if (companyId != null && String(companyId).trim()) {
-      items = items.filter((user) => String(user.companyId ?? 94) === String(companyId));
+      items = items.filter((user) => String(user.companyId ?? '') === String(companyId));
     }
     const branchId = request.params?.branch_id;
     if (branchId != null && String(branchId).trim()) {
-      items = items.filter((user) => String(user.branchId ?? 1) === String(branchId));
+      items = items.filter((user) => String(user.branchId ?? '') === String(branchId));
     }
     const branchName = request.params?.branch;
     if (typeof branchName === 'string' && branchName.trim()) {

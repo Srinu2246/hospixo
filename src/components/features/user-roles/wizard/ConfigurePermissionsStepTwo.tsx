@@ -34,7 +34,7 @@ export function ConfigurePermissionsStepTwo({
       {/* Configure Permissions Main Card */}
       <Card
         variant="outlined"
-        padding={3}
+        padding={3.5}
         sx={{
           borderRadius: '16px',
           borderColor: (theme) =>
@@ -45,7 +45,6 @@ export function ConfigurePermissionsStepTwo({
           flexDirection: 'column',
           gap: 3,
           boxShadow: 'none',
-          p: { xs: 2.5, sm: 3.5 },
         }}
       >
         <Typography

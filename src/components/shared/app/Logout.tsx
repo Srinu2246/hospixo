@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Modal } from '@/components/shared/ui/Modal';
 import { clearSidebarSession } from '@/lib/auth/session';
 import { useApiMutation } from '@/lib/hooks/api/useApiMutation';
+import { colors } from '@/lib/theme/mui/colors';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
 export interface LogoutModalProps {
@@ -49,28 +50,39 @@ export function LogoutModal({ open, onClose }: Readonly<LogoutModalProps>) {
       open={open}
       onClose={close}
       loading={loading}
-      title="Log out"
-      subtitle="You will need to sign in again to continue."
-      width={440}
+      title="Logout"
+      width={460}
       height="auto"
       footer={
-        <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end' }}>
+        <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end', width: '100%' }}>
           <ActionButton variant="outlined" onClick={close} disabled={loading}>
             Cancel
           </ActionButton>
           <ActionButton
             onClick={confirmLogout}
             loading={loading}
-            ariaLabel={loading ? 'Logging out' : 'Log out'}
+            ariaLabel={loading ? 'Logging out' : 'Logout'}
+            sx={{
+              bgcolor: colors.danger.default,
+              color: colors.white.default,
+              '&:hover': {
+                bgcolor: colors.danger.dark,
+              },
+            }}
           >
-            {loading ? 'Logging out...' : 'Log out'}
+            {loading ? 'Logging out...' : 'Logout'}
           </ActionButton>
         </Stack>
       }
     >
-      <Typography sx={{ color: error ? 'error.main' : 'text.secondary', fontSize: '0.9375rem' }}>
-        {error ?? 'Log out of Hospixo on this device?'}
-      </Typography>
+      <AlertMessage
+        variant="error"
+        message={
+          error ??
+          'Are you sure you want to log out? You will need to sign in again to access your account.'
+        }
+        sx={{ width: '100%' }}
+      />
     </Modal>
   );
 }

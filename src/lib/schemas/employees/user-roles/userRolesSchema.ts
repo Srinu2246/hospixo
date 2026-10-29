@@ -1924,18 +1924,17 @@ function mapUserRow(raw: JsonObject): UserRoleItem {
       textOrNumber(source.contactNumber),
     scope: readRoleScope(source.scope) ?? readRoleScope(source.scope_type),
     companyId:
-      typeof source.company_id === 'number'
-        ? source.company_id
-        : typeof source.companyId === 'number'
-          ? source.companyId
-          : undefined,
+      toPositiveInt(source.company_id ?? source.companyId) ??
+      (isRecord(source.company) ? toPositiveInt(source.company.id) : undefined),
     branchId:
-      typeof source.branch_id === 'number'
-        ? source.branch_id
-        : typeof source.branchId === 'number'
-          ? source.branchId
-          : undefined,
+      toPositiveInt(source.branch_id ?? source.branchId) ??
+      (isRecord(source.branch) ? toPositiveInt(source.branch.id) : undefined),
   };
+}
+
+function toPositiveInt(value: unknown): number | undefined {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : undefined;
 }
 
 function flattenUserRecord(raw: JsonObject): JsonObject {

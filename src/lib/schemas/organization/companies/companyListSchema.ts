@@ -81,15 +81,20 @@ function mapCompany(raw: Record<string, unknown>): unknown {
         raw.branches_count ??
         raw.total_branches ??
         raw.totalBranches ??
-        (Array.isArray(raw.branches) ? raw.branches.length : undefined),
+        raw.branches,
     ),
     userCount: count(
       raw.userCount ??
         raw.user_count ??
         raw.users_count ??
+        raw.usersCount ??
         raw.total_users ??
         raw.totalUsers ??
-        (Array.isArray(raw.users) ? raw.users.length : undefined),
+        raw.employees_count ??
+        raw.employee_count ??
+        raw.members_count ??
+        raw.staff_count ??
+        raw.users,
     ),
   };
 }
@@ -99,6 +104,7 @@ function text(value: unknown): string | undefined {
 }
 
 function count(value: unknown): number {
+  if (Array.isArray(value)) return value.length;
   const parsed = typeof value === 'number' ? value : Number(value ?? 0);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }

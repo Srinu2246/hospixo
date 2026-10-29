@@ -40,11 +40,7 @@ export const createGstRateFormFieldsSchema = z
       .trim()
       .optional()
       .refine((value) => !value || !Number.isNaN(Number(value)), 'Enter a valid total rate'),
-    effective_from_date: z
-      .union([z.date(), z.null(), z.undefined()])
-      .refine((value): value is Date => value instanceof Date, {
-        message: 'Effective from is required',
-      }),
+    effective_from_date: z.date().nullable().optional(),
     effective_to_date: z.date().nullable().optional(),
   })
   .superRefine((values, ctx) => {
@@ -84,7 +80,9 @@ export function toCreateGstRateBody(values: CreateGstRateFormValues): CreateGstR
   const igst = Number(values.igst_rate);
   const rates = resolveGstSlabRates(cgst, sgst, igst);
 
-  const effective_from = mergeGstEffectiveDateTime(values.effective_from_date, '00:00');
+  const effective_from = values.effective_from_date
+    ? mergeGstEffectiveDateTime(values.effective_from_date, '00:00')
+    : undefined;
   const effective_to = values.effective_to_date
     ? mergeGstEffectiveDateTime(values.effective_to_date, '00:00')
     : undefined;
@@ -93,7 +91,7 @@ export function toCreateGstRateBody(values: CreateGstRateFormValues): CreateGstR
     code: values.code,
     name: values.name,
     ...rates,
-    effective_from,
+    ...(effective_from ? { effective_from } : {}),
     effective_to: effective_to || undefined,
   });
 }

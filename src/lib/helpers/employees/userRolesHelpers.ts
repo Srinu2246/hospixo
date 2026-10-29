@@ -443,6 +443,7 @@ export function enrichDirectoryWithSession(
             city: '—',
             status: 'active',
             isDefault: false,
+            userCount: 0,
           },
         ];
       }
