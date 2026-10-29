@@ -17,6 +17,12 @@ import type {
 
 const PREVIEW_LINE_COUNT = 3;
 
+/** Stable list keys when the same dish name appears on one ticket twice. */
+export function readyOrderLineKey(orderId: string, line: ReadyOrderLine, index: number): string {
+  if (line.lineId) return `${orderId}-${line.lineId}`;
+  return `${orderId}-${index}-${line.name}`;
+}
+
 export interface CaptainReadyServeCardProps {
   order: ReadyOrderItem;
   showServeAction?: boolean;
@@ -31,7 +37,7 @@ export function readyOrderLines(order: ReadyOrderItem): ReadyOrderLine[] {
     .split(',')
     .map((name) => name.trim())
     .filter((name) => name.length > 0)
-    .map((name) => ({ name, quantity: 1 }));
+    .map((name, index) => ({ lineId: `${order.id}-summary-${index}`, name, quantity: 1 }));
 }
 
 function readyOrderTotal(order: ReadyOrderItem, lines: readonly ReadyOrderLine[]): number {
@@ -120,9 +126,9 @@ function CaptainReadyStatusCard({
       </Box>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-        {preview.map((line) => (
+        {preview.map((line, index) => (
           <Box
-            key={`${order.id}-${line.name}`}
+            key={readyOrderLineKey(order.id, line, index)}
             sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
           >
             <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>
@@ -285,9 +291,9 @@ export function CaptainReadyServeCard({
           Items to serve ({lines.length})
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
-          {preview.map((line) => (
+          {preview.map((line, index) => (
             <Box
-              key={`${order.id}-${line.name}`}
+              key={readyOrderLineKey(order.id, line, index)}
               sx={{
                 display: 'flex',
                 alignItems: 'center',

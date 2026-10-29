@@ -61,7 +61,11 @@ function dishSummaryFromLines(names: readonly string[]): string {
 }
 
 function mapListLines(lines: readonly PosOrderListLine[]): ReadyOrderItem['lines'] {
-  return lines.map((line) => ({ name: line.name, quantity: line.quantity }));
+  return lines.map((line) => ({
+    lineId: line.id != null ? String(line.id) : undefined,
+    name: line.name,
+    quantity: line.quantity,
+  }));
 }
 
 function latestTimestamp(
@@ -107,7 +111,7 @@ export function branchOrderDetailToReadyOrder(
 ): ReadyOrderItem {
   const readyLines = order.items
     .filter((line) => isReadyLineStatus(line.item_status))
-    .map((line) => ({ name: line.name, quantity: line.quantity }));
+    .map((line) => ({ lineId: String(line.id), name: line.name, quantity: line.quantity }));
 
   const preparingLines = order.items
     .filter(
@@ -115,11 +119,11 @@ export function branchOrderDetailToReadyOrder(
         isPreparingLineStatus(line.item_status) ||
         (queue === 'pending' && line.item_status === 'ready'),
     )
-    .map((line) => ({ name: line.name, quantity: line.quantity }));
+    .map((line) => ({ lineId: String(line.id), name: line.name, quantity: line.quantity }));
 
   const servedLines = order.items
     .filter((line) => isServedLineStatus(line.item_status))
-    .map((line) => ({ name: line.name, quantity: line.quantity }));
+    .map((line) => ({ lineId: String(line.id), name: line.name, quantity: line.quantity }));
 
   const lines =
     queue === 'active' ? readyLines : queue === 'pending' ? preparingLines : servedLines;

@@ -43,7 +43,7 @@ import type {
 import { api } from '@/services/api/browserClient';
 import ApiUrlsV1, { branchOrdersPath } from '@/services/api/ApiUrlsV1';
 import { colors } from '@/lib/theme/mui/colors';
-import { CaptainReadyServeCard, readyOrderLines } from './CaptainReadyServeCard';
+import { CaptainReadyServeCard, readyOrderLineKey, readyOrderLines } from './CaptainReadyServeCard';
 
 type ReadyListTab = ReadyOrderQueue;
 
@@ -427,9 +427,9 @@ export function CaptainReadyList({ activeTab = 'active' }: Readonly<CaptainReady
               </Typography>
             </Box>
             <Stack spacing={1}>
-              {detailLines.map((line) => (
+              {detailLines.map((line, index) => (
                 <Box
-                  key={`${drawerOrder.id}-${line.name}`}
+                  key={readyOrderLineKey(drawerOrder.id, line, index)}
                   sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}
                 >
                   <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>

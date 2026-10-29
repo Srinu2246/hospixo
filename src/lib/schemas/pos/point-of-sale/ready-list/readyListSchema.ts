@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 export const readyOrderLineSchema = z.object({
+  /** Order line id from branch orders API; used for stable React keys. */
+  lineId: z.string().min(1).optional(),
   name: z.string().min(1),
   quantity: z.number().int().positive(),
 });

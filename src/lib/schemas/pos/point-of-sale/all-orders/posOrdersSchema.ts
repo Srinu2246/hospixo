@@ -55,6 +55,7 @@ export const posPaymentStatusSchema = z.enum([
 ]);
 
 export const posOrderListLineSchema = z.object({
+  id: coerceInt.positive().optional(),
   name: z.string().min(1),
   quantity: coerceInt.positive(),
   kitchenStatus: z.string().optional(),
@@ -192,6 +193,7 @@ function normalizeBranchOrdersListRow(
     closed_at: row.closed_at ?? null,
     version: row.version ?? null,
     listLines: row.items.map((line) => ({
+      id: line.id,
       name: line.item_name,
       quantity: line.quantity,
       kitchenStatus: line.kitchen?.status,
