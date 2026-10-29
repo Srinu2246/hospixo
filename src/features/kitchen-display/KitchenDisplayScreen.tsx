@@ -40,7 +40,6 @@ export function KitchenDisplayScreen({
     handleStartPreparing,
     handleRecall,
     handleMarkReady,
-    handleServe,
     toastMessage,
     clearToast,
     isLoading,
@@ -113,7 +112,7 @@ export function KitchenDisplayScreen({
             count={readyOrders.length}
             accentColor="#10B981"
             orders={readyOrders}
-            onServe={handleServe}
+            showServeActions={false}
           />
         </Box>
       )}

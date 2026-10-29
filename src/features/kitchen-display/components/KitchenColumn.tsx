@@ -17,6 +17,8 @@ export interface KitchenColumnProps {
   onRecall?: (orderId: string) => void;
   onMarkReady?: (orderId: string, itemId?: string) => void;
   onServe?: (orderId: string, itemId?: string) => void;
+  /** Ready queue on KDS is view-only; no serve / picked-up buttons. */
+  showServeActions?: boolean;
 }
 
 export function KitchenColumn({
@@ -28,6 +30,7 @@ export function KitchenColumn({
   onRecall,
   onMarkReady,
   onServe,
+  showServeActions = true,
 }: Readonly<KitchenColumnProps>) {
   return (
     <Box
@@ -112,6 +115,7 @@ export function KitchenColumn({
             <KitchenOrderCard
               key={`${order.id}-${order.items.map((item) => item.id).join('-')}`}
               order={order}
+              showServeActions={showServeActions}
               onStartPreparing={onStartPreparing}
               onRecall={onRecall}
               onMarkReady={onMarkReady}

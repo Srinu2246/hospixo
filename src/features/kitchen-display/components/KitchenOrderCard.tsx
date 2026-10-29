@@ -17,6 +17,8 @@ import { colors } from '@/lib/theme/mui/colors';
 
 export interface KitchenOrderCardProps {
   order: KitchenOrderItem;
+  /** When false, hide serve / picked-up actions (Ready column is display-only on KDS). */
+  showServeActions?: boolean;
   onStartPreparing?: (orderId: string, itemId?: string) => void;
   onRecall?: (orderId: string) => void;
   onMarkReady?: (orderId: string, itemId?: string) => void;
@@ -116,8 +118,13 @@ function orderActionName(status: KitchenOrderItem['status']): KitchenStatusActio
   return null;
 }
 
+function isServeAction(actionName: KitchenStatusAction): boolean {
+  return actionName === 'complete' || actionName === 'served';
+}
+
 export function KitchenOrderCard({
   order,
+  showServeActions = true,
   onStartPreparing,
   onRecall: _onRecall,
   onMarkReady,
@@ -125,7 +132,9 @@ export function KitchenOrderCard({
 }: Readonly<KitchenOrderCardProps>) {
   void _onRecall;
   const isHighPriority = order.priority === 'HIGH';
-  const cardActionName = orderActionName(order.status);
+  const rawCardAction = orderActionName(order.status);
+  const cardActionName =
+    rawCardAction && (!isServeAction(rawCardAction) || showServeActions) ? rawCardAction : null;
   const action = cardActionName ? actionPresentation(cardActionName) : null;
   const runCardAction = (itemId?: string) => {
     if (cardActionName === 'start_preparing') onStartPreparing?.(order.id, itemId);
@@ -207,7 +216,11 @@ export function KitchenOrderCard({
 
       <Stack spacing={1.5} sx={{ py: 0.25 }}>
         {order.items.map((item) => {
-          const lineActionName = kitchenActionForItemStatus(item.itemStatus);
+          const rawLineAction = kitchenActionForItemStatus(item.itemStatus);
+          const lineActionName =
+            rawLineAction && (!isServeAction(rawLineAction) || showServeActions)
+              ? rawLineAction
+              : null;
           const lineAction = lineActionName ? actionPresentation(lineActionName) : null;
           return (
             <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
