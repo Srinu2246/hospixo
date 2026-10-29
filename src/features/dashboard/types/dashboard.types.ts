@@ -121,6 +121,8 @@ export interface ExpenseItem {
 }
 
 export interface OutletChartBarItem {
+  /** Stable React key (e.g. branch id); display label may truncate and collide. */
+  id: string;
   label: string;
   heightPercent: number;
   isHighlight: boolean;
