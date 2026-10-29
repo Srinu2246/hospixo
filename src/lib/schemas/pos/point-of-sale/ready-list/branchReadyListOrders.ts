@@ -1,4 +1,4 @@
-import type { BranchOrderDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderDetailSchema';
+import type { BranchOrderDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderSettleSchema';
 import type {
   BranchOrdersListQuery,
   PosOrderListItem,

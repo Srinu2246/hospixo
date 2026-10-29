@@ -973,7 +973,18 @@ function submitBranchOrder(_branchId: number, orderId: number, body: unknown) {
   };
 }
 
+export function findBranchMockOrder(orderId: number): PosOrderListItem | undefined {
+  return (
+    MOCK_OPEN_ORDERS.find((row) => row.id === orderId) ??
+    MOCK_POS_ORDERS.find((row) => row.id === orderId)
+  );
+}
+
 /** GET /v1/branches/{branch_id}/orders/{order_id} — order detail with line items. */
+export function mockBranchOrderDetailEnvelope(branchId: number, orderId: number) {
+  return openOrderDetail(branchId, orderId);
+}
+
 function openOrderDetail(_branchId: number, orderId: number) {
   const order =
     MOCK_OPEN_ORDERS.find((row) => row.id === orderId) ??

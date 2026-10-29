@@ -76,7 +76,10 @@ export function TakeawayPage({
     return (
       <OrderSettle
         initialStep="checkout"
-        reviewOrderData={buildReviewOrderData(order.cartItems, table)}
+        orderId={effectiveOrderId ?? undefined}
+        reviewOrderData={
+          effectiveOrderId ? undefined : buildReviewOrderData(order.cartItems, table)
+        }
         onBack={() => order.leaveCheckout(false)}
         onNewOrder={() => order.leaveCheckout(true)}
       />

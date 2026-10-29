@@ -11,6 +11,8 @@ import { Check, Printer, Plus } from 'lucide-react';
 import { colors } from '@/lib/theme/mui/colors';
 
 export interface ReceiptItem {
+  /** Stable key when the same item name appears on multiple lines. */
+  id?: string;
   name: string;
   quantity: number;
   price: number;
@@ -195,9 +197,9 @@ export function OrderSuccessReceipt({
 
         {/* Items List */}
         <Stack spacing={1.25}>
-          {mergedReceipt.items?.map((item) => (
+          {mergedReceipt.items?.map((item, index) => (
             <Box
-              key={item.name}
+              key={item.id ?? `${index}-${item.name}-${item.quantity}-${item.price}`}
               sx={{
                 display: 'flex',
                 justifyContent: 'space-between',

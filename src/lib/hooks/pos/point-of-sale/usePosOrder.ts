@@ -32,7 +32,7 @@ import {
   type CartItem,
   type PosMenuItem,
 } from '@/lib/mocks/pos/usePosMenu.mocks';
-import { parseBranchOrderDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderDetailSchema';
+import { parseBranchOrderDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderSettleSchema';
 import { addBranchOrderItemsBodySchema } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderItemsSchema';
 import { api } from '@/services/api/browserClient';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
@@ -524,7 +524,11 @@ export function usePosOrder({
     setIsCheckingOut(true);
     const cleanPath = pathname ? pathname.replace(/\/+$/, '') : '/pos/point-of-sale/takeaway';
     if (!cleanPath.endsWith('/checkout')) {
-      router.push(`${cleanPath}/checkout`);
+      const params = new URLSearchParams();
+      const orderId = effectiveOrderId?.replace(/^#/, '').trim();
+      if (orderId) params.set('orderId', orderId);
+      const query = params.toString();
+      router.push(`${cleanPath}/checkout${query ? `?${query}` : ''}`);
     }
   };
 

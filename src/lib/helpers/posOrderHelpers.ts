@@ -10,7 +10,10 @@ import {
   type CartCustomization,
   type CartItem,
 } from '@/lib/mocks/pos/usePosMenu.mocks';
-import type { BranchOrderItem } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderDetailSchema';
+import type {
+  BranchOrderDetail,
+  BranchOrderItem,
+} from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderSettleSchema';
 import type { AddBranchOrderItemLine } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderItemsSchema';
 import type { PosTableItem } from '@/lib/schemas/pos/point-of-sale/tables/posTableViewSchema';
 import type { PosMenuCatalogRow } from '@/lib/schemas/menu/menus/menuTreeSchema';
@@ -74,8 +77,42 @@ export function buildPosSettleCheckoutPath(pathname: string): string {
   return `${resolvePosOrderSettleBasePath(pathname)}/checkout`;
 }
 
-export function buildPosSettleSuccessPath(pathname: string): string {
-  return `${resolvePosOrderSettleBasePath(pathname)}/success`;
+const POS_SETTLE_PAID_SESSION_KEY = 'pos-settle-paid-order-id';
+
+/** After server payment confirm — allows bill fallback on success if receipt is not ready yet. */
+export function markPosOrderPaidInSession(orderId: string | number): void {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.setItem(POS_SETTLE_PAID_SESSION_KEY, String(orderId));
+}
+
+export function isPosOrderPaidInSession(orderId: string | number | undefined): boolean {
+  if (orderId == null || typeof sessionStorage === 'undefined') return false;
+  return sessionStorage.getItem(POS_SETTLE_PAID_SESSION_KEY) === String(orderId);
+}
+
+export function clearPosOrderPaidInSession(): void {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.removeItem(POS_SETTLE_PAID_SESSION_KEY);
+}
+
+export function buildPosSettleSuccessPath(pathname: string, orderId?: string | number): string {
+  const base = `${resolvePosOrderSettleBasePath(pathname)}/success`;
+  const id = orderId != null ? String(orderId).trim() : '';
+  if (!id || id === 'undefined') return base;
+  const params = new URLSearchParams({
+    orderId: id,
+    paid: '1',
+  });
+  return `${base}?${params.toString()}`;
+}
+
+/** `paid=1` on success URL (set by buildPosSettleSuccessPath after confirm). */
+export function readCheckoutPaidParam(
+  searchParams?: Record<string, string | string[] | undefined> | null,
+): boolean {
+  const raw = searchParams?.paid;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value === '1' || value === 'true';
 }
 
 export function createCartLineId(): string {
@@ -274,6 +311,69 @@ export function buildReviewOrderData(
 }
 
 const FIGMA_ORDER_1024_COUPON = 640;
+
+/** Checkout / bill review payload from GET branch order detail. */
+export function mapBranchOrderDetailToReviewOrder(detail: BranchOrderDetail): OrderReviewData {
+  const items = detail.items.map((it) => {
+    const lineSubtotal = it.line_subtotal ?? it.unit_price * it.quantity;
+    return {
+      id: String(it.id),
+      name: it.name,
+      quantity: it.quantity,
+      unitPrice: it.unit_price,
+      totalPrice: lineSubtotal,
+    };
+  });
+
+  const lineSubtotal = items.reduce(
+    (sum, it) => sum + (it.totalPrice ?? it.unitPrice * it.quantity),
+    0,
+  );
+  const subtotal = detail.subtotal ?? lineSubtotal;
+  const taxAmount =
+    detail.tax_total ?? detail.items.reduce((sum, it) => sum + (it.tax_total ?? 0), 0);
+  const discountTotal = detail.discount_total ?? 0;
+  const grandTotal =
+    detail.grand_total ??
+    detail.balance_due ??
+    detail.calculated_total ??
+    Math.max(0, subtotal - discountTotal + taxAmount + (detail.round_off ?? 0));
+  const taxRate = subtotal > 0 ? taxAmount / subtotal : 0;
+
+  const rawOrderNumber = detail.order_number?.trim();
+  const orderNumber = rawOrderNumber
+    ? rawOrderNumber.startsWith('#')
+      ? rawOrderNumber
+      : `#${rawOrderNumber}`
+    : `#${detail.id}`;
+
+  const tableLabel = detail.table_name?.trim() || 'Table';
+
+  return {
+    orderNumber,
+    table: tableLabel,
+    items,
+    subtotal,
+    discounts:
+      discountTotal > 0 ? [{ id: 'order-discount', label: 'Discount', amount: discountTotal }] : [],
+    platformFee: 0,
+    serviceChargeRate: 0,
+    serviceChargeAmount: 0,
+    taxRate,
+    taxAmount,
+    total: grandTotal,
+  };
+}
+
+/** Read `orderId` from checkout route search params. */
+export function readCheckoutOrderIdParam(
+  searchParams?: Record<string, string | string[] | undefined> | null,
+): string | undefined {
+  const raw = searchParams?.orderId;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const trimmed = value?.trim();
+  return trimmed && trimmed !== 'undefined' ? trimmed : undefined;
+}
 
 /** Captain order review card payload from settle detail (Figma #1024 coupon line). */
 export function mapSettleDetailToReviewOrder(detail: OrderSettleDetail): OrderReviewData {

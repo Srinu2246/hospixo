@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { branchOrderItemSchema } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderDetailSchema';
+import { branchOrderItemSchema } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderSettleSchema';
 import {
   posKitchenBadgeSchema,
   posOrderStatusSchema,

@@ -2,8 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { useActiveBranchId } from '@/lib/hooks/menu/menus/menusHooks';
-import { parseBranchOrderDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderDetailSchema';
+import { useActiveBranchId, useStrictActiveBranchId } from '@/lib/hooks/menu/menus/menusHooks';
+import { parseBranchOrderDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderSettleSchema';
 import { api } from '@/services/api/browserClient';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
 
@@ -16,8 +16,15 @@ export const branchOrderQueryKey = (
  * Open POS order detail with line items.
  * GET /v1/branches/{branch_id}/orders/{order_id}
  */
-export function useBranchOrder(orderId: string | number | null | undefined, branchId?: number) {
-  const activeBranchId = useActiveBranchId(branchId);
+export function useBranchOrder(
+  orderId: string | number | null | undefined,
+  branchId?: number,
+  /** When true, do not fall back to default branch 49 (checkout / payments). */
+  strictBranch = false,
+) {
+  const looseBranchId = useActiveBranchId(branchId);
+  const strictBranchId = useStrictActiveBranchId(branchId);
+  const activeBranchId = strictBranch ? strictBranchId : looseBranchId;
   const hasOrderId =
     orderId != null && String(orderId).trim() !== '' && String(orderId) !== 'undefined';
 
@@ -26,8 +33,9 @@ export function useBranchOrder(orderId: string | number | null | undefined, bran
     enabled: typeof activeBranchId === 'number' && hasOrderId,
     staleTime: 15_000,
     queryFn: async ({ signal }) => {
+      const branchId = activeBranchId as number;
       const payload = await api.get(
-        ApiUrlsV1.pos.pointOfSale.allOrders.detail(activeBranchId, orderId as string | number),
+        ApiUrlsV1.pos.pointOfSale.allOrders.detail(branchId, orderId as string | number),
         undefined,
         signal,
       );

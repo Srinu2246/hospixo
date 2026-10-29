@@ -34,7 +34,7 @@ import {
   rememberBranchOrderVersion,
 } from '@/lib/hooks/pos/point-of-sale/order-events/branchOrderEventsConnection';
 import { useCaptainCompactLayout } from '@/lib/hooks/useCaptainCompactLayout';
-import { parseBranchOrderDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderDetailSchema';
+import { parseBranchOrderDetail } from '@/lib/schemas/pos/point-of-sale/all-orders/branchOrderSettleSchema';
 import { branchOrderDetailToReadyOrder } from '@/lib/schemas/pos/point-of-sale/ready-list/branchReadyListOrders';
 import type {
   ReadyOrderItem,

@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useQuery } from '@/lib/hooks/api/useQuery';
@@ -42,11 +44,34 @@ export type BranchMenusListParams = {
   page_size?: number;
 };
 
+export function parseBranchIdFromPathname(pathname: string | null | undefined): number | undefined {
+  if (!pathname) return undefined;
+  const decoded = decodeURIComponent(pathname);
+  const branchLabelMatch = decoded.match(/\/Branch\s+(\d+)(?:\/|$)/i);
+  if (branchLabelMatch?.[1]) {
+    const id = Number(branchLabelMatch[1]);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
+  }
+  return undefined;
+}
+
 export function useActiveBranchId(propBranchId?: number) {
+  const pathname = usePathname();
+  const pathBranchId = useMemo(() => parseBranchIdFromPathname(pathname), [pathname]);
   const storeBranchId = useSidebarStore(
     (state) => state.context.branchId ?? state.account?.branch_id ?? undefined,
   );
-  return propBranchId ?? storeBranchId ?? 49;
+  return propBranchId ?? storeBranchId ?? pathBranchId ?? 49;
+}
+
+/** POS settle / payments: no default branch — avoids silent calls to branch 49. */
+export function useStrictActiveBranchId(propBranchId?: number): number | undefined {
+  const pathname = usePathname();
+  const pathBranchId = useMemo(() => parseBranchIdFromPathname(pathname), [pathname]);
+  const storeBranchId = useSidebarStore(
+    (state) => state.context.branchId ?? state.account?.branch_id ?? undefined,
+  );
+  return propBranchId ?? storeBranchId ?? pathBranchId;
 }
 
 export const branchMenusQueryKey = (branchId: number, params?: BranchMenusListParams) =>
