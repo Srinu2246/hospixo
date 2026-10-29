@@ -53,7 +53,6 @@ export function useDashboardDirectory(
       ),
     enabled: fetchCompanies && organizationId != null,
     staleTime: 30_000,
-    refetchOnMount: false,
   });
 
   const branchesQuery = useQuery({
@@ -67,7 +66,6 @@ export function useDashboardDirectory(
       ),
     enabled: fetchBranches && organizationId != null && companyId != null,
     staleTime: 30_000,
-    refetchOnMount: false,
   });
 
   const isLoading =

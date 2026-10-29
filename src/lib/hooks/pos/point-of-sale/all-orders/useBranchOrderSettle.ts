@@ -1,12 +1,14 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
 import type { ReceiptData } from '@/features/pos/point-of-sale/components/OrderSuccessReceipt';
 import {
   mapBranchOrderBillToReceiptData,
   mapBranchOrderReceiptToReceiptData,
 } from '@/lib/helpers/branchOrderSettleHelpers';
+import { syncAfterWrite } from '@/lib/hooks/api/queryCacheSync';
 import { useStrictActiveBranchId } from '@/lib/hooks/menu/menus/menusHooks';
 import { branchOrderQueryKey } from '@/lib/hooks/pos/point-of-sale/all-orders/useBranchOrder';
 import {
@@ -191,6 +193,7 @@ export type ConfirmBranchOrderRazorpayPaymentInput = {
 export function useConfirmBranchOrderRazorpayPayment(defaultBranchId?: number) {
   const strictBranchId = useStrictActiveBranchId(defaultBranchId);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   return useMutation({
     mutationFn: async (input: ConfirmBranchOrderRazorpayPaymentInput) => {
@@ -206,11 +209,20 @@ export function useConfirmBranchOrderRazorpayPayment(defaultBranchId?: number) {
     },
     onSuccess: async (_data, variables) => {
       const branchId = requireBranchId(variables.branchId ?? strictBranchId);
-      await queryClient.invalidateQueries({
-        queryKey: branchOrderQueryKey(branchId, variables.orderId),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['pos', 'point-of-sale', 'all-orders'],
+      await syncAfterWrite(queryClient, router, {
+        queryKeys: [
+          branchOrderQueryKey(branchId, variables.orderId),
+          ['pos', 'point-of-sale', 'all-orders'],
+          [
+            'pos',
+            'point-of-sale',
+            'all-orders',
+            'settle',
+            'paid-receipt-display',
+            branchId,
+            variables.orderId,
+          ],
+        ],
       });
     },
   });

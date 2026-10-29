@@ -16,11 +16,12 @@ export function QueryProvider({ children }: QueryProviderProps) {
     return new QueryClient({
       defaultOptions: {
         queries: {
-          // Server-fetch mode: keep SSR/initialData; do not hit the BFF from the browser.
-          staleTime: serverFetch ? Number.POSITIVE_INFINITY : 60 * 1000,
+          // Server-fetch mode: RSC supplies initialData; client GETs stay off until invalidated.
+          staleTime: serverFetch ? Number.POSITIVE_INFINITY : 30 * 1000,
           gcTime: 5 * 60 * 1000,
+          // Refetch when a screen mounts only if the cache is stale (e.g. after a mutation invalidation).
+          refetchOnMount: true,
           refetchOnWindowFocus: false,
-          refetchOnMount: false,
           refetchOnReconnect: false,
           retry: serverFetch ? false : 1,
         },

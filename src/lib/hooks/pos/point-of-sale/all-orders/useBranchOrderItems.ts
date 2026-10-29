@@ -1,7 +1,9 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
+import { syncAfterWrite } from '@/lib/hooks/api/queryCacheSync';
 import { useActiveBranchId } from '@/lib/hooks/menu/menus/menusHooks';
 import { branchOrderQueryKey } from '@/lib/hooks/pos/point-of-sale/all-orders/useBranchOrder';
 import {
@@ -22,10 +24,22 @@ function requireOrderId(orderId: string | number | null | undefined): string | n
   return orderId;
 }
 
+async function syncBranchOrderLists(
+  queryClient: ReturnType<typeof useQueryClient>,
+  router: ReturnType<typeof useRouter>,
+  branchId: number | undefined,
+  orderId: string | number,
+) {
+  await syncAfterWrite(queryClient, router, {
+    queryKeys: [branchOrderQueryKey(branchId, orderId), ['pos', 'point-of-sale', 'all-orders']],
+  });
+}
+
 /** POST /v1/branches/{branch_id}/orders/{order_id}/items — add draft lines (menu Add +). */
 export function useAddBranchOrderItems(branchId?: number) {
   const activeBranchId = useActiveBranchId(branchId);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   return useMutation({
     mutationFn: async (input: { orderId: string | number; body: AddBranchOrderItemsBody }) => {
@@ -38,9 +52,7 @@ export function useAddBranchOrderItems(branchId?: number) {
       return parseAddBranchOrderItems(payload);
     },
     onSuccess: async (_data, variables) => {
-      await queryClient.invalidateQueries({
-        queryKey: branchOrderQueryKey(activeBranchId, variables.orderId),
-      });
+      await syncBranchOrderLists(queryClient, router, activeBranchId, variables.orderId);
     },
   });
 }
@@ -62,6 +74,7 @@ export type RemoveBranchOrderItemInput = {
 export function useRemoveBranchOrderItem(branchId?: number) {
   const activeBranchId = useActiveBranchId(branchId);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   return useMutation({
     mutationFn: async (input: RemoveBranchOrderItemInput) => {
@@ -75,9 +88,7 @@ export function useRemoveBranchOrderItem(branchId?: number) {
       return parseRemoveBranchOrderItem(payload);
     },
     onSuccess: async (_data, variables) => {
-      await queryClient.invalidateQueries({
-        queryKey: branchOrderQueryKey(activeBranchId, variables.orderId),
-      });
+      await syncBranchOrderLists(queryClient, router, activeBranchId, variables.orderId);
     },
   });
 }
@@ -86,6 +97,7 @@ export function useRemoveBranchOrderItem(branchId?: number) {
 export function useSubmitBranchOrder(branchId?: number) {
   const activeBranchId = useActiveBranchId(branchId);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   return useMutation({
     mutationFn: async (input: SubmitBranchOrderInput) => {
@@ -106,14 +118,7 @@ export function useSubmitBranchOrder(branchId?: number) {
       return parseSubmitBranchOrder(payload);
     },
     onSuccess: async (_data, variables) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: branchOrderQueryKey(activeBranchId, variables.orderId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['pos', 'point-of-sale', 'all-orders'],
-        }),
-      ]);
+      await syncBranchOrderLists(queryClient, router, activeBranchId, variables.orderId);
     },
   });
 }

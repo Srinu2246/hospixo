@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
+import { syncAfterWrite } from '@/lib/hooks/api/queryCacheSync';
 import { useQuery } from '@/lib/hooks/api/useQuery';
 import { useUserListFilters } from '@/lib/hooks/users/useUserListFilters';
 import type { JsonValue } from '@/types/json';
@@ -145,6 +147,7 @@ export function useUserRoles(
   const resolvedBranchId = branchId ?? storeBranchId;
 
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [selectedBranchName, setSelectedBranchNameState] = useState('');
 
   const userFilters = useUserListFilters({
@@ -244,7 +247,7 @@ export function useUserRoles(
   }, [users, totalRows, usersQuery.data?.summary]);
 
   const invalidateUsers = async () => {
-    await queryClient.invalidateQueries({ queryKey: [...usersQueryRoot] });
+    await syncAfterWrite(queryClient, router, { queryKeys: [[...usersQueryRoot]] });
   };
 
   const syncUserRoles = async (userId: string, roleName: string, catalog: RoleCatalogItem[]) => {
@@ -419,21 +422,19 @@ function useResolvedRoleCatalog(data: JsonValue | undefined): RoleCatalogItem[] 
 
 async function invalidateUserQueries(
   queryClient: QueryClient,
+  router: ReturnType<typeof useRouter>,
   userId?: string | null,
   includeDetails = false,
 ): Promise<void> {
-  await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list] });
+  const queryKeys: Array<readonly unknown[]> = [[...usersQueryRoot]];
   if (userId) {
-    await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.users.list, userId] });
+    queryKeys.push(['api', ApiUrlsV1.users.list, userId]);
     if (includeDetails) {
-      await queryClient.invalidateQueries({
-        queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'permissions'],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['api', ApiUrlsV1.users.list, String(userId), 'assignments'],
-      });
+      queryKeys.push(['api', ApiUrlsV1.users.list, String(userId), 'permissions']);
+      queryKeys.push(['api', ApiUrlsV1.users.list, String(userId), 'assignments']);
     }
   }
+  await syncAfterWrite(queryClient, router, { queryKeys });
 }
 
 // ---------------------------------------------------------------------------
@@ -449,6 +450,7 @@ export function useStaffProfile(
   },
 ) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const enabled = Boolean(userId);
 
   const rawUserQuery = useQuery({
@@ -589,7 +591,7 @@ export function useStaffProfile(
       await syncUserPermissions(userId, input.categories);
     },
     onSuccess: async () => {
-      await invalidateUserQueries(queryClient, userId, true);
+      await invalidateUserQueries(queryClient, router, userId, true);
     },
   });
 
@@ -599,7 +601,7 @@ export function useStaffProfile(
       await api.patch(userStatusPath(userId), toUserStatusBody(status));
     },
     onSuccess: async () => {
-      await invalidateUserQueries(queryClient, userId);
+      await invalidateUserQueries(queryClient, router, userId);
     },
   });
 
@@ -632,6 +634,7 @@ export function useStaffProfile(
 
 export function useCreateStaffUser() {
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   return useMutation({
     mutationFn: async (input: {
@@ -697,7 +700,7 @@ export function useCreateStaffUser() {
       return { id: userId, payload: createdPayload };
     },
     onSuccess: async () => {
-      await invalidateUserQueries(queryClient);
+      await invalidateUserQueries(queryClient, router);
     },
   });
 }
@@ -716,6 +719,7 @@ function enabledPermissionCodes(categories: readonly PermissionCategory[]): stri
 
 export function useCreateCustomRole(scope: ScopeType = 'organization') {
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   return useMutation({
     mutationFn: async (input: {
@@ -735,8 +739,12 @@ export function useCreateCustomRole(scope: ScopeType = 'organization') {
       );
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.roles.list] });
-      await queryClient.invalidateQueries({ queryKey: ['api', ApiUrlsV1.roles.templates] });
+      await syncAfterWrite(queryClient, router, {
+        queryKeys: [
+          ['api', ApiUrlsV1.roles.list],
+          ['api', ApiUrlsV1.roles.templates],
+        ],
+      });
     },
   });
 }

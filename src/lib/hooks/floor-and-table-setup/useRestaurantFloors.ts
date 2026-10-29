@@ -1,7 +1,9 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
+import { syncAfterWrite } from '@/lib/hooks/api/queryCacheSync';
 import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import type { FloorStatusFilter } from '@/features/management/floor-and-table-setup/types/floorSetup';
@@ -198,6 +200,7 @@ export function useTable(
 
 export function useCreateTable(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: { floorId: number; sectionId: number; body: CreateTableBody }) => {
       const payload = await api.post(
@@ -207,13 +210,14 @@ export function useCreateTable(branchId: number | undefined) {
       return parseTableRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateTables(queryClient, branchId, input.floorId);
+      await invalidateTables(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useUpdateTable(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: {
       floorId: number;
@@ -233,13 +237,14 @@ export function useUpdateTable(branchId: number | undefined) {
       return parseTableRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateTables(queryClient, branchId, input.floorId);
+      await invalidateTables(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useBulkCreateTables(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: {
       floorId: number;
@@ -253,13 +258,14 @@ export function useBulkCreateTables(branchId: number | undefined) {
       return parseTableBulk(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateTables(queryClient, branchId, input.floorId);
+      await invalidateTables(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useBulkUpdateTables(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: {
       floorId: number;
@@ -273,13 +279,14 @@ export function useBulkUpdateTables(branchId: number | undefined) {
       return parseTableBulk(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateTables(queryClient, branchId, input.floorId);
+      await invalidateTables(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useMoveTable(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: {
       floorId: number;
@@ -299,13 +306,14 @@ export function useMoveTable(branchId: number | undefined) {
       return parseTableRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateTables(queryClient, branchId, input.floorId);
+      await invalidateTables(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useArchiveTable(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: {
       floorId: number;
@@ -325,13 +333,14 @@ export function useArchiveTable(branchId: number | undefined) {
       return parseTableRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateTables(queryClient, branchId, input.floorId);
+      await invalidateTables(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useRestoreTable(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: {
       floorId: number;
@@ -351,26 +360,28 @@ export function useRestoreTable(branchId: number | undefined) {
       return parseTableRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateTables(queryClient, branchId, input.floorId);
+      await invalidateTables(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useCreateFloor(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (body: CreateFloorBody) => {
       const payload = await api.post(restaurantFloorsPath(requireBranch(branchId)), body);
       return parseFloorRecord(payload);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: floorsKey(branchId) });
+      await syncAfterWrite(queryClient, router, { queryKeys: [floorsKey(branchId)] });
     },
   });
 }
 
 export function useUpdateFloor(branchId: number | undefined, floorId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (body: UpdateFloorBody) => {
       const payload = await api.patch(
@@ -380,13 +391,14 @@ export function useUpdateFloor(branchId: number | undefined, floorId: number | u
       return parseFloorRecord(payload);
     },
     onSuccess: async () => {
-      await invalidateFloor(queryClient, branchId, floorId);
+      await invalidateFloor(queryClient, router, branchId, floorId);
     },
   });
 }
 
 export function useArchiveFloor(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: { floorId: number; body: ArchiveBody }) => {
       const payload = await api.post(
@@ -396,13 +408,14 @@ export function useArchiveFloor(branchId: number | undefined) {
       return parseFloorRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateFloor(queryClient, branchId, input.floorId);
+      await invalidateFloor(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useRestoreFloor(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: { floorId: number; body: ArchiveBody }) => {
       const payload = await api.post(
@@ -412,13 +425,14 @@ export function useRestoreFloor(branchId: number | undefined) {
       return parseFloorRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateFloor(queryClient, branchId, input.floorId);
+      await invalidateFloor(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useCreateSection(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: { floorId: number; body: CreateSectionBody }) => {
       const payload = await api.post(
@@ -428,13 +442,14 @@ export function useCreateSection(branchId: number | undefined) {
       return parseSectionRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateSections(queryClient, branchId, input.floorId);
+      await invalidateSections(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useUpdateSection(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: { floorId: number; sectionId: number; body: UpdateSectionBody }) => {
       const payload = await api.patch(
@@ -444,13 +459,14 @@ export function useUpdateSection(branchId: number | undefined) {
       return parseSectionRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateSections(queryClient, branchId, input.floorId);
+      await invalidateSections(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useArchiveSection(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: { floorId: number; sectionId: number; body: ArchiveBody }) => {
       const payload = await api.post(
@@ -460,13 +476,14 @@ export function useArchiveSection(branchId: number | undefined) {
       return parseSectionRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateSections(queryClient, branchId, input.floorId);
+      await invalidateSections(queryClient, router, branchId, input.floorId);
     },
   });
 }
 
 export function useRestoreSection(branchId: number | undefined) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: async (input: { floorId: number; sectionId: number; body: ArchiveBody }) => {
       const payload = await api.post(
@@ -476,7 +493,7 @@ export function useRestoreSection(branchId: number | undefined) {
       return parseSectionRecord(payload);
     },
     onSuccess: async (_data, input) => {
-      await invalidateSections(queryClient, branchId, input.floorId);
+      await invalidateSections(queryClient, router, branchId, input.floorId);
     },
   });
 }
@@ -546,27 +563,37 @@ async function listSectionTables(
 
 async function invalidateFloor(
   queryClient: ReturnType<typeof useQueryClient>,
+  router: ReturnType<typeof useRouter>,
   branchId: number | undefined,
   floorId: number | undefined,
 ) {
-  await queryClient.invalidateQueries({ queryKey: floorsKey(branchId) });
-  await queryClient.invalidateQueries({ queryKey: ['restaurant', 'floor', branchId, floorId] });
+  await syncAfterWrite(queryClient, router, {
+    queryKeys: [floorsKey(branchId), ['restaurant', 'floor', branchId, floorId]],
+  });
 }
 
 async function invalidateTables(
   queryClient: ReturnType<typeof useQueryClient>,
+  router: ReturnType<typeof useRouter>,
   branchId: number | undefined,
   floorId: number,
 ) {
-  await queryClient.invalidateQueries({ queryKey: ['restaurant', 'tables', branchId, floorId] });
-  await queryClient.invalidateQueries({ queryKey: ['restaurant', 'floor-map', branchId, floorId] });
-  await queryClient.invalidateQueries({ queryKey: ['restaurant', 'table', branchId, floorId] });
+  await syncAfterWrite(queryClient, router, {
+    queryKeys: [
+      ['restaurant', 'tables', branchId, floorId],
+      ['restaurant', 'floor-map', branchId, floorId],
+      ['restaurant', 'table', branchId, floorId],
+    ],
+  });
 }
 
 async function invalidateSections(
   queryClient: ReturnType<typeof useQueryClient>,
+  router: ReturnType<typeof useRouter>,
   branchId: number | undefined,
   floorId: number,
 ) {
-  await queryClient.invalidateQueries({ queryKey: ['restaurant', 'sections', branchId, floorId] });
+  await syncAfterWrite(queryClient, router, {
+    queryKeys: [['restaurant', 'sections', branchId, floorId]],
+  });
 }

@@ -75,7 +75,6 @@ export function useOrganizationCompanies(
     initialData: initialCompanies,
     enabled: (options?.enabled ?? true) && canFetch && orgId != null,
     staleTime: 30_000,
-    refetchOnMount: initialCompanies ? false : undefined,
   });
 
   const usersQuery = useQuery({

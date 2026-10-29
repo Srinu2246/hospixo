@@ -1,7 +1,8 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 
+import { useQueryInvalidation } from '@/lib/hooks/api/queryCacheSync';
 import { useQuery } from '@/lib/hooks/api/useQuery';
 
 import {
@@ -104,7 +105,7 @@ export function useMenuItem(itemId: number | undefined) {
  * POST /v1/restaurant/menu/items/{item_id}/deactivate
  */
 export function useDeactivateMenuItem(options?: UseMenuItemMutationsOptions) {
-  const queryClient = useQueryClient();
+  const invalidateAfterWrite = useQueryInvalidation();
   const pageScope = options?.scope;
 
   return useMutation({
@@ -113,8 +114,9 @@ export function useDeactivateMenuItem(options?: UseMenuItemMutationsOptions) {
       await api.post(restaurantMenuItemDeactivatePath(itemId), body);
     },
     onSuccess: async (_data, itemId) => {
-      await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
-      await queryClient.invalidateQueries({ queryKey: menuItemQueryKey(itemId) });
+      await invalidateAfterWrite({
+        queryKeys: [['restaurant', 'menu-items'], menuItemQueryKey(itemId)],
+      });
     },
   });
 }
@@ -124,7 +126,7 @@ export function useDeactivateMenuItem(options?: UseMenuItemMutationsOptions) {
  * POST /v2/restaurant/menu/items
  */
 export function useCreateMenuItem(options?: UseMenuItemMutationsOptions) {
-  const queryClient = useQueryClient();
+  const invalidateAfterWrite = useQueryInvalidation();
   const pageScope = options?.scope ?? 'company';
 
   return useMutation({
@@ -147,7 +149,7 @@ export function useCreateMenuItem(options?: UseMenuItemMutationsOptions) {
       return parseMenuItemWriteResponse(payload);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
+      await invalidateAfterWrite({ queryKeys: [['restaurant', 'menu-items']] });
     },
   });
 }
@@ -157,6 +159,7 @@ export function useCreateMenuItem(options?: UseMenuItemMutationsOptions) {
  * PATCH /v2/restaurant/menu/items/{item_id}
  */
 export function useUpdateMenuItem(options?: UseMenuItemMutationsOptions) {
+  const invalidateAfterWrite = useQueryInvalidation();
   const pageScope = options?.scope ?? 'company';
 
   return useMutation({
@@ -181,6 +184,11 @@ export function useUpdateMenuItem(options?: UseMenuItemMutationsOptions) {
       const payload = await api.patch(restaurantMenuItemV2Path(itemId), formData, { silent: true });
       return parseMenuItemWriteResponse(payload);
     },
+    onSuccess: async (_data, variables) => {
+      await invalidateAfterWrite({
+        queryKeys: [['restaurant', 'menu-items'], menuItemQueryKey(variables.itemId)],
+      });
+    },
   });
 }
 
@@ -189,7 +197,7 @@ export function useUpdateMenuItem(options?: UseMenuItemMutationsOptions) {
  * POST .../items/{id}/activate | .../deactivate
  */
 export function useSetMenuItemActive(options?: UseMenuItemMutationsOptions) {
-  const queryClient = useQueryClient();
+  const invalidateAfterWrite = useQueryInvalidation();
   const pageScope = options?.scope;
 
   return useMutation({
@@ -201,8 +209,9 @@ export function useSetMenuItemActive(options?: UseMenuItemMutationsOptions) {
       await api.post(path, body);
     },
     onSuccess: async (_data, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ['restaurant', 'menu-items'] });
-      await queryClient.invalidateQueries({ queryKey: menuItemQueryKey(variables.itemId) });
+      await invalidateAfterWrite({
+        queryKeys: [['restaurant', 'menu-items'], menuItemQueryKey(variables.itemId)],
+      });
     },
   });
 }
