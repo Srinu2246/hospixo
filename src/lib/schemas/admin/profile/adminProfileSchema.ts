@@ -43,4 +43,17 @@ export const changePasswordSchema = z
     path: ['confirmPassword'],
   });
 
-export type ChangePasswordValues = z.infer<typeof changePasswordSchema>;
+export const changePasswordPayloadSchema = z.object({
+  current_password: z.string().min(1, 'Current password is required'),
+  new_password: z.string().min(8, 'New password must be at least 8 characters'),
+});
+
+export type ChangePasswordPayload = z.infer<typeof changePasswordPayloadSchema>;
+
+export const changePasswordResponseSchema = z.object({
+  success: z.boolean().optional().default(true),
+  message: z.string().optional(),
+  data: z.unknown().optional(),
+});
+
+export type ChangePasswordResponse = z.infer<typeof changePasswordResponseSchema>;

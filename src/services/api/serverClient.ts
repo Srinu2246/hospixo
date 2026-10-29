@@ -184,7 +184,8 @@ async function request<T>(
     throw new ApiError('Upstream request failed', 502);
   }
 
-  if (response.status === 401 && !isPublic) {
+  const isAuthChangePassword = path === ApiUrlsV1.auth.changePassword;
+  if (response.status === 401 && !isPublic && !isAuthChangePassword) {
     await rejectUnauthorized();
   }
 

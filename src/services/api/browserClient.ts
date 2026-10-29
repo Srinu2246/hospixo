@@ -54,6 +54,7 @@ function isAuthPath(endpoint: string): boolean {
   return (
     endpoint === ApiUrlsV1.auth.login ||
     endpoint === ApiUrlsV1.auth.logout ||
+    endpoint === ApiUrlsV1.auth.changePassword ||
     endpoint === ApiUrlsV1.invitations.accept ||
     endpoint === ApiUrlsV1.invitations.reject
   );

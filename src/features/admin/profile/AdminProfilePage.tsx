@@ -97,8 +97,8 @@ export function AdminProfilePage({ initialProfile }: Readonly<AdminProfilePagePr
     }
   }
 
-  function handleChangePassword() {
-    showToast('Password updated successfully');
+  function handlePasswordSuccess(message?: string) {
+    showToast(message || 'Password changed successfully');
   }
 
   function handleChangeEmailNotice() {
@@ -151,7 +151,7 @@ export function AdminProfilePage({ initialProfile }: Readonly<AdminProfilePagePr
       <SecurityPasswordCard
         profile={profile}
         onToggleTwoFactorProtection={handleToggleTwoFactorProtection}
-        onChangePassword={handleChangePassword}
+        onPasswordSuccess={handlePasswordSuccess}
       />
 
       {/* Page-level Logout Action */}
