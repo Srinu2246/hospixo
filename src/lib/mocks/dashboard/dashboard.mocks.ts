@@ -328,16 +328,16 @@ export const OUTLET_PERFORMANCE_ROWS: OutletPerformanceRow[] = [
 ];
 
 export const OUTLET_SALES_CHART_BARS: OutletChartBarItem[] = [
-  { label: 'Outlet 1', heightPercent: 78, isHighlight: false },
-  { label: 'Outlet 2', heightPercent: 62, isHighlight: false },
-  { label: 'Outlet 3', heightPercent: 70, isHighlight: false },
-  { label: 'Outlet 4', heightPercent: 55, isHighlight: false },
-  { label: 'Outlet 5', heightPercent: 68, isHighlight: false },
-  { label: 'Outlet 6', heightPercent: 100, isHighlight: true },
-  { label: 'Outlet 7', heightPercent: 74, isHighlight: false },
-  { label: 'Outlet 8', heightPercent: 48, isHighlight: false },
-  { label: 'Outlet 9', heightPercent: 64, isHighlight: false },
-  { label: 'Outlet 10', heightPercent: 72, isHighlight: false },
+  { id: 'mock-outlet-1', label: 'Outlet 1', heightPercent: 78, isHighlight: false },
+  { id: 'mock-outlet-2', label: 'Outlet 2', heightPercent: 62, isHighlight: false },
+  { id: 'mock-outlet-3', label: 'Outlet 3', heightPercent: 70, isHighlight: false },
+  { id: 'mock-outlet-4', label: 'Outlet 4', heightPercent: 55, isHighlight: false },
+  { id: 'mock-outlet-5', label: 'Outlet 5', heightPercent: 68, isHighlight: false },
+  { id: 'mock-outlet-6', label: 'Outlet 6', heightPercent: 100, isHighlight: true },
+  { id: 'mock-outlet-7', label: 'Outlet 7', heightPercent: 74, isHighlight: false },
+  { id: 'mock-outlet-8', label: 'Outlet 8', heightPercent: 48, isHighlight: false },
+  { id: 'mock-outlet-9', label: 'Outlet 9', heightPercent: 64, isHighlight: false },
+  { id: 'mock-outlet-10', label: 'Outlet 10', heightPercent: 72, isHighlight: false },
 ];
 
 export const COMPANY_DISCOUNTS_BREAKDOWN: DiscountItem[] = [

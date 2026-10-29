@@ -188,7 +188,7 @@ export function SalesByOutletSection({
             >
               {bars.map((bar) => (
                 <Box
-                  key={bar.label}
+                  key={bar.id}
                   sx={{
                     display: 'flex',
                     flexDirection: 'column',

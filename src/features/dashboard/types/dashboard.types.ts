@@ -121,6 +121,7 @@ export interface ExpenseItem {
 }
 
 export interface OutletChartBarItem {
+  id: string;
   label: string;
   heightPercent: number;
   isHighlight: boolean;
