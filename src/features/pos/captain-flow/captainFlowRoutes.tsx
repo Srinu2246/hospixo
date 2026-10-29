@@ -1,5 +1,9 @@
 import { PosAllOrdersRoutePage } from '@/features/pos/point-of-sale/all-orders';
-import { ReadyListPage } from '@/features/pos/point-of-sale/ready-list';
+import {
+  CaptainReadyList,
+  CaptainReadyListIndexRedirect,
+} from '@/features/pos/point-of-sale/ready-list';
+import type { ReadyOrderQueue } from '@/lib/schemas/pos/point-of-sale/ready-list/readyListSchema';
 import { TakeawayPage } from '@/features/pos/point-of-sale/takeaway';
 import { PosTableSelection } from '@/features/pos/point-of-sale/tables';
 
@@ -8,9 +12,16 @@ export function CaptainFlowTablesRoutePage() {
   return <PosTableSelection isDineIn={false} />;
 }
 
-/** App route: ready-to-serve list (captain-flow). */
-export function CaptainFlowReadyListRoutePage() {
-  return <ReadyListPage />;
+/** App route: `/ready-list` → default tab. */
+export function CaptainFlowReadyListIndexRoutePage() {
+  return <CaptainReadyListIndexRedirect />;
+}
+
+/** App route: ready list tab (captain-flow). */
+export function CaptainFlowReadyListRoutePage({
+  activeTab = 'active',
+}: Readonly<{ activeTab?: ReadyOrderQueue }> = {}) {
+  return <CaptainReadyList activeTab={activeTab} />;
 }
 
 /** App route: open orders list (captain-flow). */

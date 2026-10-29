@@ -597,7 +597,7 @@ export const BRANCH_MANAGER_SIDEBAR: SidebarEntry[] = [
           {
             id: 3,
             name: 'Ready List',
-            href: '/branch-manager/pos/captain-flow/ready-list',
+            href: '/branch-manager/pos/captain-flow/ready-list/ready-to-serve',
             featureFlag: FEATURE_FLAGS.branch_pos_captainReadyList_nav,
             icon: 'fact_check',
           },
@@ -853,7 +853,7 @@ export const CAPTAIN_WORKSPACE_NAV: readonly WaiterWorkspaceNavItem[] = [
     id: 'ready',
     name: 'Ready Orders',
     bottomNavLabel: 'Ready',
-    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/ready-list`,
+    captainFlowSuffix: `${CAPTAIN_FLOW_PREFIX}/ready-list/ready-to-serve`,
     icon: 'fact_check',
     permission: PERMISSIONS.ORDERS_VIEW,
     featureFlag: FEATURE_FLAGS.captain_pos_readyOrders_nav,

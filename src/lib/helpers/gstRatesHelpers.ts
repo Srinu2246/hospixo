@@ -42,7 +42,7 @@ export type CreateGstRateApiPayload = {
   igst_rate: number;
   total_rate: number;
   effective_to: string | null;
-  effective_from: string;
+  effective_from?: string;
 };
 
 /** POST body aligned with `/v1/restaurant/gst-rates` validation. */
@@ -53,7 +53,7 @@ export function normalizeCreateGstRateBodyForApi(body: CreateGstRateBody): Creat
     code: body.code.trim(),
     name: body.name.trim(),
     ...rates,
-    effective_from: body.effective_from,
+    ...(body.effective_from ? { effective_from: body.effective_from } : {}),
     effective_to: body.effective_to ?? null,
   };
 }

@@ -31,14 +31,8 @@ export interface TopNavbarProps {
   context?: SidebarContext;
   /** User profile override (falls back to sidebar store user) */
   user?: SidebarUserProfile;
-  /** Triggered when the AI Agent button is clicked */
-  onAiAgentClick?: () => void;
-  /** Triggered when the Explore Products button is clicked */
-  onExploreProductsClick?: () => void;
   /** Triggered when the Notification icon is clicked */
   onNotificationClick?: () => void;
-  /** Triggered when the Settings icon is clicked */
-  onSettingsClick?: () => void;
   /** Triggered when the mobile/tablet navigation menu button is clicked */
   onOpenMenu?: () => void;
   /** Optional layout style overrides from the caller */
@@ -56,10 +50,7 @@ export function TopNavbar({
   role: propRole,
   context: propContext,
   user: propUser,
-  onAiAgentClick,
-  onExploreProductsClick,
   onNotificationClick,
-  onSettingsClick,
   onOpenMenu,
   sx,
 }: Readonly<TopNavbarProps>) {
@@ -85,9 +76,6 @@ export function TopNavbar({
   // Active level determination (Organization vs Company vs Branch)
   const level = resolveTopNavbarLevel(pathname, activeRole, context);
   const isBranchView = level === 'branch';
-
-  // Management controls visibility
-  const showManagementActions = Boolean(normalizedRole) && normalizedRole !== 'waiter';
 
   // Captain workspace specific paths
   const captainWorkspacePath = isCaptainWorkspacePath(pathname);
@@ -299,10 +287,7 @@ export function TopNavbar({
           mobileSelectedOutletSlug={selectedOutletSlug}
           onMobileOutletChange={handleOutletChange}
           hideOutletSelector={false}
-          showManagementActions={showManagementActions}
-          onAiAgentClick={onAiAgentClick}
           onNotificationClick={onNotificationClick}
-          onSettingsClick={onSettingsClick}
           onOpenMenu={onOpenMenu}
           showProfileMenu={showWaiterProfileNav}
           user={activeUser}
@@ -319,14 +304,10 @@ export function TopNavbar({
           onOutletChange={handleOutletChange}
           branchDisplayName={branchDisplayName}
           placeholder={placeholder}
-          showManagementActions={showManagementActions}
           isBranchView={isBranchView}
           mode={mode}
           onToggleMode={toggleMode}
-          onAiAgentClick={onAiAgentClick}
-          onExploreProductsClick={onExploreProductsClick}
           onNotificationClick={onNotificationClick}
-          onSettingsClick={onSettingsClick}
           user={activeUser}
           displayName={displayName}
           displayRole={displayRole}
