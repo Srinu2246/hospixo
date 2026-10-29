@@ -8,9 +8,14 @@ import {
   enrichCompaniesWithUserCounts,
   fetchOrganizationUsers,
   loadOrganizationCompanies,
+  mergeCompaniesWithBranchCounts,
   shouldLoadOrganizationCompanyList,
 } from '@/lib/helpers/organizationCompanies';
-import { parseBranchList } from '@/lib/schemas/organization/branches/branchListSchema';
+import { loadOrganizationBranches } from '@/lib/helpers/organizationBranches';
+import {
+  parseBranchList,
+  type BranchListItem,
+} from '@/lib/schemas/organization/branches/branchListSchema';
 import type { CompanyListItem } from '@/lib/schemas/organization/companies/companyListSchema';
 import { api } from '@/services/api/browserClient';
 import ApiUrlsV1 from '@/services/api/ApiUrlsV1';
@@ -40,12 +45,33 @@ export function useOrganizationCompanies(
 
   const companiesQuery = useQuery({
     queryKey: ['organization', 'companies', orgId ?? 'session', role, authScope],
-    queryFn: () =>
-      loadOrganizationCompanies(orgId, (path, params) => api.get<JsonValue>(path, params), {
+    queryFn: async () => {
+      const getJson = (path: string, params?: QueryParams) => api.get<JsonValue>(path, params);
+      const companies = await loadOrganizationCompanies(orgId, getJson, {
         role,
         authScope,
         scope: 'organization',
-      }),
+      });
+
+      if (companies.length === 0) {
+        return [];
+      }
+
+      let branches: BranchListItem[] = [];
+      let branchesLoaded = false;
+      try {
+        branches = await loadOrganizationBranches(orgId, companies, getJson);
+        branchesLoaded = true;
+      } catch {
+        branchesLoaded = false;
+      }
+
+      if (!branchesLoaded) {
+        return companies;
+      }
+
+      return mergeCompaniesWithBranchCounts(companies, branches);
+    },
     initialData: initialCompanies,
     enabled: (options?.enabled ?? true) && canFetch && orgId != null,
     staleTime: 30_000,

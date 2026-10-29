@@ -75,7 +75,14 @@ function mapCompany(raw: Record<string, unknown>): unknown {
       text(raw.company_type) ??
       'Hospitality',
     status: statusRaw === 'inactive' || statusRaw === 'disabled' ? 'inactive' : 'active',
-    branchCount: count(raw.branchCount ?? raw.branch_count ?? raw.branches_count),
+    branchCount: count(
+      raw.branchCount ??
+        raw.branch_count ??
+        raw.branches_count ??
+        raw.total_branches ??
+        raw.totalBranches ??
+        raw.branches,
+    ),
     userCount: count(
       raw.userCount ??
         raw.user_count ??

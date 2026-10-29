@@ -28,7 +28,10 @@ import {
   resolveCurrentShiftMock,
 } from '@/lib/mocks/pos/usePosCashShift.mocks';
 import { MOCK_BRANCHES, resolveBranchesMock } from '@/lib/mocks/organization/branches.mocks';
-import { MOCK_COMPANIES } from '@/lib/mocks/organization/companies.mocks';
+import {
+  MOCK_COMPANIES,
+  resolveOrganizationCompaniesMock,
+} from '@/lib/mocks/organization/companies.mocks';
 import { resolveBranchOrderSettleMock } from '@/lib/mocks/pos/branchOrderSettle.mocks';
 import { resolveRestaurantFloorMock } from '@/lib/mocks/floor-and-table-setup/restaurantFloors.mocks';
 import {
@@ -202,6 +205,9 @@ export function resolveMock(request: MockRequest): unknown | undefined {
 
   const branches = resolveBranchesMock(request);
   if (branches !== undefined) return branches;
+
+  const organizationCompanies = resolveOrganizationCompaniesMock(request);
+  if (organizationCompanies !== undefined) return organizationCompanies;
 
   const menuCategoryAssignments = resolveMenuCategoryAssignmentsMock(request);
   if (menuCategoryAssignments !== undefined) return menuCategoryAssignments;

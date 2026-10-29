@@ -36,10 +36,10 @@ export async function loadOrganizationBranches(
   }
 
   if (organizationId != null && companyId == null && companies.length > 0) {
-    const collected: BranchListItem[] = [];
-    for (const company of companies) {
-      collected.push(...(await loadCompanyBranches(company.id, get)));
-    }
+    const branchBatches = await Promise.all(
+      companies.map((company) => loadCompanyBranches(company.id, get)),
+    );
+    const collected = branchBatches.flat();
     if (collected.length > 0) return dedupeBranches(collected);
   }
 
