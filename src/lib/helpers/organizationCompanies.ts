@@ -4,6 +4,7 @@ import {
   parseCompanyList,
   type CompanyListItem,
 } from '@/lib/schemas/organization/companies/companyListSchema';
+import type { BranchListItem } from '@/lib/schemas/organization/branches/branchListSchema';
 import { ApiError, type QueryParams } from '@/services/api/types';
 import type { JsonObject, JsonValue } from '@/types/json';
 
@@ -149,4 +150,36 @@ export async function loadCompanyById(
 
 function isMissingEndpoint(error: unknown): boolean {
   return error instanceof ApiError && (error.status === 403 || error.status === 404);
+}
+
+/**
+ * Count live branches grouped by company ID.
+ */
+export function countBranchesByCompany(branches: readonly BranchListItem[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const branch of branches) {
+    if (branch.companyId != null && Number(branch.companyId) > 0) {
+      const key = String(branch.companyId);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/**
+ * Merge live branch counts into company items.
+ * Ensures each company's branchCount accurately reflects its live branches.
+ */
+export function mergeCompaniesWithBranchCounts(
+  companies: readonly CompanyListItem[],
+  branches: readonly BranchListItem[],
+): CompanyListItem[] {
+  const counts = countBranchesByCompany(branches);
+  return companies.map((company) => {
+    const liveCount = counts.get(String(company.id));
+    return {
+      ...company,
+      branchCount: liveCount ?? 0,
+    };
+  });
 }
