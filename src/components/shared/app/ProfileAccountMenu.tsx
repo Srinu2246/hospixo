@@ -73,8 +73,13 @@ export function ProfileAccountMenu({
   function handleAction(action: ProfileMenuAction) {
     onClose();
     if (action === 'profile') {
-      if (accountUserId != null && role) {
+      const isStaff =
+        Boolean(role) &&
+        ['waiter', 'captain', 'kitchen_staff', 'barista', 'cashier'].includes(role.toLowerCase());
+      if (isStaff && accountUserId != null) {
         router.push(buildStaffProfileHref(accountUserId, { role, context }));
+      } else {
+        router.push('/profile');
       }
       return;
     }

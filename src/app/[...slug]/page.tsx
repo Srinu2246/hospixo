@@ -28,6 +28,7 @@ import {
 import { CreateNewShiftPage } from '@/features/pos/point-of-sale/cash-and-shift/CreateNewShiftPage';
 import { CashCounterPage } from '@/features/pos/point-of-sale/cash-counter';
 import { UnderConstructionPage } from '@/components/shared/UnderConstruction';
+import { AdminProfilePage } from '@/features/admin/profile';
 import {
   UsersAndRolesScreen,
   CreateUserMultiformFlow,
@@ -367,6 +368,16 @@ const ROUTE_REGISTRY: readonly RouteDefinition[] = [
     name: 'POS Due Payments',
     match: (path) => path.endsWith('pos/point-of-sale/due-payments'),
     render: () => <DuePaymentsPage />,
+  },
+
+  // 10b. User / Admin Profile Settings
+  {
+    name: 'Admin Profile Settings',
+    match: (path) =>
+      path === 'profile' ||
+      path === 'admin/profile' ||
+      (path.endsWith('/profile') && !path.includes('users-and-roles')),
+    render: () => <AdminProfilePage />,
   },
 
   // 11. Staff Profile: .../users-and-roles/{edit|profile}
