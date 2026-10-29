@@ -2,8 +2,13 @@
 
 import { useMemo } from 'react';
 
-import { enrichBranchesWithCompanyNames } from '@/lib/helpers/organizationBranches';
 import {
+  calculateBranchUserCounts,
+  enrichBranchesWithCompanyNames,
+  enrichBranchesWithUserCounts,
+} from '@/lib/helpers/organizationBranches';
+import {
+  fetchOrganizationUsers,
   loadCompanyById,
   loadOrganizationCompanies,
   shouldLoadOrganizationCompanyList,
@@ -137,7 +142,29 @@ export function useOrganizationBranches({
     staleTime: 60_000,
   });
 
-  const companies = companiesQuery.data ?? [];
+  const companies = useMemo(() => companiesQuery.data ?? [], [companiesQuery.data]);
+
+  const usersQuery = useQuery({
+    queryKey: [
+      'organization',
+      'users',
+      'branch-counts',
+      scopedOrganizationId,
+      scopedCompanyId,
+      scope,
+      role,
+    ],
+    queryFn: async ({ signal }) => {
+      const get = (path: string, params?: QueryParams) => api.get<JsonValue>(path, params, signal);
+      const params = {
+        ...(scopedCompanyId != null ? { company_id: scopedCompanyId } : {}),
+        ...(scopedOrganizationId != null ? { organization_id: scopedOrganizationId } : {}),
+      };
+      return fetchOrganizationUsers(get, params);
+    },
+    enabled,
+    staleTime: 60_000,
+  });
 
   const listQuery = useQuery({
     queryKey: ['organization', 'branches', 'list', listParams, scope, role],
@@ -177,15 +204,25 @@ export function useOrganizationBranches({
     staleTime: 30_000,
   });
 
-  const items = useMemo(
-    () => enrichBranchesWithCompanyNames(listQuery.data?.items ?? [], companies),
-    [companies, listQuery.data?.items],
-  );
+  const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
+  const catalogBranches = useMemo(() => catalogQuery.data?.items ?? [], [catalogQuery.data?.items]);
+
+  const branchUserCounts = useMemo(() => {
+    if (!users.length) return new Map<number, number>();
+    return calculateBranchUserCounts(users, catalogBranches);
+  }, [catalogBranches, users]);
+
+  const items = useMemo(() => {
+    const withCompany = enrichBranchesWithCompanyNames(listQuery.data?.items ?? [], companies);
+    return enrichBranchesWithUserCounts(withCompany, branchUserCounts);
+  }, [branchUserCounts, companies, listQuery.data?.items]);
+
   const total = listQuery.data?.total ?? 0;
-  const catalogItems = useMemo(
-    () => enrichBranchesWithCompanyNames(catalogQuery.data?.items ?? [], companies),
-    [catalogQuery.data?.items, companies],
-  );
+  const catalogItems = useMemo(() => {
+    const withCompany = enrichBranchesWithCompanyNames(catalogBranches, companies);
+    return enrichBranchesWithUserCounts(withCompany, branchUserCounts);
+  }, [branchUserCounts, catalogBranches, companies]);
+
   const catalogTotal = catalogQuery.data?.total ?? catalogItems.length;
   const activeCount = catalogItems.filter((branch) => branch.status === 'active').length;
   const counts = {
@@ -201,7 +238,12 @@ export function useOrganizationBranches({
     total,
     counts,
     refetch: async () => {
-      await Promise.all([listQuery.refetch(), catalogQuery.refetch(), companiesQuery.refetch()]);
+      await Promise.all([
+        listQuery.refetch(),
+        catalogQuery.refetch(),
+        companiesQuery.refetch(),
+        usersQuery.refetch(),
+      ]);
     },
   };
 }

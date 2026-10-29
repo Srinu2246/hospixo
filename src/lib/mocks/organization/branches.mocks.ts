@@ -23,6 +23,7 @@ export const MOCK_BRANCHES: BranchListItem[] = branchListSchema.parse([
     city: 'Hyderabad',
     status: 'active',
     isDefault: true,
+    userCount: 16,
   },
   {
     id: 102,
@@ -33,6 +34,7 @@ export const MOCK_BRANCHES: BranchListItem[] = branchListSchema.parse([
     city: 'Bengaluru',
     status: 'active',
     isDefault: false,
+    userCount: 12,
   },
   {
     id: 103,
@@ -43,6 +45,7 @@ export const MOCK_BRANCHES: BranchListItem[] = branchListSchema.parse([
     city: 'Chennai',
     status: 'active',
     isDefault: true,
+    userCount: 15,
   },
   {
     id: 104,
@@ -53,6 +56,7 @@ export const MOCK_BRANCHES: BranchListItem[] = branchListSchema.parse([
     city: 'Mumbai',
     status: 'inactive',
     isDefault: false,
+    userCount: 6,
   },
 ]);
 

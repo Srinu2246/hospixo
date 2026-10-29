@@ -8,8 +8,14 @@ import {
   parseBranchList,
   type BranchListItem,
 } from '@/lib/schemas/organization/branches/branchListSchema';
+import {
+  calculateBranchUserCounts,
+  enrichBranchesWithUserCounts,
+} from '@/lib/helpers/organizationUserCounts';
 import { ApiError, type QueryParams } from '@/services/api/types';
 import type { JsonValue } from '@/types/json';
+
+export { calculateBranchUserCounts, enrichBranchesWithUserCounts };
 
 type GetJson = (path: string, params?: QueryParams) => Promise<JsonValue>;
 

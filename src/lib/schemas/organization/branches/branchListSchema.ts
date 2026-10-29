@@ -13,6 +13,7 @@ export const branchListItemSchema = z.object({
   city: z.string().min(1),
   status: z.enum(['active', 'inactive']),
   isDefault: z.boolean(),
+  userCount: z.number().int().nonnegative().default(0),
 });
 
 export const branchListSchema = z.array(branchListItemSchema);
@@ -119,7 +120,26 @@ function mapBranch(raw: Record<string, unknown>, fallbackCompanyId?: number | st
         ? 'inactive'
         : 'active',
     isDefault: Boolean(raw.isDefault ?? raw.is_default),
+    userCount: count(
+      raw.userCount ??
+        raw.user_count ??
+        raw.users_count ??
+        raw.usersCount ??
+        raw.total_users ??
+        raw.totalUsers ??
+        raw.employees_count ??
+        raw.employee_count ??
+        raw.members_count ??
+        raw.staff_count ??
+        raw.users,
+    ),
   };
+}
+
+function count(value: unknown): number {
+  if (Array.isArray(value)) return value.length;
+  const parsed = typeof value === 'number' ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }
 
 function toInt(value: unknown): number | undefined {

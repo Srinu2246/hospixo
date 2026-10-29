@@ -216,6 +216,23 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   const organizationDashboard = resolveOrganizationDashboardMock(request);
   if (organizationDashboard !== undefined) return organizationDashboard;
 
+  if (
+    request.method === 'GET' &&
+    request.path.match(/^\/v[12]\/platform\/organizations\/[^/]+\/companies$/)
+  ) {
+    return {
+      success: true,
+      data: {
+        items: MOCK_COMPANIES,
+        total: MOCK_COMPANIES.length,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      message: 'OK',
+    };
+  }
+
   const userRoles = resolveUserRolesMock(request);
   if (userRoles !== undefined) return userRoles;
 
