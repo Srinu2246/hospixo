@@ -4,8 +4,15 @@ import {
   parseCompanyList,
   type CompanyListItem,
 } from '@/lib/schemas/organization/companies/companyListSchema';
+import {
+  calculateCompanyUserCounts,
+  enrichCompaniesWithUserCounts,
+  fetchOrganizationUsers,
+} from '@/lib/helpers/organizationUserCounts';
 import { ApiError, type QueryParams } from '@/services/api/types';
 import type { JsonObject, JsonValue } from '@/types/json';
+
+export { calculateCompanyUserCounts, enrichCompaniesWithUserCounts, fetchOrganizationUsers };
 
 type GetJson = (path: string, params?: QueryParams) => Promise<JsonValue>;
 

@@ -442,6 +442,7 @@ test('userRolesHelpers - resolveCreateUserBranchOptions filters branches by acti
       city: 'Downtown',
       status: 'active' as const,
       isDefault: true,
+      userCount: 0,
     },
     {
       id: 2,
@@ -452,6 +453,7 @@ test('userRolesHelpers - resolveCreateUserBranchOptions filters branches by acti
       city: 'Uptown',
       status: 'active' as const,
       isDefault: false,
+      userCount: 0,
     },
   ];
   const companies = [
