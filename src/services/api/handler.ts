@@ -76,6 +76,10 @@ const LIST_MOCKS: Record<string, unknown> = {
     },
   },
   [ApiUrlsV1.auth.logout]: { success: true, message: 'OK' },
+  [ApiUrlsV1.auth.changePassword]: {
+    success: true,
+    message: 'Password changed successfully',
+  },
   [ApiUrlsV1.auth.me]: {
     success: true,
     message: 'OK',
@@ -240,7 +244,11 @@ export function resolveMock(request: MockRequest): unknown | undefined {
   if (!listPath) return undefined;
 
   if (request.method !== 'GET') {
-    if (request.path === ApiUrlsV1.auth.login || request.path === ApiUrlsV1.auth.logout) {
+    if (
+      request.path === ApiUrlsV1.auth.login ||
+      request.path === ApiUrlsV1.auth.logout ||
+      request.path === ApiUrlsV1.auth.changePassword
+    ) {
       return LIST_MOCKS[request.path];
     }
 

@@ -10,10 +10,7 @@ import { AlertCircle, KeyRound, ShieldCheck } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Card } from '@/components/shared/ui/Card';
-import type {
-  ChangePasswordValues,
-  UserProfile,
-} from '@/lib/schemas/admin/profile/adminProfileSchema';
+import type { UserProfile } from '@/lib/schemas/admin/profile/adminProfileSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 import { ChangePasswordForm } from './ChangePasswordForm';
@@ -21,7 +18,7 @@ import { ChangePasswordForm } from './ChangePasswordForm';
 export interface SecurityPasswordCardProps {
   profile: UserProfile;
   onToggleTwoFactorProtection: (checked: boolean) => void;
-  onChangePassword: (passwords: ChangePasswordValues) => void;
+  onPasswordSuccess?: (message?: string) => void;
 }
 
 /**
@@ -33,20 +30,17 @@ export interface SecurityPasswordCardProps {
 export function SecurityPasswordCard({
   profile,
   onToggleTwoFactorProtection,
-  onChangePassword,
+  onPasswordSuccess,
 }: Readonly<SecurityPasswordCardProps>) {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
 
   function handleCancelPassword() {
     setIsChangingPassword(false);
   }
 
-  function handleSubmitPassword(passwords: ChangePasswordValues) {
-    setPasswordSubmitting(true);
-    onChangePassword(passwords);
-    setPasswordSubmitting(false);
+  function handleSuccessPassword(message?: string) {
     setIsChangingPassword(false);
+    onPasswordSuccess?.(message);
   }
 
   return (
@@ -135,11 +129,7 @@ export function SecurityPasswordCard({
 
       {/* 2. Security & Password Section */}
       {isChangingPassword ? (
-        <ChangePasswordForm
-          onCancel={handleCancelPassword}
-          onSubmit={handleSubmitPassword}
-          loading={passwordSubmitting}
-        />
+        <ChangePasswordForm onCancel={handleCancelPassword} onSuccess={handleSuccessPassword} />
       ) : (
         <Box>
           <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: 'text.primary' }}>

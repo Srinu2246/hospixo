@@ -7,13 +7,15 @@ import Typography from '@mui/material/Typography';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { PasswordInput } from '@/components/shared/form-fields/PasswordInput';
-import type { ChangePasswordValues } from '@/lib/schemas/admin/profile/adminProfileSchema';
+import { AlertMessage } from '@/components/shared/ui/AlertMessage';
+import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
+import { useChangePassword } from '@/lib/hooks/admin/profile/useChangePassword';
+import { changePasswordSchema } from '@/lib/schemas/admin/profile/adminProfileSchema';
 import { colors } from '@/lib/theme/mui/colors';
 
 export interface ChangePasswordFormProps {
   onCancel: () => void;
-  onSubmit: (passwords: ChangePasswordValues) => void;
-  loading?: boolean;
+  onSuccess: (message: string) => void;
 }
 
 interface RuleItemProps {
@@ -51,11 +53,8 @@ function RuleBullet({ satisfied, label }: Readonly<RuleItemProps>) {
  *
  * Password update form with interactive validation rules matching reference screen 1.
  */
-export function ChangePasswordForm({
-  onCancel,
-  onSubmit,
-  loading = false,
-}: Readonly<ChangePasswordFormProps>) {
+export function ChangePasswordForm({ onCancel, onSuccess }: Readonly<ChangePasswordFormProps>) {
+  const changePasswordMutation = useChangePassword();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -69,32 +68,52 @@ export function ChangePasswordForm({
 
   const allRulesSatisfied = ruleLength && ruleLower && ruleUpper && ruleNumber && ruleSpecial;
 
+  const isPending = changePasswordMutation.isPending;
+
   const canSubmit =
     Boolean(currentPassword.trim()) &&
     allRulesSatisfied &&
     Boolean(confirmPassword) &&
-    newPassword === confirmPassword;
+    newPassword === confirmPassword &&
+    !isPending;
 
-  function handleSubmit() {
-    if (!currentPassword.trim()) {
-      setErrorMessage('Current password is required');
-      return;
-    }
-    if (!allRulesSatisfied) {
-      setErrorMessage('New password does not meet all security requirements');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setErrorMessage('Confirm password does not match new password');
-      return;
-    }
-
-    setErrorMessage(null);
-    onSubmit({
+  async function handleSubmit() {
+    const parseResult = changePasswordSchema.safeParse({
       currentPassword,
       newPassword,
       confirmPassword,
     });
+    if (!parseResult.success) {
+      setErrorMessage(parseResult.error.issues[0]?.message ?? 'Invalid password inputs');
+      return;
+    }
+
+    setErrorMessage(null);
+    try {
+      const response = await changePasswordMutation.mutateAsync({
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+
+      let successMsg = 'Password changed successfully';
+      if (typeof response === 'object' && response) {
+        const res = response as {
+          message?: string;
+          data?: { message?: string; detail?: string };
+        };
+        if (res.data?.message) {
+          successMsg = res.data.message;
+        } else if (res.message && res.message !== 'OK') {
+          successMsg = res.message;
+        }
+      }
+
+      onSuccess(successMsg);
+    } catch (error: unknown) {
+      setErrorMessage(
+        getErrorMessage(error, 'Failed to change password. Please check your current password.'),
+      );
+    }
   }
 
   return (
@@ -185,9 +204,7 @@ export function ChangePasswordForm({
         />
 
         {errorMessage ? (
-          <Typography sx={{ color: 'error.main', fontSize: '0.8125rem' }}>
-            {errorMessage}
-          </Typography>
+          <AlertMessage variant="error" message={errorMessage} sx={{ width: '100%' }} />
         ) : null}
 
         {/* Action Buttons */}
@@ -196,13 +213,13 @@ export function ChangePasswordForm({
           spacing={1.5}
           sx={{ justifyContent: 'flex-end', alignItems: 'center', pt: 1 }}
         >
-          <ActionButton variant="text" onClick={onCancel} disabled={loading}>
+          <ActionButton variant="text" onClick={onCancel} disabled={isPending}>
             Cancel
           </ActionButton>
           <ActionButton
             variant="primary"
             onClick={handleSubmit}
-            loading={loading}
+            loading={isPending}
             disabled={!canSubmit}
           >
             Change Password
