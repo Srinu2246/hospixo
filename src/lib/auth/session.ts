@@ -19,6 +19,19 @@ export type SidebarSession = {
 export function sessionFromLoginUser(account: LoginUser): SidebarSession {
   const role = account.roles[0] || account.scope;
   const name = [account.first_name, account.last_name].filter(Boolean).join(' ').trim();
+  const rawAccount = account as Record<string, unknown>;
+  const orgName =
+    (typeof rawAccount.organization_name === 'string' && rawAccount.organization_name.trim()) ||
+    (typeof rawAccount.org_name === 'string' && rawAccount.org_name.trim()) ||
+    undefined;
+  const compName =
+    typeof rawAccount.company_name === 'string' && rawAccount.company_name.trim()
+      ? rawAccount.company_name.trim()
+      : undefined;
+  const branchName =
+    typeof rawAccount.branch_name === 'string' && rawAccount.branch_name.trim()
+      ? rawAccount.branch_name.trim()
+      : undefined;
 
   return {
     role,
@@ -30,8 +43,11 @@ export function sessionFromLoginUser(account: LoginUser): SidebarSession {
     },
     context: {
       organizationId: account.org_id ?? undefined,
+      ...(orgName ? { organizationName: orgName } : {}),
       companyId: account.company_id ?? undefined,
+      ...(compName ? { companyName: compName } : {}),
       branchId: account.branch_id ?? undefined,
+      ...(branchName ? { branchName } : {}),
     },
   };
 }

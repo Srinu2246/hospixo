@@ -64,6 +64,11 @@ import {
 import { isFeatureFlagDefaultOn } from '@/integrations/growthbook/featureFlags';
 import { Undo2 } from 'lucide-react';
 
+import { resolveEntityScopeLabel, resolveTopNavbarLevel } from '@/lib/helpers';
+import { useResolvedBranchName } from '@/lib/hooks/useResolvedBranchName';
+import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
+import { useSidebarStore } from '@/stores/sidebarStore';
+
 export type SidebarProps = {
   role?: string;
   userPermissions?: string[] | null;
@@ -454,13 +459,26 @@ export function Sidebar({
     }
   };
 
-  // Entity scope label (e.g. Branch / Company / Organization name)
-  const entityScopeLabel = useMemo(() => {
-    if (context?.branchName) return context.branchName;
-    if (context?.companyName) return context.companyName;
-    if (context?.organizationName) return context.organizationName;
-    return null;
-  }, [context]);
+  // Entity scope label (Organization name / Company name / Branch name strictly scoped)
+  const storeAccount = useSidebarStore((state) => state.account);
+  const storeContext = useSidebarStore((state) => state.context);
+  const activeContext = context ?? storeContext;
+
+  const resolvedBranchName = useResolvedBranchName(activeContext?.branchName);
+  const resolvedCompanyName = useResolvedCompanyName(activeContext?.companyName);
+  const currentLevel = resolveTopNavbarLevel(effectivePathname, role, activeContext);
+
+  const entityScopeLabel = useMemo(
+    () =>
+      resolveEntityScopeLabel({
+        level: currentLevel,
+        context: activeContext,
+        account: storeAccount,
+        resolvedCompanyName,
+        resolvedBranchName,
+      }),
+    [currentLevel, activeContext, storeAccount, resolvedCompanyName, resolvedBranchName],
+  );
 
   // Open width shared by every role (Captain, Cashier, Branch, Company, Org, …).
   const sidebarWidth = isOpen ? 220 : 76;

@@ -41,6 +41,8 @@ export interface MobileBranchSelectorProps {
   sx?: SxProps<Theme>;
   /** Hide the uppercase scope row (e.g. on captain workspace). */
   hideScopeLabel?: boolean;
+  /** Whether the selector is read-only (non-interactive, no dropdown arrow) */
+  isReadOnly?: boolean;
 }
 
 /**
@@ -60,19 +62,20 @@ export function MobileBranchSelector({
   fontSize = { xs: '0.8125rem', sm: '0.875rem' },
   maxLabelWidth = { xs: 150, sm: 220, md: 280 },
   hideScopeLabel = false,
+  isReadOnly = false,
   sx,
 }: Readonly<MobileBranchSelectorProps>) {
   return (
     <>
       <Box
-        onClick={(e) => onOpen(e.currentTarget)}
+        onClick={isReadOnly ? undefined : (e) => onOpen(e.currentTarget)}
         sx={[
           {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-start',
             justifyContent: 'center',
-            cursor: 'pointer',
+            cursor: isReadOnly ? 'default' : 'pointer',
             textAlign: 'left',
             userSelect: 'none',
             minWidth: 0,
@@ -80,9 +83,13 @@ export function MobileBranchSelector({
             px: 0.5,
             borderRadius: '8px',
             transition: 'background-color 0.15s ease',
-            '&:hover': {
-              bgcolor: 'action.hover',
-            },
+            ...(isReadOnly
+              ? {}
+              : {
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                  },
+                }),
           },
           ...(Array.isArray(sx) ? sx : [sx]),
         ]}
@@ -90,12 +97,12 @@ export function MobileBranchSelector({
         {hideScopeLabel ? null : (
           <Typography
             sx={{
-              fontSize: '0.625rem',
-              fontWeight: 700,
-              color: colors.text.secondary,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              lineHeight: 1.1,
+              fontSize: { xs: '0.9rem', sm: '1rem' },
+              fontWeight: 600,
+              color: 'text.secondary',
+              letterSpacing: '-0.01em',
+              lineHeight: 1.2,
+              mb: 0.2,
             }}
           >
             {scopeLabel}
@@ -114,8 +121,12 @@ export function MobileBranchSelector({
           <Typography
             sx={{
               fontSize,
-              fontWeight: 700,
-              color: 'text.primary',
+              fontWeight:
+                outletLabel === 'Select Company' || outletLabel === 'Select Branch' ? 500 : 700,
+              color:
+                outletLabel === 'Select Company' || outletLabel === 'Select Branch'
+                  ? 'text.secondary'
+                  : 'text.primary',
               lineHeight: 1.2,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -125,15 +136,17 @@ export function MobileBranchSelector({
           >
             {outletLabel}
           </Typography>
-          <KeyboardArrowDownIcon
-            sx={{
-              fontSize: 16,
-              color: colors.text.secondary,
-              flexShrink: 0,
-              transform: anchorEl ? 'rotate(180deg)' : 'none',
-              transition: 'transform 0.2s ease',
-            }}
-          />
+          {!isReadOnly ? (
+            <KeyboardArrowDownIcon
+              sx={{
+                fontSize: 16,
+                color: colors.text.secondary,
+                flexShrink: 0,
+                transform: anchorEl ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s ease',
+              }}
+            />
+          ) : null}
         </Box>
       </Box>
 
