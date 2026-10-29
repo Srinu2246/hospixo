@@ -7,6 +7,7 @@ import Chip from '@mui/material/Chip';
 import type { SxProps, Theme } from '@mui/material/styles';
 
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { ActionButton, type ActionButtonProps } from '@/components/shared/form-fields/ActionButton';
 
 export interface HeaderActionButtonProps {
@@ -24,6 +25,8 @@ export interface HeaderProps {
   title: string;
   /** Optional descriptive subtitle */
   subtitle?: string;
+  /** Shorter subtitle on mobile/tablet; desktop keeps `subtitle`. */
+  compactSubtitle?: string;
   /** Optional badge/chip label next to title */
   badge?: string;
   /** Color theme for the badge chip */
@@ -55,6 +58,7 @@ export interface HeaderProps {
 export function Header({
   title,
   subtitle,
+  compactSubtitle,
   badge,
   badgeColor = 'default',
   breadcrumbs,
@@ -135,17 +139,45 @@ export function Header({
             )}
           </Box>
 
-          {subtitle && (
-            <Typography
-              variant="body2"
-              sx={{
-                color: colors.text.secondary,
-                fontSize: '0.875rem',
-                lineHeight: 1.4,
-              }}
-            >
-              {subtitle}
-            </Typography>
+          {(compactSubtitle || subtitle) && (
+            <>
+              {compactSubtitle ? (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    display: {
+                      [screen.mobile]: 'block',
+                      [screen.tablet]: 'block',
+                      [screen.desktop]: 'none',
+                    },
+                    color: colors.text.secondary,
+                    fontSize: '0.875rem',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {compactSubtitle}
+                </Typography>
+              ) : null}
+              {subtitle ? (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    display: compactSubtitle
+                      ? {
+                          [screen.mobile]: 'none',
+                          [screen.tablet]: 'none',
+                          [screen.desktop]: 'block',
+                        }
+                      : 'block',
+                    color: colors.text.secondary,
+                    fontSize: '0.875rem',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {subtitle}
+                </Typography>
+              ) : null}
+            </>
           )}
         </Box>
 

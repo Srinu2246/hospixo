@@ -10,7 +10,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
-import { screen } from '@/lib/theme/mui/breakpoints';
+import { userRolesBreadcrumbStripSx } from '@/lib/helpers/employees/userRolesLayout';
 
 export interface StaffProfileHeaderProps {
   isReadOnly: boolean;
@@ -36,10 +36,7 @@ export function StaffProfileHeader({
       {/* Top Breadcrumb Bar */}
       <Box
         sx={{
-          mt: { [screen.mobile]: -2, [screen.desktop]: -3 },
-          mx: { [screen.mobile]: -2, [screen.desktop]: -3 },
-          px: { [screen.mobile]: 2, [screen.desktop]: 3 },
-          py: 1.5,
+          ...userRolesBreadcrumbStripSx,
           bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
           borderBottom: '1px solid',
           borderColor: (theme) =>

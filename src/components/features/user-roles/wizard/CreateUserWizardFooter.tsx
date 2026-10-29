@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import type { CreateUserStep } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 
 export interface CreateUserWizardFooterProps {
@@ -61,11 +62,12 @@ export function CreateUserWizardFooter({
           theme.palette.mode === 'dark'
             ? '0 -4px 20px rgba(0, 0, 0, 0.5)'
             : '0 -4px 16px rgba(0, 0, 0, 0.05)',
-        px: { xs: 2.5, sm: 3 },
-        py: 2,
+        px: { [screen.mobile]: 2, [screen.tablet]: 2, [screen.desktop]: 3 },
+        py: { [screen.mobile]: 1.5, [screen.desktop]: 2 },
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        gap: 1.5,
         boxSizing: 'border-box',
       }}
     >
@@ -74,10 +76,11 @@ export function CreateUserWizardFooter({
         onClick={onBack}
         disabled={isSubmitting}
         sx={{
-          height: 38,
+          flex: { [screen.mobile]: 1, [screen.tablet]: 1, [screen.desktop]: 'unset' },
+          height: { [screen.mobile]: 44, [screen.desktop]: 38 },
           borderRadius: '8px',
           px: 2.5,
-          minWidth: 96,
+          minWidth: { [screen.desktop]: 96 },
           borderColor: (theme) =>
             theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
           color: 'text.primary',
@@ -95,10 +98,11 @@ export function CreateUserWizardFooter({
         onClick={handleNextClick}
         loading={isSubmitting}
         sx={{
-          height: 38,
+          flex: { [screen.mobile]: 1, [screen.tablet]: 1, [screen.desktop]: 'unset' },
+          height: { [screen.mobile]: 44, [screen.desktop]: 38 },
           borderRadius: '8px',
           px: 2.5,
-          minWidth: 130,
+          minWidth: { [screen.desktop]: 130 },
           bgcolor: colors.primary.default,
           fontWeight: 600,
           fontSize: '0.875rem',

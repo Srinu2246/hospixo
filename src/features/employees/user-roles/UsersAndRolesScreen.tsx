@@ -298,6 +298,7 @@ export function UsersAndRolesScreen({
     >
       <Header
         title="Users & Roles"
+        compactSubtitle="Manage team and access levels."
         subtitle="Manage your team members and their system access levels."
         actionSlot={
           <ActionButton
@@ -336,11 +337,13 @@ export function UsersAndRolesScreen({
           flexDirection: 'column',
           gap: 2,
           boxShadow: 'none',
+          p: { xs: 2, sm: 2, md: undefined },
         }}
       >
         <UserRoleTableToolbar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          compactSearchPlaceholder="Search users..."
           selectedRole={selectedRole}
           onClearRole={() => clearFilter('role')}
           roleOptions={filterRoleOptions}

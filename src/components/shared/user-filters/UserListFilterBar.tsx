@@ -4,12 +4,16 @@ import React, { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import type { SxProps, Theme } from '@mui/material/styles';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { colors } from '@/lib/theme/mui/colors';
+import { screen } from '@/lib/theme/mui/breakpoints';
+import { useHydrated } from '@/lib/hooks/useHydrated';
 import {
   USER_STATUS_OPTIONS,
   type UserListSortBy,
@@ -28,6 +32,8 @@ export interface UserListFilterBarProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
+  /** Used below desktop when provided. */
+  compactSearchPlaceholder?: string;
 
   // Active filters and counter
   hasActiveFilters?: boolean;
@@ -82,6 +88,7 @@ export function UserListFilterBar({
   searchQuery,
   onSearchChange,
   searchPlaceholder = 'Search users by name, email, or username...',
+  compactSearchPlaceholder,
   hasActiveFilters = false,
   activeFiltersCount = 0,
   onOpenFilter,
@@ -114,6 +121,14 @@ export function UserListFilterBar({
   onClearFilter,
   sx,
 }: Readonly<UserListFilterBarProps>) {
+  const theme = useTheme();
+  const hydrated = useHydrated();
+  const viewportCompact = useMediaQuery(theme.breakpoints.down(screen.desktop), { noSsr: true });
+  const resolvedSearchPlaceholder =
+    hydrated && viewportCompact && compactSearchPlaceholder
+      ? compactSearchPlaceholder
+      : searchPlaceholder;
+
   const [internalAnchorEl, setInternalAnchorEl] = useState<HTMLElement | null>(null);
 
   // If onOpenFilter is not supplied, use internal anchor element for popover
@@ -187,7 +202,7 @@ export function UserListFilterBar({
             value={searchQuery}
             onChange={onSearchChange}
             onClear={() => onSearchChange('')}
-            placeholder={searchPlaceholder}
+            placeholder={resolvedSearchPlaceholder}
             fullWidth
           />
         </Box>

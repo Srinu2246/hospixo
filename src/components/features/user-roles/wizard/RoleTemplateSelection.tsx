@@ -8,6 +8,7 @@ import { Card } from '@/components/shared/ui/Card';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { colors } from '@/lib/theme/mui/colors';
 import { screen } from '@/lib/theme/mui/breakpoints';
+import { userRolesBreadcrumbStripSx } from '@/lib/helpers/employees/userRolesLayout';
 
 // Icons
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
@@ -63,10 +64,7 @@ export function RoleTemplateSelection({
       {/* Top Breadcrumb Bar - White background ONLY for breadcrumb, solid light black line without padding on line */}
       <Box
         sx={{
-          mt: { [screen.mobile]: -2, [screen.desktop]: -3 },
-          mx: { [screen.mobile]: -2, [screen.desktop]: -3 },
-          px: { [screen.mobile]: 2, [screen.desktop]: 3 },
-          py: 1.5,
+          ...userRolesBreadcrumbStripSx,
           bgcolor: (theme) => (theme.palette.mode === 'dark' ? colors.surface.dark : '#FFFFFF'),
           borderBottom: '1px solid',
           borderColor: (theme) =>
@@ -123,9 +121,29 @@ export function RoleTemplateSelection({
             </Typography>
             <Typography
               variant="body2"
-              sx={{ color: colors.text.secondary, mt: 0.5, fontSize: '0.875rem' }}
+              sx={{
+                color: colors.text.secondary,
+                mt: 0.5,
+                fontSize: '0.875rem',
+                display: { [screen.mobile]: 'none', [screen.desktop]: 'block' },
+              }}
             >
               Choose a starting template to configure specific permissions.
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                color: colors.text.secondary,
+                mt: 0.5,
+                fontSize: '0.875rem',
+                display: {
+                  [screen.mobile]: 'block',
+                  [screen.tablet]: 'block',
+                  [screen.desktop]: 'none',
+                },
+              }}
+            >
+              Select a template to set permissions.
             </Typography>
           </Box>
 
@@ -160,7 +178,7 @@ export function RoleTemplateSelection({
             md: scope === 'company' ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)',
             lg: scope === 'company' ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)',
           },
-          gap: 2.5,
+          gap: { [screen.mobile]: 1.5, [screen.tablet]: 2, [screen.desktop]: 2.5 },
           pt: 0.5,
         }}
       >
