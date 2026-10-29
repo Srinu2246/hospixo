@@ -299,24 +299,36 @@ export function resolveKitchenDisplayMock(request: MockRequest): unknown | undef
     const orderId = orderMatch ? Number(orderMatch[2]) : 0;
     const body =
       request.body && typeof request.body === 'object'
-        ? (request.body as { expected_version?: number; action?: string })
+        ? (request.body as {
+            expected_version?: number;
+            action?: string;
+            item_id?: number;
+          })
         : {};
     const expected = body.expected_version ?? 1;
+    const status =
+      body.action === 'complete' || body.action === 'served'
+        ? 'served'
+        : body.action === 'mark_ready'
+          ? 'ready'
+          : 'preparing';
+    const itemId = typeof body.item_id === 'number' && body.item_id > 0 ? body.item_id : undefined;
     return {
       success: true,
       message: 'Kitchen status updated successfully',
       request_id: 'mock-status-update',
       data: {
         order_id: orderId,
+        item_id: itemId,
         expected_version: expected,
-        status: body.action === 'complete' ? 'completed' : 'preparing',
-        updated_item_ids: [],
+        status,
+        updated_item_ids: itemId != null ? [itemId] : [],
         order: {
           id: orderId,
           version: expected + 1,
           order_number: String(orderId),
-          status: body.action === 'complete' ? 'completed' : 'preparing',
-          kitchen_badge: body.action === 'mark_ready' ? 'ready' : 'preparing',
+          status,
+          kitchen_badge: status,
           items: [],
         },
       },

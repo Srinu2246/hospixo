@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { toKitchenBadge } from '@/lib/schemas/kitchen-display/kitchenStatusSchema';
 import type {
   DishCategory,
   KitchenDishItem,
@@ -21,9 +22,11 @@ export const kitchenBoardItemLineSchema = z.object({
     'draft',
     'open',
     'submitted',
+    'kot_sent',
     'preparing',
     'ready',
     'completed',
+    'served',
     'cancelled',
     'voided',
   ]),
@@ -36,6 +39,7 @@ export const kitchenBoardTicketSchema = z.object({
   order_id: z.number(),
   /** Optimistic lock for PATCH kitchen-status. */
   version: z.coerce.number().int().nonnegative().optional(),
+  order_version: z.coerce.number().int().nonnegative().optional(),
   order_number: z.string(),
   order_type: z.enum(['dine_in', 'takeaway', 'delivery']),
   table_id: z.number().nullable().optional(),
@@ -47,9 +51,11 @@ export const kitchenBoardTicketSchema = z.object({
     'draft',
     'open',
     'submitted',
+    'kot_sent',
     'preparing',
     'ready',
     'completed',
+    'served',
     'cancelled',
     'voided',
   ]),
@@ -101,6 +107,7 @@ export const kitchenDishItemSchema = z.object({
   name: z.string(),
   quantity: z.number().int().min(1),
   category: z.enum(['Starters', 'Mains', 'Drinks', 'Desserts']),
+  itemStatus: z.enum(['kot_sent', 'preparing', 'ready', 'served', 'cancelled']).nullable(),
   icon: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -169,7 +176,7 @@ export function ticketToKitchenOrderItem(
     status = 'preparing';
   } else if (ticket.status === 'ready') {
     status = 'ready';
-  } else if (ticket.status === 'completed') {
+  } else if (ticket.status === 'served' || ticket.status === 'completed') {
     status = 'served';
   }
 
@@ -186,12 +193,15 @@ export function ticketToKitchenOrderItem(
     name: line.item_name,
     quantity: Math.max(1, Math.round(line.quantity)),
     category: normalizeCategory(line.category_name),
+    itemStatus: toKitchenBadge(line.item_status),
     notes: line.variant_name ?? undefined,
   }));
 
   const orderNum = ticket.order_number.startsWith('#')
     ? ticket.order_number
     : `#${ticket.order_number}`;
+  const rawVersion = ticket.version ?? ticket.order_version;
+  const version = rawVersion != null && rawVersion >= 1 ? rawVersion : 0;
 
   return {
     id: String(ticket.order_id),
@@ -205,8 +215,34 @@ export function ticketToKitchenOrderItem(
     timeLabel: elapsed.label,
     elapsedSeconds: elapsed.seconds,
     createdAt: timestamp ?? new Date().toISOString(),
-    version: ticket.version != null && ticket.version >= 1 ? ticket.version : 1,
+    version,
   };
+}
+
+/** One card per order in each column. The board can return the same order twice. */
+export function collapseKitchenOrders(orders: KitchenOrderItem[]): KitchenOrderItem[] {
+  const collapsed: KitchenOrderItem[] = [];
+  for (const order of orders) {
+    const index = collapsed.findIndex((row) => row.id === order.id && row.status === order.status);
+    if (index < 0) {
+      collapsed.push(order);
+      continue;
+    }
+    const existing = collapsed[index];
+    const seen = new Set(existing.items.map((item) => item.id));
+    const items = [...existing.items];
+    for (const item of order.items) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      items.push(item);
+    }
+    collapsed[index] = {
+      ...existing,
+      items,
+      version: Math.max(existing.version, order.version),
+    };
+  }
+  return collapsed;
 }
 
 export function kitchenBoardResponseToViewModel(
@@ -226,7 +262,7 @@ export function kitchenBoardResponseToViewModel(
     ticketToKitchenOrderItem(t, 'ready', stationName),
   );
 
-  const allOrders = [...newOrders, ...preparingOrders, ...readyOrders];
+  const allOrders = collapseKitchenOrders([...newOrders, ...preparingOrders, ...readyOrders]);
 
   const pendingCount = board.counts?.new_orders ?? newOrders.length;
   const preparingCount = board.counts?.preparing ?? preparingOrders.length;

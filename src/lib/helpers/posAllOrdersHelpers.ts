@@ -6,7 +6,8 @@ import type {
 } from '@/lib/schemas/pos/point-of-sale/all-orders/posOrdersSchema';
 
 export type OrderType = 'all' | 'dine-in' | 'takeaway' | 'delivery' | 'online';
-export type KitchenStatus = 'kot sent' | 'ready' | 'preparing' | 'billing' | 'draft';
+export type KitchenStatus =
+  'kot sent' | 'preparing' | 'ready' | 'served' | 'cancelled' | 'billing' | 'draft';
 
 /** UI row for the All Orders grid (mapped from API list item). */
 export interface PosOrderItem {
@@ -50,12 +51,14 @@ const ORDER_TYPE_LABEL: Record<PosOrderItem['type'], string> = {
 };
 
 const KITCHEN_FROM_BADGE: Record<PosKitchenBadge, { status: KitchenStatus; label: string }> = {
-  draft: { status: 'draft', label: 'Draft' },
-  ordering: { status: 'kot sent', label: 'KOT Sent' },
-  'kot sent': { status: 'kot sent', label: 'KOT Sent' },
   kot_sent: { status: 'kot sent', label: 'KOT Sent' },
   preparing: { status: 'preparing', label: 'Preparing' },
   ready: { status: 'ready', label: 'Ready' },
+  served: { status: 'served', label: 'Served' },
+  cancelled: { status: 'cancelled', label: 'Cancelled' },
+  draft: { status: 'draft', label: 'Draft' },
+  ordering: { status: 'kot sent', label: 'KOT Sent' },
+  'kot sent': { status: 'kot sent', label: 'KOT Sent' },
   billing: { status: 'billing', label: 'Billing' },
 };
 
@@ -63,10 +66,13 @@ const KITCHEN_FROM_STATUS: Record<PosOrderStatus, { status: KitchenStatus; label
   draft: { status: 'draft', label: 'Draft' },
   open: { status: 'preparing', label: 'Preparing' },
   submitted: { status: 'kot sent', label: 'KOT Sent' },
+  completed: { status: 'served', label: 'Served' },
+  cancelled: { status: 'cancelled', label: 'Cancelled' },
+  voided: { status: 'cancelled', label: 'Voided' },
   ordering: { status: 'kot sent', label: 'KOT Sent' },
   billing: { status: 'billing', label: 'Billing' },
   in_progress: { status: 'preparing', label: 'Preparing' },
-  served: { status: 'ready', label: 'Ready' },
+  served: { status: 'served', label: 'Served' },
   closed: { status: 'billing', label: 'Billing' },
 };
 

@@ -13,10 +13,10 @@ export interface KitchenColumnProps {
   count: number;
   accentColor: string;
   orders: KitchenOrderItem[];
-  onStartPreparing?: (orderId: string) => void;
+  onStartPreparing?: (orderId: string, itemId?: string) => void;
   onRecall?: (orderId: string) => void;
-  onMarkReady?: (orderId: string) => void;
-  onServe?: (orderId: string) => void;
+  onMarkReady?: (orderId: string, itemId?: string) => void;
+  onServe?: (orderId: string, itemId?: string) => void;
 }
 
 export function KitchenColumn({
@@ -110,7 +110,7 @@ export function KitchenColumn({
         ) : (
           orders.map((order) => (
             <KitchenOrderCard
-              key={order.id}
+              key={`${order.id}-${order.items.map((item) => item.id).join('-')}`}
               order={order}
               onStartPreparing={onStartPreparing}
               onRecall={onRecall}

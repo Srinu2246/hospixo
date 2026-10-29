@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 import type {
+  KitchenDishItem,
   KitchenOrderItem,
   KitchenStation,
   KitchenDisplayStats,
@@ -16,14 +17,24 @@ import {
   writeKitchenSoundEnabled,
 } from '@/lib/helpers/kitchenAlertSound';
 import { EMPTY_KITCHEN_DISPLAY_STATS } from '@/lib/hooks/kitchen-display/kitchenDisplayDefaults';
+import {
+  readBranchOrderVersion,
+  rememberBranchOrderVersion,
+} from '@/lib/hooks/pos/point-of-sale/order-events/branchOrderEventsConnection';
 import { useBranchOrderEventsStream } from '@/lib/hooks/pos/point-of-sale/order-events/useBranchOrderEventsStream';
 import {
   isKitchenOrderVersionConflict,
+  kitchenConflictExpectedVersion,
   kitchenStatusErrorMessage,
   useUpdateKitchenOrderStatus,
 } from '@/lib/hooks/kitchen-display/useUpdateKitchenOrderStatus';
-import type { KitchenStatusAction } from '@/lib/schemas/kitchen-display/kitchenStatusSchema';
 import {
+  kitchenActionForItemStatus,
+  kitchenLineStatusAfterAction,
+  type KitchenStatusAction,
+} from '@/lib/schemas/kitchen-display/kitchenStatusSchema';
+import {
+  collapseKitchenOrders,
   kitchenBoardResponseToViewModel,
   type KitchenBoardResponse,
   type ApiResponseKitchenBoard,
@@ -68,6 +79,112 @@ export function kitchenLiveLabel(
   return 'Live';
 }
 
+function sourceStatusForAction(action: KitchenStatusAction): KitchenOrderItem['status'] {
+  if (action === 'start_preparing') return 'new';
+  if (action === 'mark_ready') return 'preparing';
+  return 'ready';
+}
+
+function nextStatusForAction(action: KitchenStatusAction): 'preparing' | 'ready' | 'remove' {
+  if (action === 'start_preparing') return 'preparing';
+  if (action === 'mark_ready') return 'ready';
+  return 'remove';
+}
+
+function withKitchenLineStatus(
+  item: KitchenDishItem,
+  action: KitchenStatusAction,
+): KitchenDishItem {
+  return { ...item, itemStatus: kitchenLineStatusAfterAction(action) };
+}
+
+function knownOrderVersion(
+  order: KitchenOrderItem,
+  previous: readonly KitchenOrderItem[],
+  branchId: number | undefined,
+): number {
+  const fromCard = previous.find((row) => row.id === order.id)?.version ?? 0;
+  const numericId = Number(order.id);
+  const fromStream =
+    branchId != null && Number.isInteger(numericId)
+      ? (readBranchOrderVersion(branchId, numericId) ?? 0)
+      : 0;
+  return Math.max(order.version, fromCard, fromStream);
+}
+
+/** Move one line, or the whole card, to the next kitchen column. */
+
+function applyKitchenActionToOrders(
+  orders: KitchenOrderItem[],
+  orderId: string,
+  action: KitchenStatusAction,
+  itemId?: string,
+): KitchenOrderItem[] {
+  const sourceStatus = sourceStatusForAction(action);
+  const lineId = itemId?.trim() || undefined;
+  const target = lineId
+    ? orders.find((order) => order.id === orderId && order.items.some((item) => item.id === lineId))
+    : orders.find((order) => order.id === orderId && order.status === sourceStatus);
+  if (!target) return orders;
+
+  const cardStatus = target.status;
+  const movingOneLine = lineId != null && target.items.some((item) => item.id === lineId);
+  const moved = movingOneLine ? target.items.find((item) => item.id === lineId) : undefined;
+  const affectsWholeCard = !movingOneLine || target.items.length <= 1;
+
+  if (affectsWholeCard) {
+    if (action === 'served' || action === 'complete') {
+      return orders.filter((order) => !(order.id === orderId && order.status === cardStatus));
+    }
+    const status = nextStatusForAction(action);
+    if (status === 'remove') return orders;
+    const movedCard: KitchenOrderItem = {
+      ...target,
+      status,
+      items: target.items.map((item) => withKitchenLineStatus(item, action)),
+      timeLabel: action === 'start_preparing' ? '00:01' : 'Ready 1m',
+      elapsedSeconds: action === 'start_preparing' ? 1 : 60,
+    };
+    const withoutSource = orders.filter(
+      (order) => !(order.id === orderId && order.status === cardStatus),
+    );
+    return [...withoutSource, movedCard];
+  }
+
+  if (!moved) return orders;
+  const movedLine = withKitchenLineStatus(moved, action);
+
+  const withoutLine = orders
+    .map((order) => {
+      if (order.id !== orderId || order.status !== cardStatus) return order;
+      return { ...order, items: order.items.filter((item) => item.id !== lineId) };
+    })
+    .filter((order) => order.items.length > 0);
+
+  const nextStatus = nextStatusForAction(action);
+  if (nextStatus === 'remove') return withoutLine;
+
+  const sibling = withoutLine.find((order) => order.id === orderId && order.status === nextStatus);
+  if (sibling) {
+    return withoutLine.map((order) =>
+      order.id === orderId && order.status === nextStatus
+        ? { ...order, items: [...order.items, movedLine] }
+        : order,
+    );
+  }
+
+  return [
+    ...withoutLine,
+    {
+      ...target,
+      status: nextStatus,
+      items: [movedLine],
+      timeLabel: action === 'start_preparing' ? '00:01' : 'Ready 1m',
+      elapsedSeconds: action === 'start_preparing' ? 1 : 60,
+    },
+  ];
+}
+
 export function useKitchenDisplay({
   initialStation,
   branchId: propBranchId,
@@ -87,7 +204,6 @@ export function useKitchenDisplay({
   const hasStreamReadyRef = useRef(false);
   const refetchKitchenBoardRef = useRef<(() => void) | null>(null);
   const [streamBranchId, setStreamBranchId] = useState(activeBranchId);
-  const [appliedRemoteOrders, setAppliedRemoteOrders] = useState<KitchenOrderItem[] | null>(null);
 
   useEffect(() => {
     const updateTime = () => {
@@ -253,12 +369,6 @@ export function useKitchenDisplay({
     return kitchenBoardResponseToViewModel(boardData, stationLabel);
   }, [apiResult, selectedStation, stations]);
 
-  if (remoteViewModel && appliedRemoteOrders !== remoteViewModel.orders) {
-    setAppliedRemoteOrders(remoteViewModel.orders);
-    setOrders(remoteViewModel.orders);
-    setStats(remoteViewModel.stats);
-  }
-
   useEffect(() => {
     knownNewOrderIdsRef.current = null;
   }, [activeBranchId, queryPath, queryParams]);
@@ -277,55 +387,78 @@ export function useKitchenDisplay({
       }
     }
     knownNewOrderIdsRef.current = new Set(newOrderIds);
-  }, [remoteViewModel, soundEnabled]);
+
+    setOrders((prev) =>
+      collapseKitchenOrders(
+        remoteViewModel.orders.map((order) => {
+          const version = knownOrderVersion(order, prev, activeBranchId);
+          return version === order.version ? order : { ...order, version };
+        }),
+      ),
+    );
+    setStats(remoteViewModel.stats);
+  }, [activeBranchId, remoteViewModel, soundEnabled]);
 
   const updateKitchenStatus = useUpdateKitchenOrderStatus();
 
   const applyOptimisticKitchenAction = useCallback(
-    (orderId: string, action: KitchenStatusAction) => {
-      setOrders((prev) => {
-        if (action === 'complete') {
-          return prev.filter((ord) => ord.id !== orderId);
-        }
-        return prev.map((ord) => {
-          if (ord.id !== orderId) return ord;
-          if (action === 'start_preparing') {
-            return { ...ord, status: 'preparing', timeLabel: '00:01', elapsedSeconds: 1 };
-          }
-          if (action === 'mark_ready') {
-            return { ...ord, status: 'ready', timeLabel: 'Ready 1m', elapsedSeconds: 60 };
-          }
-          return ord;
-        });
-      });
+    (orderId: string, action: KitchenStatusAction, itemId?: string) => {
+      setOrders((prev) =>
+        collapseKitchenOrders(applyKitchenActionToOrders(prev, orderId, action, itemId)),
+      );
     },
     [setOrders],
   );
 
   const submitKitchenStatusAction = useCallback(
-    (orderId: string, action: KitchenStatusAction, successToast: string) => {
+    (orderId: string, action: KitchenStatusAction, successToast: string, itemId?: string) => {
       if (activeBranchId == null) {
         setToastMessage('Select a branch before updating kitchen status.');
         return;
       }
 
-      const target = orders.find((o) => o.id === orderId);
+      const sourceStatus = sourceStatusForAction(action);
+      const lineId = itemId?.trim() || undefined;
+      const target = lineId
+        ? orders.find(
+            (order) => order.id === orderId && order.items.some((item) => item.id === lineId),
+          )
+        : orders.find((order) => order.id === orderId && order.status === sourceStatus);
       if (!target) return;
 
       if (updateKitchenStatus.isPending) return;
 
+      let numericItemId: number | undefined;
+      if (lineId != null) {
+        const parsed = Number(lineId);
+        if (!Number.isInteger(parsed) || parsed < 1) {
+          setToastMessage(
+            'This kitchen line is missing an item id. Refresh the board and try again.',
+          );
+          return;
+        }
+        numericItemId = parsed;
+      }
+
       const snapshotOrders = orders;
       const snapshotStats = stats;
 
-      applyOptimisticKitchenAction(orderId, action);
+      const numericOrderId = Number(orderId.replace(/^ord-/, ''));
+      const streamedVersion = Number.isInteger(numericOrderId)
+        ? readBranchOrderVersion(activeBranchId, numericOrderId)
+        : undefined;
+      const expectedVersion = Math.max(target.version, streamedVersion ?? 0);
+
+      applyOptimisticKitchenAction(orderId, action, lineId);
       setToastMessage(successToast);
 
       updateKitchenStatus.mutate(
         {
           branchId: activeBranchId,
           orderId,
-          expectedVersion: target.version,
+          expectedVersion,
           action,
+          itemId: numericItemId,
           preparationStationId: selectedStationId,
           boardQueryPath: queryPath,
           boardQueryParams: queryParams,
@@ -334,12 +467,25 @@ export function useKitchenDisplay({
           onSuccess: (result) => {
             const nextVersion = result.nextVersion;
             if (nextVersion == null) return;
+            if (Number.isInteger(numericOrderId)) {
+              rememberBranchOrderVersion(activeBranchId, numericOrderId, nextVersion);
+            }
             setOrders((prev) =>
               prev.map((ord) => (ord.id === orderId ? { ...ord, version: nextVersion } : ord)),
             );
           },
           onError: (error) => {
-            setOrders(snapshotOrders);
+            const serverVersion = kitchenConflictExpectedVersion(error);
+            if (serverVersion != null && Number.isInteger(numericOrderId)) {
+              rememberBranchOrderVersion(activeBranchId, numericOrderId, serverVersion);
+            }
+            setOrders(
+              serverVersion == null
+                ? snapshotOrders
+                : snapshotOrders.map((ord) =>
+                    ord.id === orderId ? { ...ord, version: serverVersion } : ord,
+                  ),
+            );
             setStats(snapshotStats);
             if (isKitchenOrderVersionConflict(error)) {
               void refetch();
@@ -387,16 +533,42 @@ export function useKitchenDisplay({
     [stationOrders],
   );
 
+  const submitItemKitchenAction = useCallback(
+    (orderId: string, itemId: string) => {
+      const target = orders.find(
+        (order) => order.id === orderId && order.items.some((item) => item.id === itemId),
+      );
+      const line = target?.items.find((item) => item.id === itemId);
+      const action = kitchenActionForItemStatus(line?.itemStatus);
+      if (!line || !action) {
+        setToastMessage('This item cannot move to the next kitchen step.');
+        return;
+      }
+      const toast =
+        action === 'start_preparing'
+          ? `${line.name} moved to Preparing`
+          : action === 'mark_ready'
+            ? `${line.name} marked as Ready to Serve`
+            : `${line.name} served / picked up`;
+      submitKitchenStatusAction(orderId, action, toast, itemId);
+    },
+    [orders, submitKitchenStatusAction],
+  );
+
   const handleStartPreparing = useCallback(
-    (orderId: string) => {
-      const target = orders.find((o) => o.id === orderId);
+    (orderId: string, itemId?: string) => {
+      if (itemId) {
+        submitItemKitchenAction(orderId, itemId);
+        return;
+      }
+      const target = orders.find((order) => order.id === orderId && order.status === 'new');
       submitKitchenStatusAction(
         orderId,
         'start_preparing',
         `Order ${target?.orderNumber ?? orderId} moved to Preparing`,
       );
     },
-    [orders, submitKitchenStatusAction],
+    [orders, submitItemKitchenAction, submitKitchenStatusAction],
   );
 
   const handleRecall = useCallback(() => {
@@ -404,27 +576,35 @@ export function useKitchenDisplay({
   }, [setToastMessage]);
 
   const handleMarkReady = useCallback(
-    (orderId: string) => {
-      const target = orders.find((o) => o.id === orderId);
+    (orderId: string, itemId?: string) => {
+      if (itemId) {
+        submitItemKitchenAction(orderId, itemId);
+        return;
+      }
+      const target = orders.find((order) => order.id === orderId && order.status === 'preparing');
       submitKitchenStatusAction(
         orderId,
         'mark_ready',
         `Order ${target?.orderNumber ?? orderId} marked as Ready to Serve`,
       );
     },
-    [orders, submitKitchenStatusAction],
+    [orders, submitItemKitchenAction, submitKitchenStatusAction],
   );
 
   const handleServe = useCallback(
-    (orderId: string) => {
-      const target = orders.find((o) => o.id === orderId);
+    (orderId: string, itemId?: string) => {
+      if (itemId) {
+        submitItemKitchenAction(orderId, itemId);
+        return;
+      }
+      const target = orders.find((order) => order.id === orderId && order.status === 'ready');
       submitKitchenStatusAction(
         orderId,
         'complete',
         `Order ${target?.orderNumber ?? orderId} served / picked up successfully!`,
       );
     },
-    [orders, submitKitchenStatusAction],
+    [orders, submitItemKitchenAction, submitKitchenStatusAction],
   );
 
   const handleToggleLive = useCallback(() => {

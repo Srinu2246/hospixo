@@ -44,6 +44,12 @@ const KITCHEN_BATCH_MS = 300;
 const MAX_SEEN_EVENT_IDS = 2_000;
 
 const connections = new Map<string, ConnectionRecord>();
+/** Versions learned from kitchen-status, kept even when the order stream is down. */
+const detachedOrderVersions = new Map<string, number>();
+
+function detachedVersionKey(branchId: number, orderId: number): string {
+  return `${branchId}:${orderId}`;
+}
 
 function connectionKey(branchId: number, companyId?: number): string {
   return companyId != null && companyId > 0 ? `${branchId}:${companyId}` : String(branchId);
@@ -75,9 +81,13 @@ function shouldApplyEvent(record: ConnectionRecord, event: PosOrderStreamEvent):
   if (!Number.isFinite(orderId)) return true;
 
   if (event.version != null) {
-    const known = record.orderVersions.get(orderId);
-    if (known != null && event.version <= known) return false;
+    const known = Math.max(
+      record.orderVersions.get(orderId) ?? 0,
+      detachedOrderVersions.get(detachedVersionKey(record.branchId, orderId)) ?? 0,
+    );
+    if (known > 0 && event.version <= known) return false;
     record.orderVersions.set(orderId, event.version);
+    rememberBranchOrderVersion(record.branchId, orderId, event.version);
   }
 
   return true;
@@ -323,6 +333,34 @@ function releaseConnection(branchId: number, companyId?: number): void {
     record.isLive = false;
     notifyStatus(record);
     connections.delete(key);
+  }
+}
+
+/** Latest order `version` seen on the branch order-events stream. */
+export function readBranchOrderVersion(branchId: number, orderId: number): number | undefined {
+  let latest = detachedOrderVersions.get(detachedVersionKey(branchId, orderId));
+  for (const record of connections.values()) {
+    if (record.branchId !== branchId) continue;
+    const version = record.orderVersions.get(orderId);
+    if (version == null) continue;
+    latest = latest == null ? version : Math.max(latest, version);
+  }
+  return latest;
+}
+
+export function rememberBranchOrderVersion(
+  branchId: number,
+  orderId: number,
+  version: number,
+): void {
+  if (!Number.isInteger(version) || version < 1) return;
+  const key = detachedVersionKey(branchId, orderId);
+  const detachedKnown = detachedOrderVersions.get(key) ?? 0;
+  if (version > detachedKnown) detachedOrderVersions.set(key, version);
+  for (const record of connections.values()) {
+    if (record.branchId !== branchId) continue;
+    const known = record.orderVersions.get(orderId) ?? 0;
+    if (version > known) record.orderVersions.set(orderId, version);
   }
 }
 
