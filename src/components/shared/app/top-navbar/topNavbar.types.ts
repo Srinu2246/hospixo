@@ -50,11 +50,4 @@ export type MobileNavbarProps = BaseResponsiveNavbarProps;
 /**
  * Props for TabletNavbar.
  */
-export interface TabletNavbarProps extends BaseResponsiveNavbarProps {
-  /** Whether management action buttons should be visible */
-  showManagementActions: boolean;
-  /** Callback fired on AI Agent button click */
-  onAiAgentClick?: () => void;
-  /** Callback fired on settings button click */
-  onSettingsClick?: () => void;
-}
+export type TabletNavbarProps = BaseResponsiveNavbarProps;
