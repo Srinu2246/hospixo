@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import IconButton from '@mui/material/IconButton';
@@ -10,17 +10,27 @@ import { alpha } from '@mui/material/styles';
 import { Pencil, Plus } from 'lucide-react';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
+import { MenuCategoryCompactTabs } from '@/components/features/menu/MenuCategoryCompactTabs';
 import { Card } from '@/components/shared/ui/Card';
 import { colors } from '@/lib/theme/mui/colors';
 import { screen } from '@/lib/theme/mui/breakpoints';
+import {
+  menuCategoryListItemSx,
+  menuCategoryListSx,
+  menuDashedAddCategoryButtonSx,
+} from '@/lib/helpers/menu/menuLayout';
 import { useMenuCreation } from '@/features/menu/context';
+import {
+  buildMenuCategoryTabs,
+  menuCategoryIdFromTab,
+  menuCategoryTabValue,
+} from '@/lib/helpers/menu/menuCategoryHelpers';
 import type { MenuCategory } from '@/lib/schemas/menu/menuCreationSchema';
 
 interface CategoryNavItemProps {
   label: string;
   count: number;
   selected: boolean;
-  /** Active = true, Inactive = false. */
   active?: boolean;
   showStatusToggle?: boolean;
   showEdit?: boolean;
@@ -152,6 +162,13 @@ export function MenuSidebar() {
   } = useMenuCreation();
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
+  const activeTabValue = menuCategoryTabValue(activeCategoryId);
+
+  const categoryTabs = useMemo(
+    () => buildMenuCategoryTabs(categories, categoryCounts, totalItemCount),
+    [categories, categoryCounts, totalItemCount],
+  );
+
   async function handleToggle(category: MenuCategory, nextActive: boolean) {
     const isActive = category.status === 'Active';
     if (nextActive === isActive) return;
@@ -165,19 +182,37 @@ export function MenuSidebar() {
     }
   }
 
+  function handleTabChange(value: string) {
+    setActiveCategoryId(menuCategoryIdFromTab(value));
+  }
+
+  const addCategoryControl = pageConfig.canManageCategories ? (
+    <ActionButton
+      variant="outlined"
+      size="small"
+      startIcon={<Plus size={14} />}
+      onClick={openCreateCategory}
+      sx={menuDashedAddCategoryButtonSx}
+    >
+      Add category
+    </ActionButton>
+  ) : null;
+
   return (
     <Card
       component="aside"
       variant="outlined"
+      padding={2}
       sx={{
         width: { xs: '100%', md: 280 },
         flexShrink: 0,
         alignSelf: 'stretch',
         height: { md: '100%' },
-        maxHeight: { xs: 240, sm: 280, md: 'none' },
-        overflow: 'auto',
-        '& > .MuiBox-root': {
-          p: { [screen.mobile]: 1.5, [screen.tablet]: 1.5, [screen.desktop]: 3 },
+        maxHeight: { [screen.desktop]: 'none' },
+        overflow: {
+          [screen.mobile]: 'visible',
+          [screen.tablet]: 'visible',
+          [screen.desktop]: 'auto',
         },
       }}
     >
@@ -190,18 +225,44 @@ export function MenuSidebar() {
           minHeight: 0,
         }}
       >
-        <Typography
+        <Box
           sx={{
-            px: { [screen.mobile]: 0, [screen.tablet]: 0, [screen.desktop]: 1.5 },
-            fontSize: '0.6875rem',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'text.secondary',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+            flexShrink: 0,
           }}
         >
-          Categories
-        </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.6875rem',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'text.secondary',
+            }}
+          >
+            Categories
+          </Typography>
+          <Box
+            sx={{
+              display: {
+                [screen.mobile]: 'flex',
+                [screen.tablet]: 'flex',
+                [screen.desktop]: 'none',
+              },
+            }}
+          >
+            {addCategoryControl}
+          </Box>
+        </Box>
+
+        <MenuCategoryCompactTabs
+          tabs={categoryTabs}
+          value={activeTabValue}
+          onChange={handleTabChange}
+        />
 
         <Box
           component="ul"
@@ -209,15 +270,16 @@ export function MenuSidebar() {
             listStyle: 'none',
             p: 0,
             m: 0,
-            display: 'flex',
+            ...menuCategoryListSx,
+            display: {
+              [screen.mobile]: 'none',
+              [screen.tablet]: 'none',
+              [screen.desktop]: 'flex',
+            },
             flexDirection: 'column',
-            gap: 0.25,
-            flex: 1,
-            minHeight: 0,
-            overflow: 'auto',
           }}
         >
-          <Box component="li">
+          <Box component="li" sx={menuCategoryListItemSx}>
             <CategoryNavItem
               label="All Items"
               count={totalItemCount}
@@ -229,7 +291,7 @@ export function MenuSidebar() {
           {categories.map((category) => {
             const isActive = category.status === 'Active';
             return (
-              <Box component="li" key={category.id}>
+              <Box component="li" key={category.id} sx={menuCategoryListItemSx}>
                 <CategoryNavItem
                   label={category.name}
                   count={categoryCounts[category.id] ?? 0}
@@ -256,7 +318,15 @@ export function MenuSidebar() {
             size="small"
             startIcon={<Plus size={14} />}
             onClick={openCreateCategory}
-            sx={{ mt: 'auto', flexShrink: 0 }}
+            sx={{
+              mt: 'auto',
+              flexShrink: 0,
+              display: {
+                [screen.mobile]: 'none',
+                [screen.tablet]: 'none',
+                [screen.desktop]: 'inline-flex',
+              },
+            }}
           >
             Add category
           </ActionButton>

@@ -6,7 +6,6 @@ import Box from '@mui/material/Box';
 import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
-import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { Plus, Search } from 'lucide-react';
@@ -19,6 +18,8 @@ import {
   sessionFormToCreateMealSessionBody,
   sessionFormToUpdateMealSessionBody,
 } from '@/lib/helpers/mealSessionMapper';
+import { menuPageHeaderGridSx, menuWorkspaceBottomNavPbSx } from '@/lib/helpers/menu/menuLayout';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import {
   useCreateMealSession,
   useMenuMealSessions,
@@ -242,18 +243,12 @@ export function SessionsPage({
         flexDirection: 'column',
         gap: 2.5,
         boxSizing: 'border-box',
+        ...menuWorkspaceBottomNavPbSx,
       }}
     >
       {/* Header: Title, Description, and Create Button */}
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        sx={{
-          alignItems: { xs: 'flex-start', sm: 'flex-start' },
-          justifyContent: 'space-between',
-        }}
-      >
-        <Box>
+      <Box sx={{ ...menuPageHeaderGridSx, width: '100%' }}>
+        <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="h4"
             component="h1"
@@ -284,13 +279,15 @@ export function SessionsPage({
           variant="primary"
           startIcon={<Plus size={18} />}
           onClick={handleOpenCreate}
+          size="small"
           sx={{
             flexShrink: 0,
             borderRadius: '8px',
             bgcolor: colors.primary.default,
-            px: 2.5,
+            px: { [screen.mobile]: 1.25, [screen.tablet]: 1.5, [screen.desktop]: 2.5 },
             py: 1.2,
             fontWeight: 600,
+            fontSize: { [screen.mobile]: '0.8125rem', [screen.tablet]: '0.875rem' },
             boxShadow: 'none',
             '&:hover': {
               bgcolor: colors.primary.dark,
@@ -299,7 +296,7 @@ export function SessionsPage({
         >
           Create Session
         </ActionButton>
-      </Stack>
+      </Box>
 
       {/* Filter Card: Search input & Status dropdown */}
       <Box

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Plus, Save } from 'lucide-react';
@@ -10,6 +9,8 @@ import { Plus, Save } from 'lucide-react';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { Input } from '@/components/shared/form-fields/Input';
 import { Breadcrumbs } from '@/components/shared/ui/Breadcrumbs';
+import { Card } from '@/components/shared/ui/Card';
+import { menuFeaturePaneInsetSx, menuFormFooterGridSx } from '@/lib/helpers/menu/menuLayout';
 import { useMenuCreation } from '@/features/menu/context';
 import { assertCatalogueContextForCategoryCreate } from '@/lib/helpers/menuBranchContext';
 import { resolveCatalogueContextIds } from '@/lib/helpers/apiContextHeaders';
@@ -111,7 +112,7 @@ export function CreateCategoryForm({
   }
 
   return (
-    <Stack spacing={2.5} sx={{ p: { xs: 1, sm: 2 }, maxWidth: 720 }}>
+    <Stack spacing={2.5} sx={[{ maxWidth: 720, width: '100%' }, menuFeaturePaneInsetSx]}>
       <Breadcrumbs
         items={[
           {
@@ -141,18 +142,11 @@ export function CreateCategoryForm({
         }}
       />
 
-      <Paper
-        variant="outlined"
-        sx={{
-          p: { xs: 2, sm: 3 },
-          borderRadius: 2,
-          bgcolor: 'background.paper',
-        }}
-      >
+      <Card variant="outlined" padding={3}>
         <Stack spacing={2.5}>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.125rem' }}>
-              {isEdit ? 'Edit category' : 'Add category'}
+              {isEdit ? 'Edit category' : 'Create Category'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               Categories group menu items in POS and online ordering.
@@ -192,11 +186,13 @@ export function CreateCategoryForm({
             disabled={saving}
           />
 
-          <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end', pt: 1 }}>
-            <ActionButton variant="outlined" onClick={onCancel} disabled={saving}>
+          <Box sx={menuFormFooterGridSx}>
+            <ActionButton variant="outlined" onClick={onCancel} disabled={saving} fullWidth>
               Cancel
             </ActionButton>
             <ActionButton
+              variant="primary"
+              fullWidth
               startIcon={isEdit ? <Save size={16} /> : <Plus size={16} />}
               onClick={() => {
                 void handleSubmit();
@@ -204,11 +200,11 @@ export function CreateCategoryForm({
               disabled={!canSubmit}
               loading={saving}
             >
-              {isEdit ? 'Save changes' : 'Save category'}
+              {isEdit ? 'Save changes' : 'Save Category'}
             </ActionButton>
-          </Stack>
+          </Box>
         </Stack>
-      </Paper>
+      </Card>
     </Stack>
   );
 }

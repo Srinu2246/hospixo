@@ -16,6 +16,8 @@ import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { TablePagination } from '@/components/shared/ui/TablePagination';
 import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
+import { menuPageHeaderGridSx, menuWorkspaceBottomNavPbSx } from '@/lib/helpers/menu/menuLayout';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import type { MenuCataloguePageScope } from '@/lib/helpers/menuBranchContext';
 import {
@@ -338,17 +340,10 @@ export function MenusPage() {
         overflow: 'hidden',
         bgcolor: 'background.default',
         boxSizing: 'border-box',
+        ...menuWorkspaceBottomNavPbSx,
       }}
     >
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        sx={{
-          alignItems: { sm: 'flex-start' },
-          justifyContent: 'space-between',
-          flexShrink: 0,
-        }}
-      >
+      <Box sx={{ ...menuPageHeaderGridSx, flexShrink: 0 }}>
         <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="h5"
@@ -374,11 +369,16 @@ export function MenusPage() {
         <ActionButton
           startIcon={<Plus size={16} />}
           onClick={() => router.push(`${basePath}/create`)}
-          sx={{ flexShrink: 0 }}
+          size="small"
+          sx={{
+            flexShrink: 0,
+            px: { [screen.mobile]: 1.25, [screen.tablet]: 1.5, [screen.desktop]: 2 },
+            fontSize: { [screen.mobile]: '0.8125rem', [screen.tablet]: '0.875rem' },
+          }}
         >
           Create Menus
         </ActionButton>
-      </Stack>
+      </Box>
 
       <Stack
         direction={{ xs: 'column', sm: 'row' }}

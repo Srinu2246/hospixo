@@ -41,6 +41,10 @@ export interface HeaderProps {
   showAccentPill?: boolean;
   /** Optional subordinate content such as filter bars, tabs, or metrics */
   children?: ReactNode;
+  /** Stack title and actions vertically until desktop (mobile/tablet layouts). */
+  stackActionsUntilDesktop?: boolean;
+  /** Title left, action right on one row (grid) on all breakpoints. */
+  actionEndGrid?: boolean;
   /** Layout override styles */
   sx?: SxProps<Theme>;
 }
@@ -66,8 +70,168 @@ export function Header({
   actionButton,
   showAccentPill = false,
   children,
+  stackActionsUntilDesktop = false,
+  actionEndGrid = false,
   sx,
 }: Readonly<HeaderProps>) {
+  const titleBlock = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        {showAccentPill ? (
+          <Box
+            sx={{
+              width: 4,
+              height: 24,
+              borderRadius: '4px',
+              bgcolor: colors.primary.default,
+              flexShrink: 0,
+            }}
+          />
+        ) : null}
+
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{
+            fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.625rem' },
+            fontWeight: 700,
+            color: 'text.primary',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.25,
+          }}
+        >
+          {title}
+        </Typography>
+
+        {badge ? (
+          <Chip
+            label={badge}
+            size="small"
+            color={badgeColor === 'default' ? undefined : badgeColor}
+            variant="outlined"
+            sx={{
+              fontWeight: 600,
+              fontSize: '0.75rem',
+              height: 24,
+              borderRadius: '6px',
+            }}
+          />
+        ) : null}
+      </Box>
+
+      {compactSubtitle || subtitle ? (
+        <>
+          {compactSubtitle ? (
+            <Typography
+              variant="body2"
+              sx={{
+                display: {
+                  [screen.mobile]: 'block',
+                  [screen.tablet]: 'block',
+                  [screen.desktop]: 'none',
+                },
+                color: colors.text.secondary,
+                fontSize: '0.875rem',
+                lineHeight: 1.4,
+              }}
+            >
+              {compactSubtitle}
+            </Typography>
+          ) : null}
+          {subtitle ? (
+            <Typography
+              variant="body2"
+              sx={{
+                display: compactSubtitle
+                  ? {
+                      [screen.mobile]: 'none',
+                      [screen.tablet]: 'none',
+                      [screen.desktop]: 'block',
+                    }
+                  : 'block',
+                color: colors.text.secondary,
+                fontSize: '0.875rem',
+                lineHeight: 1.4,
+              }}
+            >
+              {subtitle}
+            </Typography>
+          ) : null}
+        </>
+      ) : null}
+    </Box>
+  );
+
+  const actionsBlock =
+    actionSlot || actionButton ? (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          alignSelf: actionEndGrid
+            ? 'auto'
+            : {
+                xs: 'stretch',
+                sm: 'auto',
+              },
+          justifySelf: actionEndGrid ? 'end' : undefined,
+          flexShrink: 0,
+        }}
+      >
+        {actionSlot}
+
+        {actionButton ? (
+          <ActionButton
+            variant={actionButton.variant ?? 'primary'}
+            onClick={actionButton.onClick}
+            startIcon={actionButton.startIcon}
+            endIcon={actionButton.endIcon}
+            disabled={actionButton.disabled}
+            loading={actionButton.loading}
+            sx={{
+              width: actionEndGrid ? 'auto' : { xs: '100%', sm: 'auto' },
+            }}
+          >
+            {actionButton.label}
+          </ActionButton>
+        ) : null}
+      </Box>
+    ) : null;
+
+  const rowSx: SxProps<Theme> = actionEndGrid
+    ? {
+        display: 'grid',
+        width: '100%',
+        gap: 1.5,
+        alignItems: 'start',
+        gridTemplateColumns: {
+          [screen.mobile]: 'minmax(0, 1fr) auto',
+          [screen.tablet]: 'minmax(0, 1fr) auto',
+          [screen.desktop]: 'minmax(0, 1fr) auto',
+        },
+      }
+    : {
+        display: 'flex',
+        flexDirection: stackActionsUntilDesktop
+          ? {
+              [screen.mobile]: 'column',
+              [screen.tablet]: 'column',
+              [screen.desktop]: 'row',
+            }
+          : { xs: 'column', sm: 'row' },
+        alignItems: stackActionsUntilDesktop
+          ? {
+              [screen.mobile]: 'stretch',
+              [screen.tablet]: 'stretch',
+              [screen.desktop]: 'center',
+            }
+          : { xs: 'flex-start', sm: 'center' },
+        justifyContent: 'space-between',
+        gap: 2,
+        width: '100%',
+      };
+
   return (
     <Box
       sx={[
@@ -80,138 +244,14 @@ export function Header({
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
     >
-      {/* Optional Breadcrumbs */}
-      {breadcrumbs && <Box sx={{ width: '100%' }}>{breadcrumbs}</Box>}
+      {breadcrumbs ? <Box sx={{ width: '100%' }}>{breadcrumbs}</Box> : null}
 
-      {/* Main Header Title & Actions Row */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          justifyContent: 'space-between',
-          gap: 2,
-          width: '100%',
-        }}
-      >
-        {/* Title & Subtitle Block */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-            {showAccentPill && (
-              <Box
-                sx={{
-                  width: 4,
-                  height: 24,
-                  borderRadius: '4px',
-                  bgcolor: colors.primary.default,
-                  flexShrink: 0,
-                }}
-              />
-            )}
-
-            <Typography
-              variant="h4"
-              component="h1"
-              sx={{
-                fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.625rem' },
-                fontWeight: 700,
-                color: 'text.primary',
-                letterSpacing: '-0.02em',
-                lineHeight: 1.25,
-              }}
-            >
-              {title}
-            </Typography>
-
-            {badge && (
-              <Chip
-                label={badge}
-                size="small"
-                color={badgeColor === 'default' ? undefined : badgeColor}
-                variant="outlined"
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  height: 24,
-                  borderRadius: '6px',
-                }}
-              />
-            )}
-          </Box>
-
-          {(compactSubtitle || subtitle) && (
-            <>
-              {compactSubtitle ? (
-                <Typography
-                  variant="body2"
-                  sx={{
-                    display: {
-                      [screen.mobile]: 'block',
-                      [screen.tablet]: 'block',
-                      [screen.desktop]: 'none',
-                    },
-                    color: colors.text.secondary,
-                    fontSize: '0.875rem',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {compactSubtitle}
-                </Typography>
-              ) : null}
-              {subtitle ? (
-                <Typography
-                  variant="body2"
-                  sx={{
-                    display: compactSubtitle
-                      ? {
-                          [screen.mobile]: 'none',
-                          [screen.tablet]: 'none',
-                          [screen.desktop]: 'block',
-                        }
-                      : 'block',
-                    color: colors.text.secondary,
-                    fontSize: '0.875rem',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {subtitle}
-                </Typography>
-              ) : null}
-            </>
-          )}
-        </Box>
-
-        {/* Action Controls */}
-        {(actionSlot || actionButton) && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-              alignSelf: { xs: 'stretch', sm: 'auto' },
-            }}
-          >
-            {actionSlot}
-
-            {actionButton && (
-              <ActionButton
-                variant={actionButton.variant ?? 'primary'}
-                onClick={actionButton.onClick}
-                startIcon={actionButton.startIcon}
-                endIcon={actionButton.endIcon}
-                disabled={actionButton.disabled}
-                loading={actionButton.loading}
-                sx={{ width: { xs: '100%', sm: 'auto' } }}
-              >
-                {actionButton.label}
-              </ActionButton>
-            )}
-          </Box>
-        )}
+      <Box sx={rowSx}>
+        {titleBlock}
+        {actionsBlock}
       </Box>
 
-      {/* Subordinate Children (e.g. Filters, Tabs, Sub-metrics) */}
-      {children && <Box sx={{ width: '100%' }}>{children}</Box>}
+      {children ? <Box sx={{ width: '100%' }}>{children}</Box> : null}
     </Box>
   );
 }

@@ -5,6 +5,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import { Globe, LayoutGrid } from 'lucide-react';
 
+import { menuChannelSelectorCompactSx } from '@/lib/helpers/menu/menuLayout';
 import type {
   AvailabilityChannel,
   AvailabilityItem,
@@ -62,7 +63,8 @@ export function ChannelSelector({ channels, value, onChange }: Readonly<ChannelS
         display: 'flex',
         alignItems: 'center',
         gap: 1,
-        flexWrap: 'wrap',
+        width: '100%',
+        ...menuChannelSelectorCompactSx,
       }}
     >
       {channels.map((channel) => {

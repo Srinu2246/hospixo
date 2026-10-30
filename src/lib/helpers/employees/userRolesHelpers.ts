@@ -26,6 +26,16 @@ import { userRolePermissionsPath } from '@/services/api/ApiUrlsV1';
 
 type GetJson = (path: string, params?: QueryParams) => Promise<JsonValue>;
 
+/** Split display name for grid cells (first / last with spacing). */
+export function userDisplayNameParts(fullName: string): { first: string; last: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return { first: parts[0], last: parts.slice(1).join(' ') };
+  }
+  if (parts.length === 1) return { first: parts[0], last: '' };
+  return { first: 'User', last: '' };
+}
+
 export type SessionDirectoryHints = {
   companyId?: number;
   companyName?: string;

@@ -3,40 +3,28 @@
 import { useState } from 'react';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
-import { useMediaQuery, useTheme } from '@mui/material';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
-import { Eye, Pencil, Plus, UtensilsCrossed } from 'lucide-react';
+import { Eye, Pencil, UtensilsCrossed } from 'lucide-react';
 
-import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { TagsGrid } from '@/components/shared/ui/TagsGrid';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
+import { MenuResponsiveTableShell } from '@/components/features/menu/MenuResponsiveTableShell';
+import {
+  formatMenuItemPrice,
+  isMenuCatalogItemActive,
+  menuItemDietaryVariant,
+  menuItemStatusVariant,
+} from '@/lib/helpers/menu/menuItemDisplayHelpers';
+import { screen } from '@/lib/theme/mui/breakpoints';
+
+import { MenuItemsCompactList } from './MenuItemsCompactList';
 
 const PAGE_SIZE = 8;
-
-function formatPrice(value: number): string {
-  return `₹${value.toLocaleString('en-IN')}`;
-}
-
-function dietaryVariant(dietary: MenuCatalogItem['dietary']): 'success' | 'danger' | 'default' {
-  if (dietary === 'Veg' || dietary === 'Vegan') return 'success';
-  if (dietary === 'Non-Veg') return 'danger';
-  return 'default';
-}
-
-function statusVariant(status: MenuCatalogItem['status']): 'success' | 'warning' | 'default' {
-  if (status === 'Available' || status === 'Active') return 'success';
-  if (status === 'Out of Stock') return 'warning';
-  return 'default';
-}
-
-function isMenuItemActive(status: MenuCatalogItem['status']): boolean {
-  return status === 'Available' || status === 'Active';
-}
 
 export interface MenuItemsTableProps {
   items: readonly MenuCatalogItem[];
@@ -70,9 +58,7 @@ export function MenuItemsTable({
   const [internalPage, setInternalPage] = useState(1);
   const page = pageProp ?? internalPage;
   const handlePageChange = onPageChange ?? setInternalPage;
-  const theme = useTheme();
-  const compactTable = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
-  const tableHeight = compactTable ? 400 : '100%';
+  const tableHeight = '100%';
 
   const columns: DataGridColumn<MenuCatalogItem>[] = [
     {
@@ -116,7 +102,7 @@ export function MenuItemsTable({
       sortable: true,
       renderCell: ({ row }) => (
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          {formatPrice(row.basePrice)}
+          {formatMenuItemPrice(row.basePrice)}
         </Typography>
       ),
     },
@@ -126,7 +112,11 @@ export function MenuItemsTable({
       minWidth: 100,
       sortable: false,
       renderCell: ({ row }) => (
-        <StatusChip label={row.dietary} variantType={dietaryVariant(row.dietary)} size="small" />
+        <StatusChip
+          label={row.dietary}
+          variantType={menuItemDietaryVariant(row.dietary)}
+          size="small"
+        />
       ),
     },
     {
@@ -163,7 +153,11 @@ export function MenuItemsTable({
       width: 100,
       sortable: false,
       renderCell: ({ row }) => (
-        <StatusChip label={row.status} variantType={statusVariant(row.status)} size="small" />
+        <StatusChip
+          label={row.status}
+          variantType={menuItemStatusVariant(row.status)}
+          size="small"
+        />
       ),
     },
     {
@@ -219,13 +213,13 @@ export function MenuItemsTable({
           {onToggleActive ? (
             <Switch
               size="small"
-              checked={isMenuItemActive(row.status)}
+              checked={isMenuCatalogItemActive(row.status)}
               disabled={statusToggleDisabled || togglingItemId === row.id}
               onClick={(event) => event.stopPropagation()}
               onChange={(_event, nextActive) => onToggleActive(row, nextActive)}
               slotProps={{
                 input: {
-                  'aria-label': `${row.name} ${isMenuItemActive(row.status) ? 'active' : 'inactive'}`,
+                  'aria-label': `${row.name} ${isMenuCatalogItemActive(row.status) ? 'active' : 'inactive'}`,
                 },
               }}
               sx={{
@@ -240,72 +234,61 @@ export function MenuItemsTable({
     },
   ];
 
+  const compactList = (
+    <MenuItemsCompactList
+      items={items}
+      onView={onView}
+      onEdit={onEdit}
+      onToggleActive={onToggleActive}
+      togglingItemId={togglingItemId}
+      statusToggleDisabled={statusToggleDisabled}
+      onAddCategory={onAddCategory}
+      emptyBecauseNoCategories={emptyBecauseNoCategories}
+      page={page}
+      pageSize={pageSize}
+      totalRows={totalRows}
+      onPageChange={handlePageChange}
+    />
+  );
+
   if (emptyBecauseNoCategories) {
     return (
-      <Box
-        sx={{
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 2,
-          bgcolor: 'background.paper',
-          p: 4,
-          textAlign: 'center',
-        }}
-      >
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-          No categories yet
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-          Create a category first, then add menu items under it.
-        </Typography>
-        {onAddCategory ? (
-          <ActionButton startIcon={<Plus size={16} />} onClick={onAddCategory}>
-            Add category
-          </ActionButton>
-        ) : null}
+      <Box sx={{ display: { [screen.mobile]: 'block', [screen.desktop]: 'block' }, width: '100%' }}>
+        {compactList}
       </Box>
     );
   }
 
   return (
-    <Box
-      sx={{
-        flex: 1,
-        minHeight: 0,
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        border: (theme) => `1px solid ${theme.palette.divider}`,
-        bgcolor: 'background.paper',
-      }}
-    >
-      <DataGrid<MenuCatalogItem>
-        columns={columns}
-        rows={items}
-        getRowId={(row) => row.id}
-        onRowClick={(row) => onView(row)}
-        pagination
-        page={page}
-        pageSize={pageSize}
-        totalRows={totalRows}
-        onPageChange={handlePageChange}
-        paginationEntityName="items"
-        stickyHeader
-        height={tableHeight}
-        minWidth="100%"
-        rowHeight={64}
-        emptyIcon={UtensilsCrossed}
-        emptyTitle="No menu items"
-        emptySubtitle="Add an item to start building this menu."
-        ariaLabel="Menu items"
-        sx={{
-          border: 'none',
-          borderRadius: 0,
-          boxShadow: 'none',
-        }}
-      />
-    </Box>
+    <MenuResponsiveTableShell
+      compact={compactList}
+      desktop={
+        <DataGrid<MenuCatalogItem>
+          columns={columns}
+          rows={items}
+          getRowId={(row) => row.id}
+          onRowClick={(row) => onView(row)}
+          pagination
+          page={page}
+          pageSize={pageSize}
+          totalRows={totalRows}
+          onPageChange={handlePageChange}
+          paginationEntityName="items"
+          stickyHeader
+          height={tableHeight}
+          minWidth="100%"
+          rowHeight={64}
+          emptyIcon={UtensilsCrossed}
+          emptyTitle="No menu items"
+          emptySubtitle="Add an item to start building this menu."
+          ariaLabel="Menu items"
+          sx={{
+            border: 'none',
+            borderRadius: 0,
+            boxShadow: 'none',
+          }}
+        />
+      }
+    />
   );
 }

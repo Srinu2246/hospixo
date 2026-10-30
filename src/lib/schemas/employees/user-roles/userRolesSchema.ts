@@ -1878,12 +1878,12 @@ function mapUserRow(raw: JsonObject): UserRoleItem {
   const lastName = text(source.last_name) ?? text(source.lastName);
   const joinedName = [firstName, lastName].filter(Boolean).join(' ').trim();
   const name =
-    text(source.name) ??
-    text(source.full_name) ??
-    text(source.fullName) ??
-    (joinedName || undefined) ??
-    text(source.email) ??
-    text(source.username) ??
+    joinedName ||
+    text(source.name) ||
+    text(source.full_name) ||
+    text(source.fullName) ||
+    text(source.email) ||
+    text(source.username) ||
     'User';
 
   const roleMeta = readUserRoleFields(source);

@@ -19,6 +19,8 @@ import {
   type MenuSessionFormValues,
   type RestaurantMenuSlug,
 } from '@/lib/schemas/menu/menus/menusSchema';
+import { menuFormFooterGridSx, menuWorkspaceBottomNavPbSx } from '@/lib/helpers/menu/menuLayout';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { colors } from '@/lib/theme/mui/colors';
 import { useThemeStore } from '@/stores/themeStore';
 
@@ -224,6 +226,7 @@ export function CreateMenuSessionForm({
         height: '100%',
         minHeight: 0,
         overflow: 'auto',
+        ...menuWorkspaceBottomNavPbSx,
       }}
     >
       <Box sx={{ flexShrink: 0 }}>
@@ -392,12 +395,23 @@ export function CreateMenuSessionForm({
         </Stack>
       </Paper>
 
-      <Stack
-        direction="row"
-        spacing={1.5}
-        sx={{ justifyContent: 'flex-end', flexShrink: 0, pb: 1 }}
+      <Box
+        sx={[
+          menuFormFooterGridSx,
+          {
+            flexShrink: 0,
+            pb: 1,
+            [screen.desktop]: {
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 1.5,
+              gridTemplateColumns: 'none',
+              '& .MuiButton-root': { width: 'auto', minWidth: 120 },
+            },
+          },
+        ]}
       >
-        <ActionButton variant="outlined" onClick={onCancel} disabled={submitting}>
+        <ActionButton variant="outlined" onClick={onCancel} disabled={submitting} fullWidth>
           Cancel
         </ActionButton>
         <ActionButton
@@ -405,10 +419,11 @@ export function CreateMenuSessionForm({
           onClick={handleSubmit}
           loading={submitting}
           disabled={submitting || !canSubmit}
+          fullWidth
         >
           {isEdit ? 'Save Changes' : 'Create Session'}
         </ActionButton>
-      </Stack>
+      </Box>
     </Box>
   );
 }

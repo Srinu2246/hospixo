@@ -11,6 +11,9 @@ import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
 import { TagsGrid } from '@/components/shared/ui/TagsGrid';
 import type { AvailabilityItem } from '@/lib/schemas/menu/menuAvailabilitySchema';
 
+import { MenuResponsiveTableShell } from '@/components/features/menu/MenuResponsiveTableShell';
+
+import { AvailabilityItemsCompactList } from './AvailabilityItemsCompactList';
 import { DietaryMarker } from './ChannelSelector';
 
 export interface AvailabilityStats {
@@ -220,48 +223,49 @@ export function AvailabilityItemsTable({
     },
   ];
 
+  const compactList = (
+    <AvailabilityItemsCompactList
+      items={items}
+      onToggleMark={onToggleMark}
+      toggleDisabled={toggleDisabled}
+      page={page}
+      pageSize={pageSize}
+      totalRows={totalRows}
+      onPageChange={onPageChange ?? (() => {})}
+    />
+  );
+
   return (
-    <Box
-      sx={{
-        flex: 1,
-        minHeight: 0,
-        minWidth: 0,
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        border: (theme) => `1px solid ${theme.palette.divider}`,
-        bgcolor: 'background.paper',
-      }}
-    >
-      <DataGrid<AvailabilityItem>
-        columns={columns}
-        rows={items}
-        getRowId={(row) => row.id}
-        pagination
-        page={page}
-        pageSize={pageSize}
-        totalRows={totalRows}
-        onPageChange={onPageChange}
-        paginationEntityName="items"
-        stickyHeader
-        height="100%"
-        rowHeight={72}
-        emptyIcon={UtensilsCrossed}
-        emptyTitle="No items found"
-        emptySubtitle="No items match this search or filter."
-        ariaLabel="Menu availability items"
-        sx={{
-          border: 'none',
-          borderRadius: 0,
-          boxShadow: 'none',
-          height: '100%',
-          flex: 1,
-          minHeight: 0,
-        }}
-      />
-    </Box>
+    <MenuResponsiveTableShell
+      compact={compactList}
+      desktop={
+        <DataGrid<AvailabilityItem>
+          columns={columns}
+          rows={items}
+          getRowId={(row) => row.id}
+          pagination
+          page={page}
+          pageSize={pageSize}
+          totalRows={totalRows}
+          onPageChange={onPageChange}
+          paginationEntityName="items"
+          stickyHeader
+          height="100%"
+          rowHeight={72}
+          emptyIcon={UtensilsCrossed}
+          emptyTitle="No items found"
+          emptySubtitle="No items match this search or filter."
+          ariaLabel="Menu availability items"
+          sx={{
+            border: 'none',
+            borderRadius: 0,
+            boxShadow: 'none',
+            height: '100%',
+            flex: 1,
+            minHeight: 0,
+          }}
+        />
+      }
+    />
   );
 }

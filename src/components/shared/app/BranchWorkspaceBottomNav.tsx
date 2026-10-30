@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import CreditCardOutlinedIcon from '@mui/icons-material/CreditCardOutlined';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
@@ -38,10 +38,21 @@ function isStaffProfilePath(pathname: string): boolean {
   return pathname.includes('employees/users-and-roles/profile');
 }
 
+function isOrdersWorkspacePath(pathname: string): boolean {
+  if (pathname.includes('/branch-manager/orders/')) return true;
+  if (!pathname.includes('/pos/point-of-sale/')) return false;
+  return (
+    pathname.includes('all-orders') ||
+    pathname.includes('online-orders') ||
+    pathname.includes('ready-orders') ||
+    pathname.includes('live-orders')
+  );
+}
+
 function buildNavItems(role: string, context: SidebarContext): NavItem[] {
   const dashboardHref = role ? homePathForRole(role) : '/branch-manager/dashboard';
   const staffHref = resolveSidebarRoute('/branch-manager/employees/users-and-roles', context, role);
-  const financeHref = resolveSidebarRoute('/branch-manager/management/due-payments', context, role);
+  const ordersHref = resolveSidebarRoute('/branch-manager/orders/all-orders', context, role);
   const reportsHref = resolveSidebarRoute('/branch-manager/management/reports', context, role);
 
   return [
@@ -63,14 +74,11 @@ function buildNavItems(role: string, context: SidebarContext): NavItem[] {
       isActive: (pathname) => pathname.includes('users-and-roles') && !isStaffProfilePath(pathname),
     },
     {
-      id: 'finance',
-      label: 'Finance',
-      href: financeHref,
-      icon: <CreditCardOutlinedIcon sx={{ fontSize: 22 }} />,
-      isActive: (pathname) =>
-        pathname.includes('due-payments') ||
-        pathname.includes('cash-shift') ||
-        pathname.includes('cash-counter'),
+      id: 'orders',
+      label: 'Orders',
+      href: ordersHref,
+      icon: <ReceiptLongOutlinedIcon sx={{ fontSize: 22 }} />,
+      isActive: (pathname) => isOrdersWorkspacePath(pathname),
     },
     {
       id: 'reports',
@@ -88,7 +96,7 @@ function buildNavItems(role: string, context: SidebarContext): NavItem[] {
   ];
 }
 
-/** Branch-manager mobile workspace tabs (dashboard, staff, finance, reports, profile). */
+/** Branch-manager mobile workspace tabs (dashboard, staff, orders, reports, profile). */
 export function BranchWorkspaceBottomNav({
   role = '',
   context = {},
@@ -120,7 +128,7 @@ export function BranchWorkspaceBottomNav({
           alignItems: 'stretch',
           justifyContent: 'space-around',
           gap: 0.5,
-          px: 1,
+          px: 2,
           pt: 0.75,
           pb: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
           bgcolor: 'background.paper',

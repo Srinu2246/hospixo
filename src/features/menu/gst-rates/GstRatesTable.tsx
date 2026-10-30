@@ -5,9 +5,14 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Eye, Plus, Receipt } from 'lucide-react';
 
+import { MenuResponsiveTableShell } from '@/components/features/menu/MenuResponsiveTableShell';
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
+import { formatGstEffectiveDate, formatGstPercent } from '@/lib/helpers/menu/gstRateDisplayHelpers';
+import { menuDesktopDataGridShellSx } from '@/lib/helpers/menu/menuLayout';
 import type { GstRate } from '@/lib/schemas/menu/gstRatesSchema';
+
+import { GstRatesCompactList } from './GstRatesCompactList';
 
 export interface GstRatesTableProps {
   rates: readonly GstRate[];
@@ -19,20 +24,7 @@ export interface GstRatesTableProps {
   onView: (rate: GstRate) => void;
 }
 
-function formatPercent(value: number): string {
-  return `${value}%`;
-}
-
-function formatEffectiveDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
-}
-
-/** GST rates list table (shared DataGrid). */
+/** GST rates list — compact rows below md, DataGrid on desktop. */
 export function GstRatesTable({
   rates,
   page,
@@ -66,21 +58,21 @@ export function GstRatesTable({
         headerName: 'CGST',
         minWidth: 90,
         sortable: true,
-        renderCell: ({ row }) => formatPercent(row.cgst_rate),
+        renderCell: ({ row }) => formatGstPercent(row.cgst_rate),
       },
       {
         field: 'sgst_rate',
         headerName: 'SGST',
         minWidth: 90,
         sortable: true,
-        renderCell: ({ row }) => formatPercent(row.sgst_rate),
+        renderCell: ({ row }) => formatGstPercent(row.sgst_rate),
       },
       {
         field: 'igst_rate',
         headerName: 'IGST',
         minWidth: 90,
         sortable: true,
-        renderCell: ({ row }) => formatPercent(row.igst_rate),
+        renderCell: ({ row }) => formatGstPercent(row.igst_rate),
       },
       {
         field: 'total_rate',
@@ -89,7 +81,7 @@ export function GstRatesTable({
         sortable: true,
         renderCell: ({ row }) => (
           <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            {formatPercent(row.total_rate)}
+            {formatGstPercent(row.total_rate)}
           </Typography>
         ),
       },
@@ -98,7 +90,7 @@ export function GstRatesTable({
         headerName: 'Effective From',
         minWidth: 130,
         sortable: true,
-        renderCell: ({ row }) => formatEffectiveDate(row.effective_from),
+        renderCell: ({ row }) => formatGstEffectiveDate(row.effective_from),
       },
       {
         field: 'actions',
@@ -133,52 +125,56 @@ export function GstRatesTable({
     ];
   }, [onView]);
 
+  const compactList = (
+    <GstRatesCompactList
+      rates={rates}
+      page={page}
+      pageSize={pageSize}
+      totalRows={totalRows}
+      onPageChange={onPageChange}
+      onCreate={onCreate}
+      onView={onView}
+    />
+  );
+
   return (
-    <Box
-      sx={{
-        flex: 1,
-        minHeight: 0,
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        border: (theme) => `1px solid ${theme.palette.divider}`,
-        bgcolor: 'background.paper',
-      }}
-    >
-      <DataGrid<GstRate>
-        columns={columns}
-        rows={rates}
-        getRowId={(row) => row.id}
-        pagination
-        page={page}
-        pageSize={pageSize}
-        totalRows={totalRows}
-        onPageChange={onPageChange}
-        paginationEntityName="GST rates"
-        stickyHeader
-        height="100%"
-        rowHeight={64}
-        emptyIcon={Receipt}
-        emptyTitle="No GST rates yet"
-        emptySubtitle="Create your first GST slab to start mapping tax rates to menu items and billing."
-        emptyAction={
-          <ActionButton startIcon={<Plus size={16} />} onClick={onCreate}>
-            Create GST Rate
-          </ActionButton>
-        }
-        ariaLabel="GST rates"
-        sx={{
-          border: 'none',
-          borderRadius: 0,
-          boxShadow: 'none',
-          height: '100%',
-          flex: 1,
-          minHeight: 0,
-        }}
-      />
-    </Box>
+    <MenuResponsiveTableShell
+      compact={compactList}
+      desktop={
+        <Box sx={menuDesktopDataGridShellSx}>
+          <DataGrid<GstRate>
+            columns={columns}
+            rows={rates}
+            getRowId={(row) => row.id}
+            pagination
+            page={page}
+            pageSize={pageSize}
+            totalRows={totalRows}
+            onPageChange={onPageChange}
+            paginationEntityName="GST rates"
+            stickyHeader
+            height="100%"
+            rowHeight={64}
+            emptyIcon={Receipt}
+            emptyTitle="No GST rates yet"
+            emptySubtitle="Create your first GST slab to start mapping tax rates to menu items and billing."
+            emptyAction={
+              <ActionButton startIcon={<Plus size={16} />} onClick={onCreate}>
+                Create GST Rate
+              </ActionButton>
+            }
+            ariaLabel="GST rates"
+            sx={{
+              border: 'none',
+              borderRadius: 0,
+              boxShadow: 'none',
+              height: '100%',
+              flex: 1,
+              minHeight: 0,
+            }}
+          />
+        </Box>
+      }
+    />
   );
 }

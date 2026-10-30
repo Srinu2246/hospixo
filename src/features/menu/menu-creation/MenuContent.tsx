@@ -1,57 +1,31 @@
 'use client';
 
 import { useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import { Calendar, Plus, Upload } from 'lucide-react';
 
-import { ActionButton } from '@/components/shared/form-fields/ActionButton';
-import { SearchBar } from '@/components/shared/form-fields/SearchBar';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
 import { Card } from '@/components/shared/ui/Card';
 import { Loading } from '@/components/shared/ui/Loading';
 import { useMenuCreation } from '@/features/menu/context';
 import type { MenuCatalogItem } from '@/lib/schemas/menu/menuCreationSchema';
 
-import { screen } from '@/lib/theme/mui/breakpoints';
+import { menuFeaturePaneInsetSx, menuWorkspaceBottomNavPbSx } from '@/lib/helpers/menu/menuLayout';
 
 import { CreateCategoryForm } from './CreateCategoryForm';
 import { CreateMenuItemScreen } from './CreateMenuItemScreen';
 import { MenuItemDetailPanel } from './MenuItemDetailPanel';
 import { MenuItemsTable } from './MenuItemsTable';
+import { MenuManagementToolbar } from './MenuManagementToolbar';
 import { MenuSidebar } from './MenuSidebar';
-
-function menuSessionsHrefFromPathname(pathname: string): string {
-  const creationMarker = '/menu/menu-creation';
-  const creationIdx = pathname.indexOf(creationMarker);
-  if (creationIdx >= 0) {
-    return `${pathname.slice(0, creationIdx)}/menu/sessions`;
-  }
-  const sessionsMarker = '/menu/sessions';
-  const sessionsIdx = pathname.indexOf(sessionsMarker);
-  if (sessionsIdx >= 0) return pathname.slice(0, sessionsIdx + sessionsMarker.length);
-  return '/branch-manager/menu/sessions';
-}
 
 function CategoriesSidebarLoading() {
   return (
     <Card
       component="aside"
       variant="outlined"
-      sx={{
-        width: { xs: '100%', md: 240 },
-        flexShrink: 0,
-        alignSelf: 'stretch',
-        height: { md: '100%' },
-        maxHeight: { xs: 240, sm: 280, md: 'none' },
-        display: 'flex',
-        flexDirection: 'column',
-        '& > .MuiBox-root': {
-          p: { [screen.mobile]: 1.5, [screen.tablet]: 1.5, [screen.desktop]: 3 },
-        },
-      }}
+      padding={2}
+      sx={{ width: { xs: '100%', md: 240 }, flexShrink: 0 }}
     >
       <Loading fullPage={false} size={28} sx={{ minHeight: 200, p: 1 }} />
     </Card>
@@ -153,9 +127,6 @@ function MenuListPane() {
     setListPage,
   } = useMenuCreation();
 
-  const router = useRouter();
-  const pathname = usePathname() ?? '';
-  const sessionsHref = menuSessionsHrefFromPathname(pathname);
   const [togglingItemId, setTogglingItemId] = useState<string | null>(null);
   const [statusToggleError, setStatusToggleError] = useState<string | null>(null);
   const listKey = `${activeCategoryId ?? 'all'}::${searchQuery.trim().toLowerCase()}`;
@@ -179,80 +150,23 @@ function MenuListPane() {
   return (
     <Stack
       spacing={2}
-      sx={{
-        flex: 1,
-        minWidth: 0,
-        minHeight: 0,
-        width: '100%',
-        display: 'flex',
-        pl: { xs: 1, sm: 2 },
-        pt: { xs: 1, sm: 2 },
-        pr: { xs: 1, sm: 2 },
-        boxSizing: 'border-box',
-      }}
-    >
-      <Stack spacing={1.5} sx={{ flexShrink: 0, alignItems: 'flex-start', width: '100%' }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography
-            variant="h5"
-            component="h1"
-            sx={{
-              fontWeight: 700,
-              fontSize: { xs: '1.375rem', sm: '1.5rem' },
-              letterSpacing: '-0.02em',
-              lineHeight: 1.2,
-              color: 'text.primary',
-            }}
-          >
-            {pageConfig.pageTitle}
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{ mt: 0.5, color: 'text.secondary', fontSize: '0.875rem' }}
-          >
-            {pageConfig.pageSubtitle}
-          </Typography>
-        </Box>
-
-        <Stack
-          direction="row"
-          spacing={1.25}
-          useFlexGap
-          sx={{ flexWrap: 'wrap', alignItems: 'center' }}
-        >
-          {pageConfig.scope === 'company' ? null : (
-            <ActionButton
-              variant="outlined"
-              startIcon={<Calendar size={18} strokeWidth={1.75} />}
-              onClick={() => router.push(sessionsHref)}
-            >
-              Sessions
-            </ActionButton>
-          )}
-          <ActionButton variant="outlined" startIcon={<Upload size={18} strokeWidth={1.75} />}>
-            Upload CSV
-          </ActionButton>
-          <ActionButton
-            variant="primary"
-            startIcon={<Plus size={18} strokeWidth={1.75} />}
-            onClick={openCreateItem}
-          >
-            Add Item
-          </ActionButton>
-        </Stack>
-      </Stack>
-
-      <SearchBar
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search items..."
-        showClear
-        fullWidth
-        sx={{
-          flexShrink: 0,
+      sx={[
+        {
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
           width: '100%',
-          maxWidth: 300,
-        }}
+          display: 'flex',
+          boxSizing: 'border-box',
+        },
+        menuFeaturePaneInsetSx,
+      ]}
+    >
+      <MenuManagementToolbar
+        pageConfig={pageConfig}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onAddItem={openCreateItem}
       />
 
       <Box
@@ -316,7 +230,13 @@ function MenuMainPane() {
 
   if (viewMode === 'create-item' || viewMode === 'edit-item') {
     return (
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: { xs: 1, sm: 2 } }}>
+      <Box
+        sx={[
+          { flex: 1, minHeight: 0, overflow: 'auto' },
+          menuFeaturePaneInsetSx,
+          menuWorkspaceBottomNavPbSx,
+        ]}
+      >
         <CreateMenuItemScreen
           mode={viewMode === 'edit-item' ? 'edit' : 'create'}
           initialItem={selectedItem}
@@ -329,7 +249,13 @@ function MenuMainPane() {
   const viewItem = selectedItem ?? items[0];
   if (viewMode === 'view-item' && viewItem) {
     return (
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: { xs: 1, sm: 2 } }}>
+      <Box
+        sx={[
+          { flex: 1, minHeight: 0, overflow: 'auto' },
+          menuFeaturePaneInsetSx,
+          menuWorkspaceBottomNavPbSx,
+        ]}
+      >
         <MenuItemDetailPanel
           item={viewItem}
           onBack={backToList}
@@ -345,7 +271,13 @@ function MenuMainPane() {
 
   if (viewMode === 'create-category') {
     return (
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <Box
+        sx={[
+          { flex: 1, minHeight: 0, overflow: 'auto' },
+          menuFeaturePaneInsetSx,
+          menuWorkspaceBottomNavPbSx,
+        ]}
+      >
         <CreateCategoryForm
           key="create-category"
           mode="create"
@@ -358,7 +290,7 @@ function MenuMainPane() {
 
   if (viewMode === 'edit-category') {
     return (
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', ...menuWorkspaceBottomNavPbSx }}>
         <CreateCategoryForm
           key={editingCategory?.id ?? 'edit-category'}
           mode="edit"
@@ -404,6 +336,7 @@ export function MenuContent() {
         height: '100%',
         minHeight: 0,
         overflow: { xs: 'visible', md: 'hidden' },
+        ...menuWorkspaceBottomNavPbSx,
       }}
     >
       <Box

@@ -32,7 +32,7 @@ export function MenuAvailabilityLayout({
           display: 'flex',
           flexDirection: 'column',
           boxSizing: 'border-box',
-          overflow: 'hidden',
+          overflow: { xs: 'visible', md: 'hidden' },
           bgcolor: 'background.default',
         }}
       >

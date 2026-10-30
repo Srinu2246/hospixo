@@ -17,6 +17,12 @@ import { Tabs } from '@/components/shared/form-fields/Tabs';
 import { useMenuAvailability } from '@/features/menu/context';
 import { FEATURE_FLAGS, useFeatureFlag } from '@/integrations/growthbook';
 import {
+  menuAvailabilityFilterDropdownsGridSx,
+  menuFeaturePaneInsetSx,
+  menuWorkspaceBottomNavPbSx,
+} from '@/lib/helpers/menu/menuLayout';
+import { screen } from '@/lib/theme/mui/breakpoints';
+import {
   AVAILABILITY_DIETARY_OPTIONS,
   AVAILABILITY_GROUP_TABS,
   AVAILABILITY_STATUS_OPTIONS,
@@ -55,16 +61,19 @@ export function MenuAvailabilityContent() {
 
   return (
     <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        width: '100%',
-        height: '100%',
-        minHeight: 0,
-        overflow: 'hidden',
-        boxSizing: 'border-box',
-        p: { xs: 1, sm: 2 },
-      }}
+      sx={[
+        {
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '100%',
+          minHeight: 0,
+          overflow: { xs: 'visible', md: 'hidden' },
+          boxSizing: 'border-box',
+        },
+        menuFeaturePaneInsetSx,
+        menuWorkspaceBottomNavPbSx,
+      ]}
     >
       <Stack spacing={2} sx={{ flexShrink: 0, pb: 2 }}>
         <Stack
@@ -91,13 +100,31 @@ export function MenuAvailabilityContent() {
             </Typography>
             <Typography
               variant="body2"
-              sx={{ mt: 0.5, color: 'text.secondary', fontSize: '0.875rem' }}
+              sx={{
+                mt: 0.5,
+                color: 'text.secondary',
+                fontSize: '0.875rem',
+                display: {
+                  [screen.mobile]: 'none',
+                  [screen.tablet]: 'block',
+                  [screen.desktop]: 'block',
+                },
+              }}
             >
               {pageConfig.pageSubtitle}
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: 'center',
+              flexShrink: 0,
+              width: { xs: '100%', sm: 'auto' },
+              justifyContent: { xs: 'space-between', sm: 'flex-end' },
+            }}
+          >
             <Box
               sx={{
                 display: 'inline-flex',
@@ -109,6 +136,7 @@ export function MenuAvailabilityContent() {
                 bgcolor: 'success.main',
                 color: 'success.contrastText',
                 opacity: 0.95,
+                maxWidth: { xs: 'calc(100% - 48px)', sm: 'none' },
               }}
             >
               <Box
@@ -120,7 +148,7 @@ export function MenuAvailabilityContent() {
                   flexShrink: 0,
                 }}
               />
-              <Typography variant="caption" sx={{ fontWeight: 700, color: 'inherit' }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'inherit' }} noWrap>
                 {pageConfig.syncLabel}
               </Typography>
             </Box>
@@ -131,9 +159,10 @@ export function MenuAvailabilityContent() {
         </Stack>
 
         {showAllOnlineTabs ? (
-          <>
+          <Stack spacing={1.5}>
             <Tabs
               fullWidth={false}
+              scrollable
               tabs={[...AVAILABILITY_GROUP_TABS]}
               value={channelGroup}
               onChange={(value) => setChannelGroup(value as AvailabilityChannelGroup)}
@@ -144,7 +173,7 @@ export function MenuAvailabilityContent() {
               value={activeChannelId}
               onChange={setActiveChannelId}
             />
-          </>
+          </Stack>
         ) : null}
 
         <AvailabilityStatsRow stats={stats} />
@@ -173,53 +202,30 @@ export function MenuAvailabilityContent() {
             overflow: { xs: 'visible', md: 'hidden' },
           }}
         >
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1.25}
-            sx={{
-              alignItems: { sm: 'center' },
-              justifyContent: 'space-between',
-              flexShrink: 0,
-              flexWrap: 'wrap',
-              gap: 1.25,
-            }}
-          >
+          <Stack spacing={1.5} sx={{ flexShrink: 0, width: '100%' }}>
             <SearchBar
               value={searchQuery}
               onChange={setSearchQuery}
               placeholder="Search items..."
               showClear
               fullWidth
-              sx={{
-                flexShrink: 0,
-                width: '100%',
-                maxWidth: 300,
-              }}
             />
-            <Stack
-              direction="row"
-              spacing={1.25}
-              sx={{
-                flexShrink: 0,
-                width: { xs: '100%', sm: 'auto' },
-                justifyContent: { xs: 'flex-start', sm: 'flex-end' },
-              }}
-            >
+            <Box sx={menuAvailabilityFilterDropdownsGridSx}>
               <Dropdown
                 options={[...AVAILABILITY_DIETARY_OPTIONS]}
                 value={dietaryFilter}
                 onChange={(value) => setDietaryFilter(value as AvailabilityDietaryFilter)}
-                minWidth={140}
+                minWidth="100%"
                 size="medium"
               />
               <Dropdown
                 options={[...AVAILABILITY_STATUS_OPTIONS]}
                 value={statusFilter}
                 onChange={(value) => setStatusFilter(value as AvailabilityStatusFilter)}
-                minWidth={130}
+                minWidth="100%"
                 size="medium"
               />
-            </Stack>
+            </Box>
           </Stack>
 
           <Box

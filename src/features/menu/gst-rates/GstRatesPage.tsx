@@ -4,10 +4,7 @@ import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Plus } from 'lucide-react';
 
@@ -21,6 +18,12 @@ import {
   GST_RATES_BREADCRUMB_ACTIVE_SX,
   GST_RATES_BREADCRUMB_LINK_SX,
 } from '@/lib/helpers/gstRatesNav';
+import {
+  menuFeaturePaneInsetSx,
+  menuPageHeaderGridSx,
+  menuWorkspaceBottomNavPbSx,
+} from '@/lib/helpers/menu/menuLayout';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useCreateGstRate, useGstRate, useGstRates } from '@/lib/hooks/menu/gst-rates';
 import { getErrorMessage } from '@/lib/helpers/getErrorMessage';
@@ -69,7 +72,6 @@ export function GstRatesPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedCode = useDebouncedValue(searchQuery.trim(), 300);
-  const [activeOnly, setActiveOnly] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = GST_RATES_LIST_PAGE_SIZE;
   const [createError, setCreateError] = useState<string | null>(null);
@@ -79,7 +81,6 @@ export function GstRatesPage() {
 
   const listQuery = useGstRates({
     code: debouncedCode ? debouncedCode : undefined,
-    active_only: activeOnly || undefined,
     page,
     page_size: pageSize,
   });
@@ -111,11 +112,13 @@ export function GstRatesPage() {
           width: '100%',
           height: '100%',
           minHeight: 0,
-          overflow: 'hidden',
+          overflow: 'auto',
           bgcolor: 'background.default',
           display: 'flex',
           flexDirection: 'column',
           gap: 1.5,
+          ...menuFeaturePaneInsetSx,
+          ...menuWorkspaceBottomNavPbSx,
         }}
       >
         <CreateGstRateForm
@@ -187,8 +190,10 @@ export function GstRatesPage() {
           width: '100%',
           height: '100%',
           minHeight: 0,
-          overflow: 'hidden',
+          overflow: 'auto',
           bgcolor: 'background.default',
+          ...menuFeaturePaneInsetSx,
+          ...menuWorkspaceBottomNavPbSx,
         }}
       >
         <CreateGstRateForm
@@ -216,6 +221,8 @@ export function GstRatesPage() {
         overflow: 'hidden',
         bgcolor: 'background.default',
         boxSizing: 'border-box',
+        ...menuFeaturePaneInsetSx,
+        ...menuWorkspaceBottomNavPbSx,
       }}
     >
       <Breadcrumbs
@@ -227,15 +234,7 @@ export function GstRatesPage() {
         activeSx={GST_RATES_BREADCRUMB_ACTIVE_SX}
       />
 
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        sx={{
-          alignItems: { sm: 'flex-start' },
-          justifyContent: 'space-between',
-          flexShrink: 0,
-        }}
-      >
+      <Box sx={{ ...menuPageHeaderGridSx, flexShrink: 0 }}>
         <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="h5"
@@ -261,52 +260,29 @@ export function GstRatesPage() {
         <ActionButton
           startIcon={<Plus size={16} />}
           onClick={() => router.push(`${basePath}/create`)}
-          sx={{ flexShrink: 0 }}
+          size="small"
+          sx={{
+            flexShrink: 0,
+            px: { [screen.mobile]: 1.25, [screen.tablet]: 1.5, [screen.desktop]: 2 },
+            fontSize: { [screen.mobile]: '0.8125rem', [screen.tablet]: '0.875rem' },
+          }}
         >
           Create GST Rate
         </ActionButton>
-      </Stack>
+      </Box>
 
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        sx={{ alignItems: { sm: 'center' }, flexShrink: 0 }}
-      >
-        <SearchBar
-          value={searchQuery}
-          onChange={(value: string) => {
-            setSearchQuery(value);
-            setPage(1);
-          }}
-          placeholder="Filter by GST code (e.g. GST_)"
-          showClear
-          fullWidth
-          width="100%"
-          sx={{ flex: 1, maxWidth: { sm: 420 } }}
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={activeOnly}
-              onChange={(event) => {
-                setActiveOnly(event.target.checked);
-                setPage(1);
-              }}
-              size="small"
-            />
-          }
-          label="Active only"
-          sx={{
-            m: 0,
-            flexShrink: 0,
-            '& .MuiFormControlLabel-label': {
-              fontSize: '0.875rem',
-              fontWeight: 500,
-              color: 'text.primary',
-            },
-          }}
-        />
-      </Stack>
+      <SearchBar
+        value={searchQuery}
+        onChange={(value: string) => {
+          setSearchQuery(value);
+          setPage(1);
+        }}
+        placeholder="Filter by GST code (e.g. GST_)"
+        showClear
+        fullWidth
+        width="100%"
+        sx={{ flexShrink: 0, maxWidth: { [screen.desktop]: 420 } }}
+      />
 
       {listQuery.isError ? (
         <Alert severity="error" sx={{ flexShrink: 0 }}>
@@ -317,10 +293,14 @@ export function GstRatesPage() {
       <Box
         sx={{
           flex: 1,
-          minHeight: 0,
+          minHeight: { [screen.mobile]: 360, [screen.tablet]: 360, [screen.desktop]: 0 },
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
+          overflow: {
+            [screen.mobile]: 'auto',
+            [screen.tablet]: 'auto',
+            [screen.desktop]: 'hidden',
+          },
           position: 'relative',
         }}
       >

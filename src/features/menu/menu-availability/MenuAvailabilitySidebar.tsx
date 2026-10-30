@@ -1,96 +1,52 @@
 'use client';
 
+import { useMemo } from 'react';
 import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
-import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 
+import { MenuCategoryCompactTabs } from '@/components/features/menu/MenuCategoryCompactTabs';
+import { MenuCategoryNavRow } from '@/components/features/menu/MenuCategoryNavRow';
 import { Card } from '@/components/shared/ui/Card';
-import { colors } from '@/lib/theme/mui/colors';
 import { useMenuAvailability } from '@/features/menu/context';
-
-interface CategoryNavItemProps {
-  label: string;
-  count: number;
-  selected: boolean;
-  inactive?: boolean;
-  onSelect: () => void;
-}
-
-function CategoryNavItem({
-  label,
-  count,
-  selected,
-  inactive = false,
-  onSelect,
-}: Readonly<CategoryNavItemProps>) {
-  return (
-    <ButtonBase
-      onClick={onSelect}
-      sx={{
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 1,
-        px: 1.5,
-        py: 1.1,
-        borderRadius: '8px',
-        textAlign: 'left',
-        color: selected ? 'primary.main' : 'text.primary',
-        bgcolor: selected ? alpha(colors.primary.default, 0.1) : 'transparent',
-        opacity: inactive ? 0.65 : 1,
-        transition: 'background-color 0.15s ease, color 0.15s ease',
-        '&:hover': {
-          bgcolor: selected ? alpha(colors.primary.default, 0.15) : 'action.hover',
-        },
-      }}
-    >
-      <Typography
-        variant="body2"
-        noWrap
-        sx={{
-          fontWeight: selected ? 600 : 500,
-          fontSize: '0.875rem',
-          color: 'inherit',
-          flex: 1,
-          minWidth: 0,
-        }}
-        title={label}
-      >
-        {label}
-      </Typography>
-      <Box
-        component="span"
-        sx={{
-          fontSize: '0.875rem',
-          fontWeight: selected ? 600 : 500,
-          color: selected ? 'primary.main' : 'text.secondary',
-          flexShrink: 0,
-        }}
-      >
-        {count}
-      </Box>
-    </ButtonBase>
-  );
-}
+import {
+  buildMenuCategoryTabs,
+  menuCategoryIdFromTab,
+  menuCategoryTabValue,
+} from '@/lib/helpers/menu/menuCategoryHelpers';
+import { menuCategoryListItemSx, menuCategoryListSx } from '@/lib/helpers/menu/menuLayout';
+import { screen } from '@/lib/theme/mui/breakpoints';
 
 /** Categories from GET /v1/restaurant/menu/categories (same as Menu Creation). */
 export function MenuAvailabilitySidebar() {
   const { categories, activeCategoryId, setActiveCategoryId, categoryCounts, totalItemCount } =
     useMenuAvailability();
 
+  const activeTabValue = menuCategoryTabValue(activeCategoryId);
+
+  const categoryTabs = useMemo(
+    () => buildMenuCategoryTabs(categories, categoryCounts, totalItemCount),
+    [categories, categoryCounts, totalItemCount],
+  );
+
+  function handleTabChange(value: string) {
+    setActiveCategoryId(menuCategoryIdFromTab(value));
+  }
+
   return (
     <Card
       component="aside"
       variant="outlined"
-      padding={1.5}
+      padding={2}
       sx={{
         width: { xs: '100%', md: 240 },
         flexShrink: 0,
         alignSelf: 'stretch',
         height: { md: '100%' },
-        overflow: 'auto',
+        overflow: {
+          [screen.mobile]: 'visible',
+          [screen.tablet]: 'visible',
+          [screen.desktop]: 'auto',
+        },
       }}
     >
       <Box
@@ -104,7 +60,6 @@ export function MenuAvailabilitySidebar() {
       >
         <Typography
           sx={{
-            px: 1.5,
             fontSize: '0.6875rem',
             fontWeight: 700,
             letterSpacing: '0.08em',
@@ -115,22 +70,29 @@ export function MenuAvailabilitySidebar() {
           Categories
         </Typography>
 
+        <MenuCategoryCompactTabs
+          tabs={categoryTabs}
+          value={activeTabValue}
+          onChange={handleTabChange}
+        />
+
         <Box
           component="ul"
           sx={{
             listStyle: 'none',
             p: 0,
             m: 0,
-            display: 'flex',
+            ...menuCategoryListSx,
+            display: {
+              [screen.mobile]: 'none',
+              [screen.tablet]: 'none',
+              [screen.desktop]: 'flex',
+            },
             flexDirection: 'column',
-            gap: 0.25,
-            flex: 1,
-            minHeight: 0,
-            overflow: 'auto',
           }}
         >
-          <Box component="li">
-            <CategoryNavItem
+          <Box component="li" sx={menuCategoryListItemSx}>
+            <MenuCategoryNavRow
               label="All Items"
               count={totalItemCount}
               selected={activeCategoryId === null}
@@ -139,12 +101,12 @@ export function MenuAvailabilitySidebar() {
           </Box>
 
           {categories.map((category) => (
-            <Box component="li" key={category.id}>
-              <CategoryNavItem
+            <Box component="li" key={category.id} sx={menuCategoryListItemSx}>
+              <MenuCategoryNavRow
                 label={category.name}
                 count={categoryCounts[category.id] ?? 0}
                 selected={activeCategoryId === category.id}
-                inactive={category.status === 'inactive'}
+                active={category.status !== 'inactive'}
                 onSelect={() => setActiveCategoryId(category.id)}
               />
             </Box>

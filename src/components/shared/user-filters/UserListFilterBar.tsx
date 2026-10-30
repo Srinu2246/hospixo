@@ -11,6 +11,10 @@ import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 
 import { ActionButton } from '@/components/shared/form-fields/ActionButton';
 import { SearchBar } from '@/components/shared/form-fields/SearchBar';
+import {
+  userRolesSearchFiltersGridSx,
+  userRolesToolbarSecondaryActionSx,
+} from '@/lib/helpers/employees/userRolesLayout';
 import { colors } from '@/lib/theme/mui/colors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useHydrated } from '@/lib/hooks/useHydrated';
@@ -81,6 +85,9 @@ export interface UserListFilterBarProps {
   onResetFilters?: () => void;
   onClearFilter?: (key: 'search' | 'role' | 'status' | 'company' | 'branch') => void;
 
+  /** e.g. Add User — rendered below search/filters, right-aligned. */
+  secondaryAction?: React.ReactNode;
+
   sx?: SxProps<Theme>;
 }
 
@@ -119,6 +126,7 @@ export function UserListFilterBar({
   onSortChange,
   onResetFilters,
   onClearFilter,
+  secondaryAction,
   sx,
 }: Readonly<UserListFilterBarProps>) {
   const theme = useTheme();
@@ -186,48 +194,36 @@ export function UserListFilterBar({
   }, [selectedBranchId, selectedBranchName, customBranchLabel, branchOptions]);
 
   return (
-    <Stack spacing={1.5} sx={[{ width: '100%', pb: 2 }, ...(Array.isArray(sx) ? sx : [sx])]}>
-      {/* Search Bar + Controls */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1.5,
-          flexWrap: { xs: 'wrap', sm: 'nowrap' },
-        }}
-      >
-        <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: 260 } }}>
-          <SearchBar
-            value={searchQuery}
-            onChange={onSearchChange}
-            onClear={() => onSearchChange('')}
-            placeholder={resolvedSearchPlaceholder}
-            fullWidth
-          />
-        </Box>
+    <Stack spacing={1.5} sx={[{ width: '100%' }, ...(Array.isArray(sx) ? sx : [sx])]}>
+      <Box sx={userRolesSearchFiltersGridSx}>
+        <SearchBar
+          value={searchQuery}
+          onChange={onSearchChange}
+          onClear={() => onSearchChange('')}
+          placeholder={resolvedSearchPlaceholder}
+          fullWidth
+        />
 
-        <Box sx={{ flexShrink: 0 }}>
-          {/* Filters Popover Trigger */}
-          <ActionButton
-            variant={hasActiveFilters ? 'primary' : 'outlined'}
-            size="medium"
-            onClick={handleFilterClick}
-            startIcon={<TuneOutlinedIcon fontSize="small" />}
-            sx={{
-              borderColor: (theme) =>
-                hasActiveFilters
-                  ? undefined
-                  : theme.palette.mode === 'dark'
-                    ? theme.palette.divider
-                    : colors.border.default,
-              minWidth: 100,
-            }}
-          >
-            Filters{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-          </ActionButton>
-        </Box>
+        <ActionButton
+          variant={hasActiveFilters ? 'primary' : 'outlined'}
+          size="medium"
+          onClick={handleFilterClick}
+          startIcon={<TuneOutlinedIcon fontSize="small" />}
+          fullWidth
+          sx={{
+            borderColor: (theme) =>
+              hasActiveFilters
+                ? undefined
+                : theme.palette.mode === 'dark'
+                  ? theme.palette.divider
+                  : colors.border.default,
+          }}
+        >
+          Filters{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
+        </ActionButton>
       </Box>
+
+      {secondaryAction ? <Box sx={userRolesToolbarSecondaryActionSx}>{secondaryAction}</Box> : null}
 
       {/* Internal Popover if caller does not control their own anchor */}
       {!onOpenFilter && (
@@ -258,7 +254,15 @@ export function UserListFilterBar({
 
       {/* Active Filter Chips */}
       {hasActiveFilters ? (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 1,
+            pb: { [screen.mobile]: 0.5, [screen.tablet]: 0.5, [screen.desktop]: 0 },
+          }}
+        >
           {searchQuery.trim() ? (
             <Chip
               label={`Search: "${searchQuery.trim()}"`}

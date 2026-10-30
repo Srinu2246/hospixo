@@ -30,6 +30,7 @@ export interface CardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'>
   onClick?: (event: MouseEvent<HTMLDivElement>) => void; // Optional click handler
   sx?: SxProps<Theme>; // Root container style overrides
   headerSx?: SxProps<Theme>; // Header container style overrides
+  contentSx?: SxProps<Theme>; // Body container style overrides
   footerSx?: SxProps<Theme>; // Footer container style overrides
 }
 
@@ -205,6 +206,7 @@ export function Card({
   onClick,
   sx,
   headerSx,
+  contentSx,
   footerSx,
   ...props
 }: Readonly<CardProps>) {
@@ -290,6 +292,7 @@ export function Card({
           sx={{
             pt: hasHeader && !headerDivider ? 0 : undefined,
             pb: footer && !footerDivider ? 0 : undefined,
+            ...contentSx,
           }}
         >
           {children}

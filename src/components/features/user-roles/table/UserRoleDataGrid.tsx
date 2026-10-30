@@ -11,6 +11,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { StatusChip } from '@/components/shared/ui/StatusChip';
 import { DataGrid, type DataGridColumn } from '@/components/shared/ui/DataGrid';
+import { userDisplayNameParts } from '@/lib/helpers/employees/userRolesHelpers';
 import { colors } from '@/lib/theme/mui/colors';
 import { screen } from '@/lib/theme/mui/breakpoints';
 import { useHydrated } from '@/lib/hooks/useHydrated';
@@ -80,39 +81,65 @@ export function UserRoleDataGrid({
     [onOpenActionMenu],
   );
 
-  const nameCell = (row: UserRoleItem) => (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-      <Avatar
-        src={row.avatar}
-        alt={row.name}
-        sx={{
-          width: 32,
-          height: 32,
-          flexShrink: 0,
-          bgcolor: (t) =>
-            t.palette.mode === 'dark' ? 'rgba(51, 84, 244, 0.25)' : 'rgba(51, 84, 244, 0.12)',
-          color: colors.primary.default,
-          fontSize: '0.8125rem',
-          fontWeight: 700,
-        }}
-      >
-        {row.name.charAt(0)}
-      </Avatar>
-      <Typography
-        sx={{
-          fontSize: '0.875rem',
-          fontWeight: 600,
-          color: 'text.primary',
-          letterSpacing: '-0.01em',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {row.name}
-      </Typography>
-    </Box>
-  );
+  const nameCell = (row: UserRoleItem) => {
+    const { first, last } = userDisplayNameParts(row.name);
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+        <Avatar
+          src={row.avatar}
+          alt={row.name}
+          sx={{
+            width: 32,
+            height: 32,
+            flexShrink: 0,
+            bgcolor: (t) =>
+              t.palette.mode === 'dark' ? 'rgba(51, 84, 244, 0.25)' : 'rgba(51, 84, 244, 0.12)',
+            color: colors.primary.default,
+            fontSize: '0.8125rem',
+            fontWeight: 700,
+          }}
+        >
+          {first.charAt(0)}
+        </Avatar>
+        <Box
+          component="span"
+          sx={{
+            display: 'inline-flex',
+            flexWrap: 'wrap',
+            alignItems: 'baseline',
+            gap: 0.75,
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <Typography
+            component="span"
+            sx={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'text.primary',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {first}
+          </Typography>
+          {last ? (
+            <Typography
+              component="span"
+              sx={{
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: 'text.primary',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              {last}
+            </Typography>
+          ) : null}
+        </Box>
+      </Box>
+    );
+  };
 
   const columns: DataGridColumn<UserRoleItem>[] = useMemo(() => {
     if (compactTable) {
@@ -266,13 +293,13 @@ export function UserRoleDataGrid({
             fontWeight: 700,
             color: colors.text.secondary,
             py: 1.25,
-            px: 2,
+            px: compactTable ? 0 : 2,
           },
           '& .MuiTableCell-body': {
             borderColor: (theme) =>
               theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
             py: 1.5,
-            px: 2,
+            px: compactTable ? 0 : 2,
           },
           '& .MuiTableRow-root:hover': {
             bgcolor: (theme) =>

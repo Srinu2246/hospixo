@@ -21,6 +21,12 @@ import {
   resolveScopeFromPathname,
 } from '@/lib/schemas/employees/user-roles/userRolesSchema';
 import { resolveEmployeeDirectoryOptions } from '@/lib/helpers/employees/userRolesHelpers';
+import {
+  userRolesListCardContentSx,
+  userRolesListCardTableWrapSx,
+  userRolesListCardToolbarSx,
+} from '@/lib/helpers/employees/userRolesLayout';
+import { screen } from '@/lib/theme/mui/breakpoints';
 import { useEmployeeDirectory, useUserRoles } from '@/lib/hooks/employees/user-roles';
 import { useResolvedCompanyName } from '@/lib/hooks/useResolvedCompanyName';
 import { AlertMessage } from '@/components/shared/ui/AlertMessage';
@@ -293,19 +299,25 @@ export function UsersAndRolesScreen({
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: { xs: 2, md: 2.5 },
+        gap: { [screen.mobile]: 2, [screen.tablet]: 2, [screen.desktop]: 2.5 },
       }}
     >
       <Header
         title="Users & Roles"
         compactSubtitle="Manage team and access levels."
         subtitle="Manage your team members and their system access levels."
+        actionEndGrid
         actionSlot={
           <ActionButton
             variant="primary"
             onClick={handleOpenAddModal}
             startIcon={<PersonAddAlt1OutlinedIcon fontSize="small" />}
-            sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
+            size="small"
+            sx={{
+              flexShrink: 0,
+              px: { [screen.mobile]: 1.25, [screen.tablet]: 1.5, [screen.desktop]: 2 },
+              fontSize: { [screen.mobile]: '0.8125rem', [screen.tablet]: '0.875rem' },
+            }}
           >
             Add User
           </ActionButton>
@@ -326,6 +338,7 @@ export function UsersAndRolesScreen({
       <Card
         variant="outlined"
         padding={2.5}
+        contentSx={userRolesListCardContentSx}
         sx={{
           width: '100%',
           bgcolor: (theme) =>
@@ -335,12 +348,12 @@ export function UsersAndRolesScreen({
             theme.palette.mode === 'dark' ? theme.palette.divider : colors.border.default,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          gap: { [screen.mobile]: 2, [screen.tablet]: 2, [screen.desktop]: 2 },
           boxShadow: 'none',
-          p: { xs: 2, sm: 2, md: undefined },
         }}
       >
         <UserRoleTableToolbar
+          sx={userRolesListCardToolbarSx}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           compactSearchPlaceholder="Search users..."
@@ -367,20 +380,22 @@ export function UsersAndRolesScreen({
           onClearFilter={clearFilter}
         />
 
-        <UserRoleDataGrid
-          users={paginatedUsers}
-          isLoading={isLoading}
-          page={page}
-          pageSize={pageSize}
-          totalRows={totalRows}
-          scope={resolvedScope}
-          companyName={companyName}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          onSortChange={(field, direction) => setSort(field as UserListSortBy, direction)}
-          onPageChange={setPage}
-          onOpenActionMenu={handleOpenActionMenu}
-        />
+        <Box sx={userRolesListCardTableWrapSx}>
+          <UserRoleDataGrid
+            users={paginatedUsers}
+            isLoading={isLoading}
+            page={page}
+            pageSize={pageSize}
+            totalRows={totalRows}
+            scope={resolvedScope}
+            companyName={companyName}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={(field, direction) => setSort(field as UserListSortBy, direction)}
+            onPageChange={setPage}
+            onOpenActionMenu={handleOpenActionMenu}
+          />
+        </Box>
       </Card>
 
       {/* Add / Edit User Modal */}
