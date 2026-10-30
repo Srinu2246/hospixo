@@ -1,1 +1,2 @@
+export KNIP_DISABLE_RAW_TRANSFER=1
 pnpm run pre-commit

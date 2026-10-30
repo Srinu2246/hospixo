@@ -15,7 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "cspell": "cspell .",
-    "knip": "knip",
+    "knip": "node --env-file=.knip.env ./node_modules/knip/bin/knip.js",
     "pre-commit": "lint-staged && knip && cspell",
     "test": "node --import ./scripts/test-loader.mjs --test src/**/*.test.ts",
     "test:growthbook": "node --import ./scripts/test-loader.mjs --test src/integrations/growthbook/growthbook.test.ts",

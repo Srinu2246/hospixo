@@ -160,7 +160,8 @@ export const menuDesktopDataGridShellSx = {
   flexDirection: 'column',
   borderRadius: '12px',
   overflow: 'hidden',
-  border: (theme) => `1px solid ${theme.palette.divider}`,
+  border: '1px solid',
+  borderColor: 'divider',
   bgcolor: 'background.paper',
 };
 
